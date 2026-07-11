@@ -6,6 +6,7 @@ import ResultReport from '../components/ResultReport';
 import UserDashboard from '../components/UserDashboard';
 import LoginModal from '../components/LoginModal';
 import PaywallModal from '../components/PaywallModal';
+import Contact from '../components/Contact';
 import { IdeaIntake as IdeaIntakeType, EvaluationResult } from '../types/lit';
 import {
   clearAuthToken,
@@ -20,12 +21,12 @@ import { apiUrl } from '../lib/api';
 import type { PublicUserData } from '../types/auth';
 import { getFeaturedExampleBySlug, toIdeaIntake } from '../lib/exampleIdeas';
 
-type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard';
+type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'contact';
 
 export default function App() {
   const [locale, setLocale] = useState<'en' | 'es'>(() => localStorage.getItem('lit_locale') === 'es' ? 'es' : 'en');
   const [initialExample] = useState(() => getFeaturedExampleBySlug(new URLSearchParams(window.location.search).get('example')));
-  const [screen, setScreen] = useState<Screen>(initialExample ? 'intake' : 'landing');
+  const [screen, setScreen] = useState<Screen>(() => window.location.pathname === '/contact' ? 'contact' : initialExample ? 'intake' : 'landing');
   const [idea, setIdea] = useState<IdeaIntakeType | null>(() => initialExample ? toIdeaIntake(initialExample.idea) : null);
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [resumeDraft, setResumeDraft] = useState<EvaluationDraft | null>(() => loadEvaluationDraft());
@@ -74,7 +75,7 @@ export default function App() {
 
   const hasAvailableTest = () => {
     const testsAvailable = user
-      ? Math.max(0, 1 + user.testsPurchased + Math.min(user.shareCredits || 0, 4) - user.testsUsed)
+      ? Math.max(0, 1 + user.testsPurchased + Math.min(user.shareCredits || 0, 1) - user.testsUsed)
       : hasHitFreeTierLimit() ? 0 : 1;
     return testsAvailable > 0;
   };
@@ -87,6 +88,7 @@ export default function App() {
     clearEvaluationDraft();
     setResumeDraft(null);
     updateExampleParam(null);
+    updatePath('/');
     setIdea(null);
     setScreen('intake');
   };
@@ -100,6 +102,7 @@ export default function App() {
     if (!example) return;
     clearEvaluationDraft();
     setResumeDraft(null);
+    updatePath('/');
     updateExampleParam(slug);
     setIdea(toIdeaIntake(example.idea));
     setScreen('intake');
@@ -111,6 +114,7 @@ export default function App() {
       setShowPaywall(true);
       return;
     }
+    updatePath('/');
     updateExampleParam(null);
     setIdea(resumeDraft.idea);
     setScreen('questions');
@@ -121,6 +125,7 @@ export default function App() {
       setShowPaywall(true);
       return;
     }
+    updatePath('/');
     updateExampleParam(null);
     const draft = saveEvaluationDraft(ideaData, {}, 0);
     setResumeDraft(draft);
@@ -138,6 +143,7 @@ export default function App() {
 
   const handleReset = () => {
     setScreen('landing');
+    updatePath('/');
     updateExampleParam(null);
     setIdea(null);
     setResult(null);
@@ -158,6 +164,7 @@ export default function App() {
     setUser(null);
     clearAuthToken();
     setScreen('landing');
+    updatePath('/');
   };
 
   return (
@@ -182,7 +189,16 @@ export default function App() {
               </span>
             </span>
           </button>
-          <div className="flex gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => {
+                setScreen('contact');
+                updatePath('/contact');
+              }}
+              className="text-sm font-bold text-gray-700 hover:text-ghost-rust"
+            >
+              Contact
+            </button>
             <button onClick={() => setLocale(current => current === 'en' ? 'es' : 'en')} className="text-sm font-bold text-blue-700 hover:text-blue-900" aria-label="Change language">
               {locale === 'en' ? 'ES' : 'EN'}
             </button>
@@ -262,6 +278,9 @@ export default function App() {
         {screen === 'dashboard' && isLoggedIn && (
           <UserDashboard onLogout={handleLogout} onBuy={() => setShowPaywall(true)} />
         )}
+        {screen === 'contact' && (
+          <Contact onStart={handleStartTest} />
+        )}
       </main>
 
       {/* Login Modal */}
@@ -292,5 +311,14 @@ function updateExampleParam(slug: string | null): void {
   const url = new URL(window.location.href);
   if (slug) url.searchParams.set('example', slug);
   else url.searchParams.delete('example');
+  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
+function updatePath(pathname: string): void {
+  const url = new URL(window.location.href);
+  if (url.pathname === pathname) return;
+  url.pathname = pathname;
+  url.search = '';
+  url.hash = '';
   window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 }
