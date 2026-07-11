@@ -98,7 +98,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
       }
 
       setMessage(reward.message || (reward.rewarded
-        ? `Assessment ${reward.totalFreeAssessments} of 5 is now unlocked.`
+        ? `Assessment ${reward.totalFreeAssessments} of 2 is now unlocked.`
         : 'Share completed.'));
       onRewardClaimed();
     } catch (caught) {
@@ -132,7 +132,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
         {isLoggedIn ? 'Share your verdict card to unlock the next assessment' : 'Create an account to join the share reward'}
       </h3>
       <p className="mt-2 text-sm leading-relaxed text-blue-800">
-        Your idea name stays private unless you choose to include it. Registered members can unlock one assessment per shared result, up to five free assessments total.
+        Your idea name stays private unless you choose to include it. Registered members can unlock one bonus assessment by sharing a completed result.
       </p>
 
       <div className="mt-5 overflow-hidden rounded-xl border border-white/80 bg-slate-950 shadow-lg">
@@ -208,7 +208,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
         </button>
       </div>
       <p className="mt-3 text-center text-xs text-blue-700">
-        One reward per result · Four share rewards maximum · Recipients need no account
+        One bonus reward maximum · Recipients need no account
       </p>
     </section>
   );
