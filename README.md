@@ -15,7 +15,7 @@ The funnel includes a persistent English/Spanish switch. See [Cloudflare deploym
 - Configurable Workers AI model with deterministic fallback
 - Three-stage AI pipeline: analyze, score, verdict
 - Email/password accounts, signed sessions, usage accounting, and dashboard
-- Five-total free-assessment share rewards and Stripe checkout for additional tests
+- One earned bonus assessment through share rewards and Stripe checkout for additional tests
 - Shareable landscape and square verdict-card images with private-by-default idea names
 - Curated example-idea gallery with `?example=<slug>` video deep links and editable prefill
 - Five-stage mobile assessment flow with automatic local progress saving and resume
@@ -96,7 +96,7 @@ Deploy `dist/` to your static frontend host.
 ## Product model
 
 - Free: one assessment without registration
-- Share rewards: registered members unlock one assessment per shared result, up to four rewards and five total free assessments
+- Share rewards: registered members can unlock one bonus assessment by sharing one completed result
 - Recipients: no registration required to open a shared result link
 - Paid: ten additional tests for $19 through Stripe Checkout
 
