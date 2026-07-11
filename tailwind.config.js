@@ -11,6 +11,23 @@ export default {
     },
     extend: {
       colors: {
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: '#B7410E',
+          foreground: '#FAF9F6',
+        },
+        dust: {
+          50: '#FAF9F6',
+          100: '#F0E6D6',
+          200: '#E4D3B9',
+          800: '#3A291C',
+          900: '#2D1B0E',
+          950: '#0F0F0F',
+        },
         ghost: {
           ink: '#0F0F0F',
           paper: '#FAF9F6',
@@ -27,6 +44,12 @@ export default {
       },
       backgroundImage: {
         'ghost-noise': 'radial-gradient(rgba(255,255,255,.11) .7px, transparent .7px)',
+      },
+      keyframes: {
+        flicker: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.84' } },
+      },
+      animation: {
+        flicker: 'flicker 3s ease-in-out infinite',
       },
       fontFamily: {
         display: ['Rye', 'Georgia', 'serif'],
