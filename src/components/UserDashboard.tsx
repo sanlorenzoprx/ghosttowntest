@@ -63,7 +63,7 @@ export default function UserDashboard({ onLogout, onBuy }: Props) {
 
   const availableTests = Math.max(
     0,
-    (1 - user.testsUsed) + user.testsPurchased + Math.min(user.shareCredits || 0, 4)
+    (1 - user.testsUsed) + user.testsPurchased + Math.min(user.shareCredits || 0, 1)
   );
   const needsToPurchase = availableTests <= 0;
 
@@ -119,7 +119,7 @@ export default function UserDashboard({ onLogout, onBuy }: Props) {
             </div>
             <div>
               <span className="text-gray-600">Free from Shares:</span>
-              <span className="font-bold ml-2">{Math.min(user.shareCredits || 0, 4)}</span>
+              <span className="font-bold ml-2">{Math.min(user.shareCredits || 0, 1)}</span>
             </div>
           </div>
         </div>
@@ -135,7 +135,7 @@ export default function UserDashboard({ onLogout, onBuy }: Props) {
           </div>
           <div>
             <span className="text-blue-700">Credits Unlocked:</span>
-            <div className="text-2xl font-bold text-blue-900">{Math.min(user.shareCredits || 0, 4)}/4</div>
+            <div className="text-2xl font-bold text-blue-900">{Math.min(user.shareCredits || 0, 1)}/1</div>
           </div>
           <div>
             <span className="text-blue-700">Link Signups:</span>
@@ -143,7 +143,7 @@ export default function UserDashboard({ onLogout, onBuy }: Props) {
           </div>
         </div>
         <p className="text-xs text-blue-700 mt-4">
-          Each completed result can unlock one assessment when you share it. Your first assessment plus four share rewards gives you five free assessments total.
+          One completed result can unlock one bonus assessment when you share it. After that, paid credits keep the testing focused.
         </p>
       </div>
 
