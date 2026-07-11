@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --background: 36 33% 97%;
+    --foreground: 0 0% 6%;
+    --border: 30 20% 15%;
+    --input: 30 20% 15%;
+    --ring: 18 86% 39%;
+  }
+}
+
 /* Base styles */
 * {
   margin: 0;
@@ -150,6 +160,16 @@ button, a, input, textarea, select {
 .ghost-surface {
   background-color: #0f0f0f;
   background-image: radial-gradient(rgba(255,255,255,.09) .7px, transparent .7px);
+  background-size: 8px 8px;
+}
+
+.texture-noise::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: radial-gradient(rgba(255,255,255,.95) .7px, transparent .7px);
   background-size: 8px 8px;
 }
 
