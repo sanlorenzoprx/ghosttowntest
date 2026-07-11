@@ -126,7 +126,7 @@ describe('Worker verdict flow', () => {
     const user = JSON.parse(userJson || '{}') as { shareCredits: number };
     expect(user.shareCredits).toBe(1);
 
-    user.shareCredits = 4;
+    user.shareCredits = 1;
     await kv.put('user_share-reward@example.com', JSON.stringify(user));
     const secondVerdictResponse = await worker.fetch(new Request('http://localhost/api/verdict', {
       method: 'POST',
