@@ -21,7 +21,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
-  color: #1f2937;
+  color: #171717;
+  background: #faf9f6;
 }
 
 #root {
@@ -142,6 +143,20 @@ button {
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+button, a, input, textarea, select {
+  min-height: 44px;
+}
+
+.ghost-surface {
+  background-color: #0f0f0f;
+  background-image: radial-gradient(rgba(255,255,255,.09) .7px, transparent .7px);
+  background-size: 8px 8px;
+}
+
+.ghost-score-ring {
+  background: conic-gradient(#d4af37 var(--score), #e7dfd2 0);
 }
 
 input:disabled,

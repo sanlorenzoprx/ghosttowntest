@@ -25,6 +25,7 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
     : 0);
   const [answers, setAnswers] = useState<EvaluationAnswers>(() => canResumeDraft ? initialDraft.answers : {});
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const current = litQuestions[currentIndex];
@@ -33,6 +34,12 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentIndex]);
+
+  useEffect(() => {
+    if (!loading) return;
+    const interval = window.setInterval(() => setLoadingStep(step => Math.min(step + 1, 2)), 900);
+    return () => window.clearInterval(interval);
+  }, [loading]);
 
   const persistDraft = (nextAnswers: EvaluationAnswers, nextIndex: number) => {
     const draft = saveEvaluationDraft(idea, nextAnswers, nextIndex);
@@ -65,6 +72,7 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
 
   const handleSubmit = async (finalAnswers: EvaluationAnswers) => {
     setLoading(true);
+    setLoadingStep(0);
     setError(null);
 
     try {
@@ -109,10 +117,18 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
       )}
 
       {loading && (
-        <div className="rounded-2xl border border-gray-200 bg-white py-16 text-center shadow-sm">
-          <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600" />
-          <p className="text-lg font-bold text-gray-900">Generating your verdict...</p>
-          <p className="mt-2 text-sm text-gray-500">The deterministic fallback keeps this reliable if AI is unavailable.</p>
+        <div className="ghost-surface rounded-sm border border-ghost-ink px-6 py-14 text-center text-white shadow-lantern">
+          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full border-2 border-ghost-gold border-t-transparent animate-spin" />
+          <p className="font-display text-3xl font-bold">Prospecting for the truth</p>
+          <ol className="mx-auto mt-7 max-w-sm space-y-3 text-left">
+            {['Analyzing leverage…', 'Scoring LIT…', 'Checking Ghost Town risk…'].map((step, index) => (
+              <li key={step} className={`flex items-center gap-3 rounded border px-4 py-3 text-sm transition ${index <= loadingStep ? 'border-ghost-gold/50 bg-white/10 text-white' : 'border-white/10 text-white/40'}`}>
+                <span className={`grid h-5 w-5 place-items-center rounded-full text-xs ${index <= loadingStep ? 'bg-ghost-gold text-ghost-ink' : 'border border-white/30'}`}>{index < loadingStep ? '✓' : index + 1}</span>
+                {step}
+              </li>
+            ))}
+          </ol>
+          <p className="mt-6 text-xs text-white/60">Your progress is saved. Deterministic scoring remains available if AI is unavailable.</p>
         </div>
       )}
 

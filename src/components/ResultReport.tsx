@@ -3,6 +3,7 @@ import ShareCard from './ShareCard';
 import { saveLatestResult } from '../lib/storage';
 import { useEffect } from 'react';
 import { useState } from 'react';
+import type { CSSProperties } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 
 interface Props {
@@ -42,6 +43,8 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   };
 
   const verdictColorClass = getVerdictColor(scores.finalVerdict);
+  const litPercent = Math.round(scores.litScore * 20);
+  const scoreTone = litPercent >= 75 ? 'text-ghost-sage' : litPercent >= 50 ? 'text-amber-700' : 'text-red-700';
 
   const startPaidTest = async () => {
     if (!isLoggedIn) { onLoginClick(); return; }
@@ -59,43 +62,55 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-4 py-8">
+    <div className="mx-auto max-w-3xl px-4 py-6 pb-28 sm:py-10 sm:pb-10">
       {/* Main Verdict */}
-      <div data-testid="verdict-card" className={`border-l-4 p-6 rounded-lg mb-8 ${verdictColorClass}`}>
-        <h1 className="text-4xl font-bold mb-4">{verdict?.verdict_headline ?? scores.verdictHeadline}</h1>
-        <p className="text-xl opacity-90">{verdict?.one_sentence_advice ?? scores.oneSentenceAdvice}</p>
+      <div data-testid="verdict-card" className={`relative overflow-hidden rounded-sm border p-6 shadow-dust sm:p-8 ${verdictColorClass}`}>
+        <div className="absolute inset-x-0 top-0 h-1 bg-ghost-rust" />
+        <p className="text-xs font-bold uppercase tracking-[0.18em]">Ghost Town risk: {scores.ghostTownRisk}</p>
+        <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="ghost-score-ring grid h-32 w-32 shrink-0 place-items-center rounded-full p-2" style={{ '--score': `${litPercent}%` } as CSSProperties}>
+            <div className="grid h-full w-full place-items-center rounded-full bg-white text-center">
+              <span className={`font-score text-5xl font-black leading-none ${scoreTone}`}>{litPercent}</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">LIT score</span>
+            </div>
+          </div>
+          <div>
+            <h1 className="font-display text-4xl font-bold text-gray-950">{verdict?.verdict_headline ?? scores.verdictHeadline}</h1>
+            <p className="mt-3 text-lg text-gray-700">{verdict?.one_sentence_advice ?? scores.oneSentenceAdvice}</p>
+          </div>
+        </div>
       </div>
 
       {/* Scores Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-        <div data-testid="risk-level" className="bg-gray-50 p-4 rounded border border-gray-200">
+        <div data-testid="risk-level" className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
           <div className="text-xs text-gray-600 uppercase font-bold">Ghost Town Risk</div>
           <div className="text-3xl font-bold text-gray-900 mt-1">{scores.ghostTownScore}/5</div>
           <div className="text-xs text-gray-500 mt-1">{scores.ghostTownRisk} risk</div>
         </div>
 
-        <div data-testid="lit-score" className="bg-gray-50 p-4 rounded border border-gray-200">
+        <div data-testid="lit-score" className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
           <div className="text-xs text-gray-600 uppercase font-bold">LIT Score</div>
           <div className="text-3xl font-bold text-gray-900 mt-1">{scores.litScore}/5</div>
           <div className="text-xs text-gray-500 mt-1">{scores.litBand}</div>
         </div>
 
-        <div className="bg-gray-50 p-4 rounded border border-gray-200">
+        <div className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
           <div className="text-xs text-gray-600 uppercase font-bold">Leverage</div>
           <div className="text-3xl font-bold text-gray-900 mt-1">{scores.leverageScore}/5</div>
         </div>
 
-        <div className="bg-gray-50 p-4 rounded border border-gray-200">
+        <div className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
           <div className="text-xs text-gray-600 uppercase font-bold">Insight</div>
           <div className="text-3xl font-bold text-gray-900 mt-1">{scores.insightScore}/5</div>
         </div>
 
-        <div className="bg-gray-50 p-4 rounded border border-gray-200">
+        <div className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
           <div className="text-xs text-gray-600 uppercase font-bold">Timing</div>
           <div className="text-3xl font-bold text-gray-900 mt-1">{scores.timingScore}/5</div>
         </div>
 
-        <div className="bg-gray-50 p-4 rounded border border-gray-200">
+        <div className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
           <div className="text-xs text-gray-600 uppercase font-bold">High Walls</div>
           <div className="text-3xl font-bold text-gray-900 mt-1">{scores.highWallsScore}/5</div>
           <div className="text-xs text-gray-500 mt-1">{scores.highWallsBand}</div>
@@ -119,20 +134,20 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
       {/* Do Not Build Until */}
       <div className="bg-red-50 border border-red-200 p-6 rounded-lg mb-8">
-        <h3 className="font-bold text-red-900 mb-2">🚫 Do Not Build Until</h3>
+        <h3 className="font-bold text-red-900 mb-2">Do Not Build Until</h3>
         <p className="text-red-800">{verdict?.do_not_build_until ?? scores.doNotBuildUntil}</p>
       </div>
 
       {/* Recommended Next Test */}
       <div data-testid="next-step" className="bg-green-50 border border-green-200 p-6 rounded-lg mb-8">
-        <h3 className="font-bold text-green-900 mb-2">✓ Recommended Next Test</h3>
+        <h3 className="font-bold text-green-900 mb-2">Recommended Next Test</h3>
         <p className="text-green-800">{verdict?.recommended_next_test ?? scores.recommendedNextTest}</p>
       </div>
 
       {/* Biggest Trap */}
       {verdict?.biggest_trap && (
         <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-lg mb-8">
-          <h3 className="font-bold text-yellow-900 mb-2">⚠️ Biggest Trap</h3>
+          <h3 className="font-bold text-yellow-900 mb-2">Biggest Trap</h3>
           <p className="text-yellow-800">{verdict.biggest_trap}</p>
         </div>
       )}
@@ -145,13 +160,18 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         onRewardClaimed={onRewardClaimed}
       />
 
-      <section className="mb-8 rounded-lg border border-indigo-200 bg-indigo-50 p-6">
-        <h2 className="text-xl font-bold text-indigo-950">Turn this verdict into a 7-day GhostTown Test</h2>
-        <p className="mt-2 text-indigo-900">Get a buyer interview kit, alternatives map, landing-page copy, offer and price test, evidence scoreboard, printable report, and a seven-day plan. $29 one time.</p>
-        <p className="mt-2 text-sm text-indigo-800">It is a validation experiment—not a promise of product-market fit, revenue, or certainty.</p>
+      <section className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Your next seven days</p>
+        <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Turn this verdict into proof.</h2>
+        <ul className="mt-4 space-y-2 text-sm text-gray-800">
+          <li>Buyer interview kit and outreach message</li>
+          <li>Alternatives map, landing-page copy, offer, and price test</li>
+          <li>Evidence scoreboard, JSON source, and printable PDF</li>
+        </ul>
+        <p className="mt-4 text-sm text-gray-700">A validation experiment—not a promise of product-market fit, revenue, or certainty.</p>
         {paidError && <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{paidError}</p>}
-        <button type="button" onClick={startPaidTest} disabled={paidLoading} className="mt-4 rounded bg-indigo-700 px-5 py-3 font-bold text-white hover:bg-indigo-800 disabled:opacity-50">
-          {paidLoading ? 'Opening checkout...' : 'Get my 7-day plan — $29'}
+        <button type="button" aria-label="Start 7-day validation plan checkout" onClick={startPaidTest} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
+          {paidLoading ? 'Opening checkout...' : 'Unlock the 7-Day Validation Plan — $29'}
         </button>
       </section>
 
@@ -162,6 +182,12 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           className="px-6 py-3 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition"
         >
           Test Another Idea
+        </button>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ghost-rust/20 bg-[#fff7f2]/95 p-3 backdrop-blur sm:hidden">
+        <button type="button" aria-label="Start 7-day validation plan checkout" onClick={startPaidTest} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
+          {paidLoading ? 'Opening checkout…' : 'Get the 7-Day Plan — $29'}
         </button>
       </div>
 

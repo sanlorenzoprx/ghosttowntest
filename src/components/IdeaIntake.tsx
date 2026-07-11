@@ -61,11 +61,12 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Idea Name */}
         <div>
-          <label className="block font-bold mb-2">
+          <label htmlFor="ideaName" className="block font-bold mb-2">
             What's your idea called?
           </label>
           <input
             data-testid="idea-input"
+            id="ideaName"
             type="text"
             name="ideaName"
             value={formData.ideaName}
@@ -80,11 +81,12 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
 
         {/* Description */}
         <div>
-          <label className="block font-bold mb-2">
+          <label htmlFor="description" className="block font-bold mb-2">
             What does it do?
           </label>
           <textarea
             name="description"
+            id="description"
             value={formData.description}
             onChange={handleChange}
             placeholder="One paragraph. Be specific about what it does and who uses it."
@@ -97,11 +99,12 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
 
         {/* Target User */}
         <div>
-          <label className="block font-bold mb-2">
+          <label htmlFor="targetUser" className="block font-bold mb-2">
             Who is it for? (Be specific)
           </label>
           <input
             type="text"
+            id="targetUser"
             name="targetUser"
             value={formData.targetUser}
             onChange={handleChange}
@@ -115,11 +118,12 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
 
         {/* Painful Problem */}
         <div>
-          <label className="block font-bold mb-2">
+          <label htmlFor="painfulProblem" className="block font-bold mb-2">
             What painful problem does it solve?
           </label>
           <textarea
             name="painfulProblem"
+            id="painfulProblem"
             value={formData.painfulProblem}
             onChange={handleChange}
             placeholder="What pain or frustration does this relieve? Why would someone pay for this?"
@@ -132,11 +136,12 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
 
         {/* Current Alternative */}
         <div>
-          <label className="block font-bold mb-2">
+          <label htmlFor="currentAlternative" className="block font-bold mb-2">
             How do people solve this today? <span className="font-normal text-gray-500">(Optional)</span>
           </label>
           <input
             type="text"
+            id="currentAlternative"
             name="currentAlternative"
             value={formData.currentAlternative}
             onChange={handleChange}
@@ -148,11 +153,12 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
 
         {/* Motivation */}
         <div>
-          <label className="block font-bold mb-2">
+          <label htmlFor="motivation" className="block font-bold mb-2">
             Why do you want to build this? <span className="font-normal text-gray-500">(Optional)</span>
           </label>
           <textarea
             name="motivation"
+            id="motivation"
             value={formData.motivation}
             onChange={handleChange}
             placeholder="What's your personal motivation? Why now?"
