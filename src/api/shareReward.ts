@@ -10,7 +10,7 @@ interface ReferralRecord {
   fromEmail?: string;
 }
 
-const MAX_SHARE_CREDITS = 4;
+const MAX_SHARE_CREDITS = 1;
 
 export async function handleShareReward(request: Request, env: Env): Promise<Response> {
   try {
@@ -52,7 +52,7 @@ export async function handleShareReward(request: Request, env: Env): Promise<Res
         rewarded: false,
         reason: 'limit_reached',
         shareCredits: MAX_SHARE_CREDITS,
-        message: 'You have unlocked all five free assessments.'
+        message: 'You have unlocked your one free share bonus.'
       });
     }
 
