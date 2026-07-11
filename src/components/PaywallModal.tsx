@@ -42,7 +42,7 @@ export default function PaywallModal({ isLoggedIn, onLoginClick, onClose }: Prop
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-xl">
         <h2 className="text-2xl font-bold">Keep testing before you build</h2>
         <p className="mt-3 text-gray-600">
-          Your current allowance has been used. Registered members can share completed results to unlock up to four additional free assessments, or get 10 more for $19.
+          Your current allowance has been used. Registered members can share one completed result to unlock one bonus assessment, or get 10 more for $19.
         </p>
 
         <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
