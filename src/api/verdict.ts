@@ -175,7 +175,7 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
 }
 
 function getAvailableTests(user: UserData): number {
-  return Math.max(0, 1 + user.testsPurchased + Math.min(user.shareCredits || 0, 4) - user.testsUsed);
+  return Math.max(0, 1 + user.testsPurchased + Math.min(user.shareCredits || 0, 1) - user.testsUsed);
 }
 
 async function recordTestUse(user: UserData, env: Env): Promise<void> {
