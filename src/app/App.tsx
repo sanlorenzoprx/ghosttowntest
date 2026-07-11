@@ -165,7 +165,23 @@ export default function App() {
       {/* Header */}
       <header className="border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <button onClick={handleReset} className="text-2xl font-bold">LIT</button>
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-3 text-left"
+            aria-label="LIT Ghost Town Test home"
+          >
+            <span className="grid h-11 w-11 place-items-center rounded bg-ghost-rust font-display text-xl text-white shadow-lantern">
+              LIT
+            </span>
+            <span className="leading-tight">
+              <span className="block text-[11px] font-black uppercase tracking-[0.28em] text-ghost-rust sm:text-xs">
+                Leverage / Insight / Timing
+              </span>
+              <span className="block font-display text-xl text-ghost-ink sm:text-2xl">
+                Ghost Town Test
+              </span>
+            </span>
+          </button>
           <div className="flex gap-4">
             <button onClick={() => setLocale(current => current === 'en' ? 'es' : 'en')} className="text-sm font-bold text-blue-700 hover:text-blue-900" aria-label="Change language">
               {locale === 'en' ? 'ES' : 'EN'}
