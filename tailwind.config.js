@@ -29,7 +29,9 @@ export default {
         'ghost-noise': 'radial-gradient(rgba(255,255,255,.11) .7px, transparent .7px)',
       },
       fontFamily: {
-        display: ['Georgia', 'Cambria', 'serif'],
+        display: ['Rye', 'Georgia', 'serif'],
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        slab: ['Roboto Slab', 'Georgia', 'serif'],
         score: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
     },

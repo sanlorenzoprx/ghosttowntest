@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { litQuestions } from '../lib/litQuestions';
 import ExampleIdeaGallery from './ExampleIdeaGallery';
+import ProofStandard from './ProofStandard';
 
 interface Props {
   onStart: () => void;
@@ -206,6 +207,8 @@ export default function Landing({ onStart, onSelectExample, hasDraft, onResume, 
       </section>
 
       <ExampleIdeaGallery onSelect={onSelectExample} />
+
+      <ProofStandard locale={locale} />
 
       <section className="mx-auto max-w-6xl px-4 py-20">
         <div className="mx-auto max-w-3xl text-center">
