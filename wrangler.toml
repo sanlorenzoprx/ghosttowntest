@@ -1,0 +1,43 @@
+name = "lit-ghost-town-api"
+main = "src/api/index.ts"
+compatibility_date = "2024-01-01"
+
+[env.production]
+routes = [
+  { pattern = "api.ghosttowntest.com/*", zone_name = "ghosttowntest.com" }
+]
+
+[env.production.vars]
+AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
+FRONTEND_URL = "https://app.ghosttowntest.com"
+
+[[env.production.kv_namespaces]]
+binding = "KV"
+id = "289662c8981d421ba85a7ca588640650"
+
+[env.production.ai]
+binding = "AI"
+
+[env.development.vars]
+AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
+FRONTEND_URL = "http://localhost:5173"
+JWT_SECRET = "dev-secret-key-change-in-production"
+STRIPE_SECRET_KEY = "sk_test_..."
+STRIPE_PRICE_ID = "price_..."
+STRIPE_PAID_TEST_PRICE_ID = "price_..."
+STRIPE_WEBHOOK_SECRET = "whsec_..."
+
+[[env.development.kv_namespaces]]
+binding = "KV"
+id = "lit-kv-preview"
+
+[env.development.ai]
+binding = "AI"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "lit-kv-namespace"
+preview_id = "lit-kv-preview"
+
+[ai]
+binding = "AI"

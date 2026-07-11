@@ -1,0 +1,38 @@
+{
+  "name": "lit-ghost-town",
+  "version": "1.0.0",
+  "description": "LIT Ghost Town Test - Validate your startup idea before building",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:api": "wrangler dev --env development --local",
+    "build": "vite build",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "worker:check": "wrangler deploy --dry-run --env development",
+    "check": "npm run type-check && npm test && npm run build && npm run worker:check"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260626.1",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.3.3",
+    "vite": "^6.4.3",
+    "vitest": "^4.1.9",
+    "wrangler": "^4.105.0"
+  },
+  "overrides": {
+    "esbuild": "^0.25.0",
+    "undici": "^6.21.1",
+    "ws": "^8.18.1"
+  }
+}

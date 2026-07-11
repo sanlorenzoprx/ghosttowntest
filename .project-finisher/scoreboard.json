@@ -1,0 +1,5 @@
+{
+  "lint_status": "not_applicable",
+  "reason": "No linter dependency or script found in package.json. TypeScript type-check (npm run type-check) is used as the static-analysis gate and passes.",
+  "detected_lint_commands": []
+}

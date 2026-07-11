@@ -1,0 +1,79 @@
+{
+  "schema_version": "project_finisher_capabilities_v1",
+  "project": "LIT-GhostTown",
+  "detected_project_type": "node_vite_with_cloudflare_worker",
+  "verified_build": true,
+  "verified_test": true,
+  "verified_lint": "not_applicable",
+  "verified_type_check": true,
+  "verified_deploy_dry_run": true,
+  "capabilities": [
+    {
+      "command": "npm run build",
+      "category": "build",
+      "verified": true,
+      "exit_code": 0,
+      "detected_tool": "vite",
+      "description": "Production Vite build for frontend assets (46 modules transformed)"
+    },
+    {
+      "command": "npm test",
+      "category": "test",
+      "verified": true,
+      "exit_code": 0,
+      "detected_tool": "vitest",
+      "description": "Vitest unit and integration tests (25 passed across 8 test files)"
+    },
+    {
+      "command": "npm run type-check",
+      "category": "type_check",
+      "verified": true,
+      "exit_code": 0,
+      "detected_tool": "typescript",
+      "description": "TypeScript type checking (passed via npm run check)"
+    },
+    {
+      "command": "npm run worker:check",
+      "category": "deploy_dry_run",
+      "verified": true,
+      "exit_code": 0,
+      "detected_tool": "wrangler",
+      "description": "Dry-run Cloudflare Worker deployment check (passed via npm run check)"
+    },
+    {
+      "command": "npm run check",
+      "category": "full_check",
+      "verified": true,
+      "exit_code": 0,
+      "detected_tool": "tsc+vitest+vite+wrangler",
+      "description": "Combined check: type-check + test + build + worker:check (all passed)"
+    },
+    {
+      "command": "npm run dev",
+      "category": "dev_server",
+      "verified": false,
+      "detected_tool": "vite",
+      "description": "Vite development server (defined but not executed)"
+    },
+    {
+      "command": "npm run dev:api",
+      "category": "dev_api",
+      "verified": false,
+      "detected_tool": "wrangler",
+      "description": "Local Cloudflare Worker API server (defined but not executed)"
+    }
+  ],
+  "verified_commands": [
+    "npm run build",
+    "npm test",
+    "npm run type-check",
+    "npm run worker:check",
+    "npm run check"
+  ],
+  "unverified_commands": [
+    "npm run dev",
+    "npm run dev:api"
+  ],
+  "git_worktree_clean": true,
+  "notes": "Linting not applicable: no linter dependency or script configured in package.json. TypeScript type-check serves as the static-analysis gate. AI analysis not verified in this session; deterministic fallback works. npm run check executed and all sub-commands passed."
+}
