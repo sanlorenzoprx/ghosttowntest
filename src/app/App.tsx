@@ -276,7 +276,14 @@ export default function App() {
           />
         )}
         {screen === 'dashboard' && isLoggedIn && (
-          <UserDashboard onLogout={handleLogout} onBuy={() => setShowPaywall(true)} />
+          <UserDashboard
+            onLogout={handleLogout}
+            onBuy={() => setShowPaywall(true)}
+            onOpenResult={savedResult => {
+              setResult(savedResult);
+              setScreen('result');
+            }}
+          />
         )}
         {screen === 'contact' && (
           <Contact onStart={handleStartTest} />
