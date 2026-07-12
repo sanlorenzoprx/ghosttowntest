@@ -284,6 +284,7 @@ export default function App() {
           <UserDashboard
             onLogout={handleLogout}
             onBuy={() => setShowPaywall(true)}
+            onStart={handleStartTest}
             onOpenResult={savedResult => {
               setResult(savedResult);
               setScreen('result');
