@@ -95,14 +95,21 @@ export async function handleStripeWebhook(request: Request, env: Env) {
         return new Response(JSON.stringify({ received: true }), { status: 200 });
       }
 
+      const metadata = typeof session.metadata === 'object' && session.metadata
+        ? session.metadata as Record<string, unknown>
+        : {};
+      const purchasedCredits = metadata.purchase_type === 'assessment_pack'
+        ? Math.max(0, Number(metadata.test_credits) || 10)
+        : 10;
+
       // Update user: increment testsPurchased
       const userJSON = await env.KV.get(`user_${email}`);
       if (userJSON) {
         const user = JSON.parse(userJSON) as UserData;
-        user.testsPurchased += 10;
+        user.testsPurchased += purchasedCredits;
         user.lastPurchaseAt = new Date().toISOString();
         await env.KV.put(`user_${email}`, JSON.stringify(user));
-        console.log(`User ${email} purchased 10 tests`);
+        console.log(`User ${email} purchased ${purchasedCredits} tests`);
       } else {
         console.warn(`User ${email} not found in webhook`);
       }
