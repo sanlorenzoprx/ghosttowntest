@@ -14,10 +14,11 @@ interface ResultSummary {
 interface Props {
   onLogout: () => void;
   onBuy: () => void;
+  onStart: () => void;
   onOpenResult: (result: EvaluationResult) => void;
 }
 
-export default function UserDashboard({ onLogout, onBuy, onOpenResult }: Props) {
+export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }: Props) {
   const [user, setUser] = useState<PublicUserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -112,6 +113,21 @@ export default function UserDashboard({ onLogout, onBuy, onOpenResult }: Props) 
           Log Out
         </button>
       </div>
+
+      <section className="mb-8 flex flex-col gap-5 rounded-xl bg-ghost-ink p-6 text-white shadow-lantern sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-gold">Test before you build</p>
+          <h2 className="mt-2 text-2xl font-bold">Ready to test another idea?</h2>
+          <p className="mt-1 text-sm text-white/75">{availableTests} assessment{availableTests === 1 ? '' : 's'} available.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onStart}
+          className="min-h-14 shrink-0 rounded-lg bg-ghost-rust px-7 py-4 text-base font-black text-white shadow-lantern hover:bg-[#96360d]"
+        >
+          Start New Assessment
+        </button>
+      </section>
 
       {/* User Info */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
