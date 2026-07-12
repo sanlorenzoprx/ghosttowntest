@@ -134,6 +134,13 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
       <p className="mt-2 text-sm leading-relaxed text-blue-800">
         Your idea name stays private unless you choose to include it. Registered members can unlock one bonus assessment by sharing a completed result.
       </p>
+      <div className="mt-4 flex flex-wrap gap-2" aria-label="Supported social sharing destinations">
+        {['Instagram', 'TikTok', 'YouTube', 'Facebook'].map(platform => (
+          <span key={platform} className="rounded-full border border-blue-200 bg-white/80 px-3 py-1 text-xs font-bold text-blue-800">
+            {platform}
+          </span>
+        ))}
+      </div>
 
       <div className="mt-5 overflow-hidden rounded-xl border border-white/80 bg-slate-950 shadow-lg">
         <img
@@ -157,7 +164,10 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
                   format === option ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                {option}
+                <span className="block capitalize">{option}</span>
+                <span className="block text-[10px] font-medium opacity-80">
+                  {option === 'square' ? 'Instagram · TikTok' : 'Facebook · YouTube'}
+                </span>
               </button>
             ))}
           </div>
@@ -195,7 +205,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
           {loading
             ? 'Creating your verdict card...'
             : isLoggedIn
-              ? 'Share Card & Unlock 1 Assessment'
+              ? 'Share to Social Apps & Unlock 1 Assessment'
               : 'Create Free Account to Unlock More'}
         </button>
         <button
@@ -208,7 +218,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
         </button>
       </div>
       <p className="mt-3 text-center text-xs text-blue-700">
-        One bonus reward maximum · Recipients need no account
+        On mobile, choose Instagram, TikTok, YouTube, or Facebook from your share sheet. One bonus reward maximum.
       </p>
     </section>
   );
