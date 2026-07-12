@@ -37,8 +37,8 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     'line_items[0][quantity]': '1', 'mode': 'payment', 'customer_email': auth.email,
     'client_reference_id': order.orderId,
     'metadata[paid_test_order_id]': order.orderId,
-    'success_url': `${new URL(request.url).origin}/paid-test/success?session_id={CHECKOUT_SESSION_ID}`,
-    'cancel_url': `${new URL(request.url).origin}/paid-test/cancel`
+    'success_url': `${env.FRONTEND_URL?.replace(/\/$/, '') || new URL(request.url).origin}/paid-test/success?order_id=${encodeURIComponent(order.orderId)}`,
+    'cancel_url': `${env.FRONTEND_URL?.replace(/\/$/, '') || new URL(request.url).origin}/`
   });
   const response = await fetch('https://api.stripe.com/v1/checkout/sessions', { method: 'POST', headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: fields.toString() });
   if (!response.ok) { await env.KV.delete(orderKey(order.orderId)); return json({ error: 'Checkout is unavailable' }, 502); }
