@@ -1,8 +1,20 @@
 const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
 
+function inferProductionApiBaseUrl(): string {
+  if (typeof window === 'undefined') return '';
+
+  const { hostname, protocol } = window.location;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return '';
+  if (hostname === 'api.lit-ghosttown.app') return '';
+  if (hostname === 'lit-ghosttown.app' || hostname === 'www.lit-ghosttown.app' || hostname.endsWith('.pages.dev')) {
+    return `${protocol}//api.lit-ghosttown.app`;
+  }
+  return '';
+}
+
 export const API_BASE_URL = configuredBaseUrl
   ? configuredBaseUrl.replace(/\/$/, '')
-  : '';
+  : inferProductionApiBaseUrl();
 
 export function apiUrl(path: string): string {
   return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
