@@ -27,6 +27,7 @@ import type { Env } from './env';
 import { authenticateRequest } from './auth';
 import type { UserData } from '../types/auth';
 import { handleShortsFactoryVerdict, isShortsFactoryVerdictRequest } from './shortsFactoryVerdict';
+import { saveUserResult } from './resultHistory';
 
 const DEFAULT_AI_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
 
@@ -93,8 +94,12 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
     if (cached) {
       try {
         const cachedResult = JSON.parse(cached);
-        if (authenticated) await recordTestUse(authenticated.user, env);
-        return new Response(JSON.stringify({ ...cachedResult, resultId: cachedResult.resultId ?? ideaHash, cacheHit: true }), {
+        const restoredResult = { ...cachedResult, resultId: cachedResult.resultId ?? ideaHash, cacheHit: true } as EvaluationResult;
+        if (authenticated) {
+          await recordTestUse(authenticated.user, env);
+          await saveUserResult(authenticated.email, restoredResult, env);
+        }
+        return new Response(JSON.stringify(restoredResult), {
           headers: { 'Content-Type': 'application/json' }
         });
       } catch (e) {
@@ -152,14 +157,18 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
 
     // 5. CACHE
     try {
-      await env.KV.put(cacheKey, JSON.stringify(result), {
-        expirationTtl: 86400 * 30 // 30 days
-      });
+      await Promise.all([
+        env.KV.put(cacheKey, JSON.stringify(result), { expirationTtl: 86400 * 30 }),
+        env.KV.put(`verdict_${result.resultId}`, JSON.stringify(result), { expirationTtl: 86400 * 90 })
+      ]);
     } catch (error) {
       console.error('Failed to cache verdict:', error);
     }
 
-    if (authenticated) await recordTestUse(authenticated.user, env);
+    if (authenticated) {
+      await recordTestUse(authenticated.user, env);
+      await saveUserResult(authenticated.email, result, env);
+    }
 
     // 6. RETURN
     return new Response(JSON.stringify(result), {
