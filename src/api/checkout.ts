@@ -40,7 +40,9 @@ export async function handleCheckout(request: Request, env: Env) {
       'mode': 'payment',
       'success_url': `${new URL(request.url).origin}/success?session_id={CHECKOUT_SESSION_ID}`,
       'cancel_url': `${new URL(request.url).origin}/cancel`,
-      'customer_email': email
+      'customer_email': email,
+      'metadata[purchase_type]': 'assessment_pack',
+      'metadata[test_credits]': '10'
     });
 
     const stripeResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {
