@@ -2,11 +2,13 @@ import { authenticateRequest } from './auth';
 import type { Env } from './env';
 import type { EvaluationResult } from '../types/lit';
 import type { PaidTestIntake, PaidTestOrder, PaidTestReport, ReportClaim, TruthLabel } from '../types/paidTest';
+import { extractJSONFromText } from '../lib/verdictValidator';
 
 const VERSION = '1.0' as const;
 const json = (body: unknown, status = 200, extra: HeadersInit = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...extra } });
 const orderKey = (id: string) => `paid_test_order_${id}`;
 const reportKey = (id: string) => `paid_test_report_${id}`;
+const DEFAULT_ACTION_PLAN_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
 function id(prefix: string): string { return `${prefix}_${crypto.randomUUID()}`; }
 function claim(label: TruthLabel, text: string): ReportClaim { return { label, text }; }
@@ -16,7 +18,7 @@ function validIntake(value: Partial<PaidTestIntake>): value is PaidTestIntake {
 }
 
 async function savedVerdict(env: Env, verdictId: string): Promise<EvaluationResult | null> {
-  const raw = await env.KV.get(`verdict_${verdictId}`);
+  const raw = await env.KV.get(`verdict_${verdictId}`) ?? await env.KV.get(`verdict:${verdictId}`);
   return raw ? JSON.parse(raw) as EvaluationResult : null;
 }
 
@@ -88,8 +90,58 @@ export async function fulfillPaidTestOrder(env: Env, orderId: string, session: R
   if (order.status === 'ready') return;
   const verdict = await savedVerdict(env, order.verdictId); if (!verdict) throw new Error('Source verdict not found');
   order.status = 'generating'; order.stripeCheckoutSessionId = String(session.id || order.stripeCheckoutSessionId || ''); order.stripePaymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : undefined; order.stripeCustomerId = typeof session.customer === 'string' ? session.customer : undefined; order.updatedAt = new Date().toISOString(); await env.KV.put(orderKey(orderId), JSON.stringify(order));
-  const report = createPaidTestReport(order, verdict); if (!report.qualityGate.passed) { order.status = 'failed'; order.updatedAt = new Date().toISOString(); await env.KV.put(orderKey(orderId), JSON.stringify(order)); throw new Error(report.qualityGate.failures.join(', ')); }
+  const report = createPaidTestReport(order, verdict);
+  try {
+    const enhancedSections = await generateEnhancedSections(order, verdict, env);
+    if (enhancedSections) report.sections = enhancedSections;
+  } catch (error) {
+    console.warn('Larger-model action plan failed; using verified fallback:', error);
+  }
+  report.qualityGate = qualityGate(report);
+  if (!report.qualityGate.passed) { order.status = 'failed'; order.updatedAt = new Date().toISOString(); await env.KV.put(orderKey(orderId), JSON.stringify(order)); throw new Error(report.qualityGate.failures.join(', ')); }
   await env.KV.put(reportKey(orderId), JSON.stringify(report)); order.status = 'ready'; order.updatedAt = new Date().toISOString(); await env.KV.put(orderKey(orderId), JSON.stringify(order));
+}
+
+async function generateEnhancedSections(order: PaidTestOrder, verdict: EvaluationResult, env: Env): Promise<PaidTestReport['sections'] | null> {
+  const prompt = `You are a rigorous startup validation strategist. Create a specific, practical action plan from the supplied evidence.
+Never invent market facts, customer quotes, competitor claims, demand, or revenue. Label every claim exactly Verified, Inferred, or Test.
+Return JSON only as {"sections":[{"title":"...","claims":[{"label":"Test","text":"..."}]}]}.
+Required section titles: Idea Summary; LIT Verdict Summary; Buyer Segment; Buyer Interview Kit; Alternatives and Workarounds; Landing-Page Test Copy; Offer and Price Hypothesis; Seven-Day Validation Plan; Evidence Scoreboard and Limitations.
+The Seven-Day Validation Plan must include Day 0 through Day 7, concrete quantities, pass/fail thresholds, and the next decision.
+Make outreach, interview questions, landing-page copy, offer, pricing test, and evidence thresholds specific to this buyer and problem.
+
+SOURCE VERDICT:
+${JSON.stringify({ idea: verdict.idea, scores: verdict.deterministicScores, analysis: verdict.analysis, aiVerdict: verdict.verdict })}
+
+BUYER INPUT:
+${JSON.stringify(order.intake)}`;
+  const model = env.ACTION_PLAN_AI_MODEL?.trim() || DEFAULT_ACTION_PLAN_MODEL;
+  const response = await (env.AI as unknown as {
+    run(model: string, input: { prompt: string; max_tokens: number; temperature: number }): Promise<unknown>
+  }).run(model, { prompt, max_tokens: 4000, temperature: 0.25 });
+  const text = response && typeof response === 'object' && typeof (response as { response?: unknown }).response === 'string'
+    ? (response as { response: string }).response
+    : '';
+  const parsed = extractJSONFromText(text) as { sections?: unknown } | null;
+  if (!parsed || !Array.isArray(parsed.sections)) return null;
+  const sections = parsed.sections.filter(isReportSection);
+  const candidate: PaidTestReport = { ...createPaidTestReport(order, verdict), sections };
+  return qualityGate(candidate).passed ? sections : null;
+}
+
+function isReportSection(value: unknown): value is PaidTestReport['sections'][number] {
+  if (!value || typeof value !== 'object') return false;
+  const section = value as { title?: unknown; claims?: unknown };
+  return typeof section.title === 'string'
+    && Array.isArray(section.claims)
+    && section.claims.length > 0
+    && section.claims.every(item => {
+      if (!item || typeof item !== 'object') return false;
+      const claimValue = item as { label?: unknown; text?: unknown };
+      return ['Verified', 'Inferred', 'Test'].includes(String(claimValue.label))
+        && typeof claimValue.text === 'string'
+        && claimValue.text.trim().length > 0;
+    });
 }
 
 export async function handlePaidTestReport(request: Request, env: Env, orderId: string): Promise<Response> {
