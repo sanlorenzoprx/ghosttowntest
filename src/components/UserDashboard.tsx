@@ -128,7 +128,7 @@ export default function UserDashboard({ onLogout, onBuy }: Props) {
       {/* Share Rewards */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
         <h3 className="font-bold text-blue-900 mb-4">Share Rewards</h3>
-        <div className="grid grid-cols-3 gap-4 text-sm">
+        <div className="mx-auto grid max-w-md grid-cols-1 gap-5 text-center text-sm sm:grid-cols-2 sm:gap-8">
           <div>
             <span className="text-blue-700">Share Links Created:</span>
             <div className="text-2xl font-bold text-blue-900">{user.sharesGiven}</div>
@@ -136,10 +136,6 @@ export default function UserDashboard({ onLogout, onBuy }: Props) {
           <div>
             <span className="text-blue-700">Credits Unlocked:</span>
             <div className="text-2xl font-bold text-blue-900">{Math.min(user.shareCredits || 0, 1)}/1</div>
-          </div>
-          <div>
-            <span className="text-blue-700">Link Signups:</span>
-            <div className="text-2xl font-bold text-blue-900">{user.sharesReceived}</div>
           </div>
         </div>
         <p className="text-xs text-blue-700 mt-4">
