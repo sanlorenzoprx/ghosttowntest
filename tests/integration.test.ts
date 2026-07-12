@@ -49,6 +49,39 @@ function createEnv(kv: MemoryKv, onModel?: (model: string) => void) {
 }
 
 describe('Worker verdict flow', () => {
+  it('stores authenticated assessments and lets their owner reopen them', async () => {
+    const kv = new MemoryKv();
+    const env = createEnv(kv);
+    const signupResponse = await worker.fetch(new Request('http://localhost/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'history@example.com', password: 'correct-horse' })
+    }), env);
+    const signup = await signupResponse.json<{ token: string }>();
+    const authorization = { Authorization: `Bearer ${signup.token}` };
+
+    const verdictResponse = await worker.fetch(new Request('http://localhost/api/verdict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authorization },
+      body: JSON.stringify(payload)
+    }), env);
+    const verdict = await verdictResponse.json<{ resultId: string }>();
+
+    const historyResponse = await worker.fetch(new Request('http://localhost/api/results', {
+      headers: authorization
+    }), env);
+    const history = await historyResponse.json<{ results: Array<{ resultId: string; ideaName: string }> }>();
+    expect(history.results).toMatchObject([{ resultId: verdict.resultId, ideaName: 'Agency QA' }]);
+
+    const savedResponse = await worker.fetch(new Request(`http://localhost/api/results/${verdict.resultId}`, {
+      headers: authorization
+    }), env);
+    expect(await savedResponse.json<{ result: { resultId: string } }>()).toMatchObject({
+      result: { resultId: verdict.resultId }
+    });
+  });
+
+
   it('falls back deterministically and caches the result when AI is unavailable', async () => {
     const kv = new MemoryKv();
     let requestedModel = '';
