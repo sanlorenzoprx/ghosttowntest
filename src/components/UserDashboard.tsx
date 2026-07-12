@@ -34,6 +34,7 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
   const [openingResultId, setOpeningResultId] = useState('');
   const [paidPlans, setPaidPlans] = useState<PaidOrderSummary[]>([]);
   const [downloadingPlan, setDownloadingPlan] = useState('');
+  const [planError, setPlanError] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('lit_user_token_v1');
@@ -89,6 +90,7 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
   const downloadPlan = async (orderId: string, format: 'pdf' | 'json') => {
     const downloadId = `${orderId}:${format}`;
     setDownloadingPlan(downloadId);
+    setPlanError('');
     try {
       const suffix = format === 'pdf' ? '/report.pdf' : '/report';
       const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}${suffix}`), {
@@ -103,7 +105,7 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Plan download failed');
+      setPlanError(caught instanceof Error ? caught.message : 'Plan download failed');
     } finally {
       setDownloadingPlan('');
     }
@@ -243,6 +245,7 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
           </div>
           <p className="text-xs text-gray-600">Saved permanently to this account</p>
         </div>
+        {planError && <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{planError}</p>}
         {paidPlans.length === 0 ? (
           <p className="mt-4 text-sm text-gray-600">Purchased Validation Action Plans will appear here.</p>
         ) : (
