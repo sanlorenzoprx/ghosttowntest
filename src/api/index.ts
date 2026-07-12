@@ -6,6 +6,7 @@ import { handleShareReward } from './shareReward';
 import verdictHandler from './verdict';
 import { handlePaidTestCheckout, handlePaidTestPdf, handlePaidTestReport } from './paidTest';
 import type { Env } from './env';
+import { handleResultHistory, handleSaveCurrentResult, handleSavedResult } from './resultHistory';
 
 /**
  * Main Cloudflare Workers fetch handler
@@ -35,6 +36,25 @@ export default {
       // Verdict endpoint
       if ((path === '/api/verdict' || path === '/api/lit-verdict') && method === 'POST') {
         const response = await verdictHandler(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      if (path === '/api/results' && method === 'GET') {
+        const response = await handleResultHistory(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      if (path === '/api/results' && method === 'POST') {
+        const response = await handleSaveCurrentResult(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      const savedResultMatch = path.match(/^\/api\/results\/([^/]+)$/);
+      if (savedResultMatch && method === 'GET') {
+        const response = await handleSavedResult(request, env, savedResultMatch[1]);
         applyCors(response, corsHeaders);
         return response;
       }
