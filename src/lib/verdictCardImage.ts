@@ -102,6 +102,7 @@ export function svgDataUrl(svg: string): string {
 
 function landscapeSvg(input: SvgInput): string {
   const { width, height, result, theme, headline, advice, ideaName, host } = input;
+  const hookLines = wrapText(theme.hook, 28, 2);
   const headlineLines = wrapText(headline, 38, 2);
   const adviceLines = wrapText(advice, 58, 2);
   const dna = formatDna(result.deterministicScores.businessDnaType);
@@ -111,8 +112,8 @@ function landscapeSvg(input: SvgInput): string {
     <rect x="64" y="98" width="238" height="48" rx="24" fill="${theme.accent}"/>
     <text x="183" y="130" fill="${theme.start}" font-size="20" font-weight="900" text-anchor="middle" letter-spacing="2">${theme.label}</text>
 
-    <text x="64" y="218" fill="${theme.accent}" font-size="48" font-weight="900" letter-spacing="-1">${escapeXml(theme.hook)}</text>
-    ${textLines(headlineLines, 64, 276, 42, 34, '#ffffff', 800)}
+    ${textLines(hookLines, 64, 210, 48, 42, theme.accent, 900)}
+    ${textLines(headlineLines, 64, 306, 42, 34, '#ffffff', 800)}
     ${textLines(adviceLines, 64, 380, 32, 23, theme.soft, 500)}
     <text x="64" y="462" fill="${theme.accent}" font-size="17" font-weight="700">${escapeXml(ideaName)}</text>
 
@@ -132,6 +133,7 @@ function landscapeSvg(input: SvgInput): string {
 
 function squareSvg(input: SvgInput): string {
   const { width, height, result, theme, headline, advice, ideaName, host } = input;
+  const hookLines = wrapText(theme.hook, 26, 2);
   const headlineLines = wrapText(headline, 32, 3);
   const adviceLines = wrapText(advice, 48, 3);
   const dna = formatDna(result.deterministicScores.businessDnaType);
@@ -141,8 +143,8 @@ function squareSvg(input: SvgInput): string {
     <rect x="72" y="124" width="254" height="52" rx="26" fill="${theme.accent}"/>
     <text x="199" y="158" fill="${theme.start}" font-size="21" font-weight="900" text-anchor="middle" letter-spacing="2">${theme.label}</text>
 
-    <text x="72" y="264" fill="${theme.accent}" font-size="53" font-weight="900" letter-spacing="-1">${escapeXml(theme.hook)}</text>
-    ${textLines(headlineLines, 72, 340, 52, 43, '#ffffff', 800)}
+    ${textLines(hookLines, 72, 250, 58, 49, theme.accent, 900)}
+    ${textLines(headlineLines, 72, 382, 52, 43, '#ffffff', 800)}
     ${textLines(adviceLines, 72, 538, 38, 27, theme.soft, 500)}
     <text x="72" y="674" fill="${theme.accent}" font-size="19" font-weight="700">${escapeXml(ideaName)}</text>
 
