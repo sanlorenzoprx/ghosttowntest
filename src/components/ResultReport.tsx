@@ -207,6 +207,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           idea={result.idea}
           verdictId={result.resultId}
           loading={paidLoading}
+          error={paidError}
           onClose={() => setShowActionPlanForm(false)}
           onSubmit={intake => void startPaidTest(intake)}
         />
