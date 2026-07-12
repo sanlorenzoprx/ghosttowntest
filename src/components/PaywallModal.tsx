@@ -42,11 +42,11 @@ export default function PaywallModal({ isLoggedIn, onLoginClick, onClose }: Prop
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-xl">
         <h2 className="text-2xl font-bold">Keep testing before you build</h2>
         <p className="mt-3 text-gray-600">
-          Your current allowance has been used. Registered members can share one completed result to unlock one bonus assessment, or get 10 more for $19.
+          Your current allowance has been used. Registered members can share one completed result to unlock one bonus assessment, or get 10 more for $14.97.
         </p>
 
         <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
-          <div className="text-3xl font-bold text-blue-900">10 tests · $19</div>
+          <div className="text-3xl font-bold text-blue-900">10 assessments · $14.97</div>
           <p className="mt-1 text-sm text-blue-800">One-time purchase. No subscription.</p>
         </div>
 
@@ -58,7 +58,7 @@ export default function PaywallModal({ isLoggedIn, onLoginClick, onClose }: Prop
           disabled={loading}
           className="mt-6 w-full rounded bg-blue-600 px-4 py-3 font-bold text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          {loading ? 'Opening checkout...' : isLoggedIn ? 'Buy 10 Tests' : 'Log In or Sign Up'}
+          {loading ? 'Opening checkout...' : isLoggedIn ? 'Buy 10 Assessments — $14.97' : 'Log In or Sign Up'}
         </button>
         <button type="button" onClick={onClose} className="mt-3 w-full py-2 text-sm text-gray-600 hover:text-gray-900">
           Not now
