@@ -97,6 +97,8 @@ describe('Worker verdict flow', () => {
     }), env);
     const signup = await signupResponse.json<{ token: string; user: { testsUsed: number } }>();
     expect(signup.user.testsUsed).toBe(1);
+    const storedUser = JSON.parse((await kv.get('user_share-reward@example.com')) || '{}') as { passwordHash?: string };
+    expect(storedUser.passwordHash).toMatch(/^pbkdf2\$100000\$/);
     const authorization = { Authorization: `Bearer ${signup.token}` };
 
     const linkResponse = await worker.fetch(new Request('http://localhost/api/referral/create', {
