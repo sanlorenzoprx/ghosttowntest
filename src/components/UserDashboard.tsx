@@ -11,6 +11,14 @@ interface ResultSummary {
   generatedAt: string;
 }
 
+interface PaidOrderSummary {
+  orderId: string;
+  ideaName: string;
+  status: 'pending' | 'paid' | 'generating' | 'ready' | 'failed' | 'refunded';
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface Props {
   onLogout: () => void;
   onBuy: () => void;
@@ -24,6 +32,8 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
   const [error, setError] = useState('');
   const [results, setResults] = useState<ResultSummary[]>([]);
   const [openingResultId, setOpeningResultId] = useState('');
+  const [paidPlans, setPaidPlans] = useState<PaidOrderSummary[]>([]);
+  const [downloadingPlan, setDownloadingPlan] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('lit_user_token_v1');
@@ -52,6 +62,11 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
       .then(response => response.ok ? response.json<{ results?: ResultSummary[] }>() : Promise.reject())
       .then(data => setResults(data.results ?? []))
       .catch(() => setResults([]));
+
+    fetch(apiUrl('/api/paid-test/orders'), { headers: authHeaders() })
+      .then(response => response.ok ? response.json<{ orders?: PaidOrderSummary[] }>() : Promise.reject())
+      .then(data => setPaidPlans(data.orders ?? []))
+      .catch(() => setPaidPlans([]));
   }, []);
 
   const openResult = async (resultId: string) => {
@@ -68,6 +83,29 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
       setError(caught instanceof Error ? caught.message : 'Assessment could not be opened');
     } finally {
       setOpeningResultId('');
+    }
+  };
+
+  const downloadPlan = async (orderId: string, format: 'pdf' | 'json') => {
+    const downloadId = `${orderId}:${format}`;
+    setDownloadingPlan(downloadId);
+    try {
+      const suffix = format === 'pdf' ? '/report.pdf' : '/report';
+      const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}${suffix}`), {
+        headers: authHeaders()
+      });
+      if (!response.ok) throw new Error('The purchased plan is not ready yet');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `lit-validation-plan-${orderId}.${format}`;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Plan download failed');
+    } finally {
+      setDownloadingPlan('');
     }
   };
 
@@ -191,6 +229,42 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
                 <button type="button" onClick={() => void openResult(item.resultId)} disabled={Boolean(openingResultId)} className="shrink-0 rounded-lg border border-blue-300 bg-white px-4 py-2 font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-50">
                   {openingResultId === item.resultId ? 'Opening…' : 'View Report'}
                 </button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mb-8 rounded-lg border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-rust">Purchased reports</p>
+            <h2 className="mt-1 text-xl font-bold text-gray-950">7-Day Validation Action Plans</h2>
+          </div>
+          <p className="text-xs text-gray-600">Saved permanently to this account</p>
+        </div>
+        {paidPlans.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-600">Purchased Validation Action Plans will appear here.</p>
+        ) : (
+          <div className="mt-5 space-y-3">
+            {paidPlans.map(plan => (
+              <article key={plan.orderId} className="rounded-lg border border-ghost-rust/20 bg-white p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="font-bold text-gray-950">{plan.ideaName}</h3>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Purchased {new Date(plan.createdAt).toLocaleDateString()} · {plan.status === 'ready' ? 'Ready to download' : plan.status}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:flex">
+                    <button type="button" onClick={() => void downloadPlan(plan.orderId, 'pdf')} disabled={plan.status !== 'ready' || Boolean(downloadingPlan)} className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
+                      {downloadingPlan === `${plan.orderId}:pdf` ? 'Preparing…' : 'Download PDF'}
+                    </button>
+                    <button type="button" onClick={() => void downloadPlan(plan.orderId, 'json')} disabled={plan.status !== 'ready' || Boolean(downloadingPlan)} className="rounded-lg border border-ghost-rust px-4 py-2 text-sm font-bold text-ghost-rust disabled:cursor-not-allowed disabled:opacity-50">
+                      {downloadingPlan === `${plan.orderId}:json` ? 'Preparing…' : 'Download JSON'}
+                    </button>
+                  </div>
+                </div>
               </article>
             ))}
           </div>
