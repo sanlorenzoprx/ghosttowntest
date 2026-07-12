@@ -17,8 +17,10 @@ function validIntake(value: Partial<PaidTestIntake>): value is PaidTestIntake {
   return Boolean(value.verdictId?.trim() && value.targetBuyer?.trim() && value.problem?.trim() && value.currentWorkaround?.trim());
 }
 
-async function savedVerdict(env: Env, verdictId: string): Promise<EvaluationResult | null> {
-  const raw = await env.KV.get(`verdict_${verdictId}`) ?? await env.KV.get(`verdict:${verdictId}`);
+async function savedVerdict(env: Env, verdictId: string, email?: string): Promise<EvaluationResult | null> {
+  const raw = await env.KV.get(`verdict_${verdictId}`)
+    ?? await env.KV.get(`verdict:${verdictId}`)
+    ?? (email ? await env.KV.get(`user_result_${email.trim().toLowerCase()}_${verdictId}`) : null);
   return raw ? JSON.parse(raw) as EvaluationResult : null;
 }
 
@@ -27,7 +29,7 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
   if (!auth) return json({ error: 'Authentication required' }, 401);
   const intake = await request.json<Partial<PaidTestIntake>>();
   if (!validIntake(intake)) return json({ error: 'verdictId, targetBuyer, problem, and currentWorkaround are required' }, 400);
-  const verdict = await savedVerdict(env, intake.verdictId);
+  const verdict = await savedVerdict(env, intake.verdictId, auth.email);
   if (!verdict) return json({ error: 'The source LIT verdict was not found' }, 404);
   const now = new Date().toISOString();
   const order: PaidTestOrder = { orderId: id('gtt'), email: auth.email, verdictId: intake.verdictId, status: 'pending', reportVersion: VERSION, intake: { ...intake, competitorLinks: intake.competitorLinks?.filter(Boolean) }, createdAt: now, updatedAt: now };
@@ -88,7 +90,7 @@ export async function fulfillPaidTestOrder(env: Env, orderId: string, session: R
   const raw = await env.KV.get(orderKey(orderId)); if (!raw) throw new Error('Paid test order not found');
   const order = JSON.parse(raw) as PaidTestOrder;
   if (order.status === 'ready') return;
-  const verdict = await savedVerdict(env, order.verdictId); if (!verdict) throw new Error('Source verdict not found');
+  const verdict = await savedVerdict(env, order.verdictId, order.email); if (!verdict) throw new Error('Source verdict not found');
   order.status = 'generating'; order.stripeCheckoutSessionId = String(session.id || order.stripeCheckoutSessionId || ''); order.stripePaymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : undefined; order.stripeCustomerId = typeof session.customer === 'string' ? session.customer : undefined; order.updatedAt = new Date().toISOString(); await env.KV.put(orderKey(orderId), JSON.stringify(order));
   const report = createPaidTestReport(order, verdict);
   try {
