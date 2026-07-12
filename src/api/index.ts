@@ -4,7 +4,7 @@ import { handleStripeWebhook } from './webhook';
 import { handleReferralClaim, handleReferralCreate } from './referral';
 import { handleShareReward } from './shareReward';
 import verdictHandler from './verdict';
-import { handlePaidTestCheckout, handlePaidTestPdf, handlePaidTestReport } from './paidTest';
+import { handlePaidTestCheckout, handlePaidTestOrders, handlePaidTestPdf, handlePaidTestReport } from './paidTest';
 import type { Env } from './env';
 import { handleResultHistory, handleSaveCurrentResult, handleSavedResult } from './resultHistory';
 
@@ -81,6 +81,12 @@ export default {
       // Stripe checkout
       if (path === '/api/checkout' && method === 'POST') {
         const response = await handleCheckout(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      if (path === '/api/paid-test/orders' && method === 'GET') {
+        const response = await handlePaidTestOrders(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
