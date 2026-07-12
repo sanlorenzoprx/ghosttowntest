@@ -5,7 +5,8 @@ export interface AuthEnv {
   JWT_SECRET: string;
 }
 
-const PASSWORD_ITERATIONS = 120_000;
+// Cloudflare Workers Web Crypto rejects PBKDF2 counts above 100,000.
+const PASSWORD_ITERATIONS = 100_000;
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
