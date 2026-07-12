@@ -9,6 +9,7 @@ routes = [
 
 [env.production.vars]
 AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
+ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 FRONTEND_URL = "https://lit-ghosttown.app"
 
 [[env.production.kv_namespaces]]
@@ -20,6 +21,7 @@ binding = "AI"
 
 [env.development.vars]
 AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
+ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 FRONTEND_URL = "http://localhost:5173"
 JWT_SECRET = "dev-secret-key-change-in-production"
 STRIPE_SECRET_KEY = "sk_test_..."
