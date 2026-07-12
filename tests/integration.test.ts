@@ -11,6 +11,13 @@ class MemoryKv {
   async put(key: string, value: string): Promise<void> {
     this.values.set(key, value);
   }
+
+  async list(options: { prefix?: string } = {}): Promise<{ keys: Array<{ name: string }> }> {
+    const prefix = options.prefix ?? '';
+    return {
+      keys: [...this.values.keys()].filter(key => key.startsWith(prefix)).map(name => ({ name }))
+    };
+  }
 }
 
 const payload = {
@@ -81,6 +88,41 @@ describe('Worker verdict flow', () => {
     });
   });
 
+
+  it('lists purchased validation plans saved before the user index existed', async () => {
+    const kv = new MemoryKv();
+    const env = createEnv(kv);
+    const signupResponse = await worker.fetch(new Request('http://localhost/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'plans@example.com', password: 'correct-horse' })
+    }), env);
+    const signup = await signupResponse.json<{ token: string }>();
+    const authorization = { Authorization: `Bearer ${signup.token}` };
+    await kv.put('verdict_existing-plan', JSON.stringify({
+      ...payload,
+      resultId: 'existing-plan',
+      deterministicScores: { litScore: 3, verdictHeadline: 'Test first' },
+      generatedAt: '2026-07-12T00:00:00.000Z'
+    }));
+    await kv.put('paid_test_order_order-1', JSON.stringify({
+      orderId: 'order-1',
+      email: 'plans@example.com',
+      verdictId: 'existing-plan',
+      status: 'ready',
+      reportVersion: '1.0',
+      intake: { verdictId: 'existing-plan', targetBuyer: 'Agencies', problem: 'Defects', currentWorkaround: 'Checklists' },
+      createdAt: '2026-07-12T00:00:00.000Z',
+      updatedAt: '2026-07-12T01:00:00.000Z'
+    }));
+
+    const response = await worker.fetch(new Request('http://localhost/api/paid-test/orders', {
+      headers: authorization
+    }), env);
+    expect(await response.json<{ orders: Array<{ orderId: string; ideaName: string; status: string }> }>()).toMatchObject({
+      orders: [{ orderId: 'order-1', ideaName: 'Agency QA', status: 'ready' }]
+    });
+  });
 
   it('falls back deterministically and caches the result when AI is unavailable', async () => {
     const kv = new MemoryKv();
