@@ -26,11 +26,20 @@ async function savedVerdict(env: Env, verdictId: string, email?: string): Promis
 
 export async function handlePaidTestCheckout(request: Request, env: Env): Promise<Response> {
   const auth = await authenticateRequest(request, env);
-  if (!auth) return json({ error: 'Authentication required' }, 401);
+  if (!auth) {
+    console.warn('Paid checkout rejected: authentication required');
+    return json({ error: 'Please log in again before checkout' }, 401);
+  }
   const intake = await request.json<Partial<PaidTestIntake>>();
-  if (!validIntake(intake)) return json({ error: 'verdictId, targetBuyer, problem, and currentWorkaround are required' }, 400);
+  if (!validIntake(intake)) {
+    console.warn('Paid checkout rejected: incomplete intake');
+    return json({ error: 'Complete all required validation-plan fields' }, 400);
+  }
   const verdict = await savedVerdict(env, intake.verdictId, auth.email);
-  if (!verdict) return json({ error: 'The source LIT verdict was not found' }, 404);
+  if (!verdict) {
+    console.warn('Paid checkout rejected: source verdict not found', intake.verdictId);
+    return json({ error: 'This assessment must be saved before checkout. Reopen it from Dashboard and try again.' }, 404);
+  }
   const now = new Date().toISOString();
   const order: PaidTestOrder = { orderId: id('gtt'), email: auth.email, verdictId: intake.verdictId, status: 'pending', reportVersion: VERSION, intake: { ...intake, competitorLinks: intake.competitorLinks?.filter(Boolean) }, createdAt: now, updatedAt: now };
   await env.KV.put(orderKey(order.orderId), JSON.stringify(order));
@@ -43,7 +52,12 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     'cancel_url': `${env.FRONTEND_URL?.replace(/\/$/, '') || new URL(request.url).origin}/`
   });
   const response = await fetch('https://api.stripe.com/v1/checkout/sessions', { method: 'POST', headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: fields.toString() });
-  if (!response.ok) { await env.KV.delete(orderKey(order.orderId)); return json({ error: 'Checkout is unavailable' }, 502); }
+  if (!response.ok) {
+    const stripeError = await response.text();
+    console.error('Paid checkout Stripe rejection', response.status, stripeError);
+    await env.KV.delete(orderKey(order.orderId));
+    return json({ error: 'Stripe rejected the $29 checkout configuration. Confirm the test/live mode and STRIPE_PAID_TEST_PRICE_ID.' }, 502);
+  }
   const session = await response.json() as { id: string; url: string };
   order.stripeCheckoutSessionId = session.id; order.updatedAt = new Date().toISOString();
   await env.KV.put(orderKey(order.orderId), JSON.stringify(order));
