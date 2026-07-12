@@ -118,7 +118,7 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       if (!scores) throw new Error('Scoring failed');
 
       // Step 3: Verdict
-      verdict = await generateVerdict(scores, env);
+      verdict = await generateVerdict(idea, analysis, scores, env);
       if (!verdict) throw new Error('Verdict generation failed');
 
       // Validate
@@ -231,9 +231,14 @@ async function scoreIdea(analysis: IdeaAnalysis, env: Env): Promise<IdeaScores |
   }
 }
 
-async function generateVerdict(scores: IdeaScores, env: Env): Promise<VerdictData | undefined> {
+async function generateVerdict(
+  idea: IdeaIntake,
+  analysis: IdeaAnalysis,
+  scores: IdeaScores,
+  env: Env
+): Promise<VerdictData | undefined> {
   try {
-    const prompt = buildVerdictPrompt(scores);
+    const prompt = buildVerdictPrompt(idea, analysis, scores);
 
     const response = await runTextModel(env, prompt, 600);
     const text = getAiText(response);
