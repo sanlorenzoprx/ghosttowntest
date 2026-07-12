@@ -6,11 +6,12 @@ interface Props {
   idea: IdeaIntake;
   verdictId: string;
   loading: boolean;
+  error: string;
   onClose: () => void;
   onSubmit: (intake: PaidTestIntake) => void;
 }
 
-export default function ActionPlanModal({ idea, verdictId, loading, onClose, onSubmit }: Props) {
+export default function ActionPlanModal({ idea, verdictId, loading, error, onClose, onSubmit }: Props) {
   const [targetBuyer, setTargetBuyer] = useState(idea.targetUser);
   const [problem, setProblem] = useState(idea.painfulProblem);
   const [currentWorkaround, setCurrentWorkaround] = useState(idea.currentAlternative);
@@ -47,6 +48,12 @@ export default function ActionPlanModal({ idea, verdictId, loading, onClose, onS
             <Field label="What they use or do today" value={currentWorkaround} onChange={setCurrentWorkaround} placeholder="Current tool, service, spreadsheet, or manual workaround" multiline />
             <Field label="Price you want to test" value={expectedPrice} onChange={setExpectedPrice} placeholder="$29" />
           </div>
+
+          {error && (
+            <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700" role="alert">
+              {error}
+            </div>
+          )}
 
           <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button type="button" onClick={onClose} disabled={loading} className="rounded-lg border border-gray-300 px-5 py-3 font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
