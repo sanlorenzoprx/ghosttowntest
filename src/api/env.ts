@@ -2,6 +2,7 @@ export interface Env {
   KV: KVNamespace;
   AI: Ai;
   AI_MODEL?: string;
+  ACTION_PLAN_AI_MODEL?: string;
   FRONTEND_URL?: string;
   LIT_API_KEY?: string;
   JWT_SECRET: string;
