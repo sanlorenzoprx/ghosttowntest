@@ -7,7 +7,7 @@ export default function Contact({ onStart }: Props) {
     <section className="bg-gradient-to-br from-slate-50 via-blue-50 to-orange-50 px-4 py-16">
       <div className="mx-auto max-w-4xl">
         <p className="text-sm font-black uppercase tracking-[0.28em] text-ghost-rust">Contact Ghost Town Test</p>
-        <h1 className="mt-4 font-display text-4xl text-ghost-ink sm:text-5xl">
+        <h1 className="mt-4 max-w-3xl font-slab text-4xl font-bold leading-[1.08] tracking-tight text-ghost-ink sm:text-5xl lg:text-6xl">
           Need help deciding if an idea is worth building?
         </h1>
         <p className="mt-5 max-w-2xl text-lg leading-relaxed text-gray-700">
