@@ -8,6 +8,7 @@ const VERSION = '1.0' as const;
 const json = (body: unknown, status = 200, extra: HeadersInit = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...extra } });
 const orderKey = (id: string) => `paid_test_order_${id}`;
 const reportKey = (id: string) => `paid_test_report_${id}`;
+const userOrdersKey = (email: string) => `paid_test_orders_${email.trim().toLowerCase()}`;
 const DEFAULT_ACTION_PLAN_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
 function id(prefix: string): string { return `${prefix}_${crypto.randomUUID()}`; }
@@ -61,6 +62,7 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
   const session = await response.json() as { id: string; url: string };
   order.stripeCheckoutSessionId = session.id; order.updatedAt = new Date().toISOString();
   await env.KV.put(orderKey(order.orderId), JSON.stringify(order));
+  await savePaidOrderSummary(env, order, verdict.idea.ideaName);
   return json({ sessionUrl: session.url });
 }
 
@@ -116,6 +118,7 @@ export async function fulfillPaidTestOrder(env: Env, orderId: string, session: R
   report.qualityGate = qualityGate(report);
   if (!report.qualityGate.passed) { order.status = 'failed'; order.updatedAt = new Date().toISOString(); await env.KV.put(orderKey(orderId), JSON.stringify(order)); throw new Error(report.qualityGate.failures.join(', ')); }
   await env.KV.put(reportKey(orderId), JSON.stringify(report)); order.status = 'ready'; order.updatedAt = new Date().toISOString(); await env.KV.put(orderKey(orderId), JSON.stringify(order));
+  await savePaidOrderSummary(env, order, verdict.idea.ideaName);
 }
 
 async function generateEnhancedSections(order: PaidTestOrder, verdict: EvaluationResult, env: Env): Promise<PaidTestReport['sections'] | null> {
@@ -158,6 +161,59 @@ function isReportSection(value: unknown): value is PaidTestReport['sections'][nu
         && typeof claimValue.text === 'string'
         && claimValue.text.trim().length > 0;
     });
+}
+
+export interface PaidOrderSummary {
+  orderId: string;
+  ideaName: string;
+  status: PaidTestOrder['status'];
+  createdAt: string;
+  updatedAt: string;
+}
+
+async function savePaidOrderSummary(env: Env, order: PaidTestOrder, ideaName: string): Promise<void> {
+  const key = userOrdersKey(order.email);
+  const raw = await env.KV.get(key);
+  const existing = raw ? JSON.parse(raw) as PaidOrderSummary[] : [];
+  const summary: PaidOrderSummary = {
+    orderId: order.orderId,
+    ideaName,
+    status: order.status,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt
+  };
+  const orders = [summary, ...existing.filter(item => item.orderId !== order.orderId)]
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .slice(0, 50);
+  await env.KV.put(key, JSON.stringify(orders));
+}
+
+export async function handlePaidTestOrders(request: Request, env: Env): Promise<Response> {
+  const auth = await authenticateRequest(request, env);
+  if (!auth) return json({ error: 'Authentication required' }, 401);
+  const key = userOrdersKey(auth.email);
+  const indexed = await env.KV.get(key);
+  if (indexed) return json({ orders: JSON.parse(indexed) as PaidOrderSummary[] });
+
+  const listed = await env.KV.list({ prefix: 'paid_test_order_', limit: 1000 });
+  const orders: PaidOrderSummary[] = [];
+  for (const item of listed.keys) {
+    const raw = await env.KV.get(item.name);
+    if (!raw) continue;
+    const order = JSON.parse(raw) as PaidTestOrder;
+    if (order.email.trim().toLowerCase() !== auth.email.trim().toLowerCase()) continue;
+    const verdict = await savedVerdict(env, order.verdictId, order.email);
+    orders.push({
+      orderId: order.orderId,
+      ideaName: verdict?.idea.ideaName || 'Validation Action Plan',
+      status: order.status,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt
+    });
+  }
+  orders.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  await env.KV.put(key, JSON.stringify(orders.slice(0, 50)));
+  return json({ orders: orders.slice(0, 50) });
 }
 
 export async function handlePaidTestReport(request: Request, env: Env, orderId: string): Promise<Response> {
