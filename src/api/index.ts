@@ -138,6 +138,14 @@ function getAllowedOrigin(request: Request, env: Env): string | undefined {
   const origin = request.headers.get('Origin');
   if (!origin) return undefined;
   if (LOCAL_ORIGINS.has(origin) || origin === env.FRONTEND_URL?.replace(/\/$/, '')) return origin;
+  try {
+    const hostname = new URL(origin).hostname;
+    if (hostname === 'lit-ghosttown.app' || hostname === 'www.lit-ghosttown.app' || hostname.endsWith('.ghosttowntest.pages.dev')) {
+      return origin;
+    }
+  } catch {
+    return undefined;
+  }
   return undefined;
 }
 
