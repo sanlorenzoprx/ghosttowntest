@@ -67,6 +67,24 @@ describe('verdict social card rendering', () => {
     expect(svg).toContain('Digital Product');
   });
 
+  it('wraps long verdict hooks so they do not run beneath the score panel', () => {
+    const testFirstResult: EvaluationResult = {
+      ...result,
+      deterministicScores: {
+        ...result.deterministicScores,
+        finalVerdict: 'test_first'
+      }
+    };
+    const svg = createVerdictCardSvg(testFirstResult, {
+      format: 'landscape',
+      includeIdeaName: false
+    });
+
+    expect(svg).toContain('GOOD IDEA. DANGEROUS');
+    expect(svg).toContain('ASSUMPTION.');
+    expect(svg).not.toContain('>GOOD IDEA. DANGEROUS ASSUMPTION.</text>');
+  });
+
   it('keeps the idea name out of share text when privacy is enabled', () => {
     const summary = createShareSummary(result, 'https://lit.example/share/abc', false);
     expect(summary).toContain('**Idea:** Kept private');
