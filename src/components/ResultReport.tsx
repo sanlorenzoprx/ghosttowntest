@@ -5,6 +5,8 @@ import { useEffect } from 'react';
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
+import ActionPlanModal from './ActionPlanModal';
+import type { PaidTestIntake } from '../types/paidTest';
 
 interface Props {
   result: EvaluationResult;
@@ -17,13 +19,21 @@ interface Props {
 export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick, onRewardClaimed }: Props) {
   const [paidLoading, setPaidLoading] = useState(false);
   const [paidError, setPaidError] = useState('');
+  const [showActionPlanForm, setShowActionPlanForm] = useState(false);
   const scores = result.deterministicScores;
   const verdict = result.verdict;
 
   // Save result to localStorage
   useEffect(() => {
     saveLatestResult(result);
-  }, [result]);
+    if (isLoggedIn) {
+      void fetch(apiUrl('/api/results'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ result })
+      });
+    }
+  }, [isLoggedIn, result]);
 
   const getVerdictColor = (verdict: string) => {
     switch (verdict) {
@@ -46,15 +56,16 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   const litPercent = Math.round(scores.litScore * 20);
   const scoreTone = litPercent >= 75 ? 'text-ghost-sage' : litPercent >= 50 ? 'text-amber-700' : 'text-red-700';
 
-  const startPaidTest = async () => {
+  const openActionPlanForm = () => {
     if (!isLoggedIn) { onLoginClick(); return; }
-    const targetBuyer = window.prompt('Who is the one buyer segment you want to test?', result.idea.targetUser);
-    const problem = window.prompt('What urgent problem will this buyer pay to solve?', result.idea.painfulProblem);
-    const currentWorkaround = window.prompt('What do they use or do instead today?', result.idea.currentAlternative);
-    if (!targetBuyer?.trim() || !problem?.trim() || !currentWorkaround?.trim()) return;
+    setPaidError('');
+    setShowActionPlanForm(true);
+  };
+
+  const startPaidTest = async (intake: PaidTestIntake) => {
     setPaidLoading(true); setPaidError('');
     try {
-      const response = await fetch(apiUrl('/api/paid-test/checkout'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ verdictId: result.resultId, targetBuyer, problem, currentWorkaround, expectedPrice: '$29' }) });
+      const response = await fetch(apiUrl('/api/paid-test/checkout'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(intake) });
       const data = await response.json<{ sessionUrl?: string; error?: string }>();
       if (!response.ok || !data.sessionUrl) throw new Error(data.error || 'Checkout is not available right now');
       window.location.assign(data.sessionUrl);
@@ -170,7 +181,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         </ul>
         <p className="mt-4 text-sm text-gray-700">A validation experiment—not a promise of product-market fit, revenue, or certainty.</p>
         {paidError && <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{paidError}</p>}
-        <button type="button" aria-label="Start 7-day validation plan checkout" onClick={startPaidTest} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
+        <button type="button" aria-label="Start 7-day validation plan checkout" onClick={openActionPlanForm} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
           {paidLoading ? 'Opening checkout...' : 'Unlock the 7-Day Validation Plan — $29'}
         </button>
       </section>
@@ -186,10 +197,20 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ghost-rust/20 bg-[#fff7f2]/95 p-3 backdrop-blur sm:hidden">
-        <button type="button" aria-label="Start 7-day validation plan checkout" onClick={startPaidTest} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
+        <button type="button" aria-label="Start 7-day validation plan checkout" onClick={openActionPlanForm} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
           {paidLoading ? 'Opening checkout…' : 'Get the 7-Day Plan — $29'}
         </button>
       </div>
+
+      {showActionPlanForm && (
+        <ActionPlanModal
+          idea={result.idea}
+          verdictId={result.resultId}
+          loading={paidLoading}
+          onClose={() => setShowActionPlanForm(false)}
+          onSubmit={intake => void startPaidTest(intake)}
+        />
+      )}
 
       {/* Metadata */}
       <div className="mt-8 pt-6 border-t border-gray-200 text-center">
