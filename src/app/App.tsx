@@ -7,6 +7,7 @@ import UserDashboard from '../components/UserDashboard';
 import LoginModal from '../components/LoginModal';
 import PaywallModal from '../components/PaywallModal';
 import Contact from '../components/Contact';
+import ActionPlanSuccess from '../components/ActionPlanSuccess';
 import { IdeaIntake as IdeaIntakeType, EvaluationResult } from '../types/lit';
 import {
   clearAuthToken,
@@ -21,12 +22,16 @@ import { apiUrl } from '../lib/api';
 import type { PublicUserData } from '../types/auth';
 import { getFeaturedExampleBySlug, toIdeaIntake } from '../lib/exampleIdeas';
 
-type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'contact';
+type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'contact' | 'action-plan-success';
 
 export default function App() {
   const [locale, setLocale] = useState<'en' | 'es'>(() => localStorage.getItem('lit_locale') === 'es' ? 'es' : 'en');
   const [initialExample] = useState(() => getFeaturedExampleBySlug(new URLSearchParams(window.location.search).get('example')));
-  const [screen, setScreen] = useState<Screen>(() => window.location.pathname === '/contact' ? 'contact' : initialExample ? 'intake' : 'landing');
+  const [screen, setScreen] = useState<Screen>(() => window.location.pathname === '/contact'
+    ? 'contact'
+    : window.location.pathname === '/paid-test/success'
+      ? 'action-plan-success'
+      : initialExample ? 'intake' : 'landing');
   const [idea, setIdea] = useState<IdeaIntakeType | null>(() => initialExample ? toIdeaIntake(initialExample.idea) : null);
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [resumeDraft, setResumeDraft] = useState<EvaluationDraft | null>(() => loadEvaluationDraft());
@@ -287,6 +292,15 @@ export default function App() {
         )}
         {screen === 'contact' && (
           <Contact onStart={handleStartTest} />
+        )}
+        {screen === 'action-plan-success' && (
+          <ActionPlanSuccess
+            orderId={new URLSearchParams(window.location.search).get('order_id') || ''}
+            onDone={() => {
+              updatePath('/');
+              setScreen(isLoggedIn ? 'dashboard' : 'landing');
+            }}
+          />
         )}
       </main>
 
