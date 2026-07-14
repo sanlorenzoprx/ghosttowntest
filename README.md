@@ -68,7 +68,7 @@ Before deployment:
 1. Replace the placeholder KV namespace IDs in `wrangler.toml`.
 2. Set Worker secrets for `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_PAID_TEST_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET` using Wrangler secrets or the Cloudflare dashboard.
 3. Set `FRONTEND_URL` and `AI_MODEL` for the target environment.
-4. Set the frontend `VITE_API_URL` to the deployed Worker origin.
+4. Set the frontend `VITE_API_URL=https://api.ghosttowntest.com` for production. The frontend also infers this API origin on `ghosttowntest.com`.
 5. Configure Stripe to send `checkout.session.completed` events to `/api/webhook/stripe`.
 
 Build and deploy:
