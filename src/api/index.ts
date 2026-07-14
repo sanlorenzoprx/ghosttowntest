@@ -33,6 +33,21 @@ export default {
     }
 
     try {
+      // Read-only service handshake for Shorts Factory. Never exposes credentials.
+      if (path === '/api/integrations/shorts-factory/health' && method === 'GET') {
+        return new Response(JSON.stringify({
+          status: 'ok',
+          service: 'ghosttowntest',
+          contract_version: 'lit-verdict-v1',
+          verdict_endpoint: '/api/verdict',
+          authentication: env.LIT_API_KEY?.trim() ? 'bearer_required' : 'not_configured',
+          live_publishing_enabled: false
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       // Verdict endpoint
       if ((path === '/api/verdict' || path === '/api/lit-verdict') && method === 'POST') {
         const response = await verdictHandler(request, env);
@@ -166,7 +181,14 @@ function getAllowedOrigin(request: Request, env: Env): string | undefined {
   if (LOCAL_ORIGINS.has(origin) || origin === env.FRONTEND_URL?.replace(/\/$/, '')) return origin;
   try {
     const hostname = new URL(origin).hostname;
-    if (hostname === 'lit-ghosttown.app' || hostname === 'www.lit-ghosttown.app' || hostname.endsWith('.ghosttowntest.pages.dev')) {
+    if (
+      hostname === 'ghosttowntest.com'
+      || hostname === 'www.ghosttowntest.com'
+      || hostname === 'app.ghosttowntest.com'
+      || hostname === 'lit-ghosttown.app'
+      || hostname === 'www.lit-ghosttown.app'
+      || hostname.endsWith('.ghosttowntest.pages.dev')
+    ) {
       return origin;
     }
   } catch {
