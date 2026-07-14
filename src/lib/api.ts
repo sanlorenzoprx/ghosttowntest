@@ -5,9 +5,16 @@ function inferProductionApiBaseUrl(): string {
 
   const { hostname, protocol } = window.location;
   if (hostname === 'localhost' || hostname === '127.0.0.1') return '';
-  if (hostname === 'api.lit-ghosttown.app') return '';
-  if (hostname === 'lit-ghosttown.app' || hostname === 'www.lit-ghosttown.app' || hostname.endsWith('.pages.dev')) {
-    return `${protocol}//api.lit-ghosttown.app`;
+  if (hostname === 'api.ghosttowntest.com' || hostname === 'api.lit-ghosttown.app') return '';
+  if (
+    hostname === 'ghosttowntest.com'
+    || hostname === 'www.ghosttowntest.com'
+    || hostname === 'app.ghosttowntest.com'
+    || hostname === 'lit-ghosttown.app'
+    || hostname === 'www.lit-ghosttown.app'
+    || hostname.endsWith('.pages.dev')
+  ) {
+    return `${protocol}//api.ghosttowntest.com`;
   }
   return '';
 }
