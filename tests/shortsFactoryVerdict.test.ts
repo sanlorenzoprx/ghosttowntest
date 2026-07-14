@@ -39,6 +39,27 @@ function verdictRequest(
 }
 
 describe('Shorts Factory verdict API contract', () => {
+  it('exposes a read-only production integration handshake', async () => {
+    const request = new Request('https://api.ghosttowntest.com/api/integrations/shorts-factory/health', {
+      method: 'GET',
+      headers: { Origin: 'https://ghosttowntest.com' }
+    });
+    const response = await worker.fetch(request, createEnv('factory-secret'));
+    const body = await response.json<Record<string, unknown>>();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://ghosttowntest.com');
+    expect(body).toEqual({
+      status: 'ok',
+      service: 'ghosttowntest',
+      contract_version: 'lit-verdict-v1',
+      verdict_endpoint: '/api/verdict',
+      authentication: 'bearer_required',
+      live_publishing_enabled: false
+    });
+    expect(JSON.stringify(body)).not.toContain('factory-secret');
+  });
+
   it('returns a complete normalized deterministic verdict', async () => {
     const response = await worker.fetch(verdictRequest(), createEnv());
     const body = await response.json<Record<string, unknown>>();
