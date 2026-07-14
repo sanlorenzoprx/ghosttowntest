@@ -4,7 +4,7 @@ compatibility_date = "2024-01-01"
 
 [env.production]
 routes = [
-  { pattern = "api.ghosttowntest.com/*", zone_name = "ghosttowntest.com" }
+  { pattern = "api.ghosttowntest.com", custom_domain = true }
 ]
 
 [env.production.vars]
