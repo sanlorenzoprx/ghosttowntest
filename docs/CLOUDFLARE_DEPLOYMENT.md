@@ -4,10 +4,10 @@
 
 | Hostname | Purpose |
 | --- | --- |
-| `ghosttowntest.com` | English/Spanish acquisition funnel and product pages |
-| `app.ghosttowntest.com` | LIT verdict and paid GhostTown Test app |
+| `ghosttowntest.com` | Canonical English/Spanish GhostTown Test website and app |
+| `app.ghosttowntest.com` | Optional alias to the canonical app |
 | `api.ghosttowntest.com` | Cloudflare Worker API |
-| `lit-ghosttown.app` | 301 redirect to `app.ghosttowntest.com` |
+| `lit-ghosttown.app` | Legacy redirect to `ghosttowntest.com` |
 
 ## Pages
 
@@ -15,7 +15,7 @@ Create one Cloudflare Pages project named `ghosttowntest` from this repository. 
 
 ## Worker
 
-Deploy the Worker with `npx wrangler deploy --env production` after setting production KV IDs and Worker secrets. Bind `api.ghosttowntest.com/*` to the Worker. Set `FRONTEND_URL=https://app.ghosttowntest.com`; add the marketing hostname to the Worker CORS allow-list if the landing page calls the API directly.
+Deploy the Worker with `npx wrangler deploy --env production` after setting production KV IDs and Worker secrets. Bind `api.ghosttowntest.com/*` to the Worker. Set `FRONTEND_URL=https://ghosttowntest.com`. The Worker CORS allow-list covers the root, `www`, optional `app`, Pages previews, and the legacy domain. The read-only Shorts Factory handshake is `GET /api/integrations/shorts-factory/health`; verdict generation remains `POST /api/verdict`.
 
 Required secrets: `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_PAID_TEST_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET`.
 
