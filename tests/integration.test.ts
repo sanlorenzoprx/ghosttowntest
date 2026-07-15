@@ -4,8 +4,10 @@ import worker from '../src/api/index';
 class MemoryKv {
   private values = new Map<string, string>();
 
-  async get(key: string): Promise<string | null> {
-    return this.values.get(key) ?? null;
+  async get<T = string>(key: string, type?: 'text' | 'json'): Promise<T | null> {
+    const value = this.values.get(key);
+    if (value === undefined) return null;
+    return (type === 'json' ? JSON.parse(value) : value) as T;
   }
 
   async put(key: string, value: string): Promise<void> {
@@ -29,6 +31,7 @@ const payload = {
     currentAlternative: 'Manual browser checklists',
     motivation: 'Repeated firsthand delivery pain'
   },
+  public_content_acknowledged: true,
   answers: {
     gt_1: 5, gt_2: 4, gt_3: 4, gt_4: 5, pg_1: 4,
     lev_1: 4, lev_2: 3, lev_3: 5,
@@ -38,7 +41,7 @@ const payload = {
   }
 };
 
-function createEnv(kv: MemoryKv, onModel?: (model: string) => void) {
+function createEnv(kv: MemoryKv, onModel?: (model: string) => void, apiKey = '') {
   return {
     KV: kv as unknown as KVNamespace,
     AI: { run: async (model: string) => {
@@ -47,6 +50,7 @@ function createEnv(kv: MemoryKv, onModel?: (model: string) => void) {
     } } as unknown as Ai,
     AI_MODEL: '@cf/example/configured-model',
     FRONTEND_URL: 'http://localhost:5173',
+    LIT_API_KEY: apiKey,
     JWT_SECRET: 'test-secret-with-enough-entropy',
     STRIPE_SECRET_KEY: 'sk_test_placeholder',
     STRIPE_PRICE_ID: 'price_placeholder',
@@ -147,6 +151,51 @@ describe('Worker verdict flow', () => {
     expect(await second.json<{ usedAI: boolean; cacheHit: boolean }>()).toMatchObject({
       usedAI: false,
       cacheHit: true
+    });
+  });
+
+  it('requires public acknowledgement and exposes an idempotent public video job', async () => {
+    const kv = new MemoryKv();
+    const env = createEnv(kv, undefined, 'factory-secret');
+
+    const rejected = await worker.fetch(new Request('http://localhost/api/verdict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, public_content_acknowledged: false })
+    }), env);
+    expect(rejected.status).toBe(400);
+    expect(await rejected.json()).toEqual({ error: 'public_content_acknowledgement_required' });
+
+    const verdictResponse = await worker.fetch(new Request('http://localhost/api/verdict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }), env);
+    const verdict = await verdictResponse.json<{
+      video: { job_id: string; status: string; public: boolean; reused: boolean }
+    }>();
+    expect(verdict.video).toMatchObject({
+      status: 'queued',
+      public: true,
+      reused: false
+    });
+
+    const claimResponse = await worker.fetch(new Request(
+      'http://localhost/api/integrations/shorts-factory/video-jobs/next',
+      { headers: { Authorization: 'Bearer factory-secret' } }
+    ), env);
+    expect(claimResponse.status).toBe(200);
+    expect(await claimResponse.json<{ job_id: string }>()).toMatchObject({
+      job_id: verdict.video.job_id
+    });
+
+    const statusResponse = await worker.fetch(new Request(
+      `http://localhost/api/videos/${verdict.video.job_id}/status`
+    ), env);
+    expect(await statusResponse.json()).toMatchObject({
+      job_id: verdict.video.job_id,
+      status: 'processing',
+      public: true
     });
   });
 
