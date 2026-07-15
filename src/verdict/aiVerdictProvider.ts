@@ -9,6 +9,7 @@ export interface IdeaInput {
   current_alternative?: string;
   price_point?: string;
   distribution_channel?: string;
+  responses?: Record<string, string | number | boolean>;
 }
 
 export interface VerdictSignals {
