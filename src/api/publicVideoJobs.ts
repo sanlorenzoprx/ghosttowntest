@@ -111,6 +111,10 @@ export async function handlePublicVideoUpload(
   if (bytes.byteLength !== length) return json({ error: 'content length mismatch' }, 422);
   const actualHash = await digest(bytes);
   if (actualHash !== sha256) return json({ error: 'video checksum mismatch' }, 422);
+  const signature = new TextDecoder().decode(bytes.slice(4, 8));
+  if (bytes.byteLength < 12 || signature !== 'ftyp') {
+    return json({ error: 'video is not a recognizable MP4 container' }, 422);
+  }
 
   await env.VIDEOS.put(job.object_key, bytes, {
     httpMetadata: { contentType: 'video/mp4', cacheControl: 'public, max-age=31536000, immutable' },
