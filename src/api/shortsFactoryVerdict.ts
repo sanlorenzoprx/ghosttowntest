@@ -1,7 +1,11 @@
 import { calculateDeterministicScores } from '../lib/scoring';
 import type { EvaluationAnswers } from '../types/lit';
-import { MockVerdictProvider } from '../verdict/mockVerdictProvider';
+import { DeterministicVerdictProvider } from '../verdict/deterministicVerdictProvider';
 import { generateValidatedVerdict } from '../verdict/verdictEngine';
+import {
+  DEFAULT_SHORTS_FACTORY_AI_MODEL,
+  WorkersAiVerdictProvider
+} from '../verdict/workersAiVerdictProvider';
 import type { Env } from './env';
 
 interface ShortsFactoryIdea {
@@ -89,24 +93,44 @@ async function createShortsFactoryVerdict(
     willingness_to_pay: toTwentyPointScore(scores.ghostTownScore),
     advantage: toTwentyPointScore(scores.leverageScore)
   };
-  const verdict = await generateValidatedVerdict(
-    new MockVerdictProvider(),
-    ideaResult.idea,
-    {
-      lit_score: Math.round(scores.litScore * 20),
-      risk_level: scores.ghostTownRisk,
-      top_reason: scores.verdictExplanation,
-      next_step: scores.recommendedNextTest,
-      pain_score: normalizedScores.pain,
-      reachability_score: normalizedScores.reachability,
-      willingness_to_pay_score: normalizedScores.willingness_to_pay,
-      advantage_score: normalizedScores.advantage
-    }
-  );
+  const signals = {
+    lit_score: Math.round(scores.litScore * 20),
+    risk_level: scores.ghostTownRisk,
+    top_reason: scores.verdictExplanation,
+    next_step: scores.recommendedNextTest,
+    pain_score: normalizedScores.pain,
+    reachability_score: normalizedScores.reachability,
+    willingness_to_pay_score: normalizedScores.willingness_to_pay,
+    advantage_score: normalizedScores.advantage
+  };
+  const providerInput = {
+    ...ideaResult.idea,
+    responses: normalizeResponseContext(payload.answers)
+  };
+
+  let evaluationMode: 'workers_ai' | 'deterministic_fallback' = 'workers_ai';
+  let verdict;
+  try {
+    const model = env.AI_MODEL?.trim() || DEFAULT_SHORTS_FACTORY_AI_MODEL;
+    verdict = await generateValidatedVerdict(
+      new WorkersAiVerdictProvider(env.AI, model),
+      providerInput,
+      signals
+    );
+  } catch {
+    evaluationMode = 'deterministic_fallback';
+    console.warn('Workers AI verdict unavailable; deterministic fallback used');
+    verdict = await generateValidatedVerdict(
+      new DeterministicVerdictProvider(),
+      providerInput,
+      signals
+    );
+  }
 
   return jsonResponse({
     idea: ideaResult.idea,
     ...verdict,
+    evaluation_mode: evaluationMode,
     deterministic_scores: normalizedScores
   });
 }
@@ -155,6 +179,20 @@ function normalizeAnswers(value: unknown): EvaluationAnswers {
     adapted[key] = portableScores[index % portableScores.length];
   });
   return adapted;
+}
+
+function normalizeResponseContext(value: unknown): Record<string, string | number | boolean> {
+  if (!isRecord(value)) return {};
+  const context: Record<string, string | number | boolean> = {};
+  for (const [key, answer] of Object.entries(value).slice(0, 40)) {
+    if (!/^(?:q\d+|gt_\d+|lev_\d+|ins_\d+|tim_\d+|pg_\d+|walls_\d+|dna_\d+)$/.test(key)) {
+      continue;
+    }
+    if (typeof answer === 'string') context[key] = answer.trim().slice(0, 200);
+    else if (typeof answer === 'number' && Number.isFinite(answer)) context[key] = answer;
+    else if (typeof answer === 'boolean') context[key] = answer;
+  }
+  return context;
 }
 
 function normalizeScore(value: unknown): number | undefined {
