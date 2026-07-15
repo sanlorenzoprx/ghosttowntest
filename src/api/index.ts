@@ -7,6 +7,13 @@ import verdictHandler from './verdict';
 import { handlePaidTestCheckout, handlePaidTestOrders, handlePaidTestPdf, handlePaidTestReport } from './paidTest';
 import type { Env } from './env';
 import { handleResultHistory, handleSaveCurrentResult, handleSavedResult } from './resultHistory';
+import {
+  handleNextPublicVideoJob,
+  handlePublicVideo,
+  handlePublicVideoFailure,
+  handlePublicVideoStatus,
+  handlePublicVideoUpload
+} from './publicVideoJobs';
 
 /**
  * Main Cloudflare Workers fetch handler
@@ -51,6 +58,40 @@ export default {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
+      }
+
+      if (path === '/api/integrations/shorts-factory/video-jobs/next' && method === 'GET') {
+        const response = await handleNextPublicVideoJob(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      const videoUploadMatch = path.match(/^\/api\/integrations\/shorts-factory\/video-jobs\/([a-zA-Z0-9_-]+)\/video$/);
+      if (videoUploadMatch && method === 'PUT') {
+        const response = await handlePublicVideoUpload(request, env, videoUploadMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      const videoFailureMatch = path.match(/^\/api\/integrations\/shorts-factory\/video-jobs\/([a-zA-Z0-9_-]+)\/fail$/);
+      if (videoFailureMatch && method === 'POST') {
+        const response = await handlePublicVideoFailure(request, env, videoFailureMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      const videoStatusMatch = path.match(/^\/api\/videos\/([a-zA-Z0-9_-]+)\/status$/);
+      if (videoStatusMatch && method === 'GET') {
+        const response = await handlePublicVideoStatus(env, videoStatusMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      const publicVideoMatch = path.match(/^\/api\/videos\/([a-zA-Z0-9_-]+)\.mp4$/);
+      if (publicVideoMatch && method === 'GET') {
+        const response = await handlePublicVideo(env, publicVideoMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
       }
 
       // Verdict endpoint

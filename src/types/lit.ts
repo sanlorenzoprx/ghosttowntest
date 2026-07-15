@@ -26,6 +26,7 @@ export interface IdeaIntake {
   painfulProblem: string;
   currentAlternative: string;
   motivation: string;
+  publicContentAcknowledged?: boolean;
 }
 
 // ============ QUESTIONS ============
@@ -93,6 +94,17 @@ export interface VerdictData {
 }
 
 // ============ COMPLETE RESULT ============
+export interface PublicVideoResult {
+  job_id: string;
+  status: 'queued' | 'processing' | 'complete' | 'failed';
+  public: true;
+  origin: 'user_submission';
+  reused: boolean;
+  status_url: string;
+  video_url: string | null;
+  distribution_status: 'pending' | 'eligible';
+}
+
 export interface EvaluationResult {
   resultId: string;
   idea: IdeaIntake;
@@ -129,6 +141,7 @@ export interface EvaluationResult {
   usedAI: boolean;
   generatedAt: string;
   cacheHit: boolean;
+  video?: PublicVideoResult;
 }
 
 // ============ BUSINESS DNA ============
