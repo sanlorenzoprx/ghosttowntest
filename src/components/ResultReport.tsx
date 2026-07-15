@@ -1,4 +1,4 @@
-import { EvaluationResult } from '../types/lit';
+import { EvaluationResult, PublicVideoResult } from '../types/lit';
 import ShareCard from './ShareCard';
 import { saveLatestResult } from '../lib/storage';
 import { useEffect } from 'react';
@@ -20,6 +20,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   const [paidLoading, setPaidLoading] = useState(false);
   const [paidError, setPaidError] = useState('');
   const [showActionPlanForm, setShowActionPlanForm] = useState(false);
+  const [video, setVideo] = useState<PublicVideoResult | undefined>(result.video);
   const scores = result.deterministicScores;
   const verdict = result.verdict;
 
@@ -34,6 +35,31 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       });
     }
   }, [isLoggedIn, result]);
+
+  useEffect(() => {
+    setVideo(result.video);
+  }, [result]);
+
+  useEffect(() => {
+    if (!video || video.status === 'complete') return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const response = await fetch(apiUrl(video.status_url));
+        if (!response.ok) return;
+        const next = await response.json<PublicVideoResult>();
+        if (active) setVideo(next);
+      } catch {
+        // The report remains available while a transient video-status request retries.
+      }
+    };
+    const interval = window.setInterval(() => void refresh(), 4000);
+    void refresh();
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [video?.job_id, video?.status, video?.status_url]);
 
   const getVerdictColor = (verdict: string) => {
     switch (verdict) {
@@ -91,6 +117,32 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           </div>
         </div>
       </div>
+
+      {video && (
+        <section className="mb-8 rounded-sm border border-gray-200 bg-gray-950 p-5 text-white shadow-dust">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-gold">Your public short</p>
+          {video.status === 'complete' && video.video_url ? (
+            <video
+              className="mx-auto mt-4 max-h-[70vh] w-full max-w-sm rounded bg-black"
+              controls
+              playsInline
+              preload="metadata"
+              src={apiUrl(video.video_url)}
+            >
+              Your browser does not support MP4 video.
+            </video>
+          ) : (
+            <div className="mt-4 rounded border border-white/15 bg-white/5 p-6 text-center">
+              <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-ghost-gold border-t-transparent" />
+              <p className="font-bold">Shorts Factory is preparing the video.</p>
+              <p className="mt-2 text-sm text-white/70">Your report is ready now. This panel updates automatically.</p>
+            </div>
+          )}
+          <p className="mt-4 text-xs text-white/60">
+            Public content · eligible for reuse and distribution after media verification.
+          </p>
+        </section>
+      )}
 
       {/* Scores Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
@@ -216,11 +268,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       {/* Metadata */}
       <div className="mt-8 pt-6 border-t border-gray-200 text-center">
         <p className="text-xs text-gray-500">
-          {result.usedAI ? (
-            <>Generated with AI analysis{result.cacheHit ? ' (cached)' : ''}</>
-          ) : (
-            <>Generated with deterministic scoring</>
-          )}
+          GhostTown Test verdict{result.cacheHit ? ' (cached report)' : ''}
           {' '}at {new Date(result.generatedAt).toLocaleString()}
         </p>
         <p className="text-xs text-gray-400 mt-2">
