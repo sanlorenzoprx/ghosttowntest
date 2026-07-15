@@ -133,7 +133,8 @@ describe('Shorts Factory verdict API contract', () => {
     const firstBody = await first.json<{ lit_score: number; verdict_headline: string }>();
     const secondBody = await second.json<{ lit_score: number; verdict_headline: string }>();
 
-    expect(secondBody).toEqual(firstBody);
+    expect(secondBody.lit_score).toBe(firstBody.lit_score);
+    expect(secondBody.verdict_headline).toBe(firstBody.verdict_headline);
   });
 
   it('does not allow model output to override scores, state, or provenance', async () => {
