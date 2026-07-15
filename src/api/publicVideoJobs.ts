@@ -140,7 +140,7 @@ export async function handlePublicVideoFailure(
   const key = jobKey(jobId);
   const job = await env.KV.get<PublicVideoJob>(key, 'json');
   if (!job) return json({ error: 'video job not found' }, 404);
-  const body = await request.json<{ failure_code?: unknown }>().catch(() => ({}));
+  const body: { failure_code?: unknown } = await request.json<{ failure_code?: unknown }>().catch(() => ({}));
   const failureCode = typeof body.failure_code === 'string'
     ? body.failure_code.replace(/[^a-z0-9_-]/gi, '').slice(0, 80) || 'render_failed'
     : 'render_failed';
