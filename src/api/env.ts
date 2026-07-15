@@ -1,6 +1,7 @@
 export interface Env {
   KV: KVNamespace;
   AI: Ai;
+  VIDEOS?: R2Bucket;
   AI_MODEL?: string;
   ACTION_PLAN_AI_MODEL?: string;
   FRONTEND_URL?: string;
