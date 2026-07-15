@@ -41,6 +41,11 @@ export default {
           contract_version: 'lit-verdict-v1',
           verdict_endpoint: '/api/verdict',
           authentication: env.LIT_API_KEY?.trim() ? 'bearer_required' : 'not_configured',
+          evaluation: {
+            primary: 'cloudflare_workers_ai',
+            fallback: 'deterministic',
+            provenance_recorded: true
+          },
           live_publishing_enabled: false
         }), {
           status: 200,
