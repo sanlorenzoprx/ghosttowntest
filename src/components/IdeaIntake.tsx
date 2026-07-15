@@ -17,6 +17,9 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [publicAcknowledged, setPublicAcknowledged] = useState(
+    initialIdea?.publicContentAcknowledged === true
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -33,6 +36,7 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
     if (!formData.description.trim()) newErrors.description = 'Description is required';
     if (!formData.targetUser.trim()) newErrors.targetUser = 'Target user is required';
     if (!formData.painfulProblem.trim()) newErrors.painfulProblem = 'Problem statement is required';
+    if (!publicAcknowledged) newErrors.publicContent = 'Please acknowledge public video distribution';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -41,7 +45,7 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onSubmit(formData);
+      onSubmit({ ...formData, publicContentAcknowledged: true });
     }
   };
 
@@ -165,6 +169,27 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
             className="h-24 w-full rounded border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <p className="text-gray-500 text-sm mt-1">This helps us understand if this is passion or proof</p>
+        </div>
+
+        <div className={`rounded-lg border p-4 ${errors.publicContent ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-blue-50'}`}>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={publicAcknowledged}
+              onChange={event => {
+                setPublicAcknowledged(event.target.checked);
+                if (errors.publicContent) setErrors(previous => ({ ...previous, publicContent: '' }));
+              }}
+              className="mt-1 h-5 w-5"
+              required
+            />
+            <span className="text-sm text-gray-800">
+              I understand my submitted idea, GhostTown Test report, and generated video are public
+              content that may be reused and distributed by Shorts Factory across current and future channels.
+              Do not include private, confidential, or identifying information.
+            </span>
+          </label>
+          {errors.publicContent && <p className="mt-2 text-sm text-red-700">{errors.publicContent}</p>}
         </div>
 
         {/* Submit Button */}
