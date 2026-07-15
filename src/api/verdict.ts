@@ -28,6 +28,7 @@ import { authenticateRequest } from './auth';
 import type { UserData } from '../types/auth';
 import { handleShortsFactoryVerdict, isShortsFactoryVerdictRequest } from './shortsFactoryVerdict';
 import { saveUserResult } from './resultHistory';
+import { queuePublicVideo } from './publicVideoJobs';
 
 const DEFAULT_AI_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
 
@@ -64,6 +65,14 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
 
     const { idea, answers } = payload;
 
+    // User-submitted ideas are public by product design and require an explicit
+    // acknowledgement before a report or distribution video is created.
+    if (payload.public_content_acknowledged !== true) {
+      return new Response(JSON.stringify({
+        error: 'public_content_acknowledgement_required'
+      }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+
     // Validate input
     if (!isIdeaIntake(idea) || !answers || typeof answers !== 'object') {
       return new Response(
@@ -95,6 +104,11 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       try {
         const cachedResult = JSON.parse(cached);
         const restoredResult = { ...cachedResult, resultId: cachedResult.resultId ?? ideaHash, cacheHit: true } as EvaluationResult;
+        restoredResult.video = await queuePublicVideo(
+          restoredResult,
+          typeof payload.locale === 'string' ? payload.locale : 'en-US',
+          env
+        );
         if (authenticated) {
           await recordTestUse(authenticated.user, env);
           await saveUserResult(authenticated.email, restoredResult, env);
@@ -154,6 +168,12 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       generatedAt: new Date().toISOString(),
       cacheHit: false
     };
+
+    result.video = await queuePublicVideo(
+      result,
+      typeof payload.locale === 'string' ? payload.locale : 'en-US',
+      env
+    );
 
     // 5. CACHE
     try {
