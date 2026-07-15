@@ -79,7 +79,12 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
       const response = await fetch(apiUrl('/api/verdict'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ idea, answers: finalAnswers })
+        body: JSON.stringify({
+          idea,
+          answers: finalAnswers,
+          public_content_acknowledged: idea.publicContentAcknowledged === true,
+          locale: document.documentElement.lang === 'es' ? 'es-PR' : 'en-US'
+        })
       });
 
       if (!response.ok) {
