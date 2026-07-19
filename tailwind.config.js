@@ -1,8 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    './index.html',
+    './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     container: {
@@ -17,30 +17,38 @@ export default {
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         primary: {
-          DEFAULT: '#B7410E',
-          foreground: '#FAF9F6',
+          DEFAULT: '#0071E3',
+          foreground: '#FFFFFF',
         },
         dust: {
-          50: '#FAF9F6',
-          100: '#F0E6D6',
-          200: '#E4D3B9',
-          800: '#3A291C',
-          900: '#2D1B0E',
-          950: '#0F0F0F',
+          50: '#FBFBFD',
+          100: '#F5F5F7',
+          200: '#E8E8ED',
+          800: '#2C2C2E',
+          900: '#1D1D1F',
+          950: '#050505',
         },
         ghost: {
-          ink: '#0F0F0F',
-          paper: '#FAF9F6',
-          rust: '#B7410E',
-          gold: '#D4AF37',
-          dusk: '#27364A',
-          sand: '#E9DEC9',
-          sage: '#4D7C0F',
-        }
+          ink: '#1D1D1F',
+          paper: '#F5F5F7',
+          rust: '#0071E3',
+          gold: '#FF9F0A',
+          dusk: '#2C2C2E',
+          sand: '#E8E8ED',
+          sage: '#248A3D',
+        },
+      },
+      borderRadius: {
+        '2xl': '1.25rem',
+        '3xl': '1.75rem',
+        '4xl': '2.25rem',
       },
       boxShadow: {
-        lantern: '0 12px 32px -12px rgba(183, 65, 14, 0.35)',
-        dust: '0 2px 12px rgba(15, 15, 15, 0.08)',
+        lantern: '0 18px 50px -20px rgba(0, 113, 227, 0.45)',
+        dust: '0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.06)',
+        elevated: '0 2px 8px rgba(0, 0, 0, 0.05), 0 24px 70px rgba(0, 0, 0, 0.10)',
+        premium: '0 30px 100px rgba(0, 0, 0, 0.22)',
+        'inner-hairline': 'inset 0 0 0 1px rgba(255, 255, 255, 0.12)',
       },
       backgroundImage: {
         'ghost-noise': 'radial-gradient(rgba(255,255,255,.11) .7px, transparent .7px)',
@@ -52,9 +60,9 @@ export default {
         flicker: 'flicker 3s ease-in-out infinite',
       },
       fontFamily: {
-        display: ['Rye', 'Georgia', 'serif'],
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        slab: ['Roboto Slab', 'Georgia', 'serif'],
+        display: ['ui-sans-serif', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Segoe UI', 'sans-serif'],
+        sans: ['ui-sans-serif', '-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'Segoe UI', 'sans-serif'],
+        slab: ['ui-serif', 'Iowan Old Style', 'Baskerville', 'Georgia', 'serif'],
         score: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
     },
