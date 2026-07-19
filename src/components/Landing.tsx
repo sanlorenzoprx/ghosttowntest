@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { litQuestions } from '../lib/litQuestions';
 import ExampleIdeaGallery from './ExampleIdeaGallery';
 import ProofStandard from './ProofStandard';
@@ -13,279 +12,146 @@ interface Props {
   locale: 'en' | 'es';
 }
 
-const previewSteps = [
-  'Describe your idea',
-  `Answer ${litQuestions.length} focused questions`,
-  'Get a clear verdict',
-  'Run the next test'
-];
-
 export default function Landing({ onStart, onSelectExample, hasDraft, onResume, isLoggedIn, onLoginClick, locale }: Props) {
-  const [animationStep, setAnimationStep] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
   const es = locale === 'es';
-  const localizedPreviewSteps = es ? ['Describe tu idea', `Responde ${litQuestions.length} preguntas`, 'Recibe un veredicto claro', 'Ejecuta la próxima prueba'] : previewSteps;
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const respectMotionPreference = () => {
-      if (mediaQuery.matches) setIsPlaying(false);
-    };
-
-    respectMotionPreference();
-    mediaQuery.addEventListener('change', respectMotionPreference);
-    return () => mediaQuery.removeEventListener('change', respectMotionPreference);
-  }, []);
-
-  useEffect(() => {
-    if (!isPlaying) return;
-    const interval = window.setInterval(() => {
-      setAnimationStep(current => (current + 1) % localizedPreviewSteps.length);
-    }, 3200);
-    return () => window.clearInterval(interval);
-  }, [isPlaying, localizedPreviewSteps.length]);
+  const principles = es ? [
+    ['01', 'Describe la idea', 'Define el comprador, el problema urgente y la alternativa que usa hoy.'],
+    ['02', `Responde ${litQuestions.length} preguntas`, 'Pon a prueba demanda, ventaja, distribución, momento y defensibilidad.'],
+    ['03', 'Recibe una decisión', 'Sal con un veredicto, el mayor riesgo y una prueba concreta para ejecutar.']
+  ] : [
+    ['01', 'Frame the idea', 'Define the buyer, the urgent problem, and what they use today.'],
+    ['02', `Answer ${litQuestions.length} questions`, 'Pressure-test demand, advantage, distribution, timing, and defensibility.'],
+    ['03', 'Make a decision', 'Leave with a verdict, the biggest risk, and one test worth running next.']
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 pb-20 sm:pb-0">
-      <section className="relative overflow-hidden bg-gradient-to-br from-blue-700 via-blue-600 to-purple-700">
-        <div className="landing-grid-pattern absolute inset-0" aria-hidden="true" />
-        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-orange-400/20 blur-3xl" aria-hidden="true" />
-        <div className="absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-blue-300/20 blur-3xl" aria-hidden="true" />
-
-        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 md:grid-cols-2 md:py-20">
-          <div>
-            <p className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-orange-200">
-              {es ? 'La prueba Ghost Town de LIT' : 'The LIT Ghost Town Test'}
+    <div className="min-h-screen bg-[#f5f5f7] pb-20 text-[#1d1d1f] sm:pb-0">
+      <section className="relative overflow-hidden bg-black text-white">
+        <div className="hero-aurora" aria-hidden="true" />
+        <div className="relative mx-auto max-w-7xl px-5 pb-20 pt-16 sm:px-8 sm:pb-28 sm:pt-24 lg:px-10 lg:pb-32 lg:pt-28">
+          <div className="mx-auto max-w-5xl text-center">
+            <p className="text-sm font-semibold tracking-[-0.01em] text-white/60">
+              {es ? 'GhostTown Test para ideas de negocio' : 'GhostTown Test for startup ideas'}
             </p>
-            <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
-              {es ? 'Antes de construirlo,' : 'Before you build it,'}
-              <span className="mt-1 block text-orange-300">{es ? 'prueba si merece existir.' : 'test if it deserves to exist.'}</span>
+            <h1 className="mx-auto mt-5 max-w-5xl text-5xl font-semibold leading-[0.94] tracking-[-0.055em] sm:text-7xl lg:text-[92px]">
+              {es ? 'Descubre la verdad antes de construir.' : 'Know the truth before you build.'}
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-blue-50 sm:text-xl">
-              {es ? 'Obtén un veredicto claro y honesto sobre tu idea en unos cinco minutos, antes de invertir meses construyendo lo equivocado.' : 'Get a sharp, honest verdict on your startup idea in about five minutes—before you spend months building the wrong thing.'}
+            <p className="mx-auto mt-8 max-w-2xl text-lg leading-8 tracking-[-0.015em] text-white/68 sm:text-xl">
+              {es
+                ? 'Una evaluación rigurosa de cinco minutos que convierte una idea borrosa en una decisión clara, una señal de riesgo y el próximo experimento.'
+                : 'A rigorous five-minute assessment that turns a fuzzy idea into a clear decision, a risk signal, and the next experiment to run.'}
             </p>
 
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-              <button
-                type="button"
-                onClick={onStart}
-                className="rounded-lg bg-orange-500 px-8 py-4 text-lg font-bold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-orange-200"
-              >
-                {es ? 'Valida tu idea gratis' : 'Validate Your Idea Free'}
+            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button type="button" onClick={onStart} className="premium-cta">
+                {es ? 'Probar mi idea gratis' : 'Test my idea free'}
+                <span aria-hidden="true">↗</span>
               </button>
               <button
                 type="button"
                 onClick={() => document.getElementById('example-gallery')?.scrollIntoView({ behavior: 'smooth' })}
-                className="rounded-lg border-2 border-white/50 bg-white/10 px-8 py-4 text-lg font-bold text-white transition hover:bg-white/20 focus:outline-none focus:ring-4 focus:ring-white/30"
+                className="premium-secondary"
               >
-                {es ? 'Ver ideas de ejemplo' : 'Browse Example Ideas'}
+                {es ? 'Explorar ejemplos' : 'Explore examples'}
               </button>
             </div>
 
+            <p className="mt-6 text-sm text-white/45">
+              {es ? 'Una prueba gratis · Sin cuenta · Sin tarjeta' : 'One free test · No account · No credit card'}
+            </p>
+
             {hasDraft && (
-              <button
-                type="button"
-                onClick={onResume}
-                className="mt-5 flex w-full max-w-md items-center justify-between rounded-xl border border-white/30 bg-white/15 px-4 py-3 text-left text-white backdrop-blur transition hover:bg-white/25"
-              >
+              <button type="button" onClick={onResume} className="mx-auto mt-7 flex w-full max-w-md items-center justify-between rounded-2xl border border-white/15 bg-white/[0.08] px-5 py-4 text-left backdrop-blur-xl hover:bg-white/[0.12]">
                 <span>
-                  <span className="block text-xs font-bold uppercase tracking-wider text-blue-100">{es ? 'Guardado en este dispositivo' : 'Saved on this device'}</span>
-                  <span className="mt-0.5 block font-bold">{es ? 'Continúa tu evaluación' : 'Resume your assessment'}</span>
+                  <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-white/45">{es ? 'Progreso guardado' : 'Progress saved'}</span>
+                  <span className="mt-1 block font-semibold">{es ? 'Continuar evaluación' : 'Continue your assessment'}</span>
                 </span>
-                <span className="text-xl" aria-hidden="true">→</span>
+                <span className="text-xl text-white/70" aria-hidden="true">→</span>
               </button>
             )}
 
-            <p className="mt-7 text-sm font-medium text-blue-100">
-              <span className="mr-4">✓ {es ? 'Una prueba gratis' : 'One free test'}</span>
-              <span className="mr-4">✓ {es ? 'Sin cuenta' : 'No login required'}</span>
-              <span>✓ {es ? 'Sin tarjeta' : 'No credit card'}</span>
-            </p>
             {!isLoggedIn && (
-              <p className="mt-4 text-sm text-blue-100">
+              <p className="mt-5 text-sm text-white/50">
                 {es ? '¿Ya tienes una cuenta?' : 'Already have an account?'}{' '}
-                <button type="button" onClick={onLoginClick} className="font-bold text-white underline decoration-white/50 underline-offset-4 hover:decoration-white">
-                  {es ? 'Inicia sesión' : 'Log in'}
+                <button type="button" onClick={onLoginClick} className="font-semibold text-white hover:text-white/75">
+                  {es ? 'Iniciar sesión' : 'Sign in'}
                 </button>
               </p>
             )}
           </div>
 
-          <div className="relative">
-            <div className="min-h-96 rounded-2xl border border-white/70 bg-white/95 p-7 shadow-2xl backdrop-blur sm:p-8">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+          <div className="mx-auto mt-16 max-w-5xl sm:mt-20">
+            <div className="product-window">
+              <div className="flex items-center justify-between border-b border-black/[0.06] px-5 py-4 sm:px-7">
+                <div className="flex gap-2" aria-hidden="true"><span /><span /><span /></div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/35">GhostTown verdict</p>
+              </div>
+              <div className="grid gap-8 p-6 text-left sm:p-10 lg:grid-cols-[0.85fr_1.15fr] lg:p-12">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-blue-600">{es ? 'Cómo funciona' : 'How it works'}</p>
-                  <p className="mt-1 font-bold text-gray-900">{localizedPreviewSteps[animationStep]}</p>
-                </div>
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                  {animationStep + 1}/{localizedPreviewSteps.length}
-                </span>
-              </div>
-
-              <div className="flex min-h-56 items-center py-8">
-                {animationStep === 0 && (
-                  <div className="w-full space-y-4" aria-label="Idea description preview">
-                    <div className="landing-slide-in h-7 w-2/3 rounded bg-gradient-to-r from-blue-500 to-purple-500" />
-                    <div className="landing-slide-in landing-delay-1 h-4 rounded bg-blue-100" />
-                    <div className="landing-slide-in landing-delay-2 h-4 w-5/6 rounded bg-blue-100" />
-                    <div className="landing-slide-in landing-delay-3 h-16 rounded-lg border border-gray-200 bg-gray-50" />
+                  <p className="text-sm font-semibold text-[#6e6e73]">{es ? 'Resultado de ejemplo' : 'Example result'}</p>
+                  <div className="mt-5 flex items-end gap-3">
+                    <span className="text-7xl font-semibold tracking-[-0.07em] text-[#1d1d1f]">3.7</span>
+                    <span className="pb-2 text-sm font-semibold text-[#6e6e73]">/ 5.0</span>
                   </div>
-                )}
-
-                {animationStep === 1 && (
-                  <div className="w-full space-y-4" aria-label="Evaluation questions preview">
-                    {[72, 94, 82, 64].map((width, index) => (
-                      <div key={width} className="rounded-lg border border-purple-100 bg-purple-50 p-3">
-                        <div
-                          className="landing-question-pulse h-3 rounded bg-gradient-to-r from-purple-400 to-blue-400"
-                          style={{ width: `${width}%`, animationDelay: `${index * 150}ms` }}
-                        />
-                      </div>
-                    ))}
-                    <p className="pt-1 text-center text-sm font-medium text-gray-500">
-                      {es ? 'Demanda · Ventaja · Perspectiva · Momento · Defensibilidad' : 'Demand · Leverage · Insight · Timing · Defensibility'}
+                  <span className="mt-5 inline-flex rounded-full bg-[#fff2d9] px-3 py-1.5 text-sm font-semibold text-[#8a5200]">
+                    {es ? 'Probar primero' : 'Test first'}
+                  </span>
+                </div>
+                <div className="rounded-3xl bg-[#f5f5f7] p-6 sm:p-8">
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#86868b]">{es ? 'La verdad incómoda' : 'The uncomfortable truth'}</p>
+                  <h2 className="mt-3 text-2xl font-semibold leading-tight tracking-[-0.035em] sm:text-3xl">
+                    {es ? 'El dolor parece real. La disposición a pagar todavía no.' : 'The pain looks real. Willingness to pay does not—yet.'}
+                  </h2>
+                  <div className="mt-7 border-t border-black/[0.08] pt-6">
+                    <p className="text-sm font-semibold text-[#1d1d1f]">{es ? 'Próximo movimiento' : 'Next move'}</p>
+                    <p className="mt-2 leading-7 text-[#6e6e73]">
+                      {es ? 'Ofrece un piloto manual a diez compradores y continúa solo si tres aceptan pagar.' : 'Offer a manual pilot to ten target buyers. Continue only if three agree to pay.'}
                     </p>
                   </div>
-                )}
-
-                {animationStep === 2 && (
-                  <div className="grid w-full grid-cols-3 gap-2" aria-label="Verdict examples preview">
-                    {[
-                      { score: '4.2', label: es ? 'Construye ahora' : 'Build Now', colors: 'border-green-200 bg-green-50 text-green-800' },
-                      { score: '3.1', label: es ? 'Prueba primero' : 'Test First', colors: 'border-yellow-200 bg-yellow-50 text-yellow-800' },
-                      { score: '2.8', label: es ? 'Reduce el nicho' : 'Niche Down', colors: 'border-orange-200 bg-orange-50 text-orange-800' }
-                    ].map((verdict, index) => (
-                      <div
-                        key={verdict.label}
-                        className={`landing-slide-up rounded-lg border p-3 text-center ${verdict.colors}`}
-                        style={{ animationDelay: `${index * 180}ms` }}
-                      >
-                        <div className="text-2xl font-bold text-gray-900">{verdict.score}</div>
-                        <div className="mt-1 text-xs font-bold">{verdict.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {animationStep === 3 && (
-                  <div className="landing-slide-up w-full text-center">
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl" aria-hidden="true">✓</div>
-                    <h2 className="mt-4 text-2xl font-bold text-gray-900">{es ? 'Sal con un próximo paso concreto.' : 'Leave with a concrete next step.'}</h2>
-                    <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-gray-600">
-                      {es ? 'Sabrás qué demostrar, qué podría matar la idea y qué no construir todavía.' : 'Know what to prove, what could kill the idea, and what not to build yet.'}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between border-t border-gray-100 pt-4">
-                <div className="flex gap-2" aria-label="Explainer steps">
-                  {localizedPreviewSteps.map((step, index) => (
-                    <button
-                      key={step}
-                      type="button"
-                      onClick={() => setAnimationStep(index)}
-                      aria-label={`Show step ${index + 1}: ${step}`}
-                      aria-current={animationStep === index ? 'step' : undefined}
-                      className={`h-2.5 rounded-full transition-all ${animationStep === index ? 'w-7 bg-blue-600' : 'w-2.5 bg-gray-300 hover:bg-gray-400'}`}
-                    />
-                  ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsPlaying(current => !current)}
-                  aria-pressed={!isPlaying}
-                  className="rounded px-2 py-1 text-xs font-bold text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {isPlaying ? (es ? 'Pausar vista previa' : 'Pause preview') : (es ? 'Reproducir vista previa' : 'Play preview')}
-                </button>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <ExampleIdeaGallery onSelect={onSelectExample} />
-
-      <ProofStandard locale={locale} />
-
-      <section className="mx-auto max-w-6xl px-4 py-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">{es ? 'Para fundadores sin tiempo que perder' : 'Built for founders who don\'t have time to waste'}</h2>
-          <p className="mt-4 text-lg text-gray-600">{es ? 'Una evaluación enfocada. Un veredicto útil. Una prueba que puedes ejecutar.' : 'A focused evaluation. A useful verdict. A test you can run next.'}</p>
+      <section className="mx-auto max-w-7xl px-5 py-24 sm:px-8 sm:py-32 lg:px-10">
+        <div className="max-w-3xl">
+          <p className="eyebrow">{es ? 'Diseñado para decidir' : 'Designed for decisions'}</p>
+          <h2 className="section-title">{es ? 'Menos teatro. Más evidencia.' : 'Less startup theater. More evidence.'}</h2>
+          <p className="section-copy">
+            {es ? 'GhostTown Test no celebra cada idea. La somete a presión para que inviertas tiempo únicamente donde la evidencia lo merece.' : 'GhostTown Test does not cheerlead every idea. It pressure-tests the assumptions so you invest time only where the evidence earns it.'}
+          </p>
         </div>
-
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
-          {(es ? [
-            { icon: '01', title: 'Describe la idea', body: 'Cuéntanos qué construyes, quién lo necesita y cómo resuelve el problema hoy.' },
-            { icon: '02', title: `Responde ${litQuestions.length} preguntas`, body: 'Pon a prueba la demanda, la ventaja del fundador, el momento, el modelo y la defensibilidad.' },
-            { icon: '03', title: 'Obtén el próximo paso', body: 'Ve el veredicto, el mayor riesgo y la evidencia exacta que debes reunir antes de construir.' }
-          ] : [
-            { icon: '01', title: 'Describe the idea', body: 'Tell us what you are building, who needs it, and how they solve the problem today.' },
-            { icon: '02', title: `Answer ${litQuestions.length} questions`, body: 'Pressure-test demand, founder advantage, market insight, timing, business model, and defensibility.' },
-            { icon: '03', title: 'Get the next move', body: 'See the verdict, scores, biggest trap, and the exact evidence to gather before building.' }
-          ]).map(item => (
-            <article key={item.title} className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-              <div className="text-sm font-bold tracking-wider text-orange-500">{item.icon}</div>
-              <h3 className="mt-4 text-xl font-bold text-gray-900">{item.title}</h3>
-              <p className="mt-3 leading-relaxed text-gray-600">{item.body}</p>
+        <div className="mt-16 grid overflow-hidden rounded-[32px] border border-black/[0.07] bg-white md:grid-cols-3">
+          {principles.map(([number, title, body], index) => (
+            <article key={number} className={`p-8 sm:p-10 ${index > 0 ? 'border-t border-black/[0.07] md:border-l md:border-t-0' : ''}`}>
+              <span className="text-sm font-semibold text-[#86868b]">{number}</span>
+              <h3 className="mt-8 text-2xl font-semibold tracking-[-0.035em]">{title}</h3>
+              <p className="mt-4 leading-7 text-[#6e6e73]">{body}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="bg-gradient-to-br from-slate-950 to-slate-800 py-20">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-300">Sample verdicts</p>
-            <h2 className="mt-3 text-3xl font-bold text-white sm:text-4xl">Sharp advice, without the startup theater.</h2>
-          </div>
+      <ProofStandard locale={locale} />
+      <ExampleIdeaGallery onSelect={onSelectExample} />
 
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            <article className="rounded-xl border border-green-400/40 bg-green-500/10 p-6">
-              <h3 className="text-2xl font-bold text-green-300">Build Now</h3>
-              <p className="mt-4 leading-relaxed text-green-50">You have demand, timing, and an unfair advantage. Stop polishing the plan and secure the first three pilot commitments.</p>
-              <p className="mt-5 text-sm font-bold text-green-200">Next: confirm three paid pilots</p>
-            </article>
-            <article className="rounded-xl border border-yellow-400/40 bg-yellow-500/10 p-6">
-              <h3 className="text-2xl font-bold text-yellow-300">Test First</h3>
-              <p className="mt-4 leading-relaxed text-yellow-50">The pain sounds real, but willingness to pay is still an assumption. Proof beats plans every time.</p>
-              <p className="mt-5 text-sm font-bold text-yellow-200">Next: pitch ten target customers</p>
-            </article>
-            <article className="rounded-xl border border-red-400/40 bg-red-500/10 p-6">
-              <h3 className="text-2xl font-bold text-red-300">Kill It</h3>
-              <p className="mt-4 leading-relaxed text-red-50">There is no urgent demand or defensible advantage yet. Save six months and redirect the insight.</p>
-              <p className="mt-5 text-sm font-bold text-red-200">Next: find a sharper problem</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-gradient-to-r from-blue-700 to-purple-700 py-20 text-center">
-        <div className="mx-auto max-w-3xl px-4">
-          <h2 className="text-4xl font-bold text-white sm:text-5xl">Stop guessing. Start validating.</h2>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-blue-50">
-            Give your idea a fair test and leave with a decision you can act on.
-          </p>
-          <button
-            type="button"
-            onClick={onStart}
-            className="mt-9 rounded-lg bg-white px-10 py-4 text-lg font-bold text-blue-700 shadow-xl transition hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-white/50"
-          >
-            Validate Your Idea Free
+      <section className="px-5 py-24 sm:px-8 sm:py-32 lg:px-10">
+        <div className="mx-auto max-w-6xl overflow-hidden rounded-[36px] bg-black px-6 py-20 text-center text-white sm:px-12 sm:py-28">
+          <p className="text-sm font-semibold text-white/50">{es ? 'Cinco minutos. Una decisión mejor.' : 'Five minutes. One better decision.'}</p>
+          <h2 className="mx-auto mt-5 max-w-4xl text-4xl font-semibold leading-[0.98] tracking-[-0.05em] sm:text-6xl lg:text-7xl">
+            {es ? 'No construyas sobre una suposición.' : 'Do not build on a guess.'}
+          </h2>
+          <button type="button" onClick={onStart} className="premium-cta mt-10">
+            {es ? 'Probar mi idea gratis' : 'Test my idea free'} <span aria-hidden="true">↗</span>
           </button>
-          <p className="mt-5 text-sm text-blue-100">One free test · No commitment · No credit card</p>
         </div>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 p-3 shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur sm:hidden">
-        <button
-          type="button"
-          onClick={hasDraft ? onResume : onStart}
-          className="min-h-12 w-full rounded-lg bg-orange-500 px-5 py-3 font-bold text-white shadow-lg active:bg-orange-600"
-        >
-          {hasDraft ? 'Resume Assessment' : 'Validate My Idea Free'}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/90 p-3 backdrop-blur-xl sm:hidden">
+        <button type="button" onClick={hasDraft ? onResume : onStart} className="min-h-12 w-full rounded-full bg-[#0071e3] px-5 py-3 font-semibold text-white active:bg-[#0077ed]">
+          {hasDraft ? (es ? 'Continuar evaluación' : 'Continue assessment') : (es ? 'Probar mi idea gratis' : 'Test my idea free')}
         </button>
       </div>
     </div>
