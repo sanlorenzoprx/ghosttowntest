@@ -22,42 +22,34 @@ export default function ExampleIdeaGallery({ onSelect }: Props) {
   };
 
   return (
-    <section id="example-gallery" className="border-t border-gray-200 bg-white py-16 sm:py-20">
-      <div className="mx-auto max-w-6xl px-4">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-500">Trending idea starters</p>
-          <h2 className="mt-3 text-3xl font-bold text-gray-950 sm:text-4xl">Start from the idea that inspired you</h2>
-          <p className="mt-4 text-lg text-gray-600">
-            Pick a popular concept from a video, edit it to make it yours, and jump straight into the assessment.
-          </p>
+    <section id="example-gallery" className="bg-[#f5f5f7] py-24 sm:py-32">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+        <div className="max-w-3xl">
+          <p className="eyebrow">Try a real starting point</p>
+          <h2 className="section-title">See how an idea holds up.</h2>
+          <p className="section-copy">Choose a familiar business concept, make it yours, and experience the assessment without staring at an empty form.</p>
         </div>
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-16 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {featuredExamples.map(example => (
-            <article key={example.slug} className="flex flex-col rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-blue-50/60 p-6 shadow-sm transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-lg">
+            <article key={example.slug} className="group flex min-h-[360px] flex-col rounded-[28px] border border-black/[0.07] bg-white p-7 shadow-[0_16px_50px_rgba(0,0,0,0.04)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(0,0,0,0.08)]">
               <div className="flex items-center justify-between gap-3">
-                <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{example.category}</span>
-                <span className="text-xs font-semibold text-gray-400">Preloaded</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.15em] text-[#86868b]">{example.category}</span>
+                <span className="rounded-full bg-[#f5f5f7] px-3 py-1 text-xs font-semibold text-[#6e6e73]">Ready to edit</span>
               </div>
-              <h3 className="mt-5 text-xl font-bold leading-snug text-gray-950">{example.idea.ideaName}</h3>
-              <p className="mt-3 flex-1 text-sm leading-relaxed text-gray-600">{example.videoHook}</p>
-              <p className="mt-4 border-l-2 border-orange-300 pl-3 text-xs leading-relaxed text-gray-500">
-                For: {example.idea.targetUser}
-              </p>
+              <h3 className="mt-10 text-2xl font-semibold leading-tight tracking-[-0.035em] text-[#1d1d1f]">{example.idea.ideaName}</h3>
+              <p className="mt-4 flex-1 leading-7 text-[#6e6e73]">{example.videoHook}</p>
+              <p className="mt-6 border-t border-black/[0.07] pt-5 text-sm text-[#86868b]">For {example.idea.targetUser}</p>
 
-              <div className="mt-6 grid grid-cols-[1fr_auto] gap-2">
-                <button
-                  type="button"
-                  onClick={() => onSelect(example.slug)}
-                  className="min-h-11 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200"
-                >
-                  Test This Idea
+              <div className="mt-7 grid grid-cols-[1fr_auto] gap-2">
+                <button type="button" onClick={() => onSelect(example.slug)} className="min-h-12 rounded-full bg-[#1d1d1f] px-5 text-sm font-semibold text-white transition hover:bg-black">
+                  Test this idea
                 </button>
                 <button
                   type="button"
                   onClick={() => void copyDeepLink(example.slug)}
                   aria-label={`Copy direct link to ${example.idea.ideaName}`}
-                  className="min-h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm font-bold text-gray-600 transition hover:border-blue-300 hover:text-blue-700"
+                  className="min-h-12 rounded-full border border-black/10 bg-white px-4 text-sm font-semibold text-[#6e6e73] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
                 >
                   {copiedSlug === example.slug ? 'Copied' : 'Link'}
                 </button>
@@ -65,10 +57,7 @@ export default function ExampleIdeaGallery({ onSelect }: Props) {
             </article>
           ))}
         </div>
-
-        <p className="mt-8 text-center text-sm text-gray-500">
-          Every field is editable before the assessment starts.
-        </p>
+        <p className="mt-8 text-sm text-[#86868b]">Every field remains editable before the assessment begins.</p>
       </div>
     </section>
   );
