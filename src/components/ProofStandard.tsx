@@ -15,19 +15,23 @@ export default function ProofStandard({ locale }: Props) {
   ];
 
   return (
-    <section className="border-y border-ghost-ink bg-ghost-ink py-16 text-white sm:py-20">
-      <div className="container">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-ghost-gold">{es ? 'La prueba social que importa' : 'The social proof that matters'}</p>
-          <h2 className="mt-3 font-display text-3xl font-bold sm:text-4xl">{es ? 'Comportamiento del comprador, no aplausos.' : 'Buyer behavior, not applause.'}</h2>
-          <p className="mt-4 text-white/75">{es ? 'GhostTown Test no inventa testimonios ni cuenta “me gusta” como demanda. Puedes traer evidencia de tu CRM, checkout, calendario, notas de entrevista u otro sistema; lo que importa es el comportamiento verificable.' : 'GhostTown Test does not invent testimonials or count likes as demand. Bring evidence from your CRM, checkout, calendar, interview notes, or another system; what matters is verifiable buyer behavior.'}</p>
+    <section className="bg-black py-24 text-white sm:py-32">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+        <div className="max-w-4xl">
+          <p className="text-sm font-semibold text-[#2997ff]">{es ? 'La evidencia que importa' : 'The evidence that matters'}</p>
+          <h2 className="mt-4 text-4xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-6xl">
+            {es ? 'Comportamiento del comprador. No aplausos.' : 'Buyer behavior. Not applause.'}
+          </h2>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-white/55 sm:text-xl">
+            {es ? 'No contamos “me gusta” como demanda ni inventamos testimonios. GhostTown busca compromisos verificables que cuesten dinero, tiempo, acceso o reputación.' : 'Likes are not demand, and invented testimonials are not proof. GhostTown looks for verifiable commitments that cost money, time, access, or reputation.'}
+          </p>
         </div>
-        <div className="mt-10 grid gap-3 sm:grid-cols-2">
+        <div className="mt-16 grid overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.04] sm:grid-cols-2">
           {signals.map(([title, body], index) => (
-            <article key={title} className="border border-white/15 bg-white/5 p-5">
-              <span className="font-score text-ghost-gold">0{index + 1}</span>
-              <h3 className="mt-2 font-bold">{title}</h3>
-              <p className="mt-1 text-sm text-white/65">{body}</p>
+            <article key={title} className={`p-8 sm:p-10 ${index % 2 === 1 ? 'sm:border-l sm:border-white/10' : ''} ${index > 1 ? 'border-t border-white/10' : index === 1 ? 'border-t border-white/10 sm:border-t-0' : ''}`}>
+              <span className="text-sm font-semibold text-[#2997ff]">0{index + 1}</span>
+              <h3 className="mt-7 text-2xl font-semibold tracking-[-0.03em]">{title}</h3>
+              <p className="mt-3 leading-7 text-white/52">{body}</p>
             </article>
           ))}
         </div>
