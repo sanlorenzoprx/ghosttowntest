@@ -11,9 +11,7 @@
     --ring: 210 100% 45%;
   }
 
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
 
   html {
     min-height: 100%;
@@ -33,27 +31,10 @@
     text-rendering: optimizeLegibility;
   }
 
-  button,
-  a,
-  input,
-  textarea,
-  select {
-    min-height: 44px;
-  }
-
-  button {
-    cursor: pointer;
-  }
-
-  button:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
-
-  ::selection {
-    color: #fff;
-    background: #0071e3;
-  }
+  button, a, input, textarea, select { min-height: 44px; }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: 0.5; }
+  ::selection { color: #fff; background: #0071e3; }
 }
 
 #root {
@@ -62,22 +43,25 @@
   flex-direction: column;
 }
 
+#root > div > header {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+#root > div > header > div { min-height: 64px; padding-top: 10px; padding-bottom: 10px; }
+#root > div > header .font-display { font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 600; letter-spacing: -0.035em; }
+#root > div > header .bg-ghost-rust { border-radius: 12px; background: #1d1d1f; box-shadow: none; font-size: 13px; font-weight: 700; }
+#root > div > header button { color: #1d1d1f; }
+
 @layer components {
-  .btn-primary {
-    @apply rounded-full bg-[#0071e3] px-5 py-2.5 font-semibold text-white transition hover:bg-[#0077ed] focus:outline-none focus:ring-4 focus:ring-blue-200;
-  }
-
-  .btn-secondary {
-    @apply rounded-full border border-black/10 bg-white px-5 py-2.5 font-semibold text-[#1d1d1f] transition hover:bg-black/[0.03] focus:outline-none focus:ring-4 focus:ring-black/5;
-  }
-
-  .input-base {
-    @apply rounded-xl border border-black/10 bg-white px-4 py-3 outline-none transition focus:border-[#0071e3] focus:ring-4 focus:ring-blue-100;
-  }
-
-  .card {
-    @apply rounded-3xl border border-black/[0.07] bg-white p-6 shadow-[0_16px_50px_rgba(0,0,0,0.06)];
-  }
+  .btn-primary { @apply rounded-full bg-[#0071e3] px-5 py-2.5 font-semibold text-white transition hover:bg-[#0077ed] focus:outline-none focus:ring-4 focus:ring-blue-200; }
+  .btn-secondary { @apply rounded-full border border-black/10 bg-white px-5 py-2.5 font-semibold text-[#1d1d1f] transition hover:bg-black/[0.03] focus:outline-none focus:ring-4 focus:ring-black/5; }
+  .input-base { @apply rounded-xl border border-black/10 bg-white px-4 py-3 outline-none transition focus:border-[#0071e3] focus:ring-4 focus:ring-blue-100; }
+  .card { @apply rounded-3xl border border-black/[0.07] bg-white p-6 shadow-[0_16px_50px_rgba(0,0,0,0.06)]; }
 
   .premium-cta {
     @apply inline-flex min-h-[52px] items-center justify-center gap-2 rounded-full bg-[#0071e3] px-7 py-3 text-[17px] font-semibold text-white shadow-[0_12px_32px_rgba(0,113,227,0.24)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#0077ed] hover:shadow-[0_16px_40px_rgba(0,113,227,0.3)] focus:outline-none focus:ring-4 focus:ring-blue-300/40;
@@ -87,17 +71,9 @@
     @apply inline-flex min-h-[52px] items-center justify-center rounded-full border border-white/20 bg-white/[0.08] px-7 py-3 text-[17px] font-semibold text-white backdrop-blur-xl transition duration-300 hover:bg-white/[0.14] focus:outline-none focus:ring-4 focus:ring-white/15;
   }
 
-  .eyebrow {
-    @apply text-sm font-semibold tracking-[-0.01em] text-[#0071e3];
-  }
-
-  .section-title {
-    @apply mt-4 text-4xl font-semibold leading-[1.02] tracking-[-0.05em] text-[#1d1d1f] sm:text-6xl;
-  }
-
-  .section-copy {
-    @apply mt-6 max-w-2xl text-lg leading-8 tracking-[-0.015em] text-[#6e6e73] sm:text-xl;
-  }
+  .eyebrow { @apply text-sm font-semibold tracking-[-0.01em] text-[#0071e3]; }
+  .section-title { @apply mt-4 text-4xl font-semibold leading-[1.02] tracking-[-0.05em] text-[#1d1d1f] sm:text-6xl; }
+  .section-copy { @apply mt-6 max-w-2xl text-lg leading-8 tracking-[-0.015em] text-[#6e6e73] sm:text-xl; }
 }
 
 .hero-aurora {
@@ -136,32 +112,22 @@
   to { transform: scale(1.04) translate3d(1%, -1%, 0); }
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
+.animate-spin { animation: spin 1s linear infinite; }
+.ghost-surface { background-color: #0b0b0c; }
+.ghost-score-ring { background: conic-gradient(#0071e3 var(--score), #e8e8ed 0); }
+input:disabled, textarea:disabled { cursor: not-allowed; background-color: #f5f5f7; }
 
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-.ghost-surface {
-  background-color: #0b0b0c;
-}
-
-.ghost-score-ring {
-  background: conic-gradient(#0071e3 var(--score), #e8e8ed 0);
-}
-
-input:disabled,
-textarea:disabled {
-  cursor: not-allowed;
-  background-color: #f5f5f7;
+@media (max-width: 760px) {
+  #root > div > header > div { gap: 10px; }
+  #root > div > header .tracking-\[0\.28em\] { display: none; }
+  #root > div > header .text-xl { font-size: 16px; }
+  #root > div > header .gap-4 { gap: 8px; }
+  #root > div > header span.text-sm { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
