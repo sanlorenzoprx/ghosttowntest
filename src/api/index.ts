@@ -1,10 +1,11 @@
 import { handleSignup, handleLogin, handleVerify } from './auth';
+import { handleAnalyticsEvent } from './analytics';
 import { handleCheckout } from './checkout';
 import { handleStripeWebhook } from './webhook';
 import { handleReferralClaim, handleReferralCreate } from './referral';
 import { handleShareReward } from './shareReward';
 import verdictHandler from './verdict';
-import { handlePaidTestCheckout, handlePaidTestOrders, handlePaidTestPdf, handlePaidTestReport } from './paidTest';
+import { handlePaidTestCheckout, handlePaidTestOrders, handlePaidTestPdf, handlePaidTestPlan, handlePaidTestPlanPdf, handlePaidTestReport } from './paidTest';
 import type { Env } from './env';
 import { handleResultHistory, handleSaveCurrentResult, handleSavedResult } from './resultHistory';
 import {
@@ -158,15 +159,33 @@ export default {
         return response;
       }
 
+      if (path === '/api/analytics/events' && method === 'POST') {
+        const response = await handleAnalyticsEvent(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
       const paidReportMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/report$/);
       if (paidReportMatch && method === 'GET') {
         const response = await handlePaidTestReport(request, env, paidReportMatch[1]);
         applyCors(response, corsHeaders);
         return response;
       }
+      const paidPlanMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/plan$/);
+      if (paidPlanMatch && method === 'GET') {
+        const response = await handlePaidTestPlan(request, env, paidPlanMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
       const paidPdfMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/report\.pdf$/);
       if (paidPdfMatch && method === 'GET') {
         const response = await handlePaidTestPdf(request, env, paidPdfMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const paidPlanPdfMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/plan\.pdf$/);
+      if (paidPlanPdfMatch && method === 'GET') {
+        const response = await handlePaidTestPlanPdf(request, env, paidPlanPdfMatch[1]);
         applyCors(response, corsHeaders);
         return response;
       }
@@ -217,8 +236,10 @@ export default {
 const LOCAL_ORIGINS = new Set([
   'http://localhost:3000',
   'http://localhost:5173',
+  'http://localhost:5300',
   'http://127.0.0.1:3000',
-  'http://127.0.0.1:5173'
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5300'
 ]);
 
 function getAllowedOrigin(request: Request, env: Env): string | undefined {

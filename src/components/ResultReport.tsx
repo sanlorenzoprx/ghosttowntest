@@ -7,6 +7,7 @@ import type { CSSProperties } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 import ActionPlanModal from './ActionPlanModal';
 import type { PaidTestIntake } from '../types/paidTest';
+import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
 
 interface Props {
   result: EvaluationResult;
@@ -81,6 +82,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   const verdictColorClass = getVerdictColor(scores.finalVerdict);
   const litPercent = Math.round(scores.litScore * 20);
   const scoreTone = litPercent >= 75 ? 'text-ghost-sage' : litPercent >= 50 ? 'text-amber-700' : 'text-red-700';
+  const displayPrice = import.meta.env.VITE_30_DAY_PLAN_DISPLAY_PRICE?.trim() || DEFAULT_30_DAY_PLAN_DISPLAY_PRICE;
 
   const openActionPlanForm = () => {
     if (!isLoggedIn) { onLoginClick(); return; }
@@ -223,18 +225,19 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         onRewardClaimed={onRewardClaimed}
       />
 
-      <section className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Your next seven days</p>
-        <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Turn this verdict into proof.</h2>
+      <section id="thirty-day-plan" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Your next 30 days</p>
+        <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Turn this verdict into evidence.</h2>
+        <p className="mt-3 text-sm font-bold text-gray-800">{GHOSTTOWN_30_DAY_PLAN_V1.name}</p>
         <ul className="mt-4 space-y-2 text-sm text-gray-800">
-          <li>Buyer interview kit and outreach message</li>
-          <li>Alternatives map, landing-page copy, offer, and price test</li>
-          <li>Evidence scoreboard, JSON source, and printable PDF</li>
+          <li>Thirty daily actions with time budgets, cash limits, evidence, and pass/fail thresholds</li>
+          <li>Buyer interviews, alternatives, offer, pricing, landing-page, outreach, and paid-pilot tests</li>
+          <li>Truth-labeled canonical JSON, readable PDF, and account history for repeat download</li>
         </ul>
         <p className="mt-4 text-sm text-gray-700">A validation experiment—not a promise of product-market fit, revenue, or certainty.</p>
         {paidError && <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{paidError}</p>}
-        <button type="button" aria-label="Start 7-day validation plan checkout" onClick={openActionPlanForm} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
-          {paidLoading ? 'Opening checkout...' : 'Unlock the 7-Day Validation Plan — $29'}
+        <button type="button" aria-label="Start 30-day implementation plan checkout" onClick={openActionPlanForm} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
+          {paidLoading ? 'Opening checkout...' : `Unlock the 30-Day Plan - ${displayPrice}`}
         </button>
       </section>
 
@@ -249,8 +252,8 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ghost-rust/20 bg-[#fff7f2]/95 p-3 backdrop-blur sm:hidden">
-        <button type="button" aria-label="Start 7-day validation plan checkout" onClick={openActionPlanForm} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
-          {paidLoading ? 'Opening checkout…' : 'Get the 7-Day Plan — $29'}
+        <button type="button" aria-label="Start 30-day implementation plan checkout" onClick={openActionPlanForm} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
+          {paidLoading ? 'Opening checkout...' : `Get the 30-Day Plan - ${displayPrice}`}
         </button>
       </div>
 

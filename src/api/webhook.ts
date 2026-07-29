@@ -82,7 +82,7 @@ export async function handleStripeWebhook(request: Request, env: Env) {
         ? (session.metadata as Record<string, unknown>).paid_test_order_id
         : undefined;
       if (typeof paidTestOrderId === 'string' && paidTestOrderId) {
-        await fulfillPaidTestOrder(env, paidTestOrderId, session);
+        await fulfillPaidTestOrder(env, paidTestOrderId, session, event.id);
         await env.KV.put(eventKey, new Date().toISOString(), { expirationTtl: 86400 * 90 });
         return new Response(JSON.stringify({ received: true, paidTest: 'ready' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }

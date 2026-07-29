@@ -17,7 +17,7 @@ Create one Cloudflare Pages project named `ghosttowntest` from this repository. 
 
 Deploy the Worker with `npx wrangler deploy --env production` after setting production KV IDs and Worker secrets. The Wrangler configuration attaches `api.ghosttowntest.com` as a Worker Custom Domain, so Cloudflare creates and manages the DNS record and certificate. Set `FRONTEND_URL=https://ghosttowntest.com`. The Worker CORS allow-list covers the root, `www`, optional `app`, Pages previews, and the legacy domain. The read-only Shorts Factory handshake is `GET /api/integrations/shorts-factory/health`; verdict generation remains `POST /api/verdict`.
 
-Required secrets: `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_PAID_TEST_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET`. Set `LIT_API_KEY` to require bearer authentication from Shorts Factory.
+Required secrets: `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_30_DAY_PLAN_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET`. Keep `STRIPE_PAID_TEST_PRICE_ID` only for old pending seven-day paid-report orders. Set `LIT_API_KEY` to require bearer authentication from Shorts Factory.
 
 ## Spanish
 

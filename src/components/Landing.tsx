@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { litQuestions } from '../lib/litQuestions';
 import ExampleIdeaGallery from './ExampleIdeaGallery';
 import ProofStandard from './ProofStandard';
+import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
 
 interface Props {
   onStart: () => void;
@@ -24,6 +25,7 @@ export default function Landing({ onStart, onSelectExample, hasDraft, onResume, 
   const [animationStep, setAnimationStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const es = locale === 'es';
+  const displayPrice = import.meta.env.VITE_30_DAY_PLAN_DISPLAY_PRICE?.trim() || DEFAULT_30_DAY_PLAN_DISPLAY_PRICE;
   const localizedPreviewSteps = es ? ['Describe tu idea', `Responde ${litQuestions.length} preguntas`, 'Recibe un veredicto claro', 'Ejecuta la próxima prueba'] : previewSteps;
 
   useEffect(() => {
@@ -75,10 +77,10 @@ export default function Landing({ onStart, onSelectExample, hasDraft, onResume, 
               </button>
               <button
                 type="button"
-                onClick={() => document.getElementById('example-gallery')?.scrollIntoView({ behavior: 'smooth' })}
+                onClick={() => document.getElementById('thirty-day-offer')?.scrollIntoView({ behavior: 'smooth' })}
                 className="rounded-lg border-2 border-white/50 bg-white/10 px-8 py-4 text-lg font-bold text-white transition hover:bg-white/20 focus:outline-none focus:ring-4 focus:ring-white/30"
               >
-                {es ? 'Ver ideas de ejemplo' : 'Browse Example Ideas'}
+                {es ? 'Ver el plan de 30 dias' : 'See the 30-Day Plan'}
               </button>
             </div>
 
@@ -209,6 +211,34 @@ export default function Landing({ onStart, onSelectExample, hasDraft, onResume, 
       <ExampleIdeaGallery onSelect={onSelectExample} />
 
       <ProofStandard locale={locale} />
+
+      <section id="thirty-day-offer" className="bg-white py-20">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-[1fr_0.9fr] lg:items-start">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-ghost-rust">{es ? 'Oferta pagada' : 'Paid plan'}</p>
+            <h2 className="mt-3 text-3xl font-bold text-gray-950 sm:text-4xl">{GHOSTTOWN_30_DAY_PLAN_V1.name}</h2>
+            <p className="mt-5 max-w-2xl text-lg leading-relaxed text-gray-700">
+              {es
+                ? `Despues del veredicto gratis, compra un PDF personalizado por ${displayPrice} con tareas diarias, presupuestos, evidencia requerida y reglas para continuar, pivotar, pausar o parar.`
+                : `After the free verdict, buy a personalized PDF for ${displayPrice} with daily tasks, budgets, required evidence, and rules for whether to continue, pivot, pause, or stop.`}
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-6">
+            <h3 className="font-bold text-gray-950">{es ? 'Incluye' : 'What you receive'}</h3>
+            <ul className="mt-4 space-y-2 text-sm text-gray-700">
+              <li>{es ? '30 dias de acciones concretas y umbrales de evidencia.' : '30 days of concrete actions and evidence thresholds.'}</li>
+              <li>{es ? 'Entrevistas, alcance, oferta, precio, pagina, piloto pagado y decision final.' : 'Interviews, outreach, offer, price, landing page, paid pilot, and final decision.'}</li>
+              <li>{es ? 'PDF legible y descarga repetida desde tu cuenta.' : 'Readable PDF and repeat download from your account.'}</li>
+            </ul>
+            <h3 className="mt-6 font-bold text-gray-950">{es ? 'No promete' : 'What it does not promise'}</h3>
+            <ul className="mt-4 space-y-2 text-sm text-gray-700">
+              <li>{es ? 'No garantiza clientes, ingresos, inversion o product-market fit.' : 'No guaranteed customers, revenue, funding, or product-market fit.'}</li>
+              <li>{es ? 'No inventa citas, tamano de mercado, competidores o investigacion externa.' : 'No invented quotes, market size, competitor facts, or external research.'}</li>
+              <li>{es ? 'No sustituye asesoria legal, financiera, medica o profesional.' : 'Not legal, financial, medical, or professional advice.'}</li>
+            </ul>
+          </div>
+        </div>
+      </section>
 
       <section className="mx-auto max-w-6xl px-4 py-20">
         <div className="mx-auto max-w-3xl text-center">

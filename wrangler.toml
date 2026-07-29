@@ -26,11 +26,12 @@ bucket_name = "ghosttowntest-public-videos"
 [env.development.vars]
 AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
 ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
-FRONTEND_URL = "http://localhost:5173"
+FRONTEND_URL = "http://127.0.0.1:5300"
 JWT_SECRET = "dev-secret-key-change-in-production"
 STRIPE_SECRET_KEY = "sk_test_..."
 STRIPE_PRICE_ID = "price_..."
 STRIPE_PAID_TEST_PRICE_ID = "price_..."
+STRIPE_30_DAY_PLAN_PRICE_ID = "price_..."
 STRIPE_WEBHOOK_SECRET = "whsec_..."
 
 [[env.development.kv_namespaces]]

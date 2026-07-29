@@ -9,6 +9,7 @@ export interface Env {
   JWT_SECRET: string;
   STRIPE_SECRET_KEY: string;
   STRIPE_PRICE_ID: string;
-  STRIPE_PAID_TEST_PRICE_ID: string;
+  STRIPE_PAID_TEST_PRICE_ID?: string;
+  STRIPE_30_DAY_PLAN_PRICE_ID?: string;
   STRIPE_WEBHOOK_SECRET: string;
 }

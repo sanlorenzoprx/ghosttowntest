@@ -4,7 +4,7 @@ Validate a startup idea before investing months in the wrong product. The app co
 
 ## Paid GhostTown Test
 
-The verdict screen now offers the $29 7-day validation plan. Its checkout is deliberately separate from the existing assessment-credit checkout: access is granted only by a verified Stripe webhook, then the owner can securely download truth-labelled JSON and a printable PDF. See [the paid-report deployment contract](docs/PAID_GHOSTTOWN_TEST.md) before configuring Stripe.
+The verdict screen now offers the Personalized 30-Day Idea-to-Evidence Implementation Plan. Its checkout is deliberately separate from the existing assessment-credit checkout: access is granted only by a verified Stripe webhook, then the owner can securely download truth-labelled canonical JSON and a printable PDF. See [the paid-plan deployment contract](docs/PAID_GHOSTTOWN_TEST.md) before configuring Stripe.
 
 The funnel includes a persistent English/Spanish switch. See [Cloudflare deployment](docs/CLOUDFLARE_DEPLOYMENT.md) for the domain map and Pages/Worker configuration.
 
@@ -40,7 +40,7 @@ In a second terminal:
 npm run dev
 ```
 
-Open `http://localhost:5173`. The frontend proxies `/api` to `http://localhost:8787`. In fully local Worker mode, the AI binding is unavailable and the verdict endpoint intentionally exercises the deterministic fallback; this is also the production safety path when AI fails.
+Open `http://127.0.0.1:5300`. The frontend proxies `/api` to `http://127.0.0.1:8787`. In fully local Worker mode, the AI binding is unavailable and the verdict endpoint intentionally exercises the deterministic fallback; this is also the production safety path when AI fails.
 
 ## Configure the AI model
 
@@ -66,7 +66,7 @@ That runs TypeScript, Vitest, the production frontend build, and a Worker dry-ru
 Before deployment:
 
 1. Replace the placeholder KV namespace IDs in `wrangler.toml`.
-2. Set Worker secrets for `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_PAID_TEST_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET` using Wrangler secrets or the Cloudflare dashboard.
+2. Set Worker secrets for `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_30_DAY_PLAN_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET` using Wrangler secrets or the Cloudflare dashboard. Keep `STRIPE_PAID_TEST_PRICE_ID` only if you need to fulfill old pending seven-day orders.
 3. Set `FRONTEND_URL` and `AI_MODEL` for the target environment.
 4. Set the frontend `VITE_API_URL=https://api.ghosttowntest.com` for production. The frontend also infers this API origin on `ghosttowntest.com`.
 5. Configure Stripe to send `checkout.session.completed` events to `/api/webhook/stripe`.
