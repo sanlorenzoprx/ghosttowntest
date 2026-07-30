@@ -13,7 +13,6 @@ import type {
   PaidTestReport,
   PlanPhase,
   ReportClaim,
-  StripeMode,
   TruthLabel,
   TruthLabeledClaim,
   WeeklyCheckpoint
@@ -23,6 +22,7 @@ import {
   GHOSTTOWN_30_DAY_PLAN_V1,
   LEGACY_7_DAY_PLAN_LABEL
 } from '../lib/ghosttownOffer';
+import { validateConfiguredStripePrice } from './checkout';
 
 const LEGACY_REPORT_VERSION = '1.0' as const;
 const PLAN_VERSION = '1.0' as const;
@@ -53,10 +53,6 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-function inferStripeMode(secretKey?: string): StripeMode {
-  return secretKey?.startsWith('sk_live_') ? 'live' : 'test';
-}
-
 function configuredPlanPriceId(env: Env): string {
   // New checkouts must never fall back to a legacy assessment/report price.
   return env.STRIPE_30_DAY_PLAN_PRICE_ID?.trim() || '';
@@ -67,11 +63,10 @@ function safeText(value: string | undefined, fallback: string): string {
   return trimmed || fallback;
 }
 
-async function savedVerdict(env: Env, verdictId: string, email?: string): Promise<EvaluationResult | null> {
+async function savedVerdict(env: Env, verdictId: string, email?: string, requireOwnership = false): Promise<EvaluationResult | null> {
   const normalizedEmail = email ? normalizeEmail(email) : '';
-  const raw = await env.KV.get(`verdict_${verdictId}`)
-    ?? await env.KV.get(`verdict:${verdictId}`)
-    ?? (normalizedEmail ? await env.KV.get(`user_result_${normalizedEmail}_${verdictId}`) : null);
+  const owned = normalizedEmail ? await env.KV.get(`user_result_${normalizedEmail}_${verdictId}`) : null;
+  const raw = owned ?? (requireOwnership ? null : await env.KV.get(`verdict_${verdictId}`) ?? await env.KV.get(`verdict:${verdictId}`));
   return raw ? JSON.parse(raw) as EvaluationResult : null;
 }
 
@@ -107,7 +102,7 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     return json({ error: 'Complete all required 30-day plan fields' }, 400);
   }
 
-  const verdict = await savedVerdict(env, intake.verdictId, auth.email);
+  const verdict = await savedVerdict(env, intake.verdictId, auth.email, true);
   if (!verdict) {
     console.warn('Paid checkout rejected: source verdict not found', intake.verdictId);
     return json({ error: 'This assessment must be saved before checkout. Reopen it from Dashboard and try again.' }, 404);
@@ -117,6 +112,19 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
   if (!stripePriceId) {
     console.error('Paid checkout rejected: missing 30-day plan Stripe price configuration');
     return json({ error: 'Checkout is not configured for the 30-day plan yet' }, 503);
+  }
+
+  let validatedPrice: Awaited<ReturnType<typeof validateConfiguredStripePrice>>;
+  try {
+    validatedPrice = await validateConfiguredStripePrice(
+      env.STRIPE_SECRET_KEY,
+      stripePriceId,
+      GHOSTTOWN_30_DAY_PLAN_V1.amountCents,
+      GHOSTTOWN_30_DAY_PLAN_V1.currency
+    );
+  } catch (error) {
+    console.error('Paid checkout Price validation failed', error instanceof Error ? error.message : 'unknown error');
+    return json({ error: 'The configured 30-day plan Stripe Price is invalid for this account or mode' }, 502);
   }
 
   const now = new Date().toISOString();
@@ -131,7 +139,11 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     planVersion: PLAN_VERSION,
     reportVersion: LEGACY_REPORT_VERSION,
     stripePriceId,
-    stripeMode: inferStripeMode(env.STRIPE_SECRET_KEY),
+    stripeMode: validatedPrice.mode,
+    amountCents: GHOSTTOWN_30_DAY_PLAN_V1.amountCents,
+    currency: GHOSTTOWN_30_DAY_PLAN_V1.currency,
+    paymentStatus: 'pending',
+    fulfillmentStatus: 'pending',
     idempotencyKey: id('idem'),
     intake: {
       ...intake,
@@ -154,6 +166,7 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     'line_items[0][quantity]': '1',
     mode: 'payment',
     customer_email: order.email,
+    customer_creation: 'always',
     client_reference_id: order.orderId,
     'metadata[paid_test_order_id]': order.orderId,
     'metadata[owner_id]': order.email,
@@ -164,24 +177,45 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     'metadata[plan_version]': PLAN_VERSION,
     'metadata[stripe_price_id]': stripePriceId,
     'metadata[fulfillment_type]': 'execution_plan_30day_v1',
+    'payment_intent_data[metadata][paid_test_order_id]': order.orderId,
+    'payment_intent_data[metadata][owner_id]': order.email,
+    'payment_intent_data[metadata][offer_id]': GHOSTTOWN_30_DAY_PLAN_V1.offerId,
     success_url: `${frontendUrl}/paid-test/success?order_id=${encodeURIComponent(order.orderId)}`,
     cancel_url: `${frontendUrl}/`
   });
 
   const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: {
+      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Idempotency-Key': order.idempotencyKey || order.orderId
+    },
     body: fields.toString()
   });
 
   if (!response.ok) {
-    const stripeError = await response.text();
-    console.error('Paid checkout Stripe rejection', response.status, stripeError);
-    await env.KV.delete(orderKey(order.orderId));
+    response.body?.cancel();
+    console.error('Paid checkout Stripe rejection', response.status);
+    order.status = 'failed';
+    order.paymentStatus = 'failed';
+    order.fulfillmentError = 'Stripe rejected checkout configuration';
+    order.updatedAt = new Date().toISOString();
+    await env.KV.put(orderKey(order.orderId), JSON.stringify(order));
+    await savePaidOrderSummary(env, order, verdict.idea.ideaName);
     return json({ error: 'Stripe rejected the 30-day plan checkout configuration. Confirm the price mode and STRIPE_30_DAY_PLAN_PRICE_ID.' }, 502);
   }
 
-  const session = await response.json() as { id: string; url: string };
+  const session = await response.json() as { id?: string; url?: string };
+  if (!session.id || !session.url) {
+    order.status = 'failed';
+    order.paymentStatus = 'failed';
+    order.fulfillmentError = 'Stripe Checkout Session response was incomplete';
+    order.updatedAt = new Date().toISOString();
+    await env.KV.put(orderKey(order.orderId), JSON.stringify(order));
+    await savePaidOrderSummary(env, order, verdict.idea.ideaName);
+    return json({ error: 'Stripe returned an incomplete Checkout Session' }, 502);
+  }
   order.stripeCheckoutSessionId = session.id;
   order.status = 'checkout_created';
   order.updatedAt = new Date().toISOString();
@@ -622,7 +656,7 @@ export async function fulfillPaidTestOrder(env: Env, orderId: string, session: R
   const raw = await env.KV.get(orderKey(orderId));
   if (!raw) throw new Error('Paid test order not found');
   const order = JSON.parse(raw) as PaidTestOrder;
-  if (order.status === 'ready') return order;
+  if (order.fulfillmentStatus === 'fulfilled' || order.status === 'ready') return order;
 
   const metadata = session.metadata && typeof session.metadata === 'object' ? session.metadata as Record<string, unknown> : {};
   if (order.offerId === GHOSTTOWN_30_DAY_PLAN_V1.offerId || order.artifactType === 'execution_plan_30day_v1') {
@@ -636,8 +670,13 @@ export async function fulfillPaidTestOrder(env: Env, orderId: string, session: R
     if (order.stripePriceId) assertMetadata(metadata, 'stripe_price_id', order.stripePriceId);
     const sessionMode = typeof session.livemode === 'boolean' && session.livemode ? 'live' : 'test';
     if (order.stripeMode && sessionMode !== order.stripeMode) throw new Error('Stripe mode mismatch');
-    if (typeof session.mode === 'string' && session.mode !== 'payment') throw new Error('Stripe checkout mode mismatch');
-    if (typeof session.payment_status === 'string' && session.payment_status !== 'paid') throw new Error('Stripe session is not paid');
+    if (session.mode !== 'payment') throw new Error('Stripe checkout mode mismatch');
+    if (session.payment_status !== 'paid') throw new Error('Stripe session is not paid');
+    if (session.status !== 'complete') throw new Error('Stripe session is not complete');
+    if (session.client_reference_id !== order.orderId) throw new Error('Stripe client reference mismatch');
+    if (order.stripeCheckoutSessionId && session.id !== order.stripeCheckoutSessionId) throw new Error('Stripe Checkout Session mismatch');
+    if (session.amount_total !== (order.amountCents ?? GHOSTTOWN_30_DAY_PLAN_V1.amountCents)) throw new Error('Stripe session amount mismatch');
+    if (session.currency !== (order.currency ?? GHOSTTOWN_30_DAY_PLAN_V1.currency)) throw new Error('Stripe session currency mismatch');
   }
 
   const verdict = await savedVerdict(env, order.verdictId, order.email);
@@ -651,6 +690,8 @@ export async function fulfillPaidTestOrder(env: Env, orderId: string, session: R
   }
 
   order.status = 'generating';
+  order.paymentStatus = 'paid';
+  order.fulfillmentStatus = 'processing';
   order.stripeCheckoutSessionId = String(session.id || order.stripeCheckoutSessionId || '');
   order.stripePaymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : undefined;
   order.stripeCustomerId = typeof session.customer === 'string' ? session.customer : undefined;
@@ -658,6 +699,9 @@ export async function fulfillPaidTestOrder(env: Env, orderId: string, session: R
   order.paidAt = order.paidAt ?? new Date().toISOString();
   order.updatedAt = new Date().toISOString();
   await env.KV.put(orderKey(orderId), JSON.stringify(order));
+  if (order.stripePaymentIntentId) {
+    await env.KV.put(`paid_test_payment_intent_${order.stripePaymentIntentId}`, order.orderId);
+  }
 
   try {
     if (order.offerId === GHOSTTOWN_30_DAY_PLAN_V1.offerId || order.artifactType === 'execution_plan_30day_v1') {
@@ -668,13 +712,16 @@ export async function fulfillPaidTestOrder(env: Env, orderId: string, session: R
       order.offerId = GHOSTTOWN_30_DAY_PLAN_V1.offerId;
       order.offerVersion = GHOSTTOWN_30_DAY_PLAN_V1.version;
       order.planVersion = PLAN_VERSION;
+      order.artifactId = plan.planId;
     } else {
       const report = createPaidTestReport(order, verdict);
       if (!report.qualityGate.passed) throw new Error(report.qualityGate.failures.join(', '));
       await env.KV.put(reportKey(orderId), JSON.stringify(report));
       order.artifactType = 'legacy_report_v1';
+      order.artifactId = report.reportId;
     }
     order.status = 'ready';
+    order.fulfillmentStatus = 'fulfilled';
     order.fulfillmentError = undefined;
     order.updatedAt = new Date().toISOString();
     await env.KV.put(orderKey(orderId), JSON.stringify(order));
@@ -683,6 +730,7 @@ export async function fulfillPaidTestOrder(env: Env, orderId: string, session: R
     return order;
   } catch (error) {
     order.status = 'failed';
+    order.fulfillmentStatus = 'failed';
     order.fulfillmentError = error instanceof Error ? error.message : 'Plan generation failed';
     order.updatedAt = new Date().toISOString();
     await env.KV.put(orderKey(orderId), JSON.stringify(order));
@@ -703,7 +751,123 @@ async function recordWebhookPurchaseCompleted(env: Env, order: PaidTestOrder): P
     stripeEventId: order.stripeEventId,
     createdAt: new Date().toISOString()
   };
-  await env.KV.put(`analytics_event_${event.createdAt}_${crypto.randomUUID()}`, JSON.stringify(event), { expirationTtl: 86400 * 365 });
+  await env.KV.put(`analytics_purchase_${order.orderId}`, JSON.stringify(event), { expirationTtl: 86400 * 365 });
+}
+
+export async function markPaidTestPaymentProcessing(env: Env, orderId: string, session: Record<string, unknown>, eventId?: string): Promise<PaidTestOrder> {
+  const order = await loadPaidTestOrder(env, orderId);
+  if (order.status === 'ready' || order.status === 'refunded') return order;
+  const metadata = objectMetadata(session);
+  assertMetadata(metadata, 'paid_test_order_id', order.orderId);
+  assertMetadata(metadata, 'owner_id', order.email);
+  order.stripeCheckoutSessionId = typeof session.id === 'string' ? session.id : order.stripeCheckoutSessionId;
+  order.stripePaymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : order.stripePaymentIntentId;
+  order.stripeEventId = eventId;
+  order.paymentStatus = 'processing';
+  order.fulfillmentStatus = 'pending';
+  order.updatedAt = new Date().toISOString();
+  await env.KV.put(orderKey(orderId), JSON.stringify(order));
+  return order;
+}
+
+export async function markPaidTestPaymentFailed(env: Env, orderId: string, source: Record<string, unknown>, eventId?: string): Promise<PaidTestOrder> {
+  const order = await loadPaidTestOrder(env, orderId);
+  if (order.status === 'ready' || order.status === 'refunded') return order;
+  const metadata = objectMetadata(source);
+  assertMetadata(metadata, 'paid_test_order_id', order.orderId);
+  assertMetadata(metadata, 'owner_id', order.email);
+  order.status = 'failed';
+  order.paymentStatus = 'failed';
+  order.fulfillmentStatus = 'pending';
+  order.stripeEventId = eventId;
+  order.fulfillmentError = 'Stripe payment failed or was not completed';
+  order.updatedAt = new Date().toISOString();
+  await env.KV.put(orderKey(orderId), JSON.stringify(order));
+  const verdict = await savedVerdict(env, order.verdictId, order.email);
+  await savePaidOrderSummary(env, order, verdict?.idea.ideaName || '30-Day Implementation Plan');
+  return order;
+}
+
+export async function markPaidTestCheckoutCanceled(env: Env, orderId: string, session: Record<string, unknown>, eventId?: string): Promise<PaidTestOrder> {
+  const order = await loadPaidTestOrder(env, orderId);
+  if (order.status === 'ready' || order.status === 'refunded') return order;
+  const metadata = objectMetadata(session);
+  assertMetadata(metadata, 'paid_test_order_id', order.orderId);
+  assertMetadata(metadata, 'owner_id', order.email);
+  order.status = 'canceled';
+  order.paymentStatus = 'canceled';
+  order.fulfillmentStatus = 'pending';
+  order.stripeEventId = eventId;
+  order.updatedAt = new Date().toISOString();
+  await env.KV.put(orderKey(orderId), JSON.stringify(order));
+  const verdict = await savedVerdict(env, order.verdictId, order.email);
+  await savePaidOrderSummary(env, order, verdict?.idea.ideaName || '30-Day Implementation Plan');
+  return order;
+}
+
+export async function markPaidTestRefund(env: Env, refund: Record<string, unknown>, eventId?: string): Promise<PaidTestOrder | null> {
+  const paymentIntentId = typeof refund.payment_intent === 'string' ? refund.payment_intent : '';
+  if (!paymentIntentId) throw new Error('Refund has no PaymentIntent');
+  const orderId = await env.KV.get(`paid_test_payment_intent_${paymentIntentId}`) ?? await findOrderIdByPaymentIntent(env, paymentIntentId);
+  if (!orderId) return null;
+  const order = await loadPaidTestOrder(env, orderId);
+  const refundAmount = typeof refund.amount === 'number' ? refund.amount : 0;
+  const totalAmount = order.amountCents ?? GHOSTTOWN_30_DAY_PLAN_V1.amountCents;
+  const refundId = typeof refund.id === 'string' ? refund.id : '';
+  if (!refundId) throw new Error('Stripe refund has no ID');
+  const refundStatus = typeof refund.status === 'string' ? refund.status : 'unknown';
+  const now = new Date().toISOString();
+  const refunds = order.refunds ?? [];
+  order.refunds = [
+    ...refunds.filter(item => item.id !== refundId),
+    { id: refundId, amountCents: refundAmount, status: refundStatus, updatedAt: now }
+  ];
+  order.refundId = refundId;
+  order.refundStatus = refundStatus;
+  order.refundedAmountCents = Math.min(totalAmount, order.refunds.filter(item => item.status === 'succeeded').reduce((sum, item) => sum + item.amountCents, 0));
+  order.refundedAt = refundStatus === 'succeeded' ? now : order.refundedAt;
+  order.stripeEventId = eventId;
+  if (order.refundedAmountCents >= totalAmount) {
+    order.status = 'refunded';
+    order.paymentStatus = 'refunded';
+    order.fulfillmentStatus = 'revoked';
+  } else if (order.refundedAmountCents > 0) {
+    if (order.status === 'refunded') {
+      order.status = 'ready';
+      order.fulfillmentStatus = 'fulfilled';
+    }
+    order.paymentStatus = 'partially_refunded';
+  } else if (order.status === 'refunded') {
+    order.status = 'ready';
+    order.paymentStatus = 'paid';
+    order.fulfillmentStatus = 'fulfilled';
+  }
+  order.updatedAt = now;
+  await env.KV.put(orderKey(orderId), JSON.stringify(order));
+  const verdict = await savedVerdict(env, order.verdictId, order.email);
+  await savePaidOrderSummary(env, order, verdict?.idea.ideaName || '30-Day Implementation Plan');
+  return order;
+}
+
+async function loadPaidTestOrder(env: Env, orderId: string): Promise<PaidTestOrder> {
+  const raw = await env.KV.get(orderKey(orderId));
+  if (!raw) throw new Error('Paid test order not found');
+  return JSON.parse(raw) as PaidTestOrder;
+}
+
+function objectMetadata(source: Record<string, unknown>): Record<string, unknown> {
+  return source.metadata && typeof source.metadata === 'object' ? source.metadata as Record<string, unknown> : {};
+}
+
+async function findOrderIdByPaymentIntent(env: Env, paymentIntentId: string): Promise<string | null> {
+  const listed = await env.KV.list({ prefix: 'paid_test_order_', limit: 1000 });
+  for (const item of listed.keys) {
+    const raw = await env.KV.get(item.name);
+    if (!raw) continue;
+    const order = JSON.parse(raw) as PaidTestOrder;
+    if (order.stripePaymentIntentId === paymentIntentId) return order.orderId;
+  }
+  return null;
 }
 
 function assertMetadata(metadata: Record<string, unknown>, key: string, expected: string): void {

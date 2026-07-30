@@ -42,7 +42,7 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
   return (
     <main className="mx-auto max-w-2xl px-4 py-12 text-center">
       <div className="rounded-xl border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern sm:p-10">
-        <p className="text-xs font-bold uppercase tracking-wider text-ghost-rust">Payment received</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-ghost-rust">{ready ? 'Payment verified' : 'Confirming payment'}</p>
         <h1 className="mt-3 font-display text-4xl font-bold text-ghost-ink">{ready ? 'Your 30-day implementation plan is ready.' : 'Building your 30-day implementation plan...'}</h1>
         <p className="mt-4 text-gray-700">{ready ? 'Download the readable PDF or the canonical JSON source.' : 'The verified webhook is generating your buyer, offer, and 30-day evidence plan. This page updates automatically.'}</p>
         {!ready && <div className="mx-auto mt-7 h-10 w-10 animate-spin rounded-full border-4 border-ghost-rust/20 border-b-ghost-rust" aria-label="Generating report" />}

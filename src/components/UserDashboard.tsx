@@ -14,7 +14,7 @@ interface ResultSummary {
 interface PaidOrderSummary {
   orderId: string;
   ideaName: string;
-  status: 'pending' | 'paid' | 'generating' | 'ready' | 'failed' | 'refunded';
+  status: 'pending' | 'checkout_created' | 'paid' | 'generating' | 'ready' | 'failed' | 'canceled' | 'refunded';
   createdAt: string;
   updatedAt: string;
   artifactType?: 'legacy_report_v1' | 'execution_plan_30day_v1';

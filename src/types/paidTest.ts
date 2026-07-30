@@ -1,8 +1,9 @@
 import type { EvaluationResult } from './lit';
 import type { GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
+import type { FulfillmentStatus, PaymentStatus, StripeRefundRecord } from './stripe';
 
 export type TruthLabel = 'Verified' | 'Inferred' | 'Test';
-export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'generating' | 'ready' | 'failed' | 'refunded';
+export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'generating' | 'ready' | 'failed' | 'canceled' | 'refunded';
 export type StripeMode = 'test' | 'live';
 export type PaidArtifactType = 'legacy_report_v1' | 'execution_plan_30day_v1';
 export type PaidPlanOfferId = typeof GHOSTTOWN_30_DAY_PLAN_V1.offerId;
@@ -47,6 +48,16 @@ export interface PaidTestOrder {
   stripePriceId?: string;
   stripeMode?: StripeMode;
   stripeEventId?: string;
+  amountCents?: number;
+  currency?: string;
+  paymentStatus?: PaymentStatus;
+  fulfillmentStatus?: FulfillmentStatus;
+  artifactId?: string;
+  refundedAmountCents?: number;
+  refundId?: string;
+  refundedAt?: string;
+  refundStatus?: string;
+  refunds?: StripeRefundRecord[];
   status: PaidTestOrderStatus;
   artifactType?: PaidArtifactType;
   offerId?: PaidPlanOfferId;

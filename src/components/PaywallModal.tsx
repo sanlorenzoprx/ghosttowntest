@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiUrl } from '../lib/api';
+import { apiUrl, authHeaders } from '../lib/api';
 
 interface Props {
   isLoggedIn: boolean;
@@ -24,7 +24,7 @@ export default function PaywallModal({ isLoggedIn, onLoginClick, onClose, contex
     try {
       const response = await fetch(apiUrl('/api/checkout'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ token })
       });
       const data = await response.json<{ sessionUrl?: string; error?: string }>();

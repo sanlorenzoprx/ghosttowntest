@@ -28,7 +28,7 @@ Each plan carries its version, source verdict ID, quality-gate result, and gener
 
 ## Required Stripe setup
 
-- Register `checkout.session.completed` at `/api/webhook/stripe`.
+- Register the event set in `STRIPE_INTEGRATION_RUNBOOK.md` at `/api/webhook/stripe`.
 - Copy Stripe's endpoint signing secret to `STRIPE_WEBHOOK_SECRET`.
 - Use a paid-plan price, not the existing 10-assessment `STRIPE_PRICE_ID`, for `STRIPE_30_DAY_PLAN_PRICE_ID`.
 - Configure the deployed frontend URL before opening checkout in production.

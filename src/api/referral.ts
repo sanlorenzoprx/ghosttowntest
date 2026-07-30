@@ -6,8 +6,13 @@ import type { Env } from './env';
 interface ReferralRecord {
   fromEmail: string;
   createdAt: string;
+  resultId?: string;
   claimedAt?: string;
   claimedBy?: string;
+}
+
+interface ReferralCreateRequest {
+  resultId?: string;
 }
 
 /**
@@ -103,9 +108,24 @@ export async function handleReferralCreate(request: Request, env: Env) {
       });
     }
 
+    const { resultId } = await request.json<ReferralCreateRequest>().catch((): ReferralCreateRequest => ({}));
+    if (!resultId || !/^[a-z0-9_-]{1,64}$/i.test(resultId)) {
+      return new Response(JSON.stringify({ error: 'A completed assessment is required to create a share link' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    if (!await env.KV.get(`verdict:${resultId}`)) {
+      return new Response(JSON.stringify({ error: 'Assessment result not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     const refId = generateRandomId(16);
     await env.KV.put(`referral_${refId}`, JSON.stringify({
       fromEmail: authenticated.email,
+      resultId,
       createdAt: new Date().toISOString()
     } satisfies ReferralRecord), { expirationTtl: 86400 * 30 });
 

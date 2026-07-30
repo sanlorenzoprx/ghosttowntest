@@ -52,7 +52,8 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
     try {
       const linkResponse = await fetch(apiUrl('/api/referral/create'), {
         method: 'POST',
-        headers: authHeaders()
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ resultId: result.resultId })
       });
       const linkData = await linkResponse.json<{ refId?: string; link?: string; error?: string }>();
       if (!linkResponse.ok || !linkData.refId || !linkData.link) {

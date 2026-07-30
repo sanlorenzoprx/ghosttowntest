@@ -32,6 +32,7 @@ function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/refunds' || pathname === '/refund-policy') return 'refund';
   if (pathname === '/disclaimer') return 'disclaimer';
   if (pathname === '/paid-test/success') return 'action-plan-success';
+  if (pathname === '/dashboard') return 'dashboard';
   return hasExample ? 'intake' : 'landing';
 }
 

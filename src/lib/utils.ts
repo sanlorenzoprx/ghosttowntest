@@ -3,9 +3,20 @@
  */
 export function generateRandomId(length: number = 12): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  if (!Number.isSafeInteger(length) || length < 1) {
+    throw new Error('Random ID length must be a positive integer');
+  }
+
   let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  const unbiasedLimit = 256 - (256 % chars.length);
+  while (result.length < length) {
+    const bytes = new Uint8Array(Math.max(16, (length - result.length) * 2));
+    crypto.getRandomValues(bytes);
+    for (const byte of bytes) {
+      if (byte >= unbiasedLimit) continue;
+      result += chars[byte % chars.length];
+      if (result.length === length) break;
+    }
   }
   return result;
 }
