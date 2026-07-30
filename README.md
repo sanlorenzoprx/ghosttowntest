@@ -66,7 +66,7 @@ That runs TypeScript, Vitest, the production frontend build, and a Worker dry-ru
 Before deployment:
 
 1. Replace the placeholder KV namespace IDs in `wrangler.toml`.
-2. Set Worker secrets for `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_30_DAY_PLAN_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET` using Wrangler secrets or the Cloudflare dashboard. Keep `STRIPE_PAID_TEST_PRICE_ID` only if you need to fulfill old pending seven-day orders.
+2. Set Worker secrets for `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_30_DAY_PLAN_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET` using Wrangler secrets or the Cloudflare dashboard. Configure the matching mode-specific Product IDs as `STRIPE_VERDICT_PACK_PRODUCT_ID` and `STRIPE_30_DAY_PLAN_PRODUCT_ID`. Keep `STRIPE_PAID_TEST_PRICE_ID` only if you need to fulfill old pending seven-day orders.
 3. Set `FRONTEND_URL` and `AI_MODEL` for the target environment.
 4. Set the frontend `VITE_API_URL=https://api.ghosttowntest.com` and `VITE_30_DAY_PLAN_DISPLAY_PRICE=$97.00` for production. The frontend also infers this API origin on `ghosttowntest.com`.
 5. Configure Stripe to send `checkout.session.completed` events to `/api/webhook/stripe`.

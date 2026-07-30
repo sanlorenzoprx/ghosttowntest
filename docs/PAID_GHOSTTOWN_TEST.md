@@ -4,7 +4,7 @@
 
 ## Production configuration
 
-Use Stripe Product `prod_Uyw4i87a8qRReT` for the Launch Blueprint and set its separate one-time **Price ID** (`price_...`) as `STRIPE_30_DAY_PLAN_PRICE_ID`. Use Product `prod_Uyxf3Bm5FCwAKu` for **GhostTown Verdict Pack — 10 Additional Tests** and set its one-time Price ID as `STRIPE_PRICE_ID`. The Worker also requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `JWT_SECRET`, KV, and the existing LIT bindings. Product IDs are not Price IDs; Checkout requires the corresponding `price_...` values. Keep all Stripe keys and Price IDs as Worker secrets in production; do not commit them.
+In the confirmed Stripe sandbox, the Launch Blueprint is Product `prod_Uyw4i87a8qRReT` and the Verdict Pack is Product `prod_Uyxf3Bm5FCwAKu`. Set their separate one-time **Price IDs** (`price_...`) as `STRIPE_30_DAY_PLAN_PRICE_ID` and `STRIPE_PRICE_ID`. Configure the Product mappings as `STRIPE_30_DAY_PLAN_PRODUCT_ID` and `STRIPE_VERDICT_PACK_PRODUCT_ID`. Stripe test and live objects are separate, so production must use the corresponding live Product and Price IDs—not these sandbox IDs. The Worker also requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `JWT_SECRET`, KV, and the existing LIT bindings. Keep all Stripe keys and Price IDs as Worker secrets; Product IDs may be ordinary environment variables.
 
 The public policy pages are:
 

@@ -24,10 +24,10 @@ No Stripe resources or deployed configuration were changed during the audit.
 
 In the Zayas House sandbox, create or select:
 
-1. **GhostTown Launch Blueprint: Your personalized 30-day validated idea to market-ready offer** — Product `prod_Uyw4i87a8qRReT`, with an active one-time USD Price for exactly **9700 cents**.
-2. **GhostTown Verdict Pack — 10 Additional Tests** — Product `prod_Uyxf3Bm5FCwAKu`, with an active one-time USD Price for exactly **1497 cents**.
+1. **GhostTown Launch Blueprint: Your personalized 30-day validated idea to market-ready offer** — confirmed sandbox Product `prod_Uyw4i87a8qRReT`, with an active one-time USD Price for exactly **9700 cents**.
+2. **GhostTown Verdict Pack — 10 Additional Tests** — confirmed sandbox Product `prod_Uyxf3Bm5FCwAKu`, with an active one-time USD Price for exactly **1497 cents**.
 
-The supplied `prod_...` values are Product IDs, not Price IDs. Put the corresponding `price_...` values into the Worker secrets. The Worker retrieves each configured Price with its active API key before creating Checkout and checks `active`, `livemode`, `type`, `currency`, and `unit_amount`. In live mode it also requires each Price to belong to the expected Product above.
+The supplied `prod_...` values are sandbox Product IDs, not Price IDs. Put the corresponding sandbox `price_...` values into the Worker secrets and configure the Product IDs as `STRIPE_30_DAY_PLAN_PRODUCT_ID` and `STRIPE_VERDICT_PACK_PRODUCT_ID`. The Worker retrieves each configured Price with its active API key before creating Checkout and checks `active`, `livemode`, `type`, `currency`, `unit_amount`, and the configured Product mapping. Live mode requires separate live Products, Prices, and mode-specific environment values.
 
 ## Cloudflare secrets
 
@@ -40,6 +40,8 @@ npx wrangler secret put STRIPE_30_DAY_PLAN_PRICE_ID --env production
 npx wrangler secret put STRIPE_PRICE_ID --env production
 npx wrangler secret put STRIPE_WEBHOOK_SECRET --env production
 ```
+
+Also configure `STRIPE_30_DAY_PLAN_PRODUCT_ID` and `STRIPE_VERDICT_PACK_PRODUCT_ID` for the same Stripe mode. The sandbox values are already present in the development Wrangler environment; do not reuse them with live keys.
 
 `STRIPE_PAID_TEST_PRICE_ID` is legacy-only. Hosted Checkout does not require a frontend publishable key.
 

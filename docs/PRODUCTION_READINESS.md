@@ -35,7 +35,7 @@ AI-unavailable stderr output is expected in integration tests because local dev 
 3. **Frontend URL and DNS**: Publish `ghosttowntest.com`, set `FRONTEND_URL=https://ghosttowntest.com`, and verify the canonical domain resolves before opening checkout
 4. **AI model**: Set AI_MODEL environment variable for the production environment (default is `@cf/meta/llama-3.1-8b-instruct-fast`)
 5. **Static hosting**: Deploy dist/ to a static frontend host (e.g., Cloudflare Pages, Vercel, Netlify)
-6. **Stripe products and webhook**: Attach the one-time $97.00 Price to Launch Blueprint Product `prod_Uyw4i87a8qRReT`, attach the $14.97 Price to Verdict Pack Product `prod_Uyxf3Bm5FCwAKu`, configure Checkout policy links, and send the required events to `/api/webhook/stripe`
+6. **Stripe products and webhook**: The sandbox Products are Launch Blueprint `prod_Uyw4i87a8qRReT` and Verdict Pack `prod_Uyxf3Bm5FCwAKu`. Before live deployment, create or confirm separate live Products/Prices, configure all four mode-matched Product/Price IDs, configure Checkout policy links, and send the required events to `/api/webhook/stripe`
 7. **Worker deploy**: Run `npx wrangler deploy --env production`
 8. **CORS**: Ensure FRONTEND_URL matches the deployed frontend origin for CORS
 9. **Monitoring**: Configure Workers Logs/observability and a support procedure for paid-but-failed orders

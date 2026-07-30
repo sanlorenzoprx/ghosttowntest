@@ -22,7 +22,7 @@ import {
   GHOSTTOWN_30_DAY_PLAN_V1,
   LEGACY_7_DAY_PLAN_LABEL
 } from '../lib/ghosttownOffer';
-import { stripeProductId, validateConfiguredStripePrice } from './checkout';
+import { expectedStripeProductId, stripeProductId, validateConfiguredStripePrice } from './checkout';
 
 const LEGACY_REPORT_VERSION = '1.0' as const;
 const PLAN_VERSION = '1.0' as const;
@@ -121,7 +121,11 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
       stripePriceId,
       GHOSTTOWN_30_DAY_PLAN_V1.amountCents,
       GHOSTTOWN_30_DAY_PLAN_V1.currency,
-      GHOSTTOWN_30_DAY_PLAN_V1.stripeProductId
+      expectedStripeProductId(
+        env.STRIPE_SECRET_KEY,
+        env.STRIPE_30_DAY_PLAN_PRODUCT_ID,
+        GHOSTTOWN_30_DAY_PLAN_V1.stripeSandboxProductId
+      )
     );
   } catch (error) {
     console.error('Paid checkout Price validation failed', error instanceof Error ? error.message : 'unknown error');

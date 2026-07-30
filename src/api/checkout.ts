@@ -9,6 +9,7 @@ interface Env {
   JWT_SECRET: string;
   STRIPE_SECRET_KEY: string;
   STRIPE_PRICE_ID: string;
+  STRIPE_VERDICT_PACK_PRODUCT_ID?: string;
 }
 
 const assessmentOrderKey = (orderId: string) => `assessment_credit_order_${orderId}`;
@@ -17,6 +18,17 @@ function stripeMode(secretKey: string): StripeMode | null {
   if (secretKey.startsWith('sk_test_')) return 'test';
   if (secretKey.startsWith('sk_live_')) return 'live';
   return null;
+}
+
+export function expectedStripeProductId(
+  secretKey: string,
+  configuredProductId: string | undefined,
+  sandboxProductId: string
+): string {
+  const configured = configuredProductId?.trim();
+  if (configured) return configured;
+  if (stripeMode(secretKey) === 'test') return sandboxProductId;
+  throw new Error('Live Stripe Product ID is not configured');
 }
 
 export function stripeProductId(price: StripePrice): string {
@@ -30,7 +42,7 @@ export async function validateConfiguredStripePrice(
   priceId: string,
   expectedAmountCents: number,
   expectedCurrency: string,
-  expectedLiveProductId?: string
+  expectedProductId?: string
 ): Promise<{ price: StripePrice; mode: StripeMode }> {
   const mode = stripeMode(secretKey);
   if (!mode) throw new Error('Stripe secret key mode is not configured');
@@ -52,7 +64,7 @@ export async function validateConfiguredStripePrice(
   if (price.currency.toLowerCase() !== expectedCurrency.toLowerCase()) throw new Error('Configured Stripe Price currency does not match the offer');
   if (price.livemode !== (mode === 'live')) throw new Error('Stripe key and Price modes do not match');
   const productId = stripeProductId(price);
-  if (mode === 'live' && expectedLiveProductId && productId !== expectedLiveProductId) {
+  if (expectedProductId && productId !== expectedProductId) {
     throw new Error('Configured Stripe Price belongs to the wrong Product');
   }
   return { price, mode };
@@ -91,7 +103,11 @@ export async function handleCheckout(request: Request, env: Env) {
         env.STRIPE_PRICE_ID,
         GHOSTTOWN_VERDICT_PACK_V1.amountCents,
         GHOSTTOWN_VERDICT_PACK_V1.currency,
-        GHOSTTOWN_VERDICT_PACK_V1.stripeProductId
+        expectedStripeProductId(
+          env.STRIPE_SECRET_KEY,
+          env.STRIPE_VERDICT_PACK_PRODUCT_ID,
+          GHOSTTOWN_VERDICT_PACK_V1.stripeSandboxProductId
+        )
       );
     } catch (error) {
       console.error('Assessment checkout Price validation failed', error instanceof Error ? error.message : 'unknown error');

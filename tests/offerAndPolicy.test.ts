@@ -9,7 +9,7 @@ describe('GhostTown launch offer and public business policy', () => {
       offerId: 'ghosttown_30_day_plan_v1',
       version: '1.0',
       name: 'GhostTown Launch Blueprint: Your personalized 30-day validated idea to market-ready offer',
-      stripeProductId: 'prod_Uyw4i87a8qRReT',
+      stripeSandboxProductId: 'prod_Uyw4i87a8qRReT',
       amountCents: 9700,
       currency: 'usd',
       active: true
@@ -18,7 +18,7 @@ describe('GhostTown launch offer and public business policy', () => {
       offerId: 'ghosttown_verdict_pack_v1',
       version: '1.0',
       name: 'GhostTown Verdict Pack — 10 Additional Tests',
-      stripeProductId: 'prod_Uyxf3Bm5FCwAKu',
+      stripeSandboxProductId: 'prod_Uyxf3Bm5FCwAKu',
       amountCents: 1497,
       currency: 'usd',
       credits: 10,

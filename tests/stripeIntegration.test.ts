@@ -48,7 +48,9 @@ function envWithKv(kv: MemoryKv, overrides: Partial<Env> = {}): Env {
     JWT_SECRET: 'unit-test-jwt-secret',
     STRIPE_SECRET_KEY: 'sk_test_placeholder',
     STRIPE_PRICE_ID: 'price_assessment_test',
+    STRIPE_VERDICT_PACK_PRODUCT_ID: 'prod_test',
     STRIPE_30_DAY_PLAN_PRICE_ID: 'price_plan_test',
+    STRIPE_30_DAY_PLAN_PRODUCT_ID: 'prod_test',
     STRIPE_WEBHOOK_SECRET: 'whsec_unit_test',
     ...overrides
   };
