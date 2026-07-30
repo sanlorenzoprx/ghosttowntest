@@ -89,23 +89,13 @@ echo 'VITE_API_URL=http://localhost:8787
 STRIPE_PUBLIC_KEY=pk_test_YOUR_TEST_KEY' > .env.local
 ```
 
-### 4. Add Secrets to wrangler.toml
-```toml
-[env.production]
-vars = {
-  JWT_SECRET = "generate-random-string-here",
-  STRIPE_SECRET_KEY = "sk_live_YOUR_LIVE_KEY",
-  STRIPE_PRICE_ID = "price_YOUR_PRICE_ID",
-  STRIPE_WEBHOOK_SECRET = "whsec_YOUR_WEBHOOK_SECRET"
-}
-
-[env.development]
-vars = {
-  JWT_SECRET = "dev-secret-key",
-  STRIPE_SECRET_KEY = "sk_test_YOUR_TEST_KEY",
-  STRIPE_PRICE_ID = "price_YOUR_TEST_PRICE_ID",
-  STRIPE_WEBHOOK_SECRET = "whsec_YOUR_TEST_SECRET"
-}
+### 4. Add secrets securely
+Use Wrangler secrets or the Cloudflare dashboard. Do not put secret values in `wrangler.toml`:
+```bash
+npx wrangler secret put JWT_SECRET --env production
+npx wrangler secret put STRIPE_SECRET_KEY --env production
+npx wrangler secret put STRIPE_WEBHOOK_SECRET --env production
+npx wrangler secret put STRIPE_30_DAY_PLAN_PRICE_ID --env production
 ```
 
 ---
@@ -124,9 +114,11 @@ vars = {
 # In Stripe Dashboard:
 1. Products → Create Product
 2. Name: "LIT Tests"
-3. Description: "10 additional tests"
-4. Price: $19.00 USD
-5. Copy the price ID: price_*
+3. Description: "One-time personalized 30-day evidence plan delivered as PDF and canonical JSON"
+4. Price: $97.00 USD, one time
+5. Copy the price ID as `STRIPE_30_DAY_PLAN_PRICE_ID`
+
+The existing 10-assessment credit product remains a separate $14.97 decline-path fallback and must not be used as the 30-day plan price.
 ```
 
 ### 3. Add to .env and wrangler.toml
@@ -134,6 +126,7 @@ vars = {
 STRIPE_PUBLIC_KEY=pk_test_YOUR_KEY
 STRIPE_SECRET_KEY=sk_test_YOUR_KEY
 STRIPE_PRICE_ID=price_YOUR_PRICE_ID
+STRIPE_30_DAY_PLAN_PRICE_ID=price_YOUR_97_DOLLAR_PLAN_PRICE_ID
 ```
 
 ---

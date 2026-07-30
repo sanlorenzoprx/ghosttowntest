@@ -6,6 +6,7 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 import ActionPlanModal from './ActionPlanModal';
+import PaywallModal from './PaywallModal';
 import type { PaidTestIntake } from '../types/paidTest';
 import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
 
@@ -21,6 +22,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   const [paidLoading, setPaidLoading] = useState(false);
   const [paidError, setPaidError] = useState('');
   const [showActionPlanForm, setShowActionPlanForm] = useState(false);
+  const [showDeclinedPlanOffer, setShowDeclinedPlanOffer] = useState(false);
   const [video, setVideo] = useState<PublicVideoResult | undefined>(result.video);
   const scores = result.deterministicScores;
   const verdict = result.verdict;
@@ -263,8 +265,20 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           verdictId={result.resultId}
           loading={paidLoading}
           error={paidError}
-          onClose={() => setShowActionPlanForm(false)}
+          onClose={() => {
+            setShowActionPlanForm(false);
+            setShowDeclinedPlanOffer(true);
+          }}
           onSubmit={intake => void startPaidTest(intake)}
+        />
+      )}
+
+      {showDeclinedPlanOffer && (
+        <PaywallModal
+          context="plan-declined"
+          isLoggedIn={isLoggedIn}
+          onLoginClick={onLoginClick}
+          onClose={() => setShowDeclinedPlanOffer(false)}
         />
       )}
 

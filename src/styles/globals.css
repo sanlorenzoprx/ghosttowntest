@@ -4,11 +4,11 @@
 
 @layer base {
   :root {
-    --background: 36 33% 97%;
-    --foreground: 0 0% 6%;
-    --border: 30 20% 15%;
-    --input: 30 20% 15%;
-    --ring: 18 86% 39%;
+    --background: 40 60% 98%;
+    --foreground: 215 28% 17%;
+    --border: 214 20% 86%;
+    --input: 214 20% 86%;
+    --ring: 161 86% 26%;
   }
 }
 
@@ -25,12 +25,12 @@ html {
 }
 
 body {
-  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Source Sans 3', 'Source Sans Pro', ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
-  color: #171717;
-  background: #faf9f6;
+  color: #1f2937;
+  background: #fdfbf7;
 }
 
 #root {
@@ -42,7 +42,7 @@ body {
 /* Custom components using @apply */
 @layer components {
   .btn-primary {
-    @apply bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition;
+    @apply bg-ghost-forest text-white px-4 py-2 rounded font-semibold hover:bg-blue-900 transition;
   }
 
   .btn-secondary {
@@ -50,7 +50,7 @@ body {
   }
 
   .input-base {
-    @apply border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500;
+    @apply border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ghost-forest;
   }
 
   .card {
@@ -142,6 +142,12 @@ body {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .brand-wordmark {
+    animation: none;
+  }
+}
+
 /* Utility overrides */
 button {
   cursor: pointer;
@@ -158,9 +164,31 @@ button, a, input, textarea, select {
 }
 
 .ghost-surface {
-  background-color: #0f0f0f;
-  background-image: radial-gradient(rgba(255,255,255,.09) .7px, transparent .7px);
-  background-size: 8px 8px;
+  background-color: #1f2937;
+  background-image: linear-gradient(135deg, rgba(6,78,59,.34), transparent 58%);
+}
+
+@keyframes brand-breathe {
+  0%, 100% { letter-spacing: -0.02em; transform: translateY(0); }
+  50% { letter-spacing: 0; transform: translateY(-1px); }
+}
+
+.brand-wordmark {
+  animation: brand-breathe 5s ease-in-out infinite;
+}
+
+@media (max-width: 767px) {
+  .site-header-inner {
+    gap: 0.75rem;
+    flex-direction: column;
+  }
+
+  .site-nav {
+    position: static;
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
 }
 
 .texture-noise::before {
@@ -174,7 +202,7 @@ button, a, input, textarea, select {
 }
 
 .ghost-score-ring {
-  background: conic-gradient(#d4af37 var(--score), #e7dfd2 0);
+  background: conic-gradient(#064e3b var(--score), #e7e1d6 0);
 }
 
 input:disabled,

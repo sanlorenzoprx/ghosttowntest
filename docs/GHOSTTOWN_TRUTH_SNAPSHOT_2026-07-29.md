@@ -7,9 +7,9 @@ Date: 2026-07-29
 - Repository URL: `https://github.com/sanlorenzoprx/ghosttowntest.git`
 - Local path: `C:\repos\ghosttowntest`
 - Branch: `main`
-- Commit: `1abecccdf7582689b73e35c8f803b4c0197fd2ac`
-- Tracking status: `main...origin/main`
-- Worktree status: clean
+- Commit at review start: `12f8cfa7b2b8627275c53a580c16342ca011bac9`
+- Tracking status at review start: `main...origin/main`
+- Worktree status: implementation changes are deployed to Pages but remain uncommitted locally pending owner review
 - Package manager: `npm`
 - Lockfile: `package-lock.json`
 - Frontend entry point: `src/main.tsx`
@@ -19,19 +19,22 @@ Date: 2026-07-29
 - Current checkout route: `POST /api/paid-test/checkout`
 - Current webhook route: `POST /api/webhook/stripe`
 - Current order/history route: `GET /api/paid-test/orders`
-- Current download routes: `GET /api/paid-test/orders/:orderId/report` and `GET /api/paid-test/orders/:orderId/report.pdf`
+- Current download routes: `GET /api/paid-test/orders/:orderId/plan`, `GET /api/paid-test/orders/:orderId/plan.pdf`, plus legacy `/report` and `/report.pdf` aliases
 - Current PDF renderer: inline dependency-free PDF writer in `src/api/paidTest.ts`
-- Current paid artifact type: seven-day validation report JSON plus PDF
+- Current paid artifact types: `execution_plan_30day_v1` plus legacy seven-day report JSON/PDF
 - Current report/order types: `PaidTestOrder`, `PaidTestReport`, `PaidTestIntake`
 - Existing scripts from `package.json`: `dev`, `dev:api`, `build`, `preview`, `type-check`, `test`, `worker:check`, `check`
 
 ## Live Origins
 
-- Frontend origin currently responding with HTTP 200: `https://lit-ghosttown.app/`
+- Canonical frontend origin currently responding with HTTP 200: `https://ghosttowntest.com/`
+- Pages deployment preview for the current build: `https://bc69e448.ghosttowntest.pages.dev/`
 - Frontend title: `GhostTown Test - Test Before You Build`
 - API origin currently responding at `/`: `https://api.ghosttowntest.com/`
 - Canonical domain in local config/docs: `ghosttowntest.com`
 - Legacy alias in local config/docs: `lit-ghosttown.app`
+- Live policy/support routes verified with HTTP 200: `/terms`, `/privacy`, `/refunds`, `/disclaimer`, `/contact`
+- Published support contact: `support@ghosttowntest.com`
 
 ## Stripe Configuration Status
 
@@ -44,18 +47,18 @@ Date: 2026-07-29
 
 ## Current Paid Journey Baseline
 
-- The customer-facing paid offer is still the old `7-Day Validation Plan` priced at `$29`
+- The customer-facing paid offer is the `Personalized 30-Day Idea-to-Evidence Implementation Plan` priced at `$97.00` one time
 - Checkout intake currently asks for buyer, problem, workaround, and expected price
-- The current webhook fulfills only after `checkout.session.completed` and then stores a seven-day report
-- The current dashboard shows `7-Day Validation Action Plans`
-- The paid success page polls `/api/paid-test/orders/:orderId/report`
-- The live site still serves the old brand/title copy rather than the new 30-day offer
+- The webhook fulfills only after a verified `checkout.session.completed` event and stores the canonical 30-day plan plus PDF
+- The dashboard shows 30-day implementation plans and preserves legacy seven-day reports for compatibility
+- The paid success page polls the order status and does not grant entitlement in the browser
+- The live site serves the current 30-day offer, legal pages, support contact, and decline-path assessment option
 
-## First Reproducible Failure
+## First Reproducible Failure / Remaining Gate
 
-- The current paid journey does not expose the new `Personalized 30-Day Idea-to-Evidence Implementation Plan`
-- There is no `/api/paid-test/orders/:orderId/plan` or `/api/paid-test/orders/:orderId/plan.pdf` route yet
-- The UI still advertises the seven-day/$29 offer instead of the new versioned 30-day offer
+- The code path fails closed until `STRIPE_30_DAY_PLAN_PRICE_ID` is configured in the correct Stripe mode
+- Stripe product, price, webhook endpoint, and signing secret require owner access to the new Stripe account
+- A supervised Stripe test purchase remains the next end-to-end acceptance gate
 
 ## Files Expected to Change
 
@@ -71,6 +74,7 @@ Date: 2026-07-29
 - `src/components/UserDashboard.tsx`
 - `src/components/Landing.tsx`
 - `src/components/Contact.tsx`
+- `src/components/LegalPage.tsx`
 - `src/app/App.tsx`
 - `src/lib/api.ts`
 - `index.html`
@@ -82,6 +86,7 @@ Date: 2026-07-29
 - `tests/paidTest.test.ts`
 - `tests/integration.test.ts`
 - `tests/mobileFunnel.test.ts`
+- `tests/offerAndPolicy.test.ts`
 
 ## Files That Should Not Change
 
@@ -101,5 +106,6 @@ Date: 2026-07-29
 
 ## Notes
 
-- The live frontend is already on `lit-ghosttown.app`, while the API host `api.ghosttowntest.com` is active.
-- The local Worker config still points production routes and CORS at GhostTown domains, so the implementation should preserve both the canonical and legacy hostnames.
+- The live frontend is now on the canonical `ghosttowntest.com` Pages custom domain; `lit-ghosttown.app` remains a legacy alias.
+- The local Worker config still points production routes and CORS at GhostTown domains, so the implementation preserves both canonical and legacy hostnames.
+- Stripe setup is intentionally deferred until the owner completes the new LLC account onboarding. No Stripe credentials were changed during this deployment.

@@ -187,7 +187,7 @@ function svgShell(width: number, height: number, theme: CardTheme, content: stri
     <rect width="100%" height="100%" fill="url(#bg)"/>
     <circle cx="${width * 0.88}" cy="${height * 0.05}" r="${height * 0.55}" fill="url(#glow)"/>
     <circle cx="${width * 0.08}" cy="${height * 0.98}" r="${height * 0.3}" fill="url(#glow)" opacity="0.55"/>
-    <g font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">${content}</g>
+    <g font-family="'Source Sans 3', 'Source Sans Pro', ui-sans-serif, system-ui, sans-serif">${content}</g>
   </svg>`;
 }
 

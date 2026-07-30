@@ -126,7 +126,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
   };
 
   return (
-    <section className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-purple-50 p-5 sm:p-6">
+    <section className="rounded-lg border border-blue-200 bg-ghost-sand p-5 sm:p-6">
       <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Share reward</p>
       <h3 className="mt-2 text-xl font-bold text-blue-950">
         {isLoggedIn ? 'Share your verdict card to unlock the next assessment' : 'Create an account to join the share reward'}

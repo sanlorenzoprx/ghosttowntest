@@ -1,10 +1,19 @@
 # Paid GhostTown Test
 
-The paid plan starts from an existing LIT verdict and turns it into a personalized 30-day idea-to-evidence implementation plan. It does not claim product-market fit, revenue, investor readiness, demand research, professional advice, or certainty.
+The paid plan starts from an existing LIT verdict and turns it into a personalized 30-day idea-to-evidence implementation plan. It costs **$97.00 one time** and does not claim product-market fit, revenue, investor readiness, demand research, professional advice, or certainty.
 
 ## Production configuration
 
 Create a separate Stripe one-time Price for the 30-day plan and set it as `STRIPE_30_DAY_PLAN_PRICE_ID`. The Worker also requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `JWT_SECRET`, KV, and the existing LIT bindings. Keep all Stripe values as Worker secrets in production; do not commit them.
+
+The public policy pages are:
+
+- `/privacy`
+- `/terms`
+- `/refunds`
+- `/disclaimer`
+
+Business identity: **Zayas House LLC**. Jurisdiction: **Commonwealth of Puerto Rico, USA**. The published refund position is a **conditional 100% money-back guarantee**: the client must provide documented proof that they fully implemented the provided strategies, action steps, or deliverables and, despite full implementation, achieved no results. Configure the same policy links and support contact in Stripe Checkout settings before accepting live payments.
 
 ## Delivery contract
 

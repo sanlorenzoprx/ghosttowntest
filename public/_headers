@@ -4,3 +4,9 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   X-Frame-Options: DENY
 
+/index.html
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/ghosttown-icon.svg
+  Cache-Control: no-store, no-cache, must-revalidate
+

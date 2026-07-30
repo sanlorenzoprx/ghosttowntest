@@ -7,6 +7,7 @@ import UserDashboard from '../components/UserDashboard';
 import LoginModal from '../components/LoginModal';
 import PaywallModal from '../components/PaywallModal';
 import Contact from '../components/Contact';
+import LegalPage, { type LegalPageKind } from '../components/LegalPage';
 import ActionPlanSuccess from '../components/ActionPlanSuccess';
 import { IdeaIntake as IdeaIntakeType, EvaluationResult } from '../types/lit';
 import {
@@ -22,16 +23,22 @@ import { apiUrl } from '../lib/api';
 import type { PublicUserData } from '../types/auth';
 import { getFeaturedExampleBySlug, toIdeaIntake } from '../lib/exampleIdeas';
 
-type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'contact' | 'action-plan-success';
+type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'contact' | 'action-plan-success' | LegalPageKind;
+
+function screenForPath(pathname: string, hasExample: boolean): Screen {
+  if (pathname === '/contact') return 'contact';
+  if (pathname === '/privacy') return 'privacy';
+  if (pathname === '/terms') return 'terms';
+  if (pathname === '/refunds' || pathname === '/refund-policy') return 'refund';
+  if (pathname === '/disclaimer') return 'disclaimer';
+  if (pathname === '/paid-test/success') return 'action-plan-success';
+  return hasExample ? 'intake' : 'landing';
+}
 
 export default function App() {
   const [locale, setLocale] = useState<'en' | 'es'>(() => localStorage.getItem('lit_locale') === 'es' ? 'es' : 'en');
   const [initialExample] = useState(() => getFeaturedExampleBySlug(new URLSearchParams(window.location.search).get('example')));
-  const [screen, setScreen] = useState<Screen>(() => window.location.pathname === '/contact'
-    ? 'contact'
-    : window.location.pathname === '/paid-test/success'
-      ? 'action-plan-success'
-      : initialExample ? 'intake' : 'landing');
+  const [screen, setScreen] = useState<Screen>(() => screenForPath(window.location.pathname, Boolean(initialExample)));
   const [idea, setIdea] = useState<IdeaIntakeType | null>(() => initialExample ? toIdeaIntake(initialExample.idea) : null);
   const [result, setResult] = useState<EvaluationResult | null>(null);
   const [resumeDraft, setResumeDraft] = useState<EvaluationDraft | null>(() => loadEvaluationDraft());
@@ -56,6 +63,10 @@ export default function App() {
     localStorage.setItem('lit_locale', locale);
     document.documentElement.lang = locale;
   }, [locale]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [screen]);
 
   async function verifyToken(token: string) {
     try {
@@ -147,6 +158,7 @@ export default function App() {
   };
 
   const handleReset = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     setScreen('landing');
     updatePath('/');
     updateExampleParam(null);
@@ -173,28 +185,33 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-ghost-paper">
       {/* Header */}
-      <header className="border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+      <header className="border-b border-gray-200 bg-ghost-paper/95 backdrop-blur">
+        <div className="site-header-inner relative mx-auto flex max-w-6xl items-center justify-center px-4 py-4">
           <button
             onClick={handleReset}
-            className="flex items-center gap-3 text-left"
-            aria-label="LIT Ghost Town Test home"
+            className="text-center"
+            aria-label="Ghost Town Test home"
           >
-            <span className="grid h-11 w-11 place-items-center rounded bg-ghost-rust font-display text-xl text-white shadow-lantern">
-              LIT
-            </span>
             <span className="leading-tight">
-              <span className="block text-[11px] font-black uppercase tracking-[0.28em] text-ghost-rust sm:text-xs">
+              <span className="block text-[10px] font-bold uppercase tracking-[0.34em] text-ghost-rust sm:text-xs">
                 Leverage / Insight / Timing
               </span>
-              <span className="block font-display text-xl text-ghost-ink sm:text-2xl">
+              <span className="brand-wordmark mt-1 block font-display text-3xl font-semibold leading-none text-ghost-ink sm:text-4xl">
                 Ghost Town Test
               </span>
             </span>
           </button>
-          <div className="flex items-center gap-4">
+          <div className="site-nav absolute right-4 flex items-center gap-4 sm:right-6">
+            <button
+              type="button"
+              onClick={handleReset}
+              className="rounded border border-ghost-forest px-3 py-1.5 text-sm font-bold text-ghost-forest hover:bg-blue-50"
+              aria-label="Go to Home"
+            >
+              Home
+            </button>
             <button
               onClick={() => {
                 setScreen('contact');
@@ -204,9 +221,15 @@ export default function App() {
             >
               Contact
             </button>
-            <button onClick={() => setLocale(current => current === 'en' ? 'es' : 'en')} className="text-sm font-bold text-blue-700 hover:text-blue-900" aria-label="Change language">
-              {locale === 'en' ? 'ES' : 'EN'}
-            </button>
+            <div className="flex items-center gap-2 text-sm" role="group" aria-label="Language">
+              <button type="button" onClick={() => setLocale('en')} aria-pressed={locale === 'en'} className={`font-semibold ${locale === 'en' ? 'text-ghost-forest underline underline-offset-4' : 'text-gray-500 hover:text-ghost-forest'}`}>
+                English
+              </button>
+              <span className="text-gray-300" aria-hidden="true">·</span>
+              <button type="button" onClick={() => setLocale('es')} aria-pressed={locale === 'es'} className={`font-semibold ${locale === 'es' ? 'text-ghost-forest underline underline-offset-4' : 'text-gray-500 hover:text-ghost-forest'}`}>
+                Spanish
+              </button>
+            </div>
             {isLoggedIn ? (
               <>
                 <span className="text-sm text-gray-600">{userEmail}</span>
@@ -294,6 +317,9 @@ export default function App() {
         {screen === 'contact' && (
           <Contact onStart={handleStartTest} />
         )}
+        {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && (
+          <LegalPage kind={screen} />
+        )}
         {screen === 'action-plan-success' && (
           <ActionPlanSuccess
             orderId={new URLSearchParams(window.location.search).get('order_id') || ''}
@@ -304,6 +330,18 @@ export default function App() {
           />
         )}
       </main>
+
+      <footer className="border-t border-gray-200 bg-ghost-sand px-4 py-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
+          <p>Zayas House LLC · Commonwealth of Puerto Rico, USA</p>
+          <nav aria-label="Legal policies" className="flex flex-wrap gap-x-4 gap-y-2">
+            <a className="font-bold text-blue-700 hover:underline" href="/privacy">Privacy</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/terms">Terms</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/refunds">Refunds &amp; fulfillment</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/disclaimer">Disclaimer</a>
+          </nav>
+        </div>
+      </footer>
 
       {/* Login Modal */}
       {showLoginModal && (

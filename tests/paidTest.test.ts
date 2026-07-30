@@ -69,7 +69,7 @@ function planOrder(overrides: Partial<PaidTestOrder> = {}): PaidTestOrder {
     intake: {
       ...order.intake,
       offerHypothesis: 'A fixed-scope release QA pilot delivered in 48 hours',
-      expectedPrice: '$49'
+      expectedPrice: '$97'
     },
     ...overrides
   };
@@ -146,6 +146,8 @@ describe('30-day paid implementation plan', () => {
         owner_id: pendingOrder.email,
         offer_id: GHOSTTOWN_30_DAY_PLAN_V1.offerId,
         offer_version: '1.0',
+        offer_amount_cents: '9700',
+        offer_currency: 'usd',
         plan_version: '1.0',
         stripe_price_id: 'price_30_day_test',
         fulfillment_type: 'execution_plan_30day_v1'
@@ -181,6 +183,8 @@ describe('30-day paid implementation plan', () => {
         owner_id: pendingOrder.email,
         offer_id: GHOSTTOWN_30_DAY_PLAN_V1.offerId,
         offer_version: '1.0',
+        offer_amount_cents: '9700',
+        offer_currency: 'usd',
         plan_version: '1.0',
         stripe_price_id: 'price_wrong'
       }

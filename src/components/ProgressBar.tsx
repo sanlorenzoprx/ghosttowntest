@@ -20,7 +20,7 @@ export default function ProgressBar({ currentIndex }: { currentIndex: number }) 
 
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-200">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-ghost-rust to-ghost-gold transition-all duration-300"
+            className="h-full rounded-full bg-ghost-forest transition-all duration-300"
           style={{ width: `${state.overallPercentage}%` }}
         />
       </div>

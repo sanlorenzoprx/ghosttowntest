@@ -58,7 +58,8 @@ function inferStripeMode(secretKey?: string): StripeMode {
 }
 
 function configuredPlanPriceId(env: Env): string {
-  return env.STRIPE_30_DAY_PLAN_PRICE_ID?.trim() || env.STRIPE_PAID_TEST_PRICE_ID?.trim() || '';
+  // New checkouts must never fall back to a legacy assessment/report price.
+  return env.STRIPE_30_DAY_PLAN_PRICE_ID?.trim() || '';
 }
 
 function safeText(value: string | undefined, fallback: string): string {
@@ -158,6 +159,8 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     'metadata[owner_id]': order.email,
     'metadata[offer_id]': GHOSTTOWN_30_DAY_PLAN_V1.offerId,
     'metadata[offer_version]': GHOSTTOWN_30_DAY_PLAN_V1.version,
+    'metadata[offer_amount_cents]': String(GHOSTTOWN_30_DAY_PLAN_V1.amountCents),
+    'metadata[offer_currency]': GHOSTTOWN_30_DAY_PLAN_V1.currency,
     'metadata[plan_version]': PLAN_VERSION,
     'metadata[stripe_price_id]': stripePriceId,
     'metadata[fulfillment_type]': 'execution_plan_30day_v1',
@@ -627,6 +630,8 @@ export async function fulfillPaidTestOrder(env: Env, orderId: string, session: R
     assertMetadata(metadata, 'owner_id', order.email);
     assertMetadata(metadata, 'offer_id', GHOSTTOWN_30_DAY_PLAN_V1.offerId);
     assertMetadata(metadata, 'offer_version', GHOSTTOWN_30_DAY_PLAN_V1.version);
+    assertMetadata(metadata, 'offer_amount_cents', String(GHOSTTOWN_30_DAY_PLAN_V1.amountCents));
+    assertMetadata(metadata, 'offer_currency', GHOSTTOWN_30_DAY_PLAN_V1.currency);
     assertMetadata(metadata, 'plan_version', PLAN_VERSION);
     if (order.stripePriceId) assertMetadata(metadata, 'stripe_price_id', order.stripePriceId);
     const sessionMode = typeof session.livemode === 'boolean' && session.livemode ? 'live' : 'test';

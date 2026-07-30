@@ -5,9 +5,10 @@ interface Props {
   isLoggedIn: boolean;
   onLoginClick: () => void;
   onClose: () => void;
+  context?: 'allowance' | 'plan-declined';
 }
 
-export default function PaywallModal({ isLoggedIn, onLoginClick, onClose }: Props) {
+export default function PaywallModal({ isLoggedIn, onLoginClick, onClose, context = 'allowance' }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,9 +41,11 @@ export default function PaywallModal({ isLoggedIn, onLoginClick, onClose }: Prop
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-xl">
-        <h2 className="text-2xl font-bold">Keep testing before you build</h2>
+        <h2 className="text-2xl font-bold">{context === 'plan-declined' ? 'Keep exploring before you commit' : 'Keep testing before you build'}</h2>
         <p className="mt-3 text-gray-600">
-          Your current allowance has been used. Registered members can share one completed result to unlock one bonus assessment, or get 10 more for $14.97.
+          {context === 'plan-declined'
+            ? 'Not ready for the $97.00 30-day PDF plan? You can still buy 10 additional assessments and keep testing ideas before committing to a longer evidence sprint.'
+            : 'Your current allowance has been used. Registered members can share one completed result to unlock one bonus assessment, or get 10 more for $14.97.'}
         </p>
 
         <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">

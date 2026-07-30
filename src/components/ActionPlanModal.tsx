@@ -17,7 +17,8 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
   const [problem, setProblem] = useState(idea.painfulProblem);
   const [currentWorkaround, setCurrentWorkaround] = useState(idea.currentAlternative);
   const [offerHypothesis, setOfferHypothesis] = useState('');
-  const [expectedPrice, setExpectedPrice] = useState(DEFAULT_30_DAY_PLAN_DISPLAY_PRICE);
+  // This is the founder's own price hypothesis, not the price of GhostTown's PDF plan.
+  const [expectedPrice, setExpectedPrice] = useState('');
   const displayPrice = import.meta.env.VITE_30_DAY_PLAN_DISPLAY_PRICE?.trim() || DEFAULT_30_DAY_PLAN_DISPLAY_PRICE;
 
   const submit = (event: React.FormEvent) => {
@@ -29,7 +30,7 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
       problem: problem.trim(),
       currentWorkaround: currentWorkaround.trim(),
       offerHypothesis: offerHypothesis.trim(),
-      expectedPrice: expectedPrice.trim() || displayPrice
+      expectedPrice: expectedPrice.trim() || undefined
     });
   };
 
@@ -50,8 +51,8 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
             <Field label="One buyer segment" value={targetBuyer} onChange={setTargetBuyer} placeholder="Example: independent web-design agencies" />
             <Field label="Urgent problem they will pay to solve" value={problem} onChange={setProblem} placeholder="Describe the costly or frustrating problem" multiline />
             <Field label="What they use or do today" value={currentWorkaround} onChange={setCurrentWorkaround} placeholder="Current tool, service, spreadsheet, or manual workaround" multiline />
-            <Field label="Offer you want to test" value={offerHypothesis} onChange={setOfferHypothesis} placeholder="Example: a manual QA audit delivered in 48 hours" multiline />
-            <Field label="Price you want to test" value={expectedPrice} onChange={setExpectedPrice} placeholder={displayPrice} />
+            <Field label="Offer you want to test" value={offerHypothesis} onChange={setOfferHypothesis} placeholder="Example: a manual QA audit delivered in 48 hours" multiline required={false} />
+            <Field label="Price you want to test" value={expectedPrice} onChange={setExpectedPrice} placeholder="Example: $250 pilot" required={false} />
           </div>
 
           {error && (
@@ -72,21 +73,23 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
   );
 }
 
-function Field({ label, value, onChange, placeholder, multiline = false }: {
+function Field({ label, value, onChange, placeholder, multiline = false, required = true }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   multiline?: boolean;
+  required?: boolean;
 }) {
+  const isRequired = required !== false;
   const className = 'mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-base text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200';
   return (
     <label className="block text-sm font-bold text-gray-800">
       {label}
       {multiline ? (
-        <textarea required rows={3} value={value} onChange={event => onChange(event.target.value)} placeholder={placeholder} className={className} />
+        <textarea required={isRequired} rows={3} value={value} onChange={event => onChange(event.target.value)} placeholder={placeholder} className={className} />
       ) : (
-        <input required value={value} onChange={event => onChange(event.target.value)} placeholder={placeholder} className={className} />
+        <input required={isRequired} value={value} onChange={event => onChange(event.target.value)} placeholder={placeholder} className={className} />
       )}
     </label>
   );

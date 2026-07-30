@@ -34,7 +34,7 @@ export default function ExampleIdeaGallery({ onSelect }: Props) {
 
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {featuredExamples.map(example => (
-            <article key={example.slug} className="flex flex-col rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-blue-50/60 p-6 shadow-sm transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-lg">
+            <article key={example.slug} className="flex flex-col rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-lg">
               <div className="flex items-center justify-between gap-3">
                 <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{example.category}</span>
                 <span className="text-xs font-semibold text-gray-400">Preloaded</span>

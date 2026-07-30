@@ -4,7 +4,7 @@ interface Props {
 
 export default function Contact({ onStart }: Props) {
   return (
-    <section className="bg-gradient-to-br from-slate-50 via-blue-50 to-orange-50 px-4 py-16">
+    <section className="bg-ghost-paper px-4 py-16">
       <div className="mx-auto max-w-4xl">
         <p className="text-sm font-black uppercase tracking-[0.28em] text-ghost-rust">Contact Ghost Town Test</p>
         <h1 className="mt-4 max-w-3xl font-slab text-4xl font-bold leading-[1.08] tracking-tight text-ghost-ink sm:text-5xl lg:text-6xl">
@@ -20,8 +20,8 @@ export default function Contact({ onStart }: Props) {
             <p className="mt-2 text-sm leading-relaxed text-gray-600">
               Checkout, account, plan access, or a verdict that did not save.
             </p>
-            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:support@lit-ghosttown.app">
-              support@lit-ghosttown.app
+            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:support@ghosttowntest.com">
+              support@ghosttowntest.com
             </a>
           </article>
 
@@ -30,8 +30,8 @@ export default function Contact({ onStart }: Props) {
             <p className="mt-2 text-sm leading-relaxed text-gray-600">
               Startup communities, agencies, creators, and tools that want sharper idea validation.
             </p>
-            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:hello@lit-ghosttown.app">
-              hello@lit-ghosttown.app
+            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:hello@ghosttowntest.com">
+              hello@ghosttowntest.com
             </a>
           </article>
 
