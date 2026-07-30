@@ -11,7 +11,7 @@ const pageCopy: Record<LegalPageKind, { eyebrow: string; title: string; intro: s
   privacy: {
     eyebrow: 'Privacy policy',
     title: 'How GhostTown handles information',
-    intro: 'This policy describes the information used to provide GhostTown Test, authenticated delivery, support, and the personalized 30-day plan.'
+    intro: 'This policy describes the information used to provide GhostTown Test, authenticated delivery, support, and the GhostTown Launch Blueprint.'
   },
   terms: {
     eyebrow: 'Terms of service',
@@ -21,7 +21,7 @@ const pageCopy: Record<LegalPageKind, { eyebrow: string; title: string; intro: s
   refund: {
     eyebrow: 'Refund and fulfillment policy',
     title: 'Purchase, delivery, and conditional refund policy',
-    intro: 'GhostTown sells a one-time digital product: the Personalized 30-Day Idea-to-Evidence Implementation Plan, delivered as an authenticated PDF and canonical JSON record.'
+    intro: `GhostTown sells a one-time digital product: ${BUSINESS_POLICY.productName}, delivered as an authenticated PDF and canonical JSON record.`
   },
   disclaimer: {
     eyebrow: 'Disclaimer',
@@ -100,7 +100,7 @@ function PrivacySections() {
 function TermsSections() {
   return <>
     <PolicySection title="The digital product">
-      After verified payment, GhostTown provides one personalized 30-day implementation plan based on the submitted verdict and intake. The plan includes a canonical JSON record and a readable PDF delivered to the authenticated account dashboard. The product is informational and evidence-oriented, not custom consulting.
+      After verified payment, GhostTown provides one GhostTown Launch Blueprint based on the submitted verdict and intake. The blueprint includes a personalized 30-day plan, canonical JSON record, and readable PDF delivered to the authenticated account dashboard. The product is informational and evidence-oriented, not custom consulting.
     </PolicySection>
     <PolicySection title="Accounts and acceptable use">
       You are responsible for the accuracy of information you submit, protecting your login credentials, and using the product lawfully. Do not attempt to access another customer’s account or artifact, abuse checkout, reverse engineer payment controls, or submit unlawful, infringing, or harmful content.

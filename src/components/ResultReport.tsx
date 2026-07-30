@@ -228,8 +228,8 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       />
 
       <section id="thirty-day-plan" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Your next 30 days</p>
-        <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Turn this verdict into evidence.</h2>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">GhostTown Launch Blueprint</p>
+        <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Turn this verdict into a market-ready offer.</h2>
         <p className="mt-3 text-sm font-bold text-gray-800">{GHOSTTOWN_30_DAY_PLAN_V1.name}</p>
         <ul className="mt-4 space-y-2 text-sm text-gray-800">
           <li>Thirty daily actions with time budgets, cash limits, evidence, and pass/fail thresholds</li>
@@ -238,8 +238,8 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         </ul>
         <p className="mt-4 text-sm text-gray-700">A validation experiment—not a promise of product-market fit, revenue, or certainty.</p>
         {paidError && <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{paidError}</p>}
-        <button type="button" aria-label="Start 30-day implementation plan checkout" onClick={openActionPlanForm} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
-          {paidLoading ? 'Opening checkout...' : `Unlock the 30-Day Plan - ${displayPrice}`}
+        <button type="button" aria-label="Start GhostTown Launch Blueprint checkout" onClick={openActionPlanForm} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
+          {paidLoading ? 'Opening checkout...' : `Get Your Launch Blueprint — ${displayPrice}`}
         </button>
       </section>
 
@@ -254,8 +254,8 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ghost-rust/20 bg-[#fff7f2]/95 p-3 backdrop-blur sm:hidden">
-        <button type="button" aria-label="Start 30-day implementation plan checkout" onClick={openActionPlanForm} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
-          {paidLoading ? 'Opening checkout...' : `Get the 30-Day Plan - ${displayPrice}`}
+        <button type="button" aria-label="Start GhostTown Launch Blueprint checkout" onClick={openActionPlanForm} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
+          {paidLoading ? 'Opening checkout...' : `Get Your Launch Blueprint — ${displayPrice}`}
         </button>
       </div>
 

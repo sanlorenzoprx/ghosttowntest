@@ -5,7 +5,7 @@ import type { Env } from '../src/api/env';
 import type { PaidTestOrder } from '../src/types/paidTest';
 import type { AssessmentCreditOrder } from '../src/types/stripe';
 import type { EvaluationResult } from '../src/types/lit';
-import { GHOSTTOWN_30_DAY_PLAN_V1 } from '../src/lib/ghosttownOffer';
+import { GHOSTTOWN_30_DAY_PLAN_V1, GHOSTTOWN_VERDICT_PACK_V1 } from '../src/lib/ghosttownOffer';
 
 class MemoryKv {
   values = new Map<string, string>();
@@ -63,8 +63,8 @@ async function signup(env: Env, email: string): Promise<string> {
   return (await response.json<{ token: string }>()).token;
 }
 
-function validPrice(id = 'price_plan_test', livemode = false, amount = 9700) {
-  return { id, object: 'price', active: true, currency: 'usd', livemode, type: 'one_time', unit_amount: amount, product: 'prod_test' };
+function validPrice(id = 'price_plan_test', livemode = false, amount = 9700, product = 'prod_test') {
+  return { id, object: 'price', active: true, currency: 'usd', livemode, type: 'one_time', unit_amount: amount, product };
 }
 
 function completedAssessmentSession(order: AssessmentCreditOrder, overrides: Record<string, unknown> = {}) {
@@ -84,7 +84,8 @@ function completedAssessmentSession(order: AssessmentCreditOrder, overrides: Rec
       test_credits: '10',
       assessment_order_id: order.orderId,
       owner_id: order.ownerId,
-      stripe_price_id: order.stripePriceId
+      stripe_price_id: order.stripePriceId,
+      stripe_product_id: order.stripeProductId
     },
     ...overrides
   };
@@ -101,6 +102,7 @@ function paidOrder(overrides: Partial<PaidTestOrder> = {}): PaidTestOrder {
     verdictId: verdict.resultId,
     stripeCheckoutSessionId: 'cs_test_plan',
     stripePriceId: 'price_plan_test',
+    stripeProductId: 'prod_test',
     stripeMode: 'test',
     amountCents: 9700,
     currency: 'usd',
@@ -140,6 +142,7 @@ function completedSession(order: PaidTestOrder, overrides: Record<string, unknow
       offer_currency: 'usd',
       plan_version: '1.0',
       stripe_price_id: order.stripePriceId,
+      stripe_product_id: order.stripeProductId,
       fulfillment_type: 'execution_plan_30day_v1'
     },
     ...overrides
@@ -175,6 +178,7 @@ describe('10-assessment credit pack', () => {
       expect(headers.get('Idempotency-Key')).toMatch(/^checkout_/);
       expect(fields.get('line_items[0][price]')).toBe('price_assessment_test');
       expect(fields.get('metadata[purchase_type]')).toBe('assessment_pack');
+      expect(fields.get('metadata[offer_name]')).toBe(GHOSTTOWN_VERDICT_PACK_V1.name);
       expect(fields.get('metadata[test_credits]')).toBe('10');
       expect(fields.get('metadata[owner_id]')).toBe('credits@example.com');
       return Response.json({ id: 'cs_assessment_pack', url: 'https://checkout.stripe.com/c/pay/credits' });
@@ -237,6 +241,27 @@ describe('10-assessment credit pack', () => {
     expect([...kv.values.keys()].some(key => key.startsWith('assessment_credit_order_'))).toBe(false);
   });
 
+  it('rejects a live Verdict Pack Price attached to the wrong Stripe Product', async () => {
+    const kv = new MemoryKv();
+    const env = envWithKv(kv, {
+      STRIPE_SECRET_KEY: 'sk_live_placeholder',
+      STRIPE_PRICE_ID: 'price_assessment_live'
+    });
+    const token = await signup(env, 'wrong-product@example.com');
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json(
+      validPrice('price_assessment_live', true, 1497, 'prod_wrong')
+    )));
+
+    const response = await worker.fetch(new Request('http://localhost/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: '{}'
+    }), env);
+
+    expect(response.status).toBe(502);
+    expect([...kv.values.keys()].some(key => key.startsWith('assessment_credit_order_'))).toBe(false);
+  });
+
   it('revokes the 10 purchased credits after a successful full refund', async () => {
     const kv = new MemoryKv();
     const env = envWithKv(kv);
@@ -246,6 +271,7 @@ describe('10-assessment credit pack', () => {
       orderId: 'credits_refund',
       ownerId: 'refund-credits@example.com',
       stripePriceId: 'price_assessment_test',
+      stripeProductId: 'prod_test',
       stripeMode: 'test',
       amountCents: 1497,
       currency: 'usd',
@@ -295,6 +321,7 @@ describe('paid plan Checkout Session creation', () => {
       const fields = new URLSearchParams(String(init?.body));
       expect(fields.get('line_items[0][price]')).toBe('price_plan_test');
       expect(fields.get('metadata[owner_id]')).toBe('buyer@example.com');
+      expect(fields.get('metadata[offer_name]')).toBe(GHOSTTOWN_30_DAY_PLAN_V1.name);
       expect(fields.get('payment_intent_data[metadata][paid_test_order_id]')).toMatch(/^gtt_/);
       return Response.json({ id: 'cs_test_created', url: 'https://checkout.stripe.com/c/pay/test' });
     });
@@ -342,6 +369,28 @@ describe('paid plan Checkout Session creation', () => {
     await kv.put(`user_result_buyer@example.com_${verdict.resultId}`, JSON.stringify(verdict));
     vi.stubGlobal('fetch', vi.fn(async () => priceResponse.clone()));
     const response = await worker.fetch(new Request('http://localhost/api/paid-test/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(intake()) }), env);
+    expect(response.status).toBe(502);
+    expect([...kv.values.keys()].some(key => key.startsWith('paid_test_order_'))).toBe(false);
+  });
+
+  it('rejects a live Launch Blueprint Price attached to the wrong Stripe Product', async () => {
+    const kv = new MemoryKv();
+    const env = envWithKv(kv, {
+      STRIPE_SECRET_KEY: 'sk_live_placeholder',
+      STRIPE_30_DAY_PLAN_PRICE_ID: 'price_plan_live'
+    });
+    const token = await signup(env, 'wrong-plan-product@example.com');
+    await kv.put(`user_result_wrong-plan-product@example.com_${verdict.resultId}`, JSON.stringify(verdict));
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json(
+      validPrice('price_plan_live', true, 9700, 'prod_wrong')
+    )));
+
+    const response = await worker.fetch(new Request('http://localhost/api/paid-test/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(intake())
+    }), env);
+
     expect(response.status).toBe(502);
     expect([...kv.values.keys()].some(key => key.startsWith('paid_test_order_'))).toBe(false);
   });

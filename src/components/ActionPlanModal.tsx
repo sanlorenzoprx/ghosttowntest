@@ -41,7 +41,7 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-ghost-rust">{displayPrice} one-time plan</p>
-              <h2 id="action-plan-title" className="mt-1 text-2xl font-bold text-gray-950">Personalize your 30-day implementation plan</h2>
+              <h2 id="action-plan-title" className="mt-1 text-2xl font-bold text-gray-950">Personalize your GhostTown Launch Blueprint</h2>
               <p className="mt-2 text-sm text-gray-600">{GHOSTTOWN_30_DAY_PLAN_V1.name}. Your answers guide the buyer, offer, price, and evidence tasks.</p>
             </div>
             <button type="button" onClick={onClose} disabled={loading} className="shrink-0 rounded-lg px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100" aria-label="Close action plan form">Close</button>

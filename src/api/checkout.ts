@@ -1,6 +1,7 @@
 import { authenticateRequest, verifyJWT } from './auth';
 import type { CheckoutRequest } from '../types/stripe';
 import type { AssessmentCreditOrder, StripeMode, StripePrice } from '../types/stripe';
+import { GHOSTTOWN_VERDICT_PACK_V1 } from '../lib/ghosttownOffer';
 
 interface Env {
   KV: KVNamespace;
@@ -10,9 +11,6 @@ interface Env {
   STRIPE_PRICE_ID: string;
 }
 
-const ASSESSMENT_PACK_AMOUNT_CENTS = 1497;
-const ASSESSMENT_PACK_CURRENCY = 'usd';
-const ASSESSMENT_PACK_CREDITS = 10;
 const assessmentOrderKey = (orderId: string) => `assessment_credit_order_${orderId}`;
 
 function stripeMode(secretKey: string): StripeMode | null {
@@ -21,11 +19,18 @@ function stripeMode(secretKey: string): StripeMode | null {
   return null;
 }
 
+export function stripeProductId(price: StripePrice): string {
+  const productId = typeof price.product === 'string' ? price.product : price.product?.id;
+  if (!productId) throw new Error('Configured Stripe Price has no product');
+  return productId;
+}
+
 export async function validateConfiguredStripePrice(
   secretKey: string,
   priceId: string,
   expectedAmountCents: number,
-  expectedCurrency: string
+  expectedCurrency: string,
+  expectedLiveProductId?: string
 ): Promise<{ price: StripePrice; mode: StripeMode }> {
   const mode = stripeMode(secretKey);
   if (!mode) throw new Error('Stripe secret key mode is not configured');
@@ -46,7 +51,10 @@ export async function validateConfiguredStripePrice(
   if (price.unit_amount !== expectedAmountCents) throw new Error('Configured Stripe Price amount does not match the offer');
   if (price.currency.toLowerCase() !== expectedCurrency.toLowerCase()) throw new Error('Configured Stripe Price currency does not match the offer');
   if (price.livemode !== (mode === 'live')) throw new Error('Stripe key and Price modes do not match');
-  if (!price.product) throw new Error('Configured Stripe Price has no product');
+  const productId = stripeProductId(price);
+  if (mode === 'live' && expectedLiveProductId && productId !== expectedLiveProductId) {
+    throw new Error('Configured Stripe Price belongs to the wrong Product');
+  }
   return { price, mode };
 }
 
@@ -81,8 +89,9 @@ export async function handleCheckout(request: Request, env: Env) {
       validated = await validateConfiguredStripePrice(
         env.STRIPE_SECRET_KEY,
         env.STRIPE_PRICE_ID,
-        ASSESSMENT_PACK_AMOUNT_CENTS,
-        ASSESSMENT_PACK_CURRENCY
+        GHOSTTOWN_VERDICT_PACK_V1.amountCents,
+        GHOSTTOWN_VERDICT_PACK_V1.currency,
+        GHOSTTOWN_VERDICT_PACK_V1.stripeProductId
       );
     } catch (error) {
       console.error('Assessment checkout Price validation failed', error instanceof Error ? error.message : 'unknown error');
@@ -94,10 +103,11 @@ export async function handleCheckout(request: Request, env: Env) {
       orderId: `credits_${crypto.randomUUID()}`,
       ownerId: auth.email.trim().toLowerCase(),
       stripePriceId: validated.price.id,
+      stripeProductId: stripeProductId(validated.price),
       stripeMode: validated.mode,
-      amountCents: ASSESSMENT_PACK_AMOUNT_CENTS,
-      currency: ASSESSMENT_PACK_CURRENCY,
-      credits: ASSESSMENT_PACK_CREDITS,
+      amountCents: GHOSTTOWN_VERDICT_PACK_V1.amountCents,
+      currency: GHOSTTOWN_VERDICT_PACK_V1.currency,
+      credits: GHOSTTOWN_VERDICT_PACK_V1.credits,
       idempotencyKey: `checkout_${crypto.randomUUID()}`,
       paymentStatus: 'pending',
       fulfillmentStatus: 'pending',
@@ -117,10 +127,14 @@ export async function handleCheckout(request: Request, env: Env) {
       'customer_creation': 'always',
       'client_reference_id': order.orderId,
       'metadata[purchase_type]': 'assessment_pack',
+      'metadata[offer_id]': GHOSTTOWN_VERDICT_PACK_V1.offerId,
+      'metadata[offer_version]': GHOSTTOWN_VERDICT_PACK_V1.version,
+      'metadata[offer_name]': GHOSTTOWN_VERDICT_PACK_V1.name,
       'metadata[test_credits]': String(order.credits),
       'metadata[assessment_order_id]': order.orderId,
       'metadata[owner_id]': order.ownerId,
       'metadata[stripe_price_id]': order.stripePriceId,
+      'metadata[stripe_product_id]': order.stripeProductId || '',
       'payment_intent_data[metadata][assessment_order_id]': order.orderId,
       'payment_intent_data[metadata][owner_id]': order.ownerId
     });
@@ -179,6 +193,7 @@ export async function fulfillAssessmentCreditOrder(
   assertAssessmentMetadata(metadata, 'assessment_order_id', order.orderId);
   assertAssessmentMetadata(metadata, 'owner_id', order.ownerId);
   assertAssessmentMetadata(metadata, 'stripe_price_id', order.stripePriceId);
+  if (order.stripeProductId) assertAssessmentMetadata(metadata, 'stripe_product_id', order.stripeProductId);
   if (session.mode !== 'payment' || session.status !== 'complete' || session.payment_status !== 'paid') {
     throw new Error('Assessment Checkout Session is not complete and paid');
   }

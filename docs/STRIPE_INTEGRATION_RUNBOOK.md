@@ -24,10 +24,10 @@ No Stripe resources or deployed configuration were changed during the audit.
 
 In the Zayas House sandbox, create or select:
 
-1. An active, one-time USD Price for exactly **9700 cents** for the 30-day implementation plan.
-2. If the assessment-credit fallback remains enabled, an active, one-time USD Price for exactly **1497 cents**.
+1. **GhostTown Launch Blueprint: Your personalized 30-day validated idea to market-ready offer** — Product `prod_Uyw4i87a8qRReT`, with an active one-time USD Price for exactly **9700 cents**.
+2. **GhostTown Verdict Pack — 10 Additional Tests** — Product `prod_Uyxf3Bm5FCwAKu`, with an active one-time USD Price for exactly **1497 cents**.
 
-The Worker retrieves each configured Price with its active API key before creating Checkout. Retrieval proves the Price belongs to the key's Stripe account/mode; the Worker also checks `active`, `livemode`, `type`, `currency`, `unit_amount`, and product presence.
+The supplied `prod_...` values are Product IDs, not Price IDs. Put the corresponding `price_...` values into the Worker secrets. The Worker retrieves each configured Price with its active API key before creating Checkout and checks `active`, `livemode`, `type`, `currency`, and `unit_amount`. In live mode it also requires each Price to belong to the expected Product above.
 
 ## Cloudflare secrets
 

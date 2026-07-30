@@ -28,7 +28,7 @@ The canonical website is `https://ghosttowntest.com`. Publish and keep linked fr
 - `https://ghosttowntest.com/refunds`
 - `https://ghosttowntest.com/disclaimer`
 
-In Stripe Checkout settings, configure the business identity `Zayas House LLC`, support contact, terms URL, privacy URL, and refund-policy URL. Confirm that the one-time price attached to `STRIPE_30_DAY_PLAN_PRICE_ID` is exactly **$97.00** in the same mode as the Worker secret. The lower-priced assessment-credit checkout remains a decline-path fallback, not the 30-day plan.
+In Stripe Checkout settings, configure the business identity `Zayas House LLC`, support contact, terms URL, privacy URL, and refund-policy URL. Confirm that `STRIPE_30_DAY_PLAN_PRICE_ID` is a one-time **$97.00** Price attached to Launch Blueprint Product `prod_Uyw4i87a8qRReT`, and that `STRIPE_PRICE_ID` is a one-time **$14.97** Price attached to Verdict Pack Product `prod_Uyxf3Bm5FCwAKu`, in the same mode as the Worker key. Product IDs (`prod_...`) cannot be used in place of Price IDs (`price_...`).
 
 ## Spanish
 

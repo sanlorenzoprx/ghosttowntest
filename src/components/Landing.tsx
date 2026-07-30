@@ -80,7 +80,7 @@ export default function Landing({ onStart, onSelectExample, hasDraft, onResume, 
                 onClick={() => document.getElementById('thirty-day-offer')?.scrollIntoView({ behavior: 'smooth' })}
                 className="rounded-lg border border-white/40 bg-white/5 px-8 py-4 text-lg font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-4 focus:ring-white/30"
               >
-                {es ? 'Ver el plan de 30 dias' : 'See the 30-Day Plan'}
+                {es ? 'Ver el plan de lanzamiento' : 'See the Launch Blueprint'}
               </button>
             </div>
 

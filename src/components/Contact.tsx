@@ -51,9 +51,9 @@ export default function Contact({ onStart }: Props) {
         </div>
 
         <div className="mt-8 rounded-lg border border-blue-200 bg-blue-50 p-6">
-          <h2 className="font-bold text-blue-950">Paid plan help</h2>
+          <h2 className="font-bold text-blue-950">Launch Blueprint help</h2>
           <p className="mt-2 text-sm leading-relaxed text-blue-900">
-            If you bought a paid GhostTown plan, include the email used at checkout and the idea name. Do not send API keys, Stripe secrets, passwords, or private customer data.
+            If you bought a GhostTown Launch Blueprint, include the email used at checkout and the idea name. Do not send API keys, Stripe secrets, passwords, or private customer data.
           </p>
         </div>
       </div>

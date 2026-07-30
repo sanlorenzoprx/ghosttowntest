@@ -52,6 +52,7 @@ export interface AssessmentCreditOrder {
   orderId: string;
   ownerId: string;
   stripePriceId: string;
+  stripeProductId?: string;
   stripeMode: StripeMode;
   amountCents: number;
   currency: string;

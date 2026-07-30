@@ -22,7 +22,7 @@ import {
   GHOSTTOWN_30_DAY_PLAN_V1,
   LEGACY_7_DAY_PLAN_LABEL
 } from '../lib/ghosttownOffer';
-import { validateConfiguredStripePrice } from './checkout';
+import { stripeProductId, validateConfiguredStripePrice } from './checkout';
 
 const LEGACY_REPORT_VERSION = '1.0' as const;
 const PLAN_VERSION = '1.0' as const;
@@ -120,7 +120,8 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
       env.STRIPE_SECRET_KEY,
       stripePriceId,
       GHOSTTOWN_30_DAY_PLAN_V1.amountCents,
-      GHOSTTOWN_30_DAY_PLAN_V1.currency
+      GHOSTTOWN_30_DAY_PLAN_V1.currency,
+      GHOSTTOWN_30_DAY_PLAN_V1.stripeProductId
     );
   } catch (error) {
     console.error('Paid checkout Price validation failed', error instanceof Error ? error.message : 'unknown error');
@@ -139,6 +140,7 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     planVersion: PLAN_VERSION,
     reportVersion: LEGACY_REPORT_VERSION,
     stripePriceId,
+    stripeProductId: stripeProductId(validatedPrice.price),
     stripeMode: validatedPrice.mode,
     amountCents: GHOSTTOWN_30_DAY_PLAN_V1.amountCents,
     currency: GHOSTTOWN_30_DAY_PLAN_V1.currency,
@@ -172,14 +174,17 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     'metadata[owner_id]': order.email,
     'metadata[offer_id]': GHOSTTOWN_30_DAY_PLAN_V1.offerId,
     'metadata[offer_version]': GHOSTTOWN_30_DAY_PLAN_V1.version,
+    'metadata[offer_name]': GHOSTTOWN_30_DAY_PLAN_V1.name,
     'metadata[offer_amount_cents]': String(GHOSTTOWN_30_DAY_PLAN_V1.amountCents),
     'metadata[offer_currency]': GHOSTTOWN_30_DAY_PLAN_V1.currency,
     'metadata[plan_version]': PLAN_VERSION,
     'metadata[stripe_price_id]': stripePriceId,
+    'metadata[stripe_product_id]': order.stripeProductId || '',
     'metadata[fulfillment_type]': 'execution_plan_30day_v1',
     'payment_intent_data[metadata][paid_test_order_id]': order.orderId,
     'payment_intent_data[metadata][owner_id]': order.email,
     'payment_intent_data[metadata][offer_id]': GHOSTTOWN_30_DAY_PLAN_V1.offerId,
+    'payment_intent_data[metadata][offer_name]': GHOSTTOWN_30_DAY_PLAN_V1.name,
     success_url: `${frontendUrl}/paid-test/success?order_id=${encodeURIComponent(order.orderId)}`,
     cancel_url: `${frontendUrl}/`
   });
@@ -668,6 +673,7 @@ export async function fulfillPaidTestOrder(env: Env, orderId: string, session: R
     assertMetadata(metadata, 'offer_currency', GHOSTTOWN_30_DAY_PLAN_V1.currency);
     assertMetadata(metadata, 'plan_version', PLAN_VERSION);
     if (order.stripePriceId) assertMetadata(metadata, 'stripe_price_id', order.stripePriceId);
+    if (order.stripeProductId) assertMetadata(metadata, 'stripe_product_id', order.stripeProductId);
     const sessionMode = typeof session.livemode === 'boolean' && session.livemode ? 'live' : 'test';
     if (order.stripeMode && sessionMode !== order.stripeMode) throw new Error('Stripe mode mismatch');
     if (session.mode !== 'payment') throw new Error('Stripe checkout mode mismatch');
@@ -784,7 +790,7 @@ export async function markPaidTestPaymentFailed(env: Env, orderId: string, sourc
   order.updatedAt = new Date().toISOString();
   await env.KV.put(orderKey(orderId), JSON.stringify(order));
   const verdict = await savedVerdict(env, order.verdictId, order.email);
-  await savePaidOrderSummary(env, order, verdict?.idea.ideaName || '30-Day Implementation Plan');
+  await savePaidOrderSummary(env, order, verdict?.idea.ideaName || GHOSTTOWN_30_DAY_PLAN_V1.name);
   return order;
 }
 
@@ -801,7 +807,7 @@ export async function markPaidTestCheckoutCanceled(env: Env, orderId: string, se
   order.updatedAt = new Date().toISOString();
   await env.KV.put(orderKey(orderId), JSON.stringify(order));
   const verdict = await savedVerdict(env, order.verdictId, order.email);
-  await savePaidOrderSummary(env, order, verdict?.idea.ideaName || '30-Day Implementation Plan');
+  await savePaidOrderSummary(env, order, verdict?.idea.ideaName || GHOSTTOWN_30_DAY_PLAN_V1.name);
   return order;
 }
 
@@ -845,7 +851,7 @@ export async function markPaidTestRefund(env: Env, refund: Record<string, unknow
   order.updatedAt = now;
   await env.KV.put(orderKey(orderId), JSON.stringify(order));
   const verdict = await savedVerdict(env, order.verdictId, order.email);
-  await savePaidOrderSummary(env, order, verdict?.idea.ideaName || '30-Day Implementation Plan');
+  await savePaidOrderSummary(env, order, verdict?.idea.ideaName || GHOSTTOWN_30_DAY_PLAN_V1.name);
   return order;
 }
 
@@ -926,7 +932,7 @@ export async function handlePaidTestOrders(request: Request, env: Env): Promise<
     const artifactType = order.artifactType ?? (order.offerId === GHOSTTOWN_30_DAY_PLAN_V1.offerId ? 'execution_plan_30day_v1' : 'legacy_report_v1');
     orders.push({
       orderId: order.orderId,
-      ideaName: verdict?.idea.ideaName || (artifactType === 'execution_plan_30day_v1' ? '30-Day Implementation Plan' : 'Validation Action Plan'),
+      ideaName: verdict?.idea.ideaName || (artifactType === 'execution_plan_30day_v1' ? GHOSTTOWN_30_DAY_PLAN_V1.name : 'Validation Action Plan'),
       status: order.status,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
@@ -946,7 +952,7 @@ function normalizeSummaries(items: Partial<PaidOrderSummary>[]): PaidOrderSummar
     const artifactType = item.artifactType ?? (item.offerName === LEGACY_7_DAY_PLAN_LABEL ? 'legacy_report_v1' : 'execution_plan_30day_v1');
     return {
       orderId: String(item.orderId ?? ''),
-      ideaName: String(item.ideaName ?? '30-Day Implementation Plan'),
+      ideaName: String(item.ideaName ?? GHOSTTOWN_30_DAY_PLAN_V1.name),
       status: item.status ?? 'pending',
       createdAt: String(item.createdAt ?? ''),
       updatedAt: String(item.updatedAt ?? ''),

@@ -46,6 +46,7 @@ export interface PaidTestOrder {
   stripePaymentIntentId?: string;
   stripeCustomerId?: string;
   stripePriceId?: string;
+  stripeProductId?: string;
   stripeMode?: StripeMode;
   stripeEventId?: string;
   amountCents?: number;
