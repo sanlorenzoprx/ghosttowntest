@@ -5,8 +5,8 @@ export {
   runResearchBatch,
   type CustomerAccessResearchReceipt,
   type CustomerAccessResearchResult,
-  type FederatedCandidate,
+  type DistributionFootprintPlan,
+  type FootprintCandidate,
   type ResearchBatchResult,
-  type ResearchSourceAttempt,
-  type SourceFederationPlan
-} from './sourceFederationResearch';
+  type ResearchSourceAttempt
+} from './distributionFootprintResearch';
