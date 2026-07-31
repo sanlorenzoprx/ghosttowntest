@@ -32,6 +32,7 @@ function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/refunds' || pathname === '/refund-policy') return 'refund';
   if (pathname === '/disclaimer') return 'disclaimer';
   if (pathname === '/paid-test/success') return 'action-plan-success';
+  if (pathname === '/dashboard') return 'dashboard';
   return hasExample ? 'intake' : 'landing';
 }
 
@@ -188,7 +189,7 @@ export default function App() {
     <div className="min-h-screen bg-ghost-paper">
       {/* Header */}
       <header className="border-b border-gray-200 bg-ghost-paper/95 backdrop-blur">
-        <div className="site-header-inner relative mx-auto flex max-w-6xl items-center justify-center px-4 py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-center px-4 py-4">
           <button
             onClick={handleReset}
             className="text-center"
@@ -203,11 +204,13 @@ export default function App() {
               </span>
             </span>
           </button>
-          <div className="site-nav absolute right-4 flex items-center gap-4 sm:right-6">
+        </div>
+        <div className="border-t border-ghost-forest/10 bg-[#eef3ef]">
+          <div className="site-nav mx-auto flex max-w-6xl flex-wrap items-center justify-start gap-x-5 gap-y-1 px-4 py-2 sm:px-6">
             <button
               type="button"
               onClick={handleReset}
-              className="rounded border border-ghost-forest px-3 py-1.5 text-sm font-bold text-ghost-forest hover:bg-blue-50"
+              className="text-sm font-bold text-ghost-forest hover:text-ghost-rust"
               aria-label="Go to Home"
             >
               Home

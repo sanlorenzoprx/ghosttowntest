@@ -4,7 +4,7 @@ Validate a startup idea before investing months in the wrong product. The app co
 
 ## Paid GhostTown Test
 
-The verdict screen now offers the Personalized 30-Day Idea-to-Evidence Implementation Plan for **$97.00 one time**. Its checkout is deliberately separate from the existing assessment-credit checkout: access is granted only by a verified Stripe webhook, then the owner can securely download truth-labelled canonical JSON and a printable PDF. If a founder declines the 30-day plan, the existing assessment-credit option remains available as a lower-commitment fallback. See [the paid-plan deployment contract](docs/PAID_GHOSTTOWN_TEST.md) before configuring Stripe.
+The verdict screen now offers **GhostTown Launch Blueprint: Your personalized 30-day validated idea to market-ready offer** for **$97.00 one time**. Its checkout is deliberately separate from the GhostTown Verdict Pack checkout: access is granted only by a verified Stripe webhook, then the owner can securely download truth-labelled canonical JSON and a printable PDF. If a founder declines the Launch Blueprint, **GhostTown Verdict Pack — 10 Additional Tests** remains available as a lower-commitment fallback. See [the paid-plan deployment contract](docs/PAID_GHOSTTOWN_TEST.md) before configuring Stripe.
 
 The funnel includes a persistent English/Spanish switch. See [Cloudflare deployment](docs/CLOUDFLARE_DEPLOYMENT.md) for the domain map and Pages/Worker configuration.
 
@@ -66,7 +66,7 @@ That runs TypeScript, Vitest, the production frontend build, and a Worker dry-ru
 Before deployment:
 
 1. Replace the placeholder KV namespace IDs in `wrangler.toml`.
-2. Set Worker secrets for `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_30_DAY_PLAN_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET` using Wrangler secrets or the Cloudflare dashboard. Keep `STRIPE_PAID_TEST_PRICE_ID` only if you need to fulfill old pending seven-day orders.
+2. Set Worker secrets for `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_30_DAY_PLAN_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET` using Wrangler secrets or the Cloudflare dashboard. Configure the matching mode-specific Product IDs as `STRIPE_VERDICT_PACK_PRODUCT_ID` and `STRIPE_30_DAY_PLAN_PRODUCT_ID`. Keep `STRIPE_PAID_TEST_PRICE_ID` only if you need to fulfill old pending seven-day orders.
 3. Set `FRONTEND_URL` and `AI_MODEL` for the target environment.
 4. Set the frontend `VITE_API_URL=https://api.ghosttowntest.com` and `VITE_30_DAY_PLAN_DISPLAY_PRICE=$97.00` for production. The frontend also infers this API origin on `ghosttowntest.com`.
 5. Configure Stripe to send `checkout.session.completed` events to `/api/webhook/stripe`.
@@ -98,8 +98,8 @@ Deploy `dist/` to your static frontend host.
 - Free: one assessment without registration
 - Share rewards: registered members can unlock one bonus assessment by sharing one completed result
 - Recipients: no registration required to open a shared result link
-- Paid fallback: ten additional tests for $14.97 through Stripe Checkout when the 30-day plan is declined or a testing allowance is exhausted
-- Paid plan: one Personalized 30-Day Idea-to-Evidence Implementation Plan for $97.00 through Stripe Checkout
+- Paid fallback: **GhostTown Verdict Pack — 10 Additional Tests** for $14.97 through Stripe Checkout when the Launch Blueprint is declined or a testing allowance is exhausted
+- Paid plan: **GhostTown Launch Blueprint: Your personalized 30-day validated idea to market-ready offer** for $97.00 through Stripe Checkout
 
 The deterministic engine is always calculated and returned. AI analysis is used only when all three model stages return valid structured output.
 

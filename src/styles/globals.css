@@ -178,15 +178,9 @@ button, a, input, textarea, select {
 }
 
 @media (max-width: 767px) {
-  .site-header-inner {
-    gap: 0.75rem;
-    flex-direction: column;
-  }
-
   .site-nav {
-    position: static;
     width: 100%;
-    justify-content: center;
+    justify-content: flex-start;
     flex-wrap: wrap;
   }
 }

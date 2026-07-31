@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { PublicUserData } from '../types/auth';
 import { apiUrl, authHeaders } from '../lib/api';
 import type { EvaluationResult } from '../types/lit';
+import { GHOSTTOWN_30_DAY_PLAN_V1, GHOSTTOWN_VERDICT_PACK_V1 } from '../lib/ghosttownOffer';
 
 interface ResultSummary {
   resultId: string;
@@ -14,7 +15,7 @@ interface ResultSummary {
 interface PaidOrderSummary {
   orderId: string;
   ideaName: string;
-  status: 'pending' | 'paid' | 'generating' | 'ready' | 'failed' | 'refunded';
+  status: 'pending' | 'checkout_created' | 'paid' | 'generating' | 'ready' | 'failed' | 'canceled' | 'refunded';
   createdAt: string;
   updatedAt: string;
   artifactType?: 'legacy_report_v1' | 'execution_plan_30day_v1';
@@ -247,13 +248,13 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-rust">Purchased plans</p>
-            <h2 className="mt-1 text-xl font-bold text-gray-950">30-Day Implementation Plans</h2>
+            <h2 className="mt-1 text-xl font-bold text-gray-950">GhostTown Launch Blueprints</h2>
           </div>
           <p className="text-xs text-gray-600">Saved permanently to this account</p>
         </div>
         {planError && <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{planError}</p>}
         {paidPlans.length === 0 ? (
-          <p className="mt-4 text-sm text-gray-600">Purchased implementation plans and legacy reports will appear here.</p>
+          <p className="mt-4 text-sm text-gray-600">Purchased Launch Blueprints and legacy reports will appear here.</p>
         ) : (
           <div className="mt-5 space-y-3">
             {paidPlans.map(plan => (
@@ -261,7 +262,7 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="font-bold text-gray-950">{plan.ideaName}</h3>
-                    <p className="mt-1 text-sm font-medium text-gray-700">{plan.offerName ?? (plan.artifactType === 'legacy_report_v1' ? 'Legacy 7-Day Validation Plan' : 'Personalized 30-Day Idea-to-Evidence Implementation Plan')}</p>
+                    <p className="mt-1 text-sm font-medium text-gray-700">{plan.offerName ?? (plan.artifactType === 'legacy_report_v1' ? 'Legacy 7-Day Validation Plan' : GHOSTTOWN_30_DAY_PLAN_V1.name)}</p>
                     <p className="mt-1 text-xs text-gray-500">
                       Purchased {new Date(plan.createdAt).toLocaleDateString()} · {plan.status === 'ready' ? 'Ready to download' : plan.status}
                       {plan.sourceVerdictId ? ` · Verdict ${plan.sourceVerdictId}` : ''}
@@ -305,9 +306,9 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
       {needsToPurchase && (
         <div className="bg-blue-600 text-white rounded-lg p-8 text-center mb-8">
           <h3 className="text-2xl font-bold mb-2">Ready to test more ideas?</h3>
-          <p className="mb-6">Share a result to unlock another free assessment, or get 10 more for $14.97.</p>
+          <p className="mb-6">Share a result to unlock another free assessment, or get the {GHOSTTOWN_VERDICT_PACK_V1.name} for $14.97.</p>
           <button onClick={onBuy} className="bg-white text-blue-600 px-6 py-3 rounded font-bold hover:bg-gray-100 transition">
-            Buy 10 Assessments — $14.97
+            Buy Verdict Pack — $14.97
           </button>
         </div>
       )}

@@ -137,7 +137,11 @@ describe('30-day paid implementation plan', () => {
     const session = {
       id: 'cs_test_1',
       mode: 'payment',
+      status: 'complete',
       payment_status: 'paid',
+      client_reference_id: pendingOrder.orderId,
+      amount_total: 9700,
+      currency: 'usd',
       livemode: false,
       payment_intent: 'pi_test_1',
       customer: 'cus_test_1',
@@ -176,7 +180,11 @@ describe('30-day paid implementation plan', () => {
     await expect(fulfillPaidTestOrder(env, pendingOrder.orderId, {
       id: 'cs_test_wrong',
       mode: 'payment',
+      status: 'complete',
       payment_status: 'paid',
+      client_reference_id: pendingOrder.orderId,
+      amount_total: 9700,
+      currency: 'usd',
       livemode: false,
       metadata: {
         paid_test_order_id: pendingOrder.orderId,

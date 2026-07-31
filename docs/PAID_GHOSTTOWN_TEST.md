@@ -1,10 +1,10 @@
 # Paid GhostTown Test
 
-The paid plan starts from an existing LIT verdict and turns it into a personalized 30-day idea-to-evidence implementation plan. It costs **$97.00 one time** and does not claim product-market fit, revenue, investor readiness, demand research, professional advice, or certainty.
+**GhostTown Launch Blueprint: Your personalized 30-day validated idea to market-ready offer** starts from an existing LIT verdict and turns it into a personalized 30-day evidence plan. It costs **$97.00 one time** and does not claim product-market fit, revenue, investor readiness, demand research, professional advice, or certainty.
 
 ## Production configuration
 
-Create a separate Stripe one-time Price for the 30-day plan and set it as `STRIPE_30_DAY_PLAN_PRICE_ID`. The Worker also requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `JWT_SECRET`, KV, and the existing LIT bindings. Keep all Stripe values as Worker secrets in production; do not commit them.
+In the confirmed Stripe sandbox, the Launch Blueprint is Product `prod_Uyw4i87a8qRReT` and the Verdict Pack is Product `prod_Uyxf3Bm5FCwAKu`. Set their separate one-time **Price IDs** (`price_...`) as `STRIPE_30_DAY_PLAN_PRICE_ID` and `STRIPE_PRICE_ID`. Configure the Product mappings as `STRIPE_30_DAY_PLAN_PRODUCT_ID` and `STRIPE_VERDICT_PACK_PRODUCT_ID`. Stripe test and live objects are separate, so production must use the corresponding live Product and Price IDs—not these sandbox IDs. The Worker also requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `JWT_SECRET`, KV, and the existing LIT bindings. Keep all Stripe keys and Price IDs as Worker secrets; Product IDs may be ordinary environment variables.
 
 The public policy pages are:
 
@@ -28,7 +28,7 @@ Each plan carries its version, source verdict ID, quality-gate result, and gener
 
 ## Required Stripe setup
 
-- Register `checkout.session.completed` at `/api/webhook/stripe`.
+- Register the event set in `STRIPE_INTEGRATION_RUNBOOK.md` at `/api/webhook/stripe`.
 - Copy Stripe's endpoint signing secret to `STRIPE_WEBHOOK_SECRET`.
-- Use a paid-plan price, not the existing 10-assessment `STRIPE_PRICE_ID`, for `STRIPE_30_DAY_PLAN_PRICE_ID`.
+- Use the Launch Blueprint Price, not the Verdict Pack `STRIPE_PRICE_ID`, for `STRIPE_30_DAY_PLAN_PRICE_ID`.
 - Configure the deployed frontend URL before opening checkout in production.

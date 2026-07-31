@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { apiUrl } from '../lib/api';
+import { apiUrl, authHeaders } from '../lib/api';
+import { GHOSTTOWN_VERDICT_PACK_V1 } from '../lib/ghosttownOffer';
 
 interface Props {
   isLoggedIn: boolean;
@@ -24,7 +25,7 @@ export default function PaywallModal({ isLoggedIn, onLoginClick, onClose, contex
     try {
       const response = await fetch(apiUrl('/api/checkout'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ token })
       });
       const data = await response.json<{ sessionUrl?: string; error?: string }>();
@@ -41,16 +42,17 @@ export default function PaywallModal({ isLoggedIn, onLoginClick, onClose, contex
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-xl">
-        <h2 className="text-2xl font-bold">{context === 'plan-declined' ? 'Keep exploring before you commit' : 'Keep testing before you build'}</h2>
+        <h2 className="text-2xl font-bold">{context === 'plan-declined' ? 'Build more evidence for your next launch' : 'Keep building your next idea'}</h2>
         <p className="mt-3 text-gray-600">
           {context === 'plan-declined'
-            ? 'Not ready for the $97.00 30-day PDF plan? You can still buy 10 additional assessments and keep testing ideas before committing to a longer evidence sprint.'
-            : 'Your current allowance has been used. Registered members can share one completed result to unlock one bonus assessment, or get 10 more for $14.97.'}
+            ? 'Add 10 more GhostTown Tests to sharpen your customer, offer, and market evidence.'
+            : 'Your current allowance has been used. Share one completed result to unlock one bonus test, or add 10 more with the GhostTown Verdict Pack.'}
         </p>
 
         <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
-          <div className="text-3xl font-bold text-blue-900">10 assessments · $14.97</div>
-          <p className="mt-1 text-sm text-blue-800">One-time purchase. No subscription.</p>
+          <div className="text-2xl font-bold text-blue-900">{GHOSTTOWN_VERDICT_PACK_V1.name}</div>
+          <div className="mt-2 text-3xl font-bold text-blue-900">$14.97</div>
+          <p className="mt-1 text-sm text-blue-800">Ten additional tests for your next ideas.</p>
         </div>
 
         {error && <p className="mt-4 rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
@@ -61,7 +63,7 @@ export default function PaywallModal({ isLoggedIn, onLoginClick, onClose, contex
           disabled={loading}
           className="mt-6 w-full rounded bg-blue-600 px-4 py-3 font-bold text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          {loading ? 'Opening checkout...' : isLoggedIn ? 'Buy 10 Assessments — $14.97' : 'Log In or Sign Up'}
+          {loading ? 'Opening checkout...' : isLoggedIn ? 'Buy Verdict Pack — $14.97' : 'Log In or Sign Up'}
         </button>
         <button type="button" onClick={onClose} className="mt-3 w-full py-2 text-sm text-gray-600 hover:text-gray-900">
           Not now

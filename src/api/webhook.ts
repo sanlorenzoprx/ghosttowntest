@@ -1,5 +1,11 @@
-import { UserData } from '../types/auth';
-import { fulfillPaidTestOrder } from './paidTest';
+import {
+  fulfillPaidTestOrder,
+  markPaidTestCheckoutCanceled,
+  markPaidTestPaymentFailed,
+  markPaidTestPaymentProcessing,
+  markPaidTestRefund
+} from './paidTest';
+import { fulfillAssessmentCreditOrder, markAssessmentCreditOrder, markAssessmentCreditRefund } from './checkout';
 import type { Env } from './env';
 
 /**
@@ -46,93 +52,74 @@ function constantTimeEqual(left: string, right: string): boolean {
  * Handles Stripe webhook events
  */
 export async function handleStripeWebhook(request: Request, env: Env) {
-  try {
-    const body = await request.text();
-    const signature = request.headers.get('stripe-signature') || '';
+  const body = await request.text();
+  const signature = request.headers.get('stripe-signature') || '';
+  if (!await verifyWebhookSignature(body, signature, env.STRIPE_WEBHOOK_SECRET)) {
+    return json({ error: 'Invalid signature' }, 400);
+  }
 
-    // Verify webhook signature
-    if (!await verifyWebhookSignature(body, signature, env.STRIPE_WEBHOOK_SECRET)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid signature' }),
-        { status: 401 }
-      );
-    }
-
-    const event = JSON.parse(body) as {
+  let event: {
       id?: string;
       type?: string;
       data?: { object?: Record<string, unknown> };
     };
-    if (!event.id || !event.type || !event.data?.object) {
-      return new Response(JSON.stringify({ error: 'Malformed Stripe event' }), { status: 400 });
-    }
+  try {
+    event = JSON.parse(body) as typeof event;
+  } catch {
+    return json({ error: 'Malformed Stripe event' }, 400);
+  }
+  if (!event.id || !event.type || !event.data?.object) return json({ error: 'Malformed Stripe event' }, 400);
 
-    const eventKey = `stripe_event_${event.id}`;
-    if (await env.KV.get(eventKey)) {
-      return new Response(JSON.stringify({ received: true, duplicate: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+  const eventKey = `stripe_event_${event.id}`;
+  if (await env.KV.get(eventKey)) return json({ received: true, duplicate: true });
 
-    // Handle checkout.session.completed
+  try {
+    const source = event.data.object;
+    const metadata = objectMetadata(source);
+    const paidTestOrderId = stringValue(metadata.paid_test_order_id);
+    const assessmentOrderId = stringValue(metadata.assessment_order_id);
+
     if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      const paidTestOrderId = typeof session.metadata === 'object' && session.metadata
-        ? (session.metadata as Record<string, unknown>).paid_test_order_id
-        : undefined;
-      if (typeof paidTestOrderId === 'string' && paidTestOrderId) {
-        await fulfillPaidTestOrder(env, paidTestOrderId, session, event.id);
-        await env.KV.put(eventKey, new Date().toISOString(), { expirationTtl: 86400 * 90 });
-        return new Response(JSON.stringify({ received: true, paidTest: 'ready' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (paidTestOrderId) {
+        if (source.payment_status === 'paid') await fulfillPaidTestOrder(env, paidTestOrderId, source, event.id);
+        else await markPaidTestPaymentProcessing(env, paidTestOrderId, source, event.id);
+      } else if (assessmentOrderId) {
+        if (source.payment_status === 'paid') await fulfillAssessmentCreditOrder(env, assessmentOrderId, source, event.id);
+        else await markAssessmentCreditOrder(env, assessmentOrderId, source, 'processing', event.id);
       }
-      const email = typeof session.customer_email === 'string'
-        ? session.customer_email.trim().toLowerCase()
-        : '';
-
-      if (!email) {
-        console.warn('No customer email in webhook');
-        return new Response(JSON.stringify({ received: true }), { status: 200 });
-      }
-
-      const metadata = typeof session.metadata === 'object' && session.metadata
-        ? session.metadata as Record<string, unknown>
-        : {};
-      const purchasedCredits = metadata.purchase_type === 'assessment_pack'
-        ? Math.max(0, Number(metadata.test_credits) || 10)
-        : 10;
-
-      // Update user: increment testsPurchased
-      const userJSON = await env.KV.get(`user_${email}`);
-      if (userJSON) {
-        const user = JSON.parse(userJSON) as UserData;
-        user.testsPurchased += purchasedCredits;
-        user.lastPurchaseAt = new Date().toISOString();
-        await env.KV.put(`user_${email}`, JSON.stringify(user));
-        console.log(`User ${email} purchased ${purchasedCredits} tests`);
-      } else {
-        console.warn(`User ${email} not found in webhook`);
-      }
-    }
-
-    // Handle payment_intent.payment_failed
-    if (event.type === 'payment_intent.payment_failed') {
-      const paymentIntent = event.data.object;
-      console.warn(`Payment failed for ${String(paymentIntent.id ?? 'unknown')}`);
+    } else if (event.type === 'checkout.session.async_payment_succeeded') {
+      if (paidTestOrderId) await fulfillPaidTestOrder(env, paidTestOrderId, source, event.id);
+      else if (assessmentOrderId) await fulfillAssessmentCreditOrder(env, assessmentOrderId, source, event.id);
+    } else if (event.type === 'checkout.session.async_payment_failed') {
+      if (paidTestOrderId) await markPaidTestPaymentFailed(env, paidTestOrderId, source, event.id);
+      else if (assessmentOrderId) await markAssessmentCreditOrder(env, assessmentOrderId, source, 'failed', event.id);
+    } else if (event.type === 'checkout.session.expired') {
+      if (paidTestOrderId) await markPaidTestCheckoutCanceled(env, paidTestOrderId, source, event.id);
+      else if (assessmentOrderId) await markAssessmentCreditOrder(env, assessmentOrderId, source, 'canceled', event.id);
+    } else if (event.type === 'payment_intent.payment_failed') {
+      if (paidTestOrderId) await markPaidTestPaymentFailed(env, paidTestOrderId, source, event.id);
+      else if (assessmentOrderId) await markAssessmentCreditOrder(env, assessmentOrderId, source, 'failed', event.id);
+    } else if (event.type === 'refund.created' || event.type === 'refund.updated' || event.type === 'refund.failed') {
+      const assessmentRefund = await markAssessmentCreditRefund(env, source, event.id);
+      if (!assessmentRefund) await markPaidTestRefund(env, source, event.id);
     }
 
     await env.KV.put(eventKey, new Date().toISOString(), { expirationTtl: 86400 * 90 });
-
-    return new Response(
-      JSON.stringify({ received: true }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return json({ received: true });
   } catch (error) {
-    console.error('Webhook error:', error);
-    // Always return 200 to prevent Stripe retries
-    return new Response(
-      JSON.stringify({ received: true }),
-      { status: 200 }
-    );
+    console.error('Stripe webhook processing failed', event.type, error instanceof Error ? error.message : 'unknown error');
+    return json({ error: 'Webhook processing failed' }, 500);
   }
+}
+
+function objectMetadata(source: Record<string, unknown>): Record<string, unknown> {
+  return source.metadata && typeof source.metadata === 'object' ? source.metadata as Record<string, unknown> : {};
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }

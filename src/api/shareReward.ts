@@ -8,6 +8,7 @@ interface ShareRewardRequest {
 
 interface ReferralRecord {
   fromEmail?: string;
+  resultId?: string;
 }
 
 const MAX_SHARE_CREDITS = 1;
@@ -34,6 +35,9 @@ export async function handleShareReward(request: Request, env: Env): Promise<Res
     const referral = JSON.parse(referralJson) as ReferralRecord;
     if (referral.fromEmail !== authenticated.email) {
       return json({ error: 'This share link belongs to another account' }, 403);
+    }
+    if (referral.resultId !== resultId) {
+      return json({ error: 'This share link does not match the assessment result' }, 400);
     }
 
     const rewardKey = `share_reward:${authenticated.email}:${resultId}`;

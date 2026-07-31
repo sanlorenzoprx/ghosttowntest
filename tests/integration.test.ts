@@ -199,7 +199,7 @@ describe('Worker verdict flow', () => {
     });
   });
 
-  it('unlocks one share credit per result and caps free assessments at five total', async () => {
+  it('unlocks one share credit for its linked result and caps the share bonus at one', async () => {
     const kv = new MemoryKv();
     const env = createEnv(kv);
 
@@ -227,7 +227,8 @@ describe('Worker verdict flow', () => {
 
     const linkResponse = await worker.fetch(new Request('http://localhost/api/referral/create', {
       method: 'POST',
-      headers: authorization
+      headers: { 'Content-Type': 'application/json', ...authorization },
+      body: JSON.stringify({ resultId: verdict.resultId })
     }), env);
     const link = await linkResponse.json<{ refId: string }>();
 
@@ -265,7 +266,8 @@ describe('Worker verdict flow', () => {
     const secondVerdict = await secondVerdictResponse.json<{ resultId: string }>();
     const secondLinkResponse = await worker.fetch(new Request('http://localhost/api/referral/create', {
       method: 'POST',
-      headers: authorization
+      headers: { 'Content-Type': 'application/json', ...authorization },
+      body: JSON.stringify({ resultId: secondVerdict.resultId })
     }), env);
     const secondLink = await secondLinkResponse.json<{ refId: string }>();
     const limitResponse = await worker.fetch(new Request('http://localhost/api/share/reward', {
@@ -277,5 +279,48 @@ describe('Worker verdict flow', () => {
       rewarded: false,
       reason: 'limit_reached'
     });
+  });
+
+  it('rejects a share reward when the link was created for a different result', async () => {
+    const kv = new MemoryKv();
+    const env = createEnv(kv);
+    const firstResponse = await worker.fetch(new Request('http://localhost/api/verdict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }), env);
+    const first = await firstResponse.json<{ resultId: string }>();
+    const secondResponse = await worker.fetch(new Request('http://localhost/api/verdict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, idea: { ...payload.idea, ideaName: 'Another result' } })
+    }), env);
+    const second = await secondResponse.json<{ resultId: string }>();
+    const signupResponse = await worker.fetch(new Request('http://localhost/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'bound-share@example.com', password: 'correct-horse', usedAnonymousAssessment: true })
+    }), env);
+    const signup = await signupResponse.json<{ token: string }>();
+    const authorization = { Authorization: `Bearer ${signup.token}` };
+    const linkResponse = await worker.fetch(new Request('http://localhost/api/referral/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authorization },
+      body: JSON.stringify({ resultId: first.resultId })
+    }), env);
+    const link = await linkResponse.json<{ refId: string }>();
+
+    const rewardResponse = await worker.fetch(new Request('http://localhost/api/share/reward', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authorization },
+      body: JSON.stringify({ resultId: second.resultId, refId: link.refId })
+    }), env);
+
+    expect(rewardResponse.status).toBe(400);
+    expect(await rewardResponse.json<{ error: string }>()).toMatchObject({
+      error: 'This share link does not match the assessment result'
+    });
+    const user = JSON.parse((await kv.get('user_bound-share@example.com')) || '{}') as { shareCredits: number };
+    expect(user.shareCredits).toBe(0);
   });
 });
