@@ -1,6 +1,6 @@
 import { UserData } from '../types/auth';
 import { fulfillPaidTestOrder } from './paidTest';
-import { fulfillLaunchBlueprintOrder, isLaunchBlueprintCheckout } from './blueprintFulfillment';
+import { isLaunchBlueprintCheckout, queueLaunchBlueprintOrder } from './blueprintFulfillment';
 import type { Env } from './env';
 
 /**
@@ -40,8 +40,11 @@ function constantTimeEqual(left: string, right: string): boolean {
 
 /**
  * POST /api/webhook/stripe
- * Stripe retries non-2xx fulfillment failures. The event receipt is written only
- * after the paid artifact has passed its gate and storage has completed.
+ *
+ * Launch Blueprint payments are verified synchronously and then queued into a
+ * durable Cloudflare Workflow. Stripe is acknowledged only after the Workflow
+ * instance exists. Research, retries, PDF rendering, and storage continue in
+ * the Workflow without holding the Stripe webhook request open.
  */
 export async function handleStripeWebhook(request: Request, env: Env): Promise<Response> {
   try {
@@ -71,9 +74,23 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
         ? (session.metadata as Record<string, unknown>).paid_test_order_id
         : undefined;
       if (typeof paidTestOrderId === 'string' && paidTestOrderId) {
-        const order = isLaunchBlueprintCheckout(session)
-          ? await fulfillLaunchBlueprintOrder(env, paidTestOrderId, session, event.id)
-          : await fulfillPaidTestOrder(env, paidTestOrderId, session, event.id);
+        if (isLaunchBlueprintCheckout(session)) {
+          const queued = await queueLaunchBlueprintOrder(env, paidTestOrderId, session, event.id);
+          await env.KV.put(eventKey, JSON.stringify({
+            receivedAt: new Date().toISOString(),
+            orderId: paidTestOrderId,
+            workflowId: queued.workflowId,
+            artifactType: 'launch_blueprint_v2'
+          }), { expirationTtl: 86400 * 90 });
+          return new Response(JSON.stringify({
+            received: true,
+            paidTest: queued.order.status,
+            artifactType: queued.order.artifactType,
+            workflowId: queued.workflowId
+          }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        const order = await fulfillPaidTestOrder(env, paidTestOrderId, session, event.id);
         await env.KV.put(eventKey, new Date().toISOString(), { expirationTtl: 86400 * 90 });
         return new Response(JSON.stringify({ received: true, paidTest: order.status, artifactType: order.artifactType }), {
           status: 200,
@@ -107,8 +124,8 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
     await env.KV.put(eventKey, new Date().toISOString(), { expirationTtl: 86400 * 90 });
     return new Response(JSON.stringify({ received: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (error) {
-    console.error('Webhook fulfillment error:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Webhook fulfillment failed' }), {
+    console.error('Webhook queueing error:', error);
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Webhook queueing failed' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', 'Retry-After': '60' }
     });
