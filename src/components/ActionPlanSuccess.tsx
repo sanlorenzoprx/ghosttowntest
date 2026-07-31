@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 
 interface Props { orderId: string; onDone: () => void; }
+interface BlueprintStatusResponse { error?: string; status?: string; }
 
 export default function ActionPlanSuccess({ orderId, onDone }: Props) {
   const [ready, setReady] = useState(false);
@@ -15,7 +16,12 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
     const check = async () => {
       try {
         const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint`), { headers: authHeaders() });
-        const body = await response.json<{ error?: string; status?: string }>().catch(() => ({}));
+        let body: BlueprintStatusResponse = {};
+        try {
+          body = await response.json() as BlueprintStatusResponse;
+        } catch {
+          body = {};
+        }
         if (cancelled) return;
         if (response.ok) {
           setReady(true);
