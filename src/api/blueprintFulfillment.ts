@@ -36,6 +36,11 @@ function workflowId(orderId: string, eventId: string): string {
   return `launch-blueprint-${orderId}-${eventId}`.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 100);
 }
 
+function hasConfirmedSeeds(order: PaidTestOrder): boolean {
+  const count = order.intake.competitorSeeds?.length || 0;
+  return count >= 2 && count <= 3;
+}
+
 async function savedVerdict(env: Env, verdictId: string, email: string): Promise<EvaluationResult | null> {
   const normalized = normalizedEmail(email);
   const raw = await env.KV.get(`verdict_${verdictId}`)
@@ -103,29 +108,22 @@ function verifySession(order: PaidTestOrder, session: Record<string, unknown>): 
   if (session.payment_status !== undefined && session.payment_status !== 'paid') throw new Error('Stripe session is not paid');
 }
 
-export async function queueLaunchBlueprintOrder(
+export async function markLaunchBlueprintAwaitingSeeds(
   env: Env,
   orderId: string,
   session: Record<string, unknown>,
   eventId: string
-): Promise<{ order: PaidTestOrder; workflowId: string }> {
-  if (!env.LAUNCH_BLUEPRINT_WORKFLOW) throw new Error('Launch Blueprint Workflow binding is not configured');
+): Promise<PaidTestOrder> {
   const raw = await env.KV.get(orderKey(orderId));
   if (!raw) throw new Error('Paid test order not found');
   const order = JSON.parse(raw) as PaidTestOrder;
   verifySession(order, session);
 
-  if (order.status === 'ready' && order.artifactType === 'launch_blueprint_v2') {
-    const stored = await loadBlueprintRecord(env, orderId);
-    if (stored?.blueprint.qualityGate.passed) return { order, workflowId: order.fulfillmentWorkflowId || 'already-complete' };
-    throw new Error('Ready order is missing its canonical Launch Blueprint record');
-  }
-
+  if (order.status === 'ready' && order.artifactType === 'launch_blueprint_v2') return order;
   const verdict = await savedVerdict(env, order.verdictId, order.email);
   if (!verdict) throw new Error('Source verdict not found');
 
-  const instanceId = workflowId(orderId, eventId);
-  order.status = 'researching';
+  order.status = hasConfirmedSeeds(order) ? 'paid' : 'awaiting_seeds';
   order.artifactType = 'launch_blueprint_v2';
   order.planVersion = '2.0';
   order.stripeCheckoutSessionId = String(session.id || order.stripeCheckoutSessionId || '');
@@ -133,6 +131,40 @@ export async function queueLaunchBlueprintOrder(
   order.stripeCustomerId = typeof session.customer === 'string' ? session.customer : undefined;
   order.stripeEventId = eventId;
   order.paidAt = order.paidAt || new Date().toISOString();
+  order.updatedAt = new Date().toISOString();
+  order.fulfillmentError = undefined;
+  await env.KV.put(orderKey(orderId), JSON.stringify(order));
+  await saveOrderSummary(env, order, verdict.idea.ideaName);
+  return order;
+}
+
+export async function startLaunchBlueprintWorkflow(
+  env: Env,
+  orderId: string,
+  eventId = `seeds_confirmed_${crypto.randomUUID()}`
+): Promise<{ order: PaidTestOrder; workflowId: string }> {
+  if (!env.LAUNCH_BLUEPRINT_WORKFLOW) throw new Error('Launch Blueprint Workflow binding is not configured');
+  const raw = await env.KV.get(orderKey(orderId));
+  if (!raw) throw new Error('Paid test order not found');
+  const order = JSON.parse(raw) as PaidTestOrder;
+
+  if (order.status === 'ready' && order.artifactType === 'launch_blueprint_v2') {
+    const stored = await loadBlueprintRecord(env, orderId);
+    if (stored?.blueprint.qualityGate.passed) return { order, workflowId: order.fulfillmentWorkflowId || 'already-complete' };
+    throw new Error('Ready order is missing its canonical Launch Blueprint record');
+  }
+  if (order.status === 'researching' || order.status === 'generating') {
+    return { order, workflowId: order.fulfillmentWorkflowId || 'already-running' };
+  }
+  if (!order.paidAt || !order.stripeCheckoutSessionId) throw new Error('Paid checkout has not been verified');
+  if (!hasConfirmedSeeds(order)) throw new Error('Confirm two or three competitor or adjacent-product seeds before research starts');
+
+  const verdict = await savedVerdict(env, order.verdictId, order.email);
+  if (!verdict) throw new Error('Source verdict not found');
+  const instanceId = workflowId(orderId, eventId);
+  order.status = 'researching';
+  order.artifactType = 'launch_blueprint_v2';
+  order.planVersion = '2.0';
   order.updatedAt = new Date().toISOString();
   order.fulfillmentError = undefined;
   order.fulfillmentWorkflowId = instanceId;
@@ -160,10 +192,22 @@ export async function queueLaunchBlueprintOrder(
   }
 }
 
+export async function queueLaunchBlueprintOrder(
+  env: Env,
+  orderId: string,
+  session: Record<string, unknown>,
+  eventId: string
+): Promise<{ order: PaidTestOrder; workflowId: string }> {
+  const order = await markLaunchBlueprintAwaitingSeeds(env, orderId, session, eventId);
+  if (!hasConfirmedSeeds(order)) return { order, workflowId: 'awaiting-seeds' };
+  return startLaunchBlueprintWorkflow(env, orderId, eventId);
+}
+
 export async function loadLaunchBlueprintWorkflowContext(env: Env, orderId: string): Promise<LaunchBlueprintWorkflowContext> {
   const raw = await env.KV.get(orderKey(orderId));
   if (!raw) throw new Error('Paid test order not found');
   const order = JSON.parse(raw) as PaidTestOrder;
+  if (!hasConfirmedSeeds(order)) throw new Error('Confirmed competitor seeds are missing');
   const verdict = await savedVerdict(env, order.verdictId, order.email);
   if (!verdict) throw new Error('Source verdict not found');
   return { order, verdict };
@@ -187,7 +231,7 @@ export async function completeLaunchBlueprintOrder(
   const { order, verdict } = await loadLaunchBlueprintWorkflowContext(env, orderId);
   const blueprint = createGhostTownLaunchBlueprint(order, verdict, result.research, order.paidAt);
   blueprint.generationReceipt.model = result.receipt.model;
-  blueprint.generationReceipt.promptVersion = 'source-federation-v1';
+  blueprint.generationReceipt.promptVersion = 'distribution-footprint-v1';
   blueprint.generationReceipt.fallbackStatus = 'ai_enriched';
   blueprint.generationReceipt.fallbackReason = undefined;
   if (!blueprint.qualityGate.passed) {
