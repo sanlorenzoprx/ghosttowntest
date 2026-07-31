@@ -392,7 +392,7 @@ function helpfulPosts(offer: OfferAndPricing, positioning: PositioningPlan, rese
   ];
 }
 
-function outreachScripts(offer: OfferAndPricing, positioning: PositioningPlan): OutreachScript[] {
+function outreachScripts(offer: OfferAndPricing, _positioning: PositioningPlan): OutreachScript[] {
   const buyer = offer.targetCustomer;
   const problem = offer.painfulProblem;
   const offerName = offer.offerName;
@@ -523,7 +523,7 @@ function launchSiteConfig(offer: OfferAndPricing, positioning: PositioningPlan, 
   };
 }
 
-function weeklyMilestones(offer: OfferAndPricing): WeeklyMilestone[] {
+function weeklyMilestones(_offer: OfferAndPricing): WeeklyMilestone[] {
   return [
     {
       weekNumber: 1,
@@ -560,7 +560,7 @@ function effort(day: number): BlueprintDailyAction['estimatedEffort'] {
   return [1, 8, 11, 15, 21, 25, 28, 29].includes(day) ? 'heavy' : [4, 6, 7, 13, 14, 20, 22, 23, 27, 30].includes(day) ? 'moderate' : 'light';
 }
 
-function dailyCalendar(offer: OfferAndPricing, positioning: PositioningPlan, research: CustomerAccessResearchInput): BlueprintDailyAction[] {
+function dailyCalendar(offer: OfferAndPricing, _positioning: PositioningPlan, research: CustomerAccessResearchInput): BlueprintDailyAction[] {
   const channelNames = research.channels.slice(0, 5).map(channel => channel.community);
   const priorities = channelNames.length ? channelNames.join(', ') : 'the five researched priority channels';
   const entries: Array<[string, string, string[], string[], string, string, string[]]> = [
