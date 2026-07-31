@@ -1,7 +1,7 @@
 import { authenticateRequest } from './auth';
 import type { Env } from './env';
 import type { PaidTestOrder } from '../types/paidTest';
-import { fulfillLaunchBlueprintOrder } from './blueprintFulfillment';
+import { queueLaunchBlueprintOrder } from './blueprintFulfillment';
 import {
   loadBlueprintPdf,
   loadBlueprintProgress,
@@ -27,7 +27,11 @@ async function ownedOrder(request: Request, env: Env, orderId: string, requireRe
   const order = JSON.parse(raw) as PaidTestOrder;
   if (normalizedEmail(order.email) !== normalizedEmail(auth.email)) return json({ error: 'Launch Blueprint not found' }, 404);
   if (requireReady && (order.status !== 'ready' || order.artifactType !== 'launch_blueprint_v2')) {
-    return json({ error: order.fulfillmentError || 'Launch Blueprint is not ready', status: order.status }, order.status === 'failed' ? 409 : 425);
+    return json({
+      error: order.fulfillmentError || 'Launch Blueprint is not ready',
+      status: order.status,
+      workflowId: order.fulfillmentWorkflowId
+    }, order.status === 'failed' ? 409 : 425);
   }
   return { order, email: auth.email };
 }
@@ -45,9 +49,14 @@ export async function handleLaunchBlueprint(request: Request, env: Env, orderId:
       provider: record.researchReceipt.provider,
       model: record.researchReceipt.model,
       completedAt: record.researchReceipt.completedAt,
-      webSearchQueries: record.researchReceipt.webSearchQueries,
+      packs: record.researchReceipt.packs,
+      queryTerms: record.researchReceipt.webSearchQueries,
+      attemptedSourceCount: record.researchReceipt.attemptedSourceCount,
+      successfulSourceCount: record.researchReceipt.successfulSourceCount,
+      sourceTypeCount: record.researchReceipt.sourceTypeCount,
       verifiedChannelCount: record.researchReceipt.verifiedChannelCount,
-      rejectedUrlCount: record.researchReceipt.rejectedUrls.length
+      rejectedUrlCount: record.researchReceipt.rejectedUrls.length,
+      failedSourceCount: record.researchReceipt.failedSources.length
     }
   });
 }
@@ -94,9 +103,12 @@ export async function handleLaunchBlueprintRetry(request: Request, env: Env, ord
   const owned = await ownedOrder(request, env, orderId, false);
   if (owned instanceof Response) return owned;
   if (owned.order.status === 'ready' && owned.order.artifactType === 'launch_blueprint_v2') return json({ error: 'Launch Blueprint is already ready' }, 409);
+  if (owned.order.status === 'researching' || owned.order.status === 'generating') {
+    return json({ error: 'A Blueprint Workflow is already running', workflowId: owned.order.fulfillmentWorkflowId }, 409);
+  }
   if (!owned.order.stripeCheckoutSessionId) return json({ error: 'Stripe checkout session is missing' }, 409);
   const lockKey = `launch_blueprint_retry_${orderId}`;
-  if (await env.KV.get(lockKey)) return json({ error: 'A Blueprint retry is already running' }, 409);
+  if (await env.KV.get(lockKey)) return json({ error: 'A Blueprint retry is already being queued' }, 409);
   await env.KV.put(lockKey, new Date().toISOString(), { expirationTtl: 900 });
   try {
     const response = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(owned.order.stripeCheckoutSessionId)}`, {
@@ -104,8 +116,14 @@ export async function handleLaunchBlueprintRetry(request: Request, env: Env, ord
     });
     const session = await response.json() as Record<string, unknown> & { error?: { message?: string } };
     if (!response.ok) return json({ error: session.error?.message || 'Stripe session could not be verified' }, 502);
-    const order = await fulfillLaunchBlueprintOrder(env, orderId, session, `manual_retry_${crypto.randomUUID()}`);
-    return json({ orderId: order.orderId, status: order.status, artifactType: order.artifactType });
+    const retryEventId = `manual_retry_${crypto.randomUUID()}`;
+    const queued = await queueLaunchBlueprintOrder(env, orderId, session, retryEventId);
+    return json({
+      orderId: queued.order.orderId,
+      status: queued.order.status,
+      artifactType: queued.order.artifactType,
+      workflowId: queued.workflowId
+    }, 202);
   } finally {
     await env.KV.delete(lockKey);
   }
