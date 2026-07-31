@@ -59,6 +59,8 @@ export interface PaidTestOrder {
   updatedAt: string;
   paidAt?: string;
   fulfillmentError?: string;
+  fulfillmentWorkflowId?: string;
+  fulfillmentAttemptCount?: number;
 }
 
 export interface ReportClaim {
