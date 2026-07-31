@@ -28,9 +28,12 @@ async function ownedOrder(request: Request, env: Env, orderId: string, requireRe
   if (normalizedEmail(order.email) !== normalizedEmail(auth.email)) return json({ error: 'Launch Blueprint not found' }, 404);
   if (requireReady && (order.status !== 'ready' || order.artifactType !== 'launch_blueprint_v2')) {
     return json({
-      error: order.fulfillmentError || 'Launch Blueprint is not ready',
+      error: order.fulfillmentError || (order.status === 'awaiting_seeds' || order.status === 'paid'
+        ? 'Confirm two or three competitor or adjacent-product seeds to start research'
+        : 'Launch Blueprint is not ready'),
       status: order.status,
-      workflowId: order.fulfillmentWorkflowId
+      workflowId: order.fulfillmentWorkflowId,
+      nextAction: order.status === 'awaiting_seeds' || order.status === 'paid' ? 'confirm_competitor_seeds' : undefined
     }, order.status === 'failed' ? 409 : 425);
   }
   return { order, email: auth.email };
@@ -50,13 +53,16 @@ export async function handleLaunchBlueprint(request: Request, env: Env, orderId:
       model: record.researchReceipt.model,
       completedAt: record.researchReceipt.completedAt,
       packs: record.researchReceipt.packs,
+      webSearchQueries: record.researchReceipt.webSearchQueries,
       queryTerms: record.researchReceipt.webSearchQueries,
       attemptedSourceCount: record.researchReceipt.attemptedSourceCount,
       successfulSourceCount: record.researchReceipt.successfulSourceCount,
       sourceTypeCount: record.researchReceipt.sourceTypeCount,
       verifiedChannelCount: record.researchReceipt.verifiedChannelCount,
       rejectedUrlCount: record.researchReceipt.rejectedUrls.length,
-      failedSourceCount: record.researchReceipt.failedSources.length
+      failedSourceCount: record.researchReceipt.failedSources.length,
+      seedDomains: record.researchReceipt.seedDomains,
+      targetTypeCounts: record.researchReceipt.targetTypeCounts
     }
   });
 }
@@ -103,6 +109,9 @@ export async function handleLaunchBlueprintRetry(request: Request, env: Env, ord
   const owned = await ownedOrder(request, env, orderId, false);
   if (owned instanceof Response) return owned;
   if (owned.order.status === 'ready' && owned.order.artifactType === 'launch_blueprint_v2') return json({ error: 'Launch Blueprint is already ready' }, 409);
+  if (owned.order.status === 'awaiting_seeds' || owned.order.status === 'paid') {
+    return json({ error: 'Confirm competitor seeds before starting research', nextAction: 'confirm_competitor_seeds' }, 409);
+  }
   if (owned.order.status === 'researching' || owned.order.status === 'generating') {
     return json({ error: 'A Blueprint Workflow is already running', workflowId: owned.order.fulfillmentWorkflowId }, 409);
   }
