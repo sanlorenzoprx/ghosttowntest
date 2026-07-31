@@ -3,6 +3,7 @@ import { PublicUserData } from '../types/auth';
 import { apiUrl, authHeaders } from '../lib/api';
 import type { EvaluationResult } from '../types/lit';
 import LaunchBlueprintView from './LaunchBlueprintView';
+import CompetitorSeedStep from './CompetitorSeedStep';
 
 interface ResultSummary {
   resultId: string;
@@ -15,7 +16,7 @@ interface ResultSummary {
 interface PaidOrderSummary {
   orderId: string;
   ideaName: string;
-  status: 'pending' | 'checkout_created' | 'paid' | 'researching' | 'generating' | 'ready' | 'failed' | 'refunded';
+  status: 'pending' | 'checkout_created' | 'paid' | 'awaiting_seeds' | 'researching' | 'generating' | 'ready' | 'failed' | 'refunded';
   createdAt: string;
   updatedAt: string;
   artifactType?: 'legacy_report_v1' | 'execution_plan_30day_v1' | 'launch_blueprint_v2';
@@ -41,6 +42,7 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
   const [downloadingPlan, setDownloadingPlan] = useState('');
   const [planError, setPlanError] = useState('');
   const [openBlueprintOrderId, setOpenBlueprintOrderId] = useState('');
+  const [seedOrderId, setSeedOrderId] = useState('');
   const [retryingOrderId, setRetryingOrderId] = useState('');
 
   const loadPaidPlans = () => fetch(apiUrl('/api/paid-test/orders'), { headers: authHeaders() })
@@ -127,6 +129,9 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
     }
   };
 
+  if (seedOrderId) {
+    return <div className="mx-auto max-w-5xl p-4 py-8"><div className="rounded-xl border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern sm:p-10"><CompetitorSeedStep orderId={seedOrderId} onBack={() => { setSeedOrderId(''); void loadPaidPlans(); }} onStarted={() => { setSeedOrderId(''); void loadPaidPlans(); }} /></div></div>;
+  }
   if (openBlueprintOrderId) return <LaunchBlueprintView orderId={openBlueprintOrderId} onBack={() => { setOpenBlueprintOrderId(''); void loadPaidPlans(); }} />;
 
   if (loading) return <div className="mx-auto max-w-2xl p-8 text-center"><div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-b-blue-600" /><p className="mt-4 text-gray-600">Loading dashboard...</p></div>;
@@ -155,12 +160,14 @@ export default function UserDashboard({ onLogout, onBuy, onStart, onOpenResult }
       </section>
 
       <section className="mb-8 rounded-xl border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-rust">Purchased products</p><h2 className="mt-1 text-2xl font-black">Launch Blueprints and validation plans</h2></div><p className="text-xs text-gray-600">Private and saved to this account</p></div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-rust">Purchased products</p><h2 className="mt-1 text-2xl font-black">Launch Blueprints and Media Networks</h2></div><p className="text-xs text-gray-600">Private and saved to this account</p></div>
         {planError && <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{planError}</p>}
         {paidPlans.length === 0 ? <p className="mt-4 text-sm text-gray-600">Purchased products will appear here.</p> : <div className="mt-5 space-y-3">{paidPlans.map(plan => {
           const isBlueprint = plan.artifactType === 'launch_blueprint_v2';
+          const awaitingSeeds = plan.status === 'awaiting_seeds' || plan.status === 'paid';
           const working = plan.status === 'researching' || plan.status === 'generating';
-          return <article key={plan.orderId} className="rounded-lg border border-ghost-rust/20 bg-white p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-black">{plan.ideaName}</h3><span className={`rounded-full px-2 py-1 text-xs font-black uppercase ${plan.status === 'ready' ? 'bg-green-100 text-green-800' : plan.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>{working ? 'Building' : plan.status}</span></div><p className="mt-1 text-sm font-medium text-gray-700">{plan.offerName || (isBlueprint ? 'GhostTown Launch Blueprint' : '30-Day Implementation Plan')}</p><p className="mt-1 text-xs text-gray-500">Purchased {new Date(plan.createdAt).toLocaleDateString()}{plan.planVersion ? ` · Version ${plan.planVersion}` : ''}</p>{working && <p className="mt-2 text-sm text-amber-700">Current research and personalized assets are being generated.</p>}</div><div className="flex flex-wrap gap-2">{isBlueprint && plan.status === 'ready' && <button onClick={() => setOpenBlueprintOrderId(plan.orderId)} className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-black text-white">Open Blueprint</button>}{plan.status === 'ready' && <><button onClick={() => void downloadPlan(plan, 'pdf')} disabled={Boolean(downloadingPlan)} className="rounded-lg border border-ghost-rust px-4 py-2 text-sm font-black text-ghost-rust disabled:opacity-50">{downloadingPlan === `${plan.orderId}:pdf` ? 'Preparing…' : 'PDF'}</button><button onClick={() => void downloadPlan(plan, 'json')} disabled={Boolean(downloadingPlan)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-black disabled:opacity-50">{downloadingPlan === `${plan.orderId}:json` ? 'Preparing…' : 'JSON'}</button></>}{plan.status === 'failed' && isBlueprint && <button onClick={() => void retryBlueprint(plan.orderId)} disabled={Boolean(retryingOrderId)} className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-black text-white disabled:opacity-50">{retryingOrderId === plan.orderId ? 'Retrying…' : 'Retry Blueprint'}</button>}</div></div></article>;
+          const badge = awaitingSeeds ? 'Action required' : working ? 'Building' : plan.status;
+          return <article key={plan.orderId} className="rounded-lg border border-ghost-rust/20 bg-white p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-black">{plan.ideaName}</h3><span className={`rounded-full px-2 py-1 text-xs font-black uppercase ${plan.status === 'ready' ? 'bg-green-100 text-green-800' : plan.status === 'failed' ? 'bg-red-100 text-red-800' : awaitingSeeds ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>{badge}</span></div><p className="mt-1 text-sm font-medium text-gray-700">{plan.offerName || (isBlueprint ? 'GhostTown Launch Blueprint' : '30-Day Implementation Plan')}</p><p className="mt-1 text-xs text-gray-500">Purchased {new Date(plan.createdAt).toLocaleDateString()}{plan.planVersion ? ` · Version ${plan.planVersion}` : ''}</p>{awaitingSeeds && <p className="mt-2 text-sm font-bold text-blue-800">Confirm 2–3 competitor or adjacent-product seeds to start the Media & Distribution Network.</p>}{working && <p className="mt-2 text-sm text-amber-700">GhostTown is mapping podcasts, creators, publications, events, reviewers, associations, and partners.</p>}</div><div className="flex flex-wrap gap-2">{awaitingSeeds && isBlueprint && <button onClick={() => setSeedOrderId(plan.orderId)} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-black text-white">Choose research seeds</button>}{isBlueprint && plan.status === 'ready' && <button onClick={() => setOpenBlueprintOrderId(plan.orderId)} className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-black text-white">Open Blueprint</button>}{plan.status === 'ready' && <><button onClick={() => void downloadPlan(plan, 'pdf')} disabled={Boolean(downloadingPlan)} className="rounded-lg border border-ghost-rust px-4 py-2 text-sm font-black text-ghost-rust disabled:opacity-50">{downloadingPlan === `${plan.orderId}:pdf` ? 'Preparing…' : 'PDF'}</button><button onClick={() => void downloadPlan(plan, 'json')} disabled={Boolean(downloadingPlan)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-black disabled:opacity-50">{downloadingPlan === `${plan.orderId}:json` ? 'Preparing…' : 'JSON'}</button></>}{plan.status === 'failed' && isBlueprint && <button onClick={() => void retryBlueprint(plan.orderId)} disabled={Boolean(retryingOrderId)} className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-black text-white disabled:opacity-50">{retryingOrderId === plan.orderId ? 'Retrying…' : 'Retry Blueprint'}</button>}</div></div></article>;
         })}</div>}
       </section>
 
