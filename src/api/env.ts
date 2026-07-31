@@ -15,8 +15,10 @@ export interface Env {
   AI_MODEL?: string;
   ACTION_PLAN_AI_MODEL?: string;
   GEMINI_RESEARCH_MODEL?: string;
+  GEMINI_GOOGLE_SEARCH_MODEL?: string;
   DISTRIBUTION_FOOTPRINT_ENABLED?: string;
   DISTRIBUTION_FOOTPRINT_BATCH_SIZE?: string;
+  INTERNAL_RESEARCH_OWNER_EMAILS?: string;
   FRONTEND_URL?: string;
   LIT_API_KEY?: string;
   GEMINI_API_KEY?: string;
