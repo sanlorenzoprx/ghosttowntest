@@ -1,5 +1,6 @@
 import type { Env } from './env';
 import type { EvaluationResult } from '../types/lit';
+import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
 import type { PaidTestOrder } from '../types/paidTest';
 import { GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
@@ -39,6 +40,34 @@ function workflowId(orderId: string, eventId: string): string {
 function hasConfirmedSeeds(order: PaidTestOrder): boolean {
   const count = order.intake.competitorSeeds?.length || 0;
   return count >= 2 && count <= 3;
+}
+
+function blueprintForPdf(blueprint: GhostTownLaunchBlueprint): GhostTownLaunchBlueprint {
+  return {
+    ...blueprint,
+    customerAccessPack: {
+      ...blueprint.customerAccessPack,
+      channels: blueprint.customerAccessPack.channels.map(channel => ({
+        ...channel,
+        relevance: [
+          channel.relevance,
+          channel.competitorEvidence?.length
+            ? `Competitor footprint evidence: ${channel.competitorEvidence.join(' ')}`
+            : ''
+        ].filter(Boolean).join(' '),
+        participationRules: [
+          channel.participationRules,
+          channel.audienceOwner ? `Audience owner: ${channel.audienceOwner}.` : '',
+          channel.accessPath ? `Public access path: ${channel.accessPath}` : ''
+        ].filter(Boolean).join(' '),
+        recommendedApproach: [
+          channel.recommendedApproach,
+          channel.preparedAsset ? `Prepared asset: ${channel.preparedAsset}` : '',
+          channel.outreachScriptId ? `Matching outreach script: ${channel.outreachScriptId}.` : ''
+        ].filter(Boolean).join(' ')
+      }))
+    }
+  };
 }
 
 async function savedVerdict(env: Env, verdictId: string, email: string): Promise<EvaluationResult | null> {
@@ -238,7 +267,7 @@ export async function completeLaunchBlueprintOrder(
     throw new Error(`Launch Blueprint quality gate failed: ${blueprint.qualityGate.failures.join(' | ')}`);
   }
 
-  const pdf = renderLaunchBlueprintPdf(blueprint);
+  const pdf = renderLaunchBlueprintPdf(blueprintForPdf(blueprint));
   await saveBlueprintRecord(env, blueprint, result.receipt, pdf);
 
   order.status = 'ready';
