@@ -10,6 +10,8 @@ routes = [
 [env.production.vars]
 AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
 ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+GEMINI_RESEARCH_MODEL = "gemini-2.5-flash"
+GOOGLE_SEARCH_GROUNDING_ENABLED = "false"
 FRONTEND_URL = "https://ghosttowntest.com"
 
 [[env.production.kv_namespaces]]
@@ -23,9 +25,25 @@ binding = "AI"
 binding = "VIDEOS"
 bucket_name = "ghosttowntest-public-videos"
 
+# Launch Blueprint v2 remains fail-closed until a private D1 database and
+# private R2 bucket are created and the production bindings below are enabled.
+# Never point BLUEPRINTS at the public video bucket.
+#
+# [[env.production.d1_databases]]
+# binding = "DB"
+# database_name = "ghosttowntest-blueprints"
+# database_id = "REPLACE_WITH_D1_DATABASE_ID"
+# migrations_dir = "migrations"
+#
+# [[env.production.r2_buckets]]
+# binding = "BLUEPRINTS"
+# bucket_name = "ghosttowntest-private-blueprints"
+
 [env.development.vars]
 AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
 ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+GEMINI_RESEARCH_MODEL = "gemini-2.5-flash"
+GOOGLE_SEARCH_GROUNDING_ENABLED = "false"
 FRONTEND_URL = "http://127.0.0.1:5300"
 JWT_SECRET = "dev-secret-key-change-in-production"
 STRIPE_SECRET_KEY = "sk_test_..."
