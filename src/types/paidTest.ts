@@ -2,9 +2,9 @@ import type { EvaluationResult } from './lit';
 import type { GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
 
 export type TruthLabel = 'Verified' | 'Inferred' | 'Test';
-export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'generating' | 'ready' | 'failed' | 'refunded';
+export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'researching' | 'generating' | 'ready' | 'failed' | 'refunded';
 export type StripeMode = 'test' | 'live';
-export type PaidArtifactType = 'legacy_report_v1' | 'execution_plan_30day_v1';
+export type PaidArtifactType = 'legacy_report_v1' | 'execution_plan_30day_v1' | 'launch_blueprint_v2';
 export type PaidPlanOfferId = typeof GHOSTTOWN_30_DAY_PLAN_V1.offerId;
 
 export interface PaidTestIntake {
@@ -51,7 +51,7 @@ export interface PaidTestOrder {
   artifactType?: PaidArtifactType;
   offerId?: PaidPlanOfferId;
   offerVersion?: '1.0';
-  planVersion?: '1.0';
+  planVersion?: '1.0' | '2.0';
   idempotencyKey?: string;
   reportVersion?: '1.0';
   intake: PaidTestIntake;
