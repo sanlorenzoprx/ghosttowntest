@@ -14,6 +14,7 @@ import {
   handleLaunchBlueprintRetry
 } from './blueprintApi';
 import { handleBlueprintSeeds, handleBlueprintSeedSuggestions } from './blueprintSeeds';
+import { handleInternalGoogleSearch } from './internalGoogleSearch';
 import type { Env } from './env';
 import { handleResultHistory, handleSaveCurrentResult, handleSavedResult } from './resultHistory';
 import {
@@ -119,6 +120,11 @@ export default {
       }
       if (path === '/api/auth/verify' && method === 'POST') {
         const response = await handleVerify(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/internal/google-search' && (method === 'GET' || method === 'POST')) {
+        const response = await handleInternalGoogleSearch(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
