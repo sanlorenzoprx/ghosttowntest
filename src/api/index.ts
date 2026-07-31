@@ -25,6 +25,8 @@ import {
   handlePublicVideoUpload
 } from './publicVideoJobs';
 
+export { LaunchBlueprintWorkflow } from './launchBlueprintWorkflow';
+
 /**
  * Main Cloudflare Workers fetch handler.
  */
