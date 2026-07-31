@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { IdeaIntake } from '../types/lit';
 import type { PaidTestIntake } from '../types/paidTest';
-import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
+import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE } from '../lib/ghosttownOffer';
 
 interface Props {
   idea: IdeaIntake;
@@ -41,8 +41,8 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-ghost-rust">{displayPrice} one-time plan</p>
-              <h2 id="action-plan-title" className="mt-1 text-2xl font-bold text-gray-950">Personalize your GhostTown Launch Blueprint</h2>
-              <p className="mt-2 text-sm text-gray-600">{GHOSTTOWN_30_DAY_PLAN_V1.name}. Your answers guide the buyer, offer, price, and evidence tasks.</p>
+              <h2 id="action-plan-title" className="mt-1 text-2xl font-bold text-gray-950">Build your GhostTown Launch Blueprint</h2>
+              <p className="mt-2 text-sm text-gray-600">Your 30-day execution Blueprint, Customer Access Pack, and mobile-ready Launch Site Starter begin with these details.</p>
             </div>
             <button type="button" onClick={onClose} disabled={loading} className="shrink-0 rounded-lg px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100" aria-label="Close action plan form">Close</button>
           </div>
@@ -64,7 +64,7 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
           <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button type="button" onClick={onClose} disabled={loading} className="rounded-lg border border-gray-300 px-5 py-3 font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
             <button type="submit" disabled={loading || !targetBuyer.trim() || !problem.trim() || !currentWorkaround.trim()} className="rounded-lg bg-ghost-rust px-5 py-3 font-bold text-white hover:bg-[#96360d] disabled:opacity-50">
-              {loading ? 'Opening secure checkout...' : `Continue to Checkout - ${displayPrice}`}
+              {loading ? 'Opening secure checkout...' : `Build My Launch Blueprint - ${displayPrice}`}
             </button>
           </div>
         </form>

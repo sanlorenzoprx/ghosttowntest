@@ -219,23 +219,27 @@ export default function Landing({ onStart, onSelectExample, hasDraft, onResume, 
             <h2 className="mt-3 text-3xl font-bold text-gray-950 sm:text-4xl">{GHOSTTOWN_30_DAY_PLAN_V1.name}</h2>
             <p className="mt-5 max-w-2xl text-lg leading-relaxed text-gray-700">
               {es
-                ? `Despues del veredicto gratis, compra un PDF personalizado por ${displayPrice} con tareas diarias, presupuestos, evidencia requerida y reglas para continuar, pivotar, pausar o parar.`
-                : `After the free verdict, buy a personalized PDF for ${displayPrice} with daily tasks, budgets, required evidence, and rules for whether to continue, pivot, pause, or stop.`}
+                ? 'Convierte tu idea en una oferta real que las personas puedan encontrar, entender y elegir. Tu sistema de lanzamiento personalizado incluye la estrategia, los recursos y el sitio inicial para comenzar a probar tu oferta.'
+                : 'Turn your idea into a real offer people can find, understand, and act on. Your personalized launch system includes the strategy, assets, and site starter to begin testing your offer.'}
             </p>
+            <p className="mt-5 text-sm font-bold text-ghost-forest">{es ? `Plan personalizado de lanzamiento por ${displayPrice}` : `Personalized launch system for ${displayPrice}`}</p>
           </div>
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-6">
-            <h3 className="font-bold text-gray-950">{es ? 'Incluye' : 'What you receive'}</h3>
-            <ul className="mt-4 space-y-2 text-sm text-gray-700">
-              <li>{es ? '30 dias de acciones concretas y umbrales de evidencia.' : '30 days of concrete actions and evidence thresholds.'}</li>
-              <li>{es ? 'Entrevistas, alcance, oferta, precio, pagina, piloto pagado y decision final.' : 'Interviews, outreach, offer, price, landing page, paid pilot, and final decision.'}</li>
-              <li>{es ? 'PDF legible y descarga repetida desde tu cuenta.' : 'Readable PDF and repeat download from your account.'}</li>
-            </ul>
-            <h3 className="mt-6 font-bold text-gray-950">{es ? 'No promete' : 'What it does not promise'}</h3>
-            <ul className="mt-4 space-y-2 text-sm text-gray-700">
-              <li>{es ? 'No garantiza clientes, ingresos, inversion o product-market fit.' : 'No guaranteed customers, revenue, funding, or product-market fit.'}</li>
-              <li>{es ? 'No inventa citas, tamano de mercado, competidores o investigacion externa.' : 'No invented quotes, market size, competitor facts, or external research.'}</li>
-              <li>{es ? 'No sustituye asesoria legal, financiera, medica o profesional.' : 'Not legal, financial, medical, or professional advice.'}</li>
-            </ul>
+            <h3 className="font-bold text-gray-950">{es ? 'Tu paquete de lanzamiento' : 'Your launch bundle'}</h3>
+            <div className="mt-5 space-y-5 text-sm text-gray-700">
+              <div>
+                <h4 className="font-bold text-gray-950">GhostTown Customer Access Pack</h4>
+                <p className="mt-1">{es ? 'Perfil de cliente, momentos de compra, lugares para encontrarlos, ideas de publicaciones, guiones de contacto y calendario de comunicacion.' : 'Customer profile, buyer triggers, places to find them, post ideas, outreach scripts, and a contact schedule.'}</p>
+              </div>
+              <div>
+                <h4 className="font-bold text-gray-950">GhostTown Launch Site Starter</h4>
+                <p className="mt-1">{es ? 'Un sitio movil listo para lanzar, prellenado con tu oferta, posicionamiento, precios, llamadas a la accion y primera campana.' : 'A mobile-ready site starter pre-populated with your offer, positioning, pricing, calls to action, and first campaign.'}</p>
+              </div>
+              <div>
+                <h4 className="font-bold text-gray-950">{es ? 'Tu plan de ejecucion de 30 dias' : 'Your 30-Day Execution Blueprint'}</h4>
+                <p className="mt-1">{es ? 'Acciones diarias, prioridades semanales, hitos, metricas y todos tus recursos guardados en tu cuenta.' : 'Daily actions, weekly priorities, milestones, metrics, and every launch asset saved to your account.'}</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
