@@ -163,8 +163,24 @@ function selectionFromPrompt(prompt: string) {
     targetTypeHint: string;
     title: string;
   }>;
+  const selected: typeof candidates = [];
+  const byType = new Map<string, typeof candidates>();
+  for (const candidate of candidates) {
+    const group = byType.get(candidate.targetTypeHint) || [];
+    group.push(candidate);
+    byType.set(candidate.targetTypeHint, group);
+  }
+  for (const group of byType.values()) {
+    selected.push(...group.slice(0, 4));
+    if (selected.length >= 12) break;
+  }
+  for (const candidate of candidates) {
+    if (selected.some(item => item.candidateId === candidate.candidateId)) continue;
+    selected.push(candidate);
+    if (selected.length >= 16) break;
+  }
   return {
-    channels: candidates.slice(0, 16).map((candidate, index) => ({
+    channels: selected.slice(0, 16).map((candidate, index) => ({
       candidateId: candidate.candidateId,
       targetType: candidate.targetTypeHint,
       relevance: 'This target reaches families already evaluating games, activities, or comparable subscriptions.',
