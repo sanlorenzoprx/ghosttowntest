@@ -13,6 +13,7 @@ import {
   handleLaunchBlueprintProgress,
   handleLaunchBlueprintRetry
 } from './blueprintApi';
+import { handleBlueprintSeeds, handleBlueprintSeedSuggestions } from './blueprintSeeds';
 import type { Env } from './env';
 import { handleResultHistory, handleSaveCurrentResult, handleSavedResult } from './resultHistory';
 import {
@@ -138,6 +139,18 @@ export default {
         return response;
       }
 
+      const seedSuggestionsMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/seeds\/suggest$/);
+      if (seedSuggestionsMatch && method === 'POST') {
+        const response = await handleBlueprintSeedSuggestions(request, env, seedSuggestionsMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const seedsMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/seeds$/);
+      if (seedsMatch && (method === 'GET' || method === 'POST')) {
+        const response = await handleBlueprintSeeds(request, env, seedsMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
       const blueprintJsonMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\.json$/);
       if (blueprintJsonMatch && method === 'GET') {
         const response = await handleLaunchBlueprintJson(request, env, blueprintJsonMatch[1]);
