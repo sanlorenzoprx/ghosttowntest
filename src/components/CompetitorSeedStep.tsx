@@ -1,0 +1,207 @@
+import { useEffect, useMemo, useState } from 'react';
+import { apiUrl, authHeaders } from '../lib/api';
+import type { CompetitorSeedRelationship, CompetitorSeedSuggestion } from '../types/paidTest';
+
+interface Props {
+  orderId: string;
+  onStarted: () => void;
+  onBack?: () => void;
+}
+
+interface SeedDraft {
+  key: string;
+  name: string;
+  website: string;
+  relationship: CompetitorSeedRelationship;
+}
+
+interface SeedStatusResponse {
+  ideaName?: string;
+  status?: string;
+  paid?: boolean;
+  suggestions?: CompetitorSeedSuggestion[];
+  confirmedSeeds?: Array<{ seedId: string; name: string; website: string; relationship: CompetitorSeedRelationship }>;
+  error?: string;
+}
+
+const relationshipLabels: Record<CompetitorSeedRelationship, string> = {
+  direct_competitor: 'Direct competitor',
+  adjacent_product: 'Adjacent product or brand',
+  current_alternative: 'Current alternative'
+};
+
+function suggestionDraft(item: CompetitorSeedSuggestion): SeedDraft {
+  return {
+    key: item.suggestionId,
+    name: item.name,
+    website: item.website,
+    relationship: item.relationship
+  };
+}
+
+export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props) {
+  const [ideaName, setIdeaName] = useState('your idea');
+  const [suggestions, setSuggestions] = useState<CompetitorSeedSuggestion[]>([]);
+  const [selected, setSelected] = useState<Record<string, SeedDraft>>({});
+  const [custom, setCustom] = useState<SeedDraft>({ key: 'custom', name: '', website: '', relationship: 'adjacent_product' });
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const selectedSeeds = useMemo(() => Object.values(selected), [selected]);
+  const canSubmit = selectedSeeds.length >= 2 && selectedSeeds.length <= 3 && !submitting;
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/seeds`), { headers: authHeaders() });
+        const body = await response.json<SeedStatusResponse>();
+        if (!response.ok) throw new Error(body.error || 'Competitor seed intake could not be opened');
+        if (cancelled) return;
+        setIdeaName(body.ideaName || 'your idea');
+        setSuggestions(body.suggestions || []);
+        if (body.confirmedSeeds?.length) {
+          setSelected(Object.fromEntries(body.confirmedSeeds.map(seed => [seed.seedId, {
+            key: seed.seedId,
+            name: seed.name,
+            website: seed.website,
+            relationship: seed.relationship
+          }])));
+        }
+        if (!(body.suggestions || []).length && !body.confirmedSeeds?.length) {
+          setGenerating(true);
+          const suggestionResponse = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/seeds/suggest`), {
+            method: 'POST',
+            headers: authHeaders()
+          });
+          const suggestionBody = await suggestionResponse.json<{ suggestions?: CompetitorSeedSuggestion[]; error?: string }>();
+          if (!suggestionResponse.ok) throw new Error(suggestionBody.error || 'GhostTown could not suggest competitor seeds');
+          if (!cancelled) setSuggestions(suggestionBody.suggestions || []);
+        }
+      } catch (caught) {
+        if (!cancelled) setError(caught instanceof Error ? caught.message : 'Competitor seed intake could not be opened');
+      } finally {
+        if (!cancelled) {
+          setGenerating(false);
+          setLoading(false);
+        }
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [orderId]);
+
+  const toggleSuggestion = (item: CompetitorSeedSuggestion) => {
+    setError('');
+    setSelected(current => {
+      if (current[item.suggestionId]) {
+        const next = { ...current };
+        delete next[item.suggestionId];
+        return next;
+      }
+      if (Object.keys(current).length >= 3) return current;
+      return { ...current, [item.suggestionId]: suggestionDraft(item) };
+    });
+  };
+
+  const addCustom = () => {
+    setError('');
+    if (!custom.name.trim() || !custom.website.trim()) {
+      setError('Enter the public name and official website for the custom seed.');
+      return;
+    }
+    if (selectedSeeds.length >= 3) {
+      setError('Choose no more than three seeds. Remove one before adding another.');
+      return;
+    }
+    const key = `custom-${Date.now()}`;
+    setSelected(current => ({ ...current, [key]: { ...custom, key } }));
+    setCustom({ key: 'custom', name: '', website: '', relationship: 'adjacent_product' });
+  };
+
+  const removeSelected = (key: string) => {
+    setSelected(current => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const startResearch = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/seeds`), {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          seeds: selectedSeeds.map(seed => ({
+            name: seed.name,
+            website: seed.website,
+            relationship: seed.relationship
+          }))
+        })
+      });
+      const body = await response.json<{ error?: string }>();
+      if (!response.ok) throw new Error(body.error || 'Media & Distribution research could not be started');
+      onStarted();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Media & Distribution research could not be started');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) return <div className="py-8 text-center"><div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-ghost-rust/20 border-b-ghost-rust" /><p className="mt-4 text-sm text-gray-600">{generating ? 'Finding likely competitors and adjacent brands...' : 'Opening your paid research intake...'}</p></div>;
+
+  return (
+    <section className="text-left">
+      <div className="text-center">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-rust">Paid research intake</p>
+        <h2 className="mt-2 text-3xl font-black text-ghost-ink">Choose the footprints GhostTown should reverse-engineer.</h2>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-gray-700">For <strong>{ideaName}</strong>, confirm two or three existing products, brands, publications, or adjacent tools whose audiences already resemble your customer. GhostTown will map their podcast, creator, publication, event, review, and partnership footprint.</p>
+      </div>
+
+      {error && <p className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p>}
+
+      <div className="mt-7 grid gap-4 md:grid-cols-2">
+        {suggestions.map(item => {
+          const active = Boolean(selected[item.suggestionId]);
+          return <button key={item.suggestionId} type="button" onClick={() => toggleSuggestion(item)} className={`rounded-xl border p-5 text-left transition ${active ? 'border-ghost-rust bg-[#fff0e7] ring-2 ring-ghost-rust' : 'border-black/10 bg-white hover:border-ghost-rust/50'}`}>
+            <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase text-ghost-rust">{relationshipLabels[item.relationship]}</p><h3 className="mt-1 text-lg font-black text-ghost-ink">{item.name}</h3></div><span className={`flex h-6 w-6 items-center justify-center rounded border-2 text-sm font-black ${active ? 'border-ghost-rust bg-ghost-rust text-white' : 'border-gray-300'}`}>{active ? '✓' : ''}</span></div>
+            <p className="mt-2 break-all text-xs font-bold text-blue-700">{item.website}</p>
+            <p className="mt-3 text-sm text-gray-700">{item.reason}</p>
+            <p className="mt-3 text-xs font-bold uppercase text-gray-500">GhostTown suggestion · homepage verified · {item.confidence} confidence</p>
+          </button>;
+        })}
+      </div>
+
+      <div className="mt-7 rounded-xl border border-black/10 bg-white p-5">
+        <h3 className="font-black text-ghost-ink">Add or replace with a seed you know</h3>
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1.2fr_.8fr_auto]">
+          <input value={custom.name} onChange={event => setCustom(current => ({ ...current, name: event.target.value }))} placeholder="Brand or product name" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          <input value={custom.website} onChange={event => setCustom(current => ({ ...current, website: event.target.value }))} placeholder="Official website" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          <select value={custom.relationship} onChange={event => setCustom(current => ({ ...current, relationship: event.target.value as CompetitorSeedRelationship }))} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+            {Object.entries(relationshipLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          <button type="button" onClick={addCustom} className="rounded-lg border border-ghost-rust px-4 py-2 text-sm font-black text-ghost-rust">Add</button>
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-xl bg-ghost-ink p-5 text-white">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div><p className="text-xs font-black uppercase tracking-[0.15em] text-ghost-gold">Confirmed research seeds</p><p className="mt-1 text-sm text-white/75">Select exactly two or three. Research charges and the durable Workflow begin only after confirmation.</p></div><span className="text-3xl font-black text-ghost-gold">{selectedSeeds.length}/3</span>
+        </div>
+        <div className="mt-4 space-y-2">{selectedSeeds.map(seed => <div key={seed.key} className="flex items-center justify-between gap-3 rounded-lg bg-white/10 p-3"><div><p className="font-black">{seed.name}</p><p className="text-xs text-white/65">{relationshipLabels[seed.relationship]} · {seed.website}</p></div><button type="button" onClick={() => removeSelected(seed.key)} className="text-sm font-black text-ghost-gold">Remove</button></div>)}</div>
+      </div>
+
+      <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+        {onBack ? <button type="button" onClick={onBack} className="rounded-lg border border-gray-300 px-5 py-3 font-bold text-gray-700">Return to Dashboard</button> : <span />}
+        <button type="button" onClick={() => void startResearch()} disabled={!canSubmit} className="rounded-lg bg-ghost-rust px-6 py-3 font-black text-white disabled:cursor-not-allowed disabled:opacity-45">{submitting ? 'Starting research...' : 'Confirm seeds and build my network'}</button>
+      </div>
+    </section>
+  );
+}
