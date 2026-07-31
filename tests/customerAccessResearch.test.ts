@@ -15,10 +15,32 @@ const order = {
     geography: 'United States',
     problem: 'Parents spend money on games their children do not enjoy',
     currentWorkaround: 'Retail stores, libraries, and recommendations',
-    expectedPrice: '$39'
+    expectedPrice: '$39',
+    competitorSeeds: [
+      {
+        seedId: 'competitor_seed_kiwico',
+        name: 'KiwiCo',
+        website: 'https://www.kiwico.com',
+        domain: 'kiwico.com',
+        relationship: 'adjacent_product',
+        origin: 'customer_confirmed',
+        verifiedAt: '2026-07-31T12:00:00.000Z'
+      },
+      {
+        seedId: 'competitor_seed_bgg',
+        name: 'BoardGameGeek',
+        website: 'https://boardgamegeek.com',
+        domain: 'boardgamegeek.com',
+        relationship: 'adjacent_product',
+        origin: 'customer_confirmed',
+        verifiedAt: '2026-07-31T12:00:00.000Z'
+      }
+    ]
   },
   createdAt: '2026-07-31T12:00:00.000Z',
-  updatedAt: '2026-07-31T12:00:00.000Z'
+  updatedAt: '2026-07-31T12:00:00.000Z',
+  paidAt: '2026-07-31T12:00:00.000Z',
+  stripeCheckoutSessionId: 'cs_test_1'
 } as PaidTestOrder;
 
 const verdict = {
@@ -61,9 +83,14 @@ function env(): Env {
   return {
     KV: {} as KVNamespace,
     AI: {} as Ai,
-    GOOGLE_SEARCH_GROUNDING_ENABLED: 'true',
+    DISTRIBUTION_FOOTPRINT_ENABLED: 'true',
     GEMINI_API_KEY: 'test-key',
     GEMINI_RESEARCH_MODEL: 'gemini-test',
+    DATAFORSEO_LOGIN: 'login',
+    DATAFORSEO_PASSWORD: 'password',
+    PODCAST_INDEX_API_KEY: 'podcast-key',
+    PODCAST_INDEX_API_SECRET: 'podcast-secret',
+    YOUTUBE_API_KEY: 'youtube-key',
     JWT_SECRET: 'test',
     STRIPE_SECRET_KEY: 'sk_test',
     STRIPE_PRICE_ID: 'price_test',
@@ -71,67 +98,138 @@ function env(): Env {
   };
 }
 
+function dataForSeoResponse(seed: string) {
+  return {
+    status_code: 20000,
+    status_message: 'Ok.',
+    tasks: [{
+      status_code: 20000,
+      status_message: 'Ok.',
+      result: [{
+        items: Array.from({ length: 6 }, (_, index) => ({
+          url_from: `https://${seed}-media-${index + 1}.example.com/${index % 3 === 0 ? 'newsletter' : index % 3 === 1 ? 'events' : 'reviews'}/family-games`,
+          domain_from: `${seed}-media-${index + 1}.example.com`,
+          page_from_title: `${seed} family games coverage ${index + 1}`,
+          rank: 70 - index,
+          page_from_rank: 65 - index,
+          first_seen: '2026-05-01T00:00:00.000Z',
+          last_seen: '2026-07-25T00:00:00.000Z',
+          dofollow: true,
+          item_type: index % 3 === 0 ? 'blog' : index % 3 === 1 ? 'event' : 'review',
+          backlink_spam_score: 2
+        }))
+      }]
+    }]
+  };
+}
+
+function podcastResponse(query: string) {
+  const slug = query.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 18);
+  return {
+    status: 'true',
+    feeds: Array.from({ length: 4 }, (_, index) => ({
+      id: index + 1,
+      title: `${query} Podcast ${index + 1}`,
+      author: `Host ${index + 1}`,
+      link: `https://podcast-${slug}-${index + 1}.example.com`,
+      description: 'A current podcast about family activities and games.',
+      language: 'en',
+      lastUpdateTime: 1785100000,
+      dead: 0
+    }))
+  };
+}
+
+function youtubeResponse(query: string) {
+  const slug = query.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 10);
+  return {
+    items: Array.from({ length: 5 }, (_, index) => ({
+      id: { videoId: `${slug}${index}` },
+      snippet: {
+        title: `${query} review video ${index + 1}`,
+        description: 'Current creator coverage for families selecting games.',
+        channelId: `${slug}-channel-${index + 1}`,
+        channelTitle: `${query} Creator ${index + 1}`,
+        publishedAt: '2026-07-20T00:00:00.000Z'
+      }
+    }))
+  };
+}
+
+function selectionFromPrompt(prompt: string) {
+  const marker = 'Candidates:\n';
+  const candidates = JSON.parse(prompt.slice(prompt.indexOf(marker) + marker.length).trim()) as Array<{
+    candidateId: string;
+    targetTypeHint: string;
+    title: string;
+  }>;
+  return {
+    channels: candidates.slice(0, 16).map((candidate, index) => ({
+      candidateId: candidate.candidateId,
+      targetType: candidate.targetTypeHint,
+      relevance: 'This target reaches families already evaluating games, activities, or comparable subscriptions.',
+      participationRules: 'Check the target’s current public contact, guest, review, sponsorship, or submission rules before outreach.',
+      recommendedApproach: 'Lead with a useful family game-selection resource and a transparent request for an interview, review, or partnership conversation.',
+      usefulTopic: 'How families choose games that work across mixed ages.',
+      risk: 'Audience fit and response are not guaranteed; avoid mass promotional outreach.',
+      firstAction: 'Open the public source and identify its current contact, guest, review, sponsorship, or submission route.',
+      audienceOwner: candidate.title,
+      accessPath: 'Use the current public contact or submission route.',
+      preparedAsset: index % 2 ? 'Family game-selection checklist and guest article outline.' : 'Review brief and interview outline.',
+      outreachScriptId: index % 3 === 0 ? 'script-06-referral_partner' : 'script-07-interview_invitation'
+    }))
+  };
+}
+
 afterEach(() => vi.restoreAllMocks());
 
-describe('customer access research provider', () => {
-  it('normalizes and verifies a complete Google-grounded channel pack', async () => {
-    const channels = Array.from({ length: 12 }, (_, index) => ({
-      community: `Family Game Community ${index + 1}`,
-      platform: index % 2 ? 'Association' : 'Public forum',
-      publicUrl: `https://community${index + 1}.example.com/family-games`,
-      relevance: 'Parents discuss family game selection and recommendations.',
-      activity: 'active',
-      participationRules: "Rules not confirmed publicly; read the channel's current rules before participating.",
-      recommendedApproach: 'Read current discussions and contribute a useful family game-selection checklist.',
-      usefulTopic: 'How to choose a game for mixed ages.',
-      risk: 'Promotional posts may be restricted.',
-      firstAction: 'Read the current rules and record three recurring questions.',
-      confidence: 'high'
-    }));
-    channels.push({
-      community: 'Unsafe local result',
-      platform: 'Invalid',
-      publicUrl: 'https://localhost/private',
-      relevance: 'Invalid',
-      activity: 'uncertain',
-      participationRules: 'Invalid',
-      recommendedApproach: 'Invalid',
-      usefulTopic: 'Invalid',
-      risk: 'Invalid',
-      firstAction: 'Invalid',
-      confidence: 'unverified'
-    });
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+describe('customer access distribution footprint provider', () => {
+  it('builds a verified media and distribution network from competitor seeds', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);
+      if (url.includes('api.dataforseo.com')) {
+        const requestBody = JSON.parse(String(init?.body)) as Array<{ target?: string }>;
+        return new Response(JSON.stringify(dataForSeoResponse(requestBody[0]?.target || 'seed')), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.includes('api.podcastindex.org')) {
+        const query = new URL(url).searchParams.get('q') || 'family games';
+        return new Response(JSON.stringify(podcastResponse(query)), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.includes('www.googleapis.com/youtube')) {
+        const query = new URL(url).searchParams.get('q') || 'family games';
+        return new Response(JSON.stringify(youtubeResponse(query)), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
       if (url.includes('generativelanguage.googleapis.com')) {
+        const requestBody = JSON.parse(String(init?.body)) as { contents?: Array<{ parts?: Array<{ text?: string }> }> };
+        const prompt = requestBody.contents?.[0]?.parts?.[0]?.text || '';
         return new Response(JSON.stringify({
-          candidates: [{
-            content: { parts: [{ text: JSON.stringify({ channels, publicExpertsAndPartners: [] }) }] },
-            groundingMetadata: {
-              webSearchQueries: ['family board game community', 'parents board game recommendations'],
-              searchEntryPoint: { renderedContent: '<div>Google Search</div>', sdkBlob: 'blob' }
-            }
-          }]
+          candidates: [{ content: { parts: [{ text: JSON.stringify(selectionFromPrompt(prompt)) }] } }]
         }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
-      return new Response('<html><title>Community</title></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+      return new Response('<html><head><title>Family Games Media</title><meta name="description" content="Active media source covering family games, reviews, events, and activities."></head><body>Public source</body></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' }
+      });
     });
 
     const result = await researchCustomerAccess(env(), order, verdict);
 
     expect(fetchMock).toHaveBeenCalled();
     expect(result.research.status).toBe('complete');
-    expect(result.research.channels).toHaveLength(12);
-    expect(result.research.sources).toHaveLength(12);
-    expect(result.research.channels.every(channel => channel.sourceIds.length === 1)).toBe(true);
-    expect(result.receipt.webSearchQueries).toContain('family board game community');
-    expect(result.receipt.verifiedChannelCount).toBe(12);
-    expect(result.receipt.rejectedUrls).toEqual(expect.arrayContaining([expect.objectContaining({ url: 'https://localhost/private' })]));
+    expect(result.research.channels.length).toBeGreaterThanOrEqual(10);
+    expect(result.research.channels.length).toBeLessThanOrEqual(25);
+    expect(result.research.sources.length).toBe(result.research.channels.length);
+    expect(new Set(result.research.channels.map(channel => channel.targetType)).size).toBeGreaterThanOrEqual(3);
+    expect(result.research.channels.every(channel => channel.competitorEvidence?.length)).toBe(true);
+    expect(result.research.channels.every(channel => channel.preparedAsset && channel.outreachScriptId)).toBe(true);
+    expect(result.receipt.provider).toBe('distribution_footprint');
+    expect(result.receipt.seedDomains).toEqual(['kiwico.com', 'boardgamegeek.com']);
+    expect(result.receipt.successfulSourceCount).toBeGreaterThanOrEqual(4);
   });
 
-  it('fails closed when Google Search grounding is disabled', async () => {
+  it('fails closed when Distribution Footprint research is disabled', async () => {
     const disabled = env();
-    disabled.GOOGLE_SEARCH_GROUNDING_ENABLED = 'false';
+    disabled.DISTRIBUTION_FOOTPRINT_ENABLED = 'false';
     await expect(researchCustomerAccess(disabled, order, verdict)).rejects.toThrow(/not enabled/i);
   });
 });
