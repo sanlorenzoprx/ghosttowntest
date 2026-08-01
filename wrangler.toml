@@ -65,7 +65,7 @@ GEMINI_RESEARCH_MODEL = "gemini-2.5-flash"
 GEMINI_GOOGLE_SEARCH_MODEL = "gemini-2.5-flash"
 DISTRIBUTION_FOOTPRINT_ENABLED = "false"
 DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
-FRONTEND_URL = "REPLACE_AFTER_FRONTEND_DEPLOY"
+FRONTEND_URL = "https://acceptance.ghosttowntest.pages.dev"
 
 [[env.acceptance.kv_namespaces]]
 binding = "KV"
