@@ -4,6 +4,7 @@ import type { PaidTestOrder } from '../types/paidTest';
 import { queueLaunchBlueprintOrder } from './blueprintFulfillment';
 import {
   loadBlueprintPdf,
+  loadBlueprintAssets,
   loadBlueprintProgress,
   loadBlueprintRecord,
   saveBlueprintProgress,
@@ -19,7 +20,7 @@ function normalizedEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-async function ownedOrder(request: Request, env: Env, orderId: string, requireReady = true): Promise<{ order: PaidTestOrder; email: string } | Response> {
+export async function ownedLaunchBlueprintOrder(request: Request, env: Env, orderId: string, requireReady = true): Promise<{ order: PaidTestOrder; email: string } | Response> {
   const auth = await authenticateRequest(request, env);
   if (!auth) return json({ error: 'Authentication required' }, 401);
   const raw = await env.KV.get(`paid_test_order_${orderId}`);
@@ -40,7 +41,7 @@ async function ownedOrder(request: Request, env: Env, orderId: string, requireRe
 }
 
 export async function handleLaunchBlueprint(request: Request, env: Env, orderId: string): Promise<Response> {
-  const owned = await ownedOrder(request, env, orderId);
+  const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
   const record = await loadBlueprintRecord(env, orderId);
   if (!record) return json({ error: 'Canonical Launch Blueprint record not found' }, 404);
@@ -68,7 +69,7 @@ export async function handleLaunchBlueprint(request: Request, env: Env, orderId:
 }
 
 export async function handleLaunchBlueprintJson(request: Request, env: Env, orderId: string): Promise<Response> {
-  const owned = await ownedOrder(request, env, orderId);
+  const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
   const record = await loadBlueprintRecord(env, orderId);
   if (!record) return json({ error: 'Canonical Launch Blueprint record not found' }, 404);
@@ -82,7 +83,7 @@ export async function handleLaunchBlueprintJson(request: Request, env: Env, orde
 }
 
 export async function handleLaunchBlueprintPdf(request: Request, env: Env, orderId: string): Promise<Response> {
-  const owned = await ownedOrder(request, env, orderId);
+  const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
   const object = await loadBlueprintPdf(env, orderId);
   if (!object) return json({ error: 'Launch Blueprint PDF not found' }, 404);
@@ -95,8 +96,22 @@ export async function handleLaunchBlueprintPdf(request: Request, env: Env, order
   return new Response(object.body, { headers });
 }
 
+export async function handleLaunchBlueprintAssets(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const object = await loadBlueprintAssets(env, orderId);
+  if (!object) return json({ error: 'Launch Blueprint asset package not found' }, 404);
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('Content-Type', 'application/zip');
+  headers.set('Content-Disposition', `attachment; filename="ghosttown-launch-blueprint-${orderId}-assets.zip"`);
+  headers.set('Cache-Control', 'private, no-store');
+  headers.set('ETag', object.httpEtag);
+  return new Response(object.body, { headers });
+}
+
 export async function handleLaunchBlueprintProgress(request: Request, env: Env, orderId: string): Promise<Response> {
-  const owned = await ownedOrder(request, env, orderId);
+  const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
   if (request.method === 'GET') return json({ progress: await loadBlueprintProgress(env, orderId, owned.email) });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -106,7 +121,7 @@ export async function handleLaunchBlueprintProgress(request: Request, env: Env, 
 }
 
 export async function handleLaunchBlueprintRetry(request: Request, env: Env, orderId: string): Promise<Response> {
-  const owned = await ownedOrder(request, env, orderId, false);
+  const owned = await ownedLaunchBlueprintOrder(request, env, orderId, false);
   if (owned instanceof Response) return owned;
   if (owned.order.status === 'ready' && owned.order.artifactType === 'launch_blueprint_v2') return json({ error: 'Launch Blueprint is already ready' }, 409);
   if (owned.order.status === 'awaiting_seeds' || owned.order.status === 'paid') {

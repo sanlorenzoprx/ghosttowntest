@@ -364,6 +364,16 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
   sourceIds.push('podcast:category', 'youtube:category');
   queryBySourceId['podcast:category'] = topic;
   queryBySourceId['youtube:category'] = `${topic} review interview`;
+  const researchSignals = order.intake.researchSignals;
+  for (const type of ['audience', 'ecosystem'] as const) {
+    const signal = researchSignals?.[type];
+    if (!signal || signal.source === 'not_sure' || !signal.value.trim()) continue;
+    const podcastId = `podcast:${type}`;
+    const youtubeId = `youtube:${type}`;
+    sourceIds.push(podcastId, youtubeId);
+    queryBySourceId[podcastId] = `${order.intake.targetBuyer} ${signal.value}`.slice(0, 220);
+    queryBySourceId[youtubeId] = `${order.intake.targetBuyer} ${signal.value} review interview`.slice(0, 220);
+  }
   return {
     planVersion: 'distribution-footprint-plan-v1',
     createdAt: new Date().toISOString(),

@@ -4,6 +4,8 @@ import { getFeaturedExampleBySlug, toIdeaIntake } from '../src/lib/exampleIdeas'
 import {
   clearEvaluationDraft,
   loadEvaluationDraft,
+  loadResearchSignals,
+  saveResearchSignals,
   saveEvaluationDraft
 } from '../src/lib/storage';
 
@@ -51,5 +53,22 @@ describe('mobile assessment funnel', () => {
 
     clearEvaluationDraft();
     expect(loadEvaluationDraft()).toBeNull();
+  });
+
+  it('persists the optional research map by verdict result', () => {
+    saveResearchSignals({
+      schemaVersion: 'pre-purchase-research-signals-v1',
+      resultId: 'result-signals',
+      targetCustomer: 'Independent dental offices',
+      origin: 'free_verdict',
+      verificationStatus: 'provider_candidate',
+      updatedAt: '2026-07-31T12:00:00.000Z',
+      commercial: { type: 'commercial', value: 'Scheduling tool', source: 'suggestion', candidateId: 'preview_dataforseo_1', publicUrl: 'https://example.com/tool', verificationStatus: 'provider_candidate', selectedAt: '2026-07-31T12:00:00.000Z' }
+    });
+    expect(loadResearchSignals('result-signals')).toMatchObject({
+      targetCustomer: 'Independent dental offices',
+      commercial: { candidateId: 'preview_dataforseo_1', source: 'suggestion' }
+    });
+    expect(loadResearchSignals('different-result')).toBeNull();
   });
 });

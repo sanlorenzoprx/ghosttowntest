@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { IdeaIntake } from '../types/lit';
 import type { PaidTestIntake } from '../types/paidTest';
+import type { PrePurchaseResearchSignals } from '../types/researchSignals';
 import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
 
 interface Props {
@@ -10,9 +11,10 @@ interface Props {
   error: string;
   onClose: () => void;
   onSubmit: (intake: PaidTestIntake) => void;
+  researchSignals?: PrePurchaseResearchSignals | null;
 }
 
-export default function ActionPlanModal({ idea, verdictId, loading, error, onClose, onSubmit }: Props) {
+export default function ActionPlanModal({ idea, verdictId, loading, error, onClose, onSubmit, researchSignals }: Props) {
   const [targetBuyer, setTargetBuyer] = useState(idea.targetUser);
   const [problem, setProblem] = useState(idea.painfulProblem);
   const [currentWorkaround, setCurrentWorkaround] = useState(idea.currentAlternative);
@@ -30,7 +32,12 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
       problem: problem.trim(),
       currentWorkaround: currentWorkaround.trim(),
       offerHypothesis: offerHypothesis.trim(),
-      expectedPrice: expectedPrice.trim() || undefined
+      expectedPrice: expectedPrice.trim() || undefined,
+      researchSignals: researchSignals ? {
+        ...researchSignals,
+        targetCustomer: targetBuyer.trim(),
+        updatedAt: new Date().toISOString()
+      } : undefined
     });
   };
 
@@ -56,6 +63,11 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
           </section>
 
           <div className="mt-6 space-y-5">
+            {researchSignals && <section className="rounded-xl border border-ghost-forest/20 bg-[#eef3ef] p-4" aria-label="Research map carried into checkout">
+              <h3 className="font-black text-ghost-forest">Your research map is already attached</h3>
+              <p className="mt-1 text-sm text-gray-700">These optional clues will carry into paid confirmation and research. GhostTown will verify them before treating them as evidence.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">{(['commercial', 'audience', 'ecosystem'] as const).map(type => <div key={type} className="rounded-lg border border-black/10 bg-white p-3"><p className="text-[10px] font-black uppercase tracking-wide text-gray-500">{type}</p><p className="mt-1 text-sm font-bold text-gray-800">{researchSignals[type]?.value || 'Skipped'}</p></div>)}</div>
+            </section>}
             <Field label="One buyer segment" value={targetBuyer} onChange={setTargetBuyer} placeholder="Example: independent web-design agencies" />
             <Field label="Urgent problem they will pay to solve" value={problem} onChange={setProblem} placeholder="Describe the costly or frustrating problem" multiline />
             <Field label="What they use or do today" value={currentWorkaround} onChange={setCurrentWorkaround} placeholder="Current tool, service, spreadsheet, or manual workaround" multiline />

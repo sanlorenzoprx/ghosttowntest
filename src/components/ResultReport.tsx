@@ -1,6 +1,6 @@
 import { EvaluationResult, PublicVideoResult } from '../types/lit';
 import ShareCard from './ShareCard';
-import { saveLatestResult } from '../lib/storage';
+import { loadResearchSignals, saveLatestResult } from '../lib/storage';
 import { useEffect } from 'react';
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
@@ -9,6 +9,8 @@ import ActionPlanModal from './ActionPlanModal';
 import PaywallModal from './PaywallModal';
 import type { PaidTestIntake } from '../types/paidTest';
 import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
+import PrePurchaseResearchSignals from './PrePurchaseResearchSignals';
+import type { PrePurchaseResearchSignals as ResearchSignals } from '../types/researchSignals';
 
 interface Props {
   result: EvaluationResult;
@@ -16,14 +18,16 @@ interface Props {
   isLoggedIn: boolean;
   onLoginClick: () => void;
   onRewardClaimed: () => void;
+  locale: 'en' | 'es';
 }
 
-export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick, onRewardClaimed }: Props) {
+export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick, onRewardClaimed, locale }: Props) {
   const [paidLoading, setPaidLoading] = useState(false);
   const [paidError, setPaidError] = useState('');
   const [showActionPlanForm, setShowActionPlanForm] = useState(false);
   const [showDeclinedPlanOffer, setShowDeclinedPlanOffer] = useState(false);
   const [video, setVideo] = useState<PublicVideoResult | undefined>(result.video);
+  const [researchSignals, setResearchSignals] = useState<ResearchSignals | null>(() => loadResearchSignals(result.resultId));
   const scores = result.deterministicScores;
   const verdict = result.verdict;
 
@@ -41,6 +45,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
   useEffect(() => {
     setVideo(result.video);
+    setResearchSignals(loadResearchSignals(result.resultId));
   }, [result]);
 
   useEffect(() => {
@@ -227,6 +232,14 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         onRewardClaimed={onRewardClaimed}
       />
 
+      <PrePurchaseResearchSignals
+        resultId={result.resultId}
+        idea={result.idea}
+        locale={locale}
+        value={researchSignals}
+        onChange={setResearchSignals}
+      />
+
       <section id="thirty-day-plan" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Your next 30 days</p>
         <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Turn this verdict into evidence.</h2>
@@ -270,6 +283,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
             setShowDeclinedPlanOffer(true);
           }}
           onSubmit={intake => void startPaidTest(intake)}
+          researchSignals={researchSignals}
         />
       )}
 

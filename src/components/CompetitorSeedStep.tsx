@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 import type { CompetitorSeedRelationship, CompetitorSeedSuggestion } from '../types/paidTest';
+import type { PrePurchaseResearchSignals } from '../types/researchSignals';
 
 interface Props {
   orderId: string;
@@ -21,6 +22,8 @@ interface SeedStatusResponse {
   paid?: boolean;
   suggestions?: CompetitorSeedSuggestion[];
   confirmedSeeds?: Array<{ seedId: string; name: string; website: string; relationship: CompetitorSeedRelationship }>;
+  researchSignals?: PrePurchaseResearchSignals | null;
+  targetCustomer?: string;
   error?: string;
 }
 
@@ -48,6 +51,8 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
   const [generating, setGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [researchSignals, setResearchSignals] = useState<PrePurchaseResearchSignals | null>(null);
+  const [targetCustomer, setTargetCustomer] = useState('');
 
   const selectedSeeds = useMemo(() => Object.values(selected), [selected]);
   const canSubmit = selectedSeeds.length >= 2 && selectedSeeds.length <= 3 && !submitting;
@@ -62,6 +67,8 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
         if (cancelled) return;
         setIdeaName(body.ideaName || 'your idea');
         setSuggestions(body.suggestions || []);
+        setResearchSignals(body.researchSignals || null);
+        setTargetCustomer(body.targetCustomer || '');
         if (body.confirmedSeeds?.length) {
           setSelected(Object.fromEntries(body.confirmedSeeds.map(seed => [seed.seedId, {
             key: seed.seedId,
@@ -166,6 +173,15 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
       </div>
 
       {error && <p className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p>}
+
+      {researchSignals && <section className="mt-7 rounded-xl border border-ghost-forest/20 bg-[#eef3ef] p-5" aria-label="Research confirmation map">
+        <p className="text-xs font-black uppercase tracking-[0.15em] text-ghost-forest">Confirmation map carried from your verdict</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg bg-white p-3"><p className="text-[10px] font-black uppercase text-gray-500">Customer</p><p className="mt-1 text-sm font-bold">{targetCustomer || researchSignals.targetCustomer}</p></div>
+          {(['commercial', 'audience', 'ecosystem'] as const).map(type => <div key={type} className="rounded-lg bg-white p-3"><p className="text-[10px] font-black uppercase text-gray-500">{type}</p><p className="mt-1 text-sm font-bold">{researchSignals[type]?.value || 'Not supplied'}</p><p className="mt-1 text-[10px] uppercase text-gray-500">{researchSignals[type]?.source === 'not_sure' ? 'Open research clue' : 'Carried into provider planning'}</p></div>)}
+        </div>
+        <p className="mt-3 text-xs text-gray-600">Confirm two or three public commercial footprints below. Audience and ecosystem clues are already included in Podcast Index and YouTube research queries.</p>
+      </section>}
 
       <div className="mt-7 grid gap-4 md:grid-cols-2">
         {suggestions.map(item => {

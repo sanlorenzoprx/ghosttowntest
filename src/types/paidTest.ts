@@ -1,5 +1,6 @@
 import type { EvaluationResult } from './lit';
 import type { GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
+import type { PrePurchaseResearchSignals } from './researchSignals';
 
 export type TruthLabel = 'Verified' | 'Inferred' | 'Test';
 export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'awaiting_seeds' | 'researching' | 'generating' | 'ready' | 'failed' | 'refunded';
@@ -43,6 +44,7 @@ export interface PaidTestIntake {
   competitorSeeds?: CompetitorSeed[];
   landingPageLink?: string;
   customerNotes?: string;
+  researchSignals?: PrePurchaseResearchSignals;
 }
 
 export interface PendingPaidPlanOrder {

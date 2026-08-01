@@ -1,6 +1,7 @@
 import type { Env } from './env';
 import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
 import type { CustomerAccessResearchReceipt } from './customerAccessResearch';
+import { buildBlueprintAssetZip } from './blueprintAssets';
 
 export interface BlueprintProgress {
   completedDays: number[];
@@ -37,6 +38,10 @@ export function blueprintJsonKey(orderId: string): string {
   return `orders/${orderId}/ghosttown-launch-blueprint-v2.json`;
 }
 
+export function blueprintAssetsKey(orderId: string): string {
+  return `orders/${orderId}/ghosttown-launch-blueprint-v2-assets.zip`;
+}
+
 export async function saveBlueprintRecord(
   env: Env,
   blueprint: GhostTownLaunchBlueprint,
@@ -46,6 +51,8 @@ export async function saveBlueprintRecord(
   const { db, bucket } = requireStorage(env);
   const pdfKey = blueprintPdfKey(blueprint.orderId);
   const jsonKey = blueprintJsonKey(blueprint.orderId);
+  const assetsKey = blueprintAssetsKey(blueprint.orderId);
+  const assets = buildBlueprintAssetZip(blueprint, pdfBytes);
   const json = JSON.stringify(blueprint);
   const receiptJson = JSON.stringify(researchReceipt);
   const now = new Date().toISOString();
@@ -57,6 +64,10 @@ export async function saveBlueprintRecord(
     }),
     bucket.put(jsonKey, json, {
       httpMetadata: { contentType: 'application/json', contentDisposition: `attachment; filename="ghosttown-launch-blueprint-${blueprint.orderId}.json"` },
+      customMetadata: { orderId: blueprint.orderId, ownerId: blueprint.ownerId, schemaVersion: blueprint.schemaVersion }
+    }),
+    bucket.put(assetsKey, assets, {
+      httpMetadata: { contentType: 'application/zip', contentDisposition: `attachment; filename="ghosttown-launch-blueprint-${blueprint.orderId}-assets.zip"` },
       customMetadata: { orderId: blueprint.orderId, ownerId: blueprint.ownerId, schemaVersion: blueprint.schemaVersion }
     })
   ]);
@@ -94,6 +105,7 @@ export async function saveBlueprintRecord(
     schemaVersion: blueprint.schemaVersion,
     pdfR2Key: pdfKey,
     jsonR2Key: jsonKey,
+    assetsR2Key: assetsKey,
     updatedAt: now
   }));
 }
@@ -116,6 +128,11 @@ export async function loadBlueprintRecord(env: Env, orderId: string): Promise<St
 export async function loadBlueprintPdf(env: Env, orderId: string): Promise<R2ObjectBody | null> {
   if (!env.BLUEPRINTS) throw new Error('Private Launch Blueprint R2 binding is not configured');
   return env.BLUEPRINTS.get(blueprintPdfKey(orderId));
+}
+
+export async function loadBlueprintAssets(env: Env, orderId: string): Promise<R2ObjectBody | null> {
+  if (!env.BLUEPRINTS) throw new Error('Private Launch Blueprint R2 binding is not configured');
+  return env.BLUEPRINTS.get(blueprintAssetsKey(orderId));
 }
 
 export function emptyBlueprintProgress(): BlueprintProgress {

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { researchCustomerAccess } from '../src/api/customerAccessResearch';
+import { planCustomerAccessResearch } from '../src/api/distributionFootprintResearch';
 import type { Env } from '../src/api/env';
 import type { EvaluationResult } from '../src/types/lit';
 import type { PaidTestOrder } from '../src/types/paidTest';
@@ -200,6 +201,29 @@ function selectionFromPrompt(prompt: string) {
 afterEach(() => vi.restoreAllMocks());
 
 describe('customer access distribution footprint provider', () => {
+  it('carries typed audience and ecosystem clues into Podcast Index and YouTube planning', () => {
+    const signaledOrder: PaidTestOrder = {
+      ...order,
+      intake: {
+        ...order.intake,
+        researchSignals: {
+          schemaVersion: 'pre-purchase-research-signals-v1',
+          resultId: order.verdictId,
+          targetCustomer: order.intake.targetBuyer,
+          origin: 'free_verdict',
+          verificationStatus: 'unverified',
+          updatedAt: '2026-07-31T12:00:00.000Z',
+          audience: { type: 'audience', value: 'Family game podcasts', source: 'user_typed', verificationStatus: 'unverified', selectedAt: '2026-07-31T12:00:00.000Z' },
+          ecosystem: { type: 'ecosystem', value: 'Family recreation associations', source: 'user_typed', verificationStatus: 'unverified', selectedAt: '2026-07-31T12:00:00.000Z' }
+        }
+      }
+    };
+    const plan = planCustomerAccessResearch(signaledOrder, verdict);
+    expect(plan.queryBySourceId['podcast:audience']).toContain('Family game podcasts');
+    expect(plan.queryBySourceId['youtube:audience']).toContain('Family game podcasts');
+    expect(plan.queryBySourceId['podcast:ecosystem']).toContain('Family recreation associations');
+    expect(plan.queryBySourceId['youtube:ecosystem']).toContain('Family recreation associations');
+  });
   it('builds a verified media and distribution network from competitor seeds', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);

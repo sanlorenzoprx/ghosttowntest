@@ -10,11 +10,14 @@ import {
   handleLaunchBlueprint,
   handleLaunchBlueprintJson,
   handleLaunchBlueprintPdf,
+  handleLaunchBlueprintAssets,
   handleLaunchBlueprintProgress,
   handleLaunchBlueprintRetry
 } from './blueprintApi';
 import { handleBlueprintSeeds, handleBlueprintSeedSuggestions } from './blueprintSeeds';
 import { handleInternalGoogleSearch } from './internalGoogleSearch';
+import { handleResearchPreviewSuggestions } from './researchPreview';
+import { handleLaunchSiteOwner, handlePublicLaunchLead, handlePublicLaunchSite } from './launchSite';
 import type { Env } from './env';
 import { handleResultHistory, handleSaveCurrentResult, handleSavedResult } from './resultHistory';
 import {
@@ -146,6 +149,20 @@ export default {
         applyCors(response, corsHeaders);
         return response;
       }
+      if (path === '/api/research-preview/suggestions' && method === 'POST') {
+        const response = await handleResearchPreviewSuggestions(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      const publicLaunchLeadMatch = path.match(/^\/api\/launch-sites\/([^/]+)\/leads$/);
+      if (publicLaunchLeadMatch && method === 'POST') {
+        const response = await handlePublicLaunchLead(request, env, decodeURIComponent(publicLaunchLeadMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const publicLaunchSiteMatch = path.match(/^\/launch\/([^/]+)$/);
+      if (publicLaunchSiteMatch && method === 'GET') return handlePublicLaunchSite(request, env, decodeURIComponent(publicLaunchSiteMatch[1]));
 
       const seedSuggestionsMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/seeds\/suggest$/);
       if (seedSuggestionsMatch && method === 'POST') {
@@ -168,6 +185,30 @@ export default {
       const blueprintPdfMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\.pdf$/);
       if (blueprintPdfMatch && method === 'GET') {
         const response = await handleLaunchBlueprintPdf(request, env, blueprintPdfMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const blueprintAssetsMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint-assets\.zip$/);
+      if (blueprintAssetsMatch && method === 'GET') {
+        const response = await handleLaunchBlueprintAssets(request, env, blueprintAssetsMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const launchSiteOwnerMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/launch-site$/);
+      if (launchSiteOwnerMatch && method === 'GET') {
+        const response = await handleLaunchSiteOwner(request, env, launchSiteOwnerMatch[1], 'get');
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const launchSitePublishMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/launch-site\/(publish|unpublish)$/);
+      if (launchSitePublishMatch && method === 'POST') {
+        const response = await handleLaunchSiteOwner(request, env, launchSitePublishMatch[1], launchSitePublishMatch[2] as 'publish' | 'unpublish');
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const launchSiteLeadsMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/launch-site\/leads(?:\.csv)?$/);
+      if (launchSiteLeadsMatch && method === 'GET') {
+        const response = await handleLaunchSiteOwner(request, env, launchSiteLeadsMatch[1], path.endsWith('.csv') ? 'csv' : 'leads');
         applyCors(response, corsHeaders);
         return response;
       }

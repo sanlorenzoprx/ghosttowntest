@@ -190,6 +190,17 @@ async function aiSuggestions(env: Env, order: PaidTestOrder, verdict: Evaluation
 
 async function buildSuggestions(env: Env, order: PaidTestOrder, verdict: EvaluationResult): Promise<CompetitorSeedSuggestion[]> {
   const candidates: Array<{ name: string; website: string; relationship: CompetitorSeedRelationship; reason: string; confidence: CompetitorSeedSuggestion['confidence'] }> = [];
+  const commercialSignal = order.intake.researchSignals?.commercial;
+  if (commercialSignal?.publicUrl && commercialSignal.source !== 'not_sure') {
+    const signalUrl = publicWebsite(commercialSignal.publicUrl);
+    if (signalUrl) candidates.push({
+      name: commercialSignal.value || signalUrl.hostname.replace(/^www\./, ''),
+      website: signalUrl.toString(),
+      relationship: 'current_alternative',
+      reason: 'Commercial alternative selected before purchase and carried into the confirmation map.',
+      confidence: commercialSignal.verificationStatus === 'verified' ? 'high' : 'medium'
+    });
+  }
   for (const link of order.intake.competitorLinks || []) {
     const url = publicWebsite(link);
     if (!url) continue;
@@ -246,6 +257,8 @@ export async function handleBlueprintSeeds(request: Request, env: Env, orderId: 
       paid: Boolean(owned.order.paidAt),
       suggestions: owned.order.competitorSeedSuggestions || [],
       confirmedSeeds: owned.order.intake.competitorSeeds || [],
+      researchSignals: owned.order.intake.researchSignals || null,
+      targetCustomer: owned.order.intake.targetBuyer,
       requirements: { minimum: 2, maximum: 3 }
     });
   }

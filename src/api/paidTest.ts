@@ -18,6 +18,7 @@ import type {
   TruthLabeledClaim,
   WeeklyCheckpoint
 } from '../types/paidTest';
+import type { PrePurchaseResearchSignals, ResearchSignalType } from '../types/researchSignals';
 import {
   DEFAULT_30_DAY_PLAN_DISPLAY_PRICE,
   GHOSTTOWN_30_DAY_PLAN_V1,
@@ -46,7 +47,55 @@ function truth(label: TruthLabel, text: string): TruthLabeledClaim {
 }
 
 function validIntake(value: Partial<PaidTestIntake>): value is PaidTestIntake {
-  return Boolean(value.verdictId?.trim() && value.targetBuyer?.trim() && value.problem?.trim() && value.currentWorkaround?.trim());
+  const verdictId = typeof value.verdictId === 'string' ? value.verdictId.trim() : '';
+  const targetBuyer = typeof value.targetBuyer === 'string' ? value.targetBuyer.trim() : '';
+  if (!Boolean(verdictId && targetBuyer && value.problem?.trim() && value.currentWorkaround?.trim())) return false;
+  return !value.researchSignals || validResearchSignals(value.researchSignals, verdictId, targetBuyer);
+}
+
+function validResearchSignals(value: PrePurchaseResearchSignals, verdictId: string, targetBuyer: string): boolean {
+  if (
+    value.schemaVersion !== 'pre-purchase-research-signals-v1'
+    || value.resultId !== verdictId
+    || value.targetCustomer.trim() !== targetBuyer
+    || value.origin !== 'free_verdict'
+    || !['unverified', 'provider_candidate', 'verified'].includes(value.verificationStatus)
+  ) return false;
+  for (const type of ['commercial', 'audience', 'ecosystem'] as ResearchSignalType[]) {
+    const signal = value[type];
+    if (!signal) continue;
+    if (
+      signal.type !== type
+      || !signal.value?.trim()
+      || signal.value.length > 160
+      || !['user_typed', 'suggestion', 'not_sure'].includes(signal.source)
+      || !['unverified', 'provider_candidate', 'verified'].includes(signal.verificationStatus)
+    ) return false;
+    if (signal.publicUrl) {
+      try {
+        const url = new URL(signal.publicUrl);
+        if (url.protocol !== 'https:' || url.username || url.password) return false;
+      } catch {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function normalizedResearchSignals(value: PrePurchaseResearchSignals | undefined): PrePurchaseResearchSignals | undefined {
+  if (!value) return undefined;
+  const normalized = { ...value, updatedAt: new Date().toISOString() };
+  for (const type of ['commercial', 'audience', 'ecosystem'] as ResearchSignalType[]) {
+    const signal = normalized[type];
+    if (!signal) continue;
+    normalized[type] = {
+      ...signal,
+      value: signal.value.replace(/\s+/g, ' ').trim(),
+      publicUrl: signal.publicUrl?.trim()
+    };
+  }
+  return normalized;
 }
 
 function normalizeEmail(email: string): string {
@@ -140,7 +189,8 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
       currentWorkaround: intake.currentWorkaround.trim(),
       offerHypothesis: intake.offerHypothesis?.trim(),
       expectedPrice: intake.expectedPrice?.trim(),
-      competitorLinks: intake.competitorLinks?.map(item => item.trim()).filter(Boolean)
+      competitorLinks: intake.competitorLinks?.map(item => item.trim()).filter(Boolean),
+      researchSignals: normalizedResearchSignals(intake.researchSignals)
     },
     createdAt: now,
     updatedAt: now
