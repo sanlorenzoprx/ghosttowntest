@@ -43,7 +43,7 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
           setReady(true);
           setNeedsSeeds(false);
           setStage(
-            "Your Media & Distribution Network, sourced Launch Blueprint, professional PDF, and executable dashboard are ready.",
+            "Your Media & Distribution Network, sourced Launch Blueprint, professional PDF, finished assets, and executable dashboard are ready.",
           );
           setError("");
           return;
@@ -66,7 +66,7 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
           );
         else if (body.status === "generating")
           setStage(
-            "Generating your offer, media pitches, outreach assets, Launch Site, calendar, and PDF...",
+            "Generating your offer, media pitches, outreach assets, Launch Site, calendar, PDF, and asset bundle...",
           );
         else if (body.status === "failed") {
           setError(
@@ -87,17 +87,14 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
     };
   }, [orderId, pollVersion]);
 
-  const download = async (format: "json" | "pdf" | "zip") => {
+  const download = async (format: "pdf" | "zip") => {
     setDownloading(format);
     setError("");
     try {
       const path = format === "zip"
         ? `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint-assets.zip`
-        : `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint.${format}`;
-      const response = await fetch(
-        apiUrl(path),
-        { headers: authHeaders() },
-      );
+        : `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint.pdf`;
+      const response = await fetch(apiUrl(path), { headers: authHeaders() });
       if (!response.ok)
         throw new Error("Your Launch Blueprint is not ready yet");
       const blob = await response.blob();
@@ -161,29 +158,27 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
           </p>
         )}
         {ready && (
-          <div className="mt-7 grid gap-3 sm:grid-cols-3">
-            <button
-              onClick={() => void download("pdf")}
-              disabled={Boolean(downloading)}
-              className="rounded-lg bg-ghost-rust px-5 py-3 font-bold text-white disabled:opacity-50"
-            >
-              {downloading === "pdf" ? "Preparing..." : "Download PDF"}
-            </button>
-            <button
-              onClick={() => void download("json")}
-              disabled={Boolean(downloading)}
-              className="rounded-lg border border-ghost-rust px-5 py-3 font-bold text-ghost-rust disabled:opacity-50"
-            >
-              {downloading === "json" ? "Preparing..." : "Download JSON"}
-            </button>
-            <button
-              onClick={() => void download("zip")}
-              disabled={Boolean(downloading)}
-              className="rounded-lg border border-gray-400 px-5 py-3 font-bold text-gray-800 disabled:opacity-50"
-            >
-              {downloading === "zip" ? "Preparing..." : "Asset ZIP"}
-            </button>
-          </div>
+          <>
+            <div className="mt-7 grid gap-3 sm:grid-cols-2">
+              <button
+                onClick={() => void download("pdf")}
+                disabled={Boolean(downloading)}
+                className="rounded-lg bg-ghost-rust px-5 py-3 font-bold text-white disabled:opacity-50"
+              >
+                {downloading === "pdf" ? "Preparing..." : "Download readable PDF"}
+              </button>
+              <button
+                onClick={() => void download("zip")}
+                disabled={Boolean(downloading)}
+                className="rounded-lg border border-ghost-rust px-5 py-3 font-bold text-ghost-rust disabled:opacity-50"
+              >
+                {downloading === "zip" ? "Preparing..." : "Download all finished assets"}
+              </button>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-gray-600">
+              The asset ZIP includes your machine-readable Blueprint JSON for backup, regeneration, and future automation.
+            </p>
+          </>
         )}
         <button
           onClick={onDone}
