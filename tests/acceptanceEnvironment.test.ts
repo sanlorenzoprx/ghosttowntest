@@ -41,6 +41,7 @@ describe('acceptance Cloudflare environment', () => {
     const productionVars = section(config, '[env.production.vars]', /\n\[\[env\.production\./);
     expect(acceptanceVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
     expect(productionVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
-    expect(acceptanceVars).toContain('FRONTEND_URL = "REPLACE_AFTER_FRONTEND_DEPLOY"');
+    expect(acceptanceVars).toContain('FRONTEND_URL = "https://acceptance.ghosttowntest.pages.dev"');
+    expect(acceptanceVars).not.toContain('REPLACE_AFTER_FRONTEND_DEPLOY');
   });
 });
