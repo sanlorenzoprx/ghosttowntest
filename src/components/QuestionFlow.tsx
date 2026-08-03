@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EvaluationAnswers, EvaluationResult, IdeaIntake } from '../types/lit';
 import { litQuestions } from '../lib/litQuestions';
 import QuestionCard from './QuestionCard';
@@ -19,6 +19,7 @@ interface Props {
 }
 
 export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChange }: Props) {
+  const isSpanish = useDocumentLocale();
   const canResumeDraft = initialDraft?.idea.ideaName === idea.ideaName;
   const [currentIndex, setCurrentIndex] = useState(() => canResumeDraft
     ? Math.min(Math.max(initialDraft.currentIndex, 0), litQuestions.length - 1)
@@ -27,13 +28,26 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const shouldFocusQuestionHeading = useRef(false);
+  const errorRef = useRef<HTMLDivElement | null>(null);
 
   const current = litQuestions[currentIndex];
   const isLast = currentIndex === litQuestions.length - 1;
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!shouldFocusQuestionHeading.current) return;
+    shouldFocusQuestionHeading.current = false;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    window.requestAnimationFrame(() => {
+      document.getElementById(`question-${litQuestions[currentIndex].id}`)?.focus({ preventScroll: true });
+    });
   }, [currentIndex]);
+
+  useEffect(() => {
+    if (!error || loading) return;
+    window.requestAnimationFrame(() => errorRef.current?.focus({ preventScroll: false }));
+  }, [error, loading]);
 
   useEffect(() => {
     if (!loading) return;
@@ -57,6 +71,7 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
     } else {
       const nextIndex = currentIndex + 1;
       persistDraft(newAnswers, nextIndex);
+      shouldFocusQuestionHeading.current = true;
       setCurrentIndex(nextIndex);
     }
   };
@@ -64,8 +79,9 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
   const handleBack = () => {
     if (currentIndex > 0) {
       const previousIndex = currentIndex - 1;
-      setCurrentIndex(previousIndex);
       persistDraft(answers, previousIndex);
+      shouldFocusQuestionHeading.current = true;
+      setCurrentIndex(previousIndex);
       setError(null);
     }
   };
@@ -89,7 +105,7 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
 
       if (!response.ok) {
         const body: { error?: string } = await response.json<{ error?: string }>().catch(() => ({}));
-        throw new Error(body.error || 'Failed to generate verdict');
+        throw new Error(body.error || (isSpanish ? 'No se pudo generar el veredicto.' : 'Failed to generate verdict'));
       }
 
       const result = await response.json<EvaluationResult>();
@@ -98,59 +114,63 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
       onDraftChange(null);
       onResult(result);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'An error occurred. Please try again.');
+      setError(caught instanceof Error ? caught.message : (isSpanish ? 'Ocurrió un error. Inténtalo de nuevo.' : 'An error occurred. Please try again.'));
       setLoading(false);
     }
   };
 
   return (
-    <div className="mx-auto min-h-[calc(100dvh-72px)] max-w-2xl px-3 py-4 sm:px-4 sm:py-8">
-      <ProgressBar currentIndex={currentIndex} />
+    <main aria-busy={loading} className="mx-auto min-h-[calc(100dvh-72px)] min-w-0 max-w-3xl px-4 py-6 pb-28 sm:px-6 sm:py-10 sm:pb-10">
+      <div className="mx-auto min-w-0 max-w-2xl">
+        <ProgressBar currentIndex={currentIndex} />
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700" role="alert">
-          {error}
-        </div>
-      )}
+        {error && (
+          <div ref={errorRef} className="state-shell state-shell--error mb-5" role="alert" aria-live="assertive" tabIndex={-1}>
+            <p className="font-score text-xs font-bold uppercase tracking-[0.14em]">{isSpanish ? 'Evaluación no enviada' : 'Assessment not submitted'}</p>
+            <p className="mt-2 break-words text-sm leading-6">{error}</p>
+          </div>
+        )}
 
-      {!loading && (
-        <QuestionCard
-          question={current}
-          selectedValue={answers[current.id]}
-          onAnswer={handleAnswer}
-        />
-      )}
+        {!loading && <QuestionCard question={current} selectedValue={answers[current.id]} onAnswer={handleAnswer} />}
 
-      {loading && (
-        <div className="ghost-surface rounded-sm border border-ghost-ink px-6 py-14 text-center text-white shadow-lantern">
-          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full border-2 border-ghost-gold border-t-transparent animate-spin" />
-          <p className="font-display text-3xl font-bold">Prospecting for the truth</p>
-          <ol className="mx-auto mt-7 max-w-sm space-y-3 text-left">
-            {['Analyzing leverage…', 'Scoring LIT…', 'Checking Ghost Town risk…'].map((step, index) => (
-              <li key={step} className={`flex items-center gap-3 rounded border px-4 py-3 text-sm transition ${index <= loadingStep ? 'border-ghost-gold/50 bg-white/10 text-white' : 'border-white/10 text-white/40'}`}>
-                <span className={`grid h-5 w-5 place-items-center rounded-full text-xs ${index <= loadingStep ? 'bg-ghost-gold text-ghost-ink' : 'border border-white/30'}`}>{index < loadingStep ? '✓' : index + 1}</span>
-                {step}
-              </li>
-            ))}
-          </ol>
-          <p className="mt-6 text-xs text-white/60">Your progress is saved. Deterministic scoring remains available if AI is unavailable.</p>
-        </div>
-      )}
+        {loading && (
+          <section className="state-shell state-shell--loading text-center" aria-live="polite" aria-label={isSpanish ? 'Preparando tu veredicto' : 'Preparing your verdict'}>
+            <p className="font-score text-xs font-bold uppercase tracking-[0.16em] text-rust">{isSpanish ? 'Preparando tu resumen de decisión' : 'Preparing your decision brief'}</p>
+            <h1 className="mt-3 font-display text-3xl font-semibold text-ink sm:text-4xl">{isSpanish ? 'Buscando la verdad' : 'Prospecting for the truth'}</h1>
+            <p className="mx-auto mt-3 max-w-reading text-sm leading-6 text-ink-soft">{isSpanish ? 'Tus respuestas se guardan mientras GhostTown prepara la evaluación. La puntuación determinista sigue disponible si la IA no está disponible.' : 'Your answers are saved while GhostTown prepares the assessment. Deterministic scoring remains available if AI is unavailable.'}</p>
+            <ol className="mx-auto mt-7 max-w-lg space-y-3 text-left">
+              {(isSpanish ? ['Analizando las ventajas…', 'Calculando LIT…', 'Revisando el riesgo de Ghost Town…'] : ['Analyzing leverage…', 'Scoring LIT…', 'Checking Ghost Town risk…']).map((step, index) => (
+                <li key={step} className={`flex min-w-0 items-center gap-3 rounded-field border px-4 py-3 text-sm font-semibold ${index <= loadingStep ? 'border-rust/30 bg-evidence-soft text-ink' : 'border-border bg-surface-raised text-ink-muted'}`}>
+                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full font-score text-xs ${index < loadingStep ? 'bg-pass text-white' : index === loadingStep ? 'bg-rust text-rust-foreground' : 'bg-surface-stone text-ink-muted'}`} aria-hidden="true">{index < loadingStep ? '✓' : index + 1}</span>
+                  <span className="min-w-0 break-words">{step}</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
 
-      {!loading && (
-        <div className="mt-4 flex min-h-11 items-center justify-between gap-4 px-1">
-          {currentIndex > 0 ? (
-            <button
-              type="button"
-              onClick={handleBack}
-              className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2 font-bold text-gray-700 transition hover:bg-gray-50 active:bg-gray-100"
-            >
-              ← Back
-            </button>
-          ) : <span />}
-          <span className="text-xs font-medium text-gray-500">Saved automatically</span>
-        </div>
-      )}
-    </div>
+        {!loading && (
+          <div className="mt-5 flex min-h-11 flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+            {currentIndex > 0 ? <button type="button" onClick={handleBack} className="btn-secondary w-full sm:w-auto"><span className="mr-2" aria-hidden="true">←</span>{isSpanish ? 'Atrás' : 'Back'}</button> : <span className="hidden sm:block" aria-hidden="true" />}
+            <p className="text-center text-sm text-ink-muted sm:text-right">{isLast ? (isSpanish ? 'Tu respuesta final prepara el veredicto.' : 'Your final answer prepares the verdict.') : (isSpanish ? 'Elige una respuesta para continuar. El progreso se guarda automáticamente.' : 'Choose an answer to continue. Progress saves automatically.')}</p>
+          </div>
+        )}
+      </div>
+    </main>
   );
+}
+
+function useDocumentLocale(): boolean {
+  const [isSpanish, setIsSpanish] = useState(() => typeof document !== 'undefined' && document.documentElement.lang === 'es');
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setIsSpanish(root.lang === 'es');
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { attributes: true, attributeFilter: ['lang'] });
+    return () => observer.disconnect();
+  }, []);
+
+  return isSpanish;
 }

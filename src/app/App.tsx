@@ -50,6 +50,7 @@ export default function App() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [user, setUser] = useState<PublicUserData | null>(null);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
     const token = loadAuthToken();
@@ -158,6 +159,7 @@ export default function App() {
   };
 
   const handleReset = () => {
+    setIsMobileNavOpen(false);
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     setScreen('landing');
     updatePath('/');
@@ -176,6 +178,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    setIsMobileNavOpen(false);
     setIsLoggedIn(false);
     setUserEmail(null);
     setUser(null);
@@ -185,34 +188,69 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-ghost-paper">
-      <header className="border-b border-gray-200 bg-ghost-paper/95 backdrop-blur">
-        <div className="site-header-inner relative mx-auto flex max-w-6xl items-center justify-center px-4 py-4">
-          <button onClick={handleReset} className="text-center" aria-label="Ghost Town Test home">
+    <div className="min-h-screen bg-canvas">
+      <header className="site-header border-b border-border">
+        <div className="site-header-inner relative mx-auto flex max-w-workspace items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-6 lg:px-8">
+          <button type="button" onClick={handleReset} className="tap-target min-w-0 shrink-0 text-left" aria-label="GhostTown Test home">
             <span className="leading-tight">
-              <span className="block text-[10px] font-bold uppercase tracking-[0.34em] text-ghost-rust sm:text-xs">Leverage / Insight / Timing</span>
-              <span className="brand-wordmark mt-1 block font-display text-3xl font-semibold leading-none text-ghost-ink sm:text-4xl">Ghost Town Test</span>
+              <span className="site-wordmark-kicker block text-[9px] font-semibold uppercase sm:text-[10px]">Leverage / Insight / Timing</span>
+              <span className="site-wordmark mt-1 block text-xl font-semibold leading-none text-ink sm:text-3xl">GhostTown Test</span>
             </span>
           </button>
-          <div className="site-nav absolute right-4 flex items-center gap-4 sm:right-6">
-            <button type="button" onClick={handleReset} className="rounded border border-ghost-forest px-3 py-1.5 text-sm font-bold text-ghost-forest hover:bg-blue-50" aria-label="Go to Home">Home</button>
-            <button onClick={() => { setScreen('contact'); updatePath('/contact'); }} className="text-sm font-bold text-gray-700 hover:text-ghost-rust">Contact</button>
+          <nav className="site-nav hidden items-center gap-1 md:flex" aria-label="Primary navigation">
+            <button type="button" onClick={handleReset} className="btn-tertiary text-sm" aria-label="Go to Home">Home</button>
+            <button type="button" onClick={() => { setScreen('contact'); updatePath('/contact'); }} className="btn-tertiary text-sm">Contact</button>
             <div className="flex items-center gap-2 text-sm" role="group" aria-label="Language">
-              <button type="button" onClick={() => setLocale('en')} aria-pressed={locale === 'en'} className={`font-semibold ${locale === 'en' ? 'text-ghost-forest underline underline-offset-4' : 'text-gray-500 hover:text-ghost-forest'}`}>English</button>
+              <button type="button" onClick={() => setLocale('en')} aria-pressed={locale === 'en'} className={`tap-target rounded-field px-2.5 font-semibold ${locale === 'en' ? 'bg-surface-muted text-ink' : 'text-ink-soft hover:bg-surface-muted hover:text-ink'}`}>English</button>
               <span className="text-gray-300" aria-hidden="true">·</span>
-              <button type="button" onClick={() => setLocale('es')} aria-pressed={locale === 'es'} className={`font-semibold ${locale === 'es' ? 'text-ghost-forest underline underline-offset-4' : 'text-gray-500 hover:text-ghost-forest'}`}>Spanish</button>
+              <button type="button" onClick={() => setLocale('es')} aria-pressed={locale === 'es'} className={`tap-target rounded-field px-2.5 font-semibold ${locale === 'es' ? 'bg-surface-muted text-ink' : 'text-ink-soft hover:bg-surface-muted hover:text-ink'}`}>Español</button>
             </div>
             {isLoggedIn ? (
               <>
-                <span className="text-sm text-gray-600">{userEmail}</span>
-                <button onClick={() => { setScreen('dashboard'); updatePath('/'); }} className="text-sm text-blue-600 hover:text-blue-700">Dashboard</button>
-                <button onClick={handleLogout} className="text-sm text-blue-600 hover:text-blue-700">Log Out</button>
+                <span className="max-w-36 truncate px-2 text-sm text-ink-soft" title={userEmail ?? undefined}>{userEmail}</span>
+                <button type="button" onClick={() => { setScreen('dashboard'); updatePath('/'); }} className="btn-tertiary text-sm">Dashboard</button>
+                <button type="button" onClick={handleLogout} className="btn-tertiary text-sm text-stop">Log out</button>
               </>
             ) : (
-              <button onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="text-sm text-blue-600 hover:text-blue-700">Log In</button>
+              <button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="btn-primary text-sm">Log in</button>
             )}
-          </div>
+          </nav>
+          <button
+            type="button"
+            className="site-menu-toggle btn-secondary min-w-11 px-2.5 text-sm"
+            onClick={() => setIsMobileNavOpen(current => !current)}
+            aria-expanded={isMobileNavOpen}
+            aria-controls="mobile-site-navigation"
+          >
+            {isMobileNavOpen ? 'Close' : 'Menu'}
+          </button>
         </div>
+        {isMobileNavOpen && (
+          <nav id="mobile-site-navigation" className="site-mobile-panel px-4 py-4 sm:px-6 md:hidden" aria-label="Mobile navigation">
+            <div className="mx-auto flex max-w-workspace flex-col gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={handleReset} className="btn-secondary w-full">Home</button>
+                <button type="button" onClick={() => { setScreen('contact'); updatePath('/contact'); setIsMobileNavOpen(false); }} className="btn-secondary w-full">Contact</button>
+              </div>
+              <div className="flex min-w-0 flex-col gap-2 rounded-field border border-border bg-surface-muted px-3 py-2 sm:flex-row sm:items-center sm:justify-between" role="group" aria-label="Language">
+                <span className="text-xs font-bold uppercase tracking-[0.12em] text-ink-muted">Language</span>
+                <div className="grid min-w-0 grid-cols-2 gap-1 sm:flex sm:items-center">
+                  <button type="button" onClick={() => { setLocale('en'); setIsMobileNavOpen(false); }} aria-pressed={locale === 'en'} className={`tap-target rounded-field px-3 text-sm font-semibold ${locale === 'en' ? 'bg-surface-raised text-ink shadow-quiet' : 'text-ink-soft'}`}>English</button>
+                  <button type="button" onClick={() => { setLocale('es'); setIsMobileNavOpen(false); }} aria-pressed={locale === 'es'} className={`tap-target rounded-field px-3 text-sm font-semibold ${locale === 'es' ? 'bg-surface-raised text-ink shadow-quiet' : 'text-ink-soft'}`}>Español</button>
+                </div>
+              </div>
+              {isLoggedIn ? (
+                <div className="grid gap-2 border-t border-border pt-3">
+                  {userEmail && <span className="truncate px-1 text-sm text-ink-soft" title={userEmail}>{userEmail}</span>}
+                  <button type="button" onClick={() => { setScreen('dashboard'); updatePath('/'); setIsMobileNavOpen(false); }} className="btn-primary w-full">Dashboard</button>
+                  <button type="button" onClick={handleLogout} className="btn-destructive w-full">Log out</button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); setIsMobileNavOpen(false); }} className="btn-primary w-full">Log in</button>
+              )}
+            </div>
+          </nav>
+        )}
       </header>
 
       <main>
@@ -225,17 +263,17 @@ export default function App() {
         {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && <LegalPage kind={screen} />}
         {screen === 'action-plan-success' && <ActionPlanSuccess orderId={new URLSearchParams(window.location.search).get('order_id') || ''} onDone={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
         {screen === 'internal-research' && isLoggedIn && <InternalGoogleSearchConsole onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
-        {screen === 'internal-research' && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Owner login required</h1><p className="mt-3 text-gray-700">This standalone research console is not part of the customer product.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
+        {screen === 'internal-research' && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Owner login required</h1><p className="mt-3 text-gray-700">This standalone research console is not part of the customer product.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="btn-primary mt-6 px-6 py-3">Log in</button></section>}
       </main>
 
-      <footer className="border-t border-gray-200 bg-ghost-sand px-4 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
+      <footer className="border-t border-border bg-surface-stone px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-workspace flex-col gap-4 text-sm text-ink-soft sm:flex-row sm:items-center sm:justify-between">
           <p>Zayas House LLC · Commonwealth of Puerto Rico, USA</p>
           <nav aria-label="Legal policies" className="flex flex-wrap gap-x-4 gap-y-2">
-            <a className="font-bold text-blue-700 hover:underline" href="/privacy">Privacy</a>
-            <a className="font-bold text-blue-700 hover:underline" href="/terms">Terms</a>
-            <a className="font-bold text-blue-700 hover:underline" href="/refunds">Refunds &amp; fulfillment</a>
-            <a className="font-bold text-blue-700 hover:underline" href="/disclaimer">Disclaimer</a>
+            <a className="font-bold text-rust hover:underline" href="/privacy">Privacy</a>
+            <a className="font-bold text-rust hover:underline" href="/terms">Terms</a>
+            <a className="font-bold text-rust hover:underline" href="/refunds">Refunds &amp; fulfillment</a>
+            <a className="font-bold text-rust hover:underline" href="/disclaimer">Disclaimer</a>
           </nav>
         </div>
       </footer>

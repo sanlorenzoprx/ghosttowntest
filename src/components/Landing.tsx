@@ -15,10 +15,10 @@ interface Props {
 }
 
 const previewSteps = [
-  'Describe your idea',
-  `Answer ${litQuestions.length} focused questions`,
-  'Get a clear verdict',
-  'Run the next test'
+  { en: 'Frame the idea', es: 'Define la idea' },
+  { en: 'Pressure-test the assumptions', es: 'Pon a prueba las suposiciones' },
+  { en: 'Read the decision signal', es: 'Lee la señal de decisión' },
+  { en: 'Run the next test', es: 'Ejecuta la próxima prueba' }
 ];
 
 export default function Landing({ onStart, onSelectExample, hasDraft, onResume, isLoggedIn, onLoginClick, locale }: Props) {
@@ -26,7 +26,6 @@ export default function Landing({ onStart, onSelectExample, hasDraft, onResume, 
   const [isPlaying, setIsPlaying] = useState(true);
   const es = locale === 'es';
   const displayPrice = import.meta.env.VITE_30_DAY_PLAN_DISPLAY_PRICE?.trim() || DEFAULT_30_DAY_PLAN_DISPLAY_PRICE;
-  const localizedPreviewSteps = es ? ['Describe tu idea', `Responde ${litQuestions.length} preguntas`, 'Recibe un veredicto claro', 'Ejecuta la próxima prueba'] : previewSteps;
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -42,280 +41,352 @@ export default function Landing({ onStart, onSelectExample, hasDraft, onResume, 
   useEffect(() => {
     if (!isPlaying) return;
     const interval = window.setInterval(() => {
-      setAnimationStep(current => (current + 1) % localizedPreviewSteps.length);
+      setAnimationStep(current => (current + 1) % previewSteps.length);
     }, 3200);
     return () => window.clearInterval(interval);
-  }, [isPlaying, localizedPreviewSteps.length]);
+  }, [isPlaying]);
+
+  const methodSteps = es ? [
+    ['01', 'Define la idea', 'Aclara quién compra, qué problema urgente tiene y qué alternativa usa hoy.'],
+    ['02', `Responde ${litQuestions.length} preguntas`, 'Pon a prueba demanda, ventaja, acceso, momento y defensibilidad.'],
+    ['03', 'Recibe una decisión', 'Obtén un veredicto, la mayor incertidumbre y una prueba concreta para ejecutar.']
+  ] : [
+    ['01', 'Frame the idea', 'Define the buyer, the urgent problem, and what they use today.'],
+    ['02', `Answer ${litQuestions.length} questions`, 'Pressure-test demand, advantage, access, timing, and defensibility.'],
+    ['03', 'Make a decision', 'Leave with a verdict, the biggest uncertainty, and one test worth running next.']
+  ];
+
+  const immediateOutputs = es ? [
+    ['Una decisión clara', 'Construye ahora, prueba primero, reduce el nicho o detente por ahora.'],
+    ['La incertidumbre principal', 'El supuesto que todavía puede cambiar la decisión.'],
+    ['El siguiente experimento', 'Una acción concreta para reunir evidencia antes de invertir más tiempo.']
+  ] : [
+    ['A clear decision', 'Build now, test first, narrow the niche, or stop for now.'],
+    ['The main uncertainty', 'The assumption that could still change the decision.'],
+    ['The next experiment', 'One concrete action to gather evidence before investing more time.']
+  ];
 
   return (
-    <div className="min-h-screen bg-ghost-paper pb-20 sm:pb-0">
-      <section className="relative overflow-hidden bg-ghost-ink">
+    <div className="min-h-screen bg-canvas pb-20 text-ink sm:pb-0">
+      <style>{`
+        @media (max-width: 639px) {
+          html:has(#ghosttown-landing-sticky-cta) {
+            scroll-padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+          }
+
+          body:has(#ghosttown-landing-sticky-cta) footer {
+            padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+          }
+
+          body:has(#ghosttown-landing-sticky-cta) footer a {
+            scroll-margin-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+          }
+        }
+      `}</style>
+      <section className="relative overflow-hidden bg-ink text-ink-inverse">
         <div className="landing-grid-pattern absolute inset-0" aria-hidden="true" />
-        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-ghost-forest/40 blur-3xl" aria-hidden="true" />
-        <div className="absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-gray-700/30 blur-3xl" aria-hidden="true" />
+        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-rust/25 blur-3xl" aria-hidden="true" />
+        <div className="absolute -bottom-32 left-1/3 h-80 w-80 rounded-full bg-white/5 blur-3xl" aria-hidden="true" />
 
-        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 md:grid-cols-2 md:py-20">
-          <div>
-            <p className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-ghost-sand">
-              {es ? 'La prueba Ghost Town' : 'The Ghost Town Test'}
+        <div className="relative z-10 mx-auto grid max-w-workspace min-w-0 items-center gap-10 px-4 py-12 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)] lg:gap-14 lg:px-8 lg:py-24">
+          <div className="min-w-0">
+            <p className="font-score text-xs font-semibold uppercase tracking-[0.18em] text-rust-soft">
+              {es ? 'La decisión antes de construir' : 'The decision before you build'}
             </p>
-            <h1 className="font-display text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl">
-              {es ? 'Antes de construirlo,' : 'Before you build it,'}
-              <span className="mt-1 block text-ghost-sand">{es ? 'prueba si merece existir.' : 'test if it deserves to exist.'}</span>
+            <h1 className="mt-5 max-w-[12ch] break-words font-display text-4xl font-semibold leading-[0.98] tracking-[-0.035em] sm:max-w-3xl sm:text-6xl lg:text-7xl">
+              {es ? 'Descubre qué merece una prueba.' : 'Find out what deserves a test.'}
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-200 sm:text-xl">
-              {es ? 'Obtén un veredicto claro y honesto sobre tu idea en unos cinco minutos, antes de invertir meses construyendo lo equivocado.' : 'Get a sharp, honest verdict on your startup idea in about five minutes—before you spend months building the wrong thing.'}
+            <p className="mt-6 max-w-[20rem] break-words text-lg leading-8 text-white/75 sm:max-w-2xl sm:text-xl">
+              {es
+                ? 'GhostTown convierte una idea borrosa en una decisión clara, la incertidumbre principal y el siguiente experimento antes de que inviertas meses construyendo.'
+                : 'GhostTown turns a fuzzy idea into a clear decision, the main uncertainty, and the next experiment before you spend months building.'}
             </p>
 
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-              <button
-                type="button"
-                onClick={onStart}
-                className="rounded-lg bg-ghost-forest px-8 py-4 text-lg font-bold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-ghost-sand"
-              >
-                {es ? 'Valida tu idea gratis' : 'Validate Your Idea Free'}
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <button type="button" onClick={onStart} className="btn-primary w-full sm:w-auto">
+                {es ? 'Probar mi idea gratis' : 'Test my idea free'}
+                <span className="ml-2" aria-hidden="true">↗</span>
               </button>
               <button
                 type="button"
-                onClick={() => document.getElementById('thirty-day-offer')?.scrollIntoView({ behavior: 'smooth' })}
-                className="rounded-lg border border-white/40 bg-white/5 px-8 py-4 text-lg font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-4 focus:ring-white/30"
+                onClick={() => document.getElementById('example-gallery')?.scrollIntoView({ behavior: 'smooth' })}
+                className="btn-secondary w-full border-white/30 bg-white/10 text-ink-inverse hover:bg-white/15 sm:w-auto"
               >
-                {es ? 'Ver el plan de 30 dias' : 'See the 30-Day Plan'}
+                {es ? 'Explorar ejemplos' : 'Explore examples'}
               </button>
             </div>
 
+            <p className="mt-5 text-sm text-white/65">
+              {es ? 'Una prueba gratis · Sin cuenta · Sin tarjeta' : 'One free test · No account · No credit card'}
+            </p>
+
             {hasDraft && (
-              <button
-                type="button"
-                onClick={onResume}
-                className="mt-5 flex w-full max-w-md items-center justify-between rounded-lg border border-white/25 bg-white/10 px-4 py-3 text-left text-white backdrop-blur transition hover:bg-white/15"
-              >
-                <span>
-                  <span className="block text-xs font-bold uppercase tracking-wider text-gray-300">{es ? 'Guardado en este dispositivo' : 'Saved on this device'}</span>
-                  <span className="mt-0.5 block font-bold">{es ? 'Continúa tu evaluación' : 'Resume your assessment'}</span>
+              <button type="button" onClick={onResume} className="mt-6 flex w-full max-w-md min-w-0 items-center justify-between rounded-card border border-white/20 bg-white/10 px-4 py-3 text-left text-ink-inverse shadow-quiet transition hover:bg-white/15">
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold uppercase tracking-[0.14em] text-white/60">{es ? 'Progreso guardado' : 'Progress saved'}</span>
+                  <span className="mt-1 block truncate font-bold">{es ? 'Continúa tu evaluación' : 'Continue your assessment'}</span>
                 </span>
-                <span className="text-xl" aria-hidden="true">→</span>
+                <span className="ml-4 text-xl text-rust-soft" aria-hidden="true">→</span>
               </button>
             )}
 
-            <p className="mt-7 text-sm font-medium text-gray-300">
-              <span className="mr-4">✓ {es ? 'Una prueba gratis' : 'One free test'}</span>
-              <span className="mr-4">✓ {es ? 'Sin cuenta' : 'No login required'}</span>
-              <span>✓ {es ? 'Sin tarjeta' : 'No credit card'}</span>
-            </p>
             {!isLoggedIn && (
-              <p className="mt-4 text-sm text-gray-300">
+              <p className="mt-5 text-sm text-white/65">
                 {es ? '¿Ya tienes una cuenta?' : 'Already have an account?'}{' '}
-                <button type="button" onClick={onLoginClick} className="font-bold text-white underline decoration-white/50 underline-offset-4 hover:decoration-white">
-                  {es ? 'Inicia sesión' : 'Log in'}
+                <button type="button" onClick={onLoginClick} className="font-bold text-ink-inverse underline decoration-rust-soft underline-offset-4 hover:text-rust-soft">
+                  {es ? 'Inicia sesión' : 'Sign in'}
                 </button>
               </p>
             )}
           </div>
 
-          <div className="relative">
-            <div className="min-h-96 rounded-2xl border border-white/70 bg-white/95 p-7 shadow-2xl backdrop-blur sm:p-8">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-ghost-forest">{es ? 'Cómo funciona' : 'How it works'}</p>
-                  <p className="mt-1 font-bold text-gray-900">{localizedPreviewSteps[animationStep]}</p>
+          <div className="min-w-0 rounded-evidence border border-white/20 bg-surface-raised p-4 text-ink shadow-lift sm:p-6">
+            <div className="flex min-w-0 items-start justify-between gap-4 border-b border-border pb-4">
+              <div className="min-w-0">
+                <p className="font-score text-xs font-bold uppercase tracking-[0.14em] text-rust">{es ? 'Vista de veredicto' : 'Verdict preview'}</p>
+                <p className="mt-1 truncate font-bold">{es ? previewSteps[animationStep].es : previewSteps[animationStep].en}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-watch-soft px-2.5 py-1 font-score text-xs font-bold text-watch">
+                {animationStep + 1}/{previewSteps.length}
+              </span>
+            </div>
+
+            <div className="grid min-w-0 gap-5 py-6 sm:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] sm:items-start">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-ink-muted">{es ? 'Ejemplo ilustrativo' : 'Illustrative example'}</p>
+                <div className="mt-3 flex items-end gap-2">
+                  <span className="font-score text-6xl font-bold leading-none tracking-[-0.08em] text-ink">3.7</span>
+                  <span className="pb-1 font-score text-sm text-ink-muted">/ 5.0</span>
                 </div>
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                  {animationStep + 1}/{localizedPreviewSteps.length}
-                </span>
+                <span className="status-badge status-badge--watch mt-4">{es ? 'Prueba primero' : 'Test first'}</span>
               </div>
 
-              <div className="flex min-h-56 items-center py-8">
-                {animationStep === 0 && (
-                  <div className="w-full space-y-4" aria-label="Idea description preview">
-                    <div className="landing-slide-in h-7 w-2/3 rounded bg-ghost-forest" />
-                    <div className="landing-slide-in landing-delay-1 h-4 rounded bg-ghost-sand" />
-                    <div className="landing-slide-in landing-delay-2 h-4 w-5/6 rounded bg-ghost-sand" />
-                    <div className="landing-slide-in landing-delay-3 h-16 rounded-lg border border-gray-200 bg-gray-50" />
-                  </div>
-                )}
-
-                {animationStep === 1 && (
-                  <div className="w-full space-y-4" aria-label="Evaluation questions preview">
-                    {[72, 94, 82, 64].map((width, index) => (
-                      <div key={width} className="rounded-lg border border-purple-100 bg-purple-50 p-3">
-                        <div
-                          className="landing-question-pulse h-3 rounded bg-ghost-forest"
-                          style={{ width: `${width}%`, animationDelay: `${index * 150}ms` }}
-                        />
-                      </div>
-                    ))}
-                    <p className="pt-1 text-center text-sm font-medium text-gray-500">
-                      {es ? 'Demanda · Ventaja · Perspectiva · Momento · Defensibilidad' : 'Demand · Leverage · Insight · Timing · Defensibility'}
-                    </p>
-                  </div>
-                )}
-
-                {animationStep === 2 && (
-                  <div className="grid w-full grid-cols-3 gap-2" aria-label="Verdict examples preview">
-                    {[
-                      { score: '4.2', label: es ? 'Construye ahora' : 'Build Now', colors: 'border-green-200 bg-green-50 text-green-800' },
-                      { score: '3.1', label: es ? 'Prueba primero' : 'Test First', colors: 'border-yellow-200 bg-yellow-50 text-yellow-800' },
-                      { score: '2.8', label: es ? 'Reduce el nicho' : 'Niche Down', colors: 'border-orange-200 bg-orange-50 text-orange-800' }
-                    ].map((verdict, index) => (
-                      <div
-                        key={verdict.label}
-                        className={`landing-slide-up rounded-lg border p-3 text-center ${verdict.colors}`}
-                        style={{ animationDelay: `${index * 180}ms` }}
-                      >
-                        <div className="text-2xl font-bold text-gray-900">{verdict.score}</div>
-                        <div className="mt-1 text-xs font-bold">{verdict.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {animationStep === 3 && (
-                  <div className="landing-slide-up w-full text-center">
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-3xl text-ghost-forest" aria-hidden="true">✓</div>
-                    <h2 className="mt-4 text-2xl font-bold text-gray-900">{es ? 'Sal con un próximo paso concreto.' : 'Leave with a concrete next step.'}</h2>
-                    <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-gray-600">
-                      {es ? 'Sabrás qué demostrar, qué podría matar la idea y qué no construir todavía.' : 'Know what to prove, what could kill the idea, and what not to build yet.'}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between border-t border-gray-100 pt-4">
-                <div className="flex gap-2" aria-label="Explainer steps">
-                  {localizedPreviewSteps.map((step, index) => (
-                    <button
-                      key={step}
-                      type="button"
-                      onClick={() => setAnimationStep(index)}
-                      aria-label={`Show step ${index + 1}: ${step}`}
-                      aria-current={animationStep === index ? 'step' : undefined}
-                      className={`h-2.5 rounded-full transition-all ${animationStep === index ? 'w-7 bg-ghost-forest' : 'w-2.5 bg-gray-300 hover:bg-gray-400'}`}
-                    />
-                  ))}
+              <div className="min-w-0 rounded-panel bg-surface-muted p-4 sm:p-5">
+                <p className="font-score text-xs font-bold uppercase tracking-[0.14em] text-rust">{es ? 'Lectura' : 'Readout'}</p>
+                <h2 className="mt-2 break-words text-xl font-bold leading-tight sm:text-2xl">
+                  {es ? 'El dolor parece real. El pago todavía es una suposición.' : 'The pain looks real. Payment is still an assumption.'}
+                </h2>
+                <div className="mt-5 border-t border-border pt-4">
+                  <p className="text-sm font-bold text-ink">{es ? 'Siguiente prueba' : 'Next test'}</p>
+                  <p className="mt-1 text-sm leading-6 text-ink-soft">
+                    {es ? 'Ofrece un piloto manual a diez compradores y continúa solo si tres aceptan pagar.' : 'Offer a manual pilot to ten target buyers. Continue only if three agree to pay.'}
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsPlaying(current => !current)}
-                  aria-pressed={!isPlaying}
-                  className="rounded px-2 py-1 text-xs font-bold text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {isPlaying ? (es ? 'Pausar vista previa' : 'Pause preview') : (es ? 'Reproducir vista previa' : 'Play preview')}
-                </button>
               </div>
+            </div>
+
+            <div className="grid min-w-0 gap-3 border-t border-border pt-4 sm:grid-cols-3">
+              {[
+                [es ? 'Señal' : 'Signal', es ? 'Problema reconocible' : 'Recognized problem'],
+                [es ? 'Duda' : 'Uncertainty', es ? 'Disposición a pagar' : 'Willingness to pay'],
+                [es ? 'Acción' : 'Action', es ? 'Piloto pagado' : 'Paid pilot']
+              ].map(([label, value]) => (
+                <div key={label} className="min-w-0">
+                  <p className="font-score text-[0.68rem] font-bold uppercase tracking-[0.12em] text-ink-muted">{label}</p>
+                  <p className="mt-1 break-words text-sm font-bold text-ink">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+              <div className="flex flex-wrap gap-1" aria-label={es ? 'Controles de vista previa' : 'Preview controls'}>
+                {previewSteps.map((step, index) => (
+                  <button
+                    key={step.en}
+                    type="button"
+                    onClick={() => setAnimationStep(index)}
+                    aria-label={`${es ? 'Mostrar paso' : 'Show step'} ${index + 1}: ${es ? step.es : step.en}`}
+                    aria-current={animationStep === index ? 'step' : undefined}
+                    className="tap-target flex w-9 items-center justify-center rounded-field px-1 hover:bg-surface-muted"
+                  >
+                    <span className={`block h-2.5 rounded-full transition-all ${animationStep === index ? 'w-6 bg-rust' : 'w-2.5 bg-border'}`} aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+              <button type="button" onClick={() => setIsPlaying(current => !current)} aria-pressed={isPlaying} className="tap-target rounded-field px-2 text-xs font-bold text-ink-soft hover:bg-surface-muted hover:text-ink">
+                {isPlaying ? (es ? 'Pausar' : 'Pause') : (es ? 'Reproducir' : 'Play')}
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      <ExampleIdeaGallery onSelect={onSelectExample} />
-
-      <ProofStandard locale={locale} />
-
-      <section id="thirty-day-offer" className="bg-white py-20">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-[1fr_0.9fr] lg:items-start">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-ghost-rust">{es ? 'Oferta pagada' : 'Paid plan'}</p>
-            <h2 className="mt-3 text-3xl font-bold text-gray-950 sm:text-4xl">{GHOSTTOWN_30_DAY_PLAN_V1.name}</h2>
-            <p className="mt-5 max-w-2xl text-lg leading-relaxed text-gray-700">
-              {es
-                ? `Despues del veredicto gratis, compra un PDF personalizado por ${displayPrice} con tareas diarias, presupuestos, evidencia requerida y reglas para continuar, pivotar, pausar o parar.`
-                : `After the free verdict, buy a personalized PDF for ${displayPrice} with daily tasks, budgets, required evidence, and rules for whether to continue, pivot, pause, or stop.`}
+      <section className="border-b border-border bg-surface-raised">
+        <div className="mx-auto max-w-decision px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+          <div className="max-w-reading">
+            <p className="font-score text-xs font-bold uppercase tracking-[0.18em] text-rust">{es ? 'El coste de suponer' : 'The cost of guessing'}</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.025em] sm:text-5xl">
+              {es ? 'Construir más rápido no arregla una suposición equivocada.' : 'Building faster does not fix the wrong assumption.'}
+            </h2>
+            <p className="mt-5 text-lg leading-8 text-ink-soft">
+              {es ? 'Antes de pulir una página, contratar ayuda o comprar inventario, descubre qué parte de la idea necesita evidencia real.' : 'Before polishing a page, hiring help, or buying inventory, find the part of the idea that needs real evidence.'}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-6">
-            <h3 className="font-bold text-gray-950">{es ? 'Incluye' : 'What you receive'}</h3>
-            <ul className="mt-4 space-y-2 text-sm text-gray-700">
-              <li>{es ? '30 dias de acciones concretas y umbrales de evidencia.' : '30 days of concrete actions and evidence thresholds.'}</li>
-              <li>{es ? 'Entrevistas, alcance, oferta, precio, pagina, piloto pagado y decision final.' : 'Interviews, outreach, offer, price, landing page, paid pilot, and final decision.'}</li>
-              <li>{es ? 'PDF legible y descarga repetida desde tu cuenta.' : 'Readable PDF and repeat download from your account.'}</li>
+          <div className="mt-10 grid min-w-0 gap-3 md:grid-cols-3">
+            {(es ? [
+              ['Demanda', '¿Alguien tiene suficiente dolor para actuar?'],
+              ['Acceso', '¿Puedes llegar al comprador y escuchar una respuesta concreta?'],
+              ['Oferta', '¿Hay una forma clara de pedir compromiso, no solo elogios?']
+            ] : [
+              ['Demand', 'Does someone care enough to act?'],
+              ['Access', 'Can you reach the buyer and hear a concrete response?'],
+              ['Offer', 'Is there a clear way to ask for commitment, not compliments?']
+            ]).map(([label, body], index) => (
+              <article key={label} className="min-w-0 rounded-card border border-border bg-surface p-5 shadow-quiet sm:p-6">
+                <span className="font-score text-sm font-bold text-rust">0{index + 1}</span>
+                <h3 className="mt-4 text-xl font-bold">{label}</h3>
+                <p className="mt-2 leading-7 text-ink-soft">{body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="verdict-demo" className="bg-surface-stone">
+        <div className="mx-auto grid max-w-decision min-w-0 gap-8 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:px-8">
+          <div className="min-w-0">
+            <p className="font-score text-xs font-bold uppercase tracking-[0.18em] text-rust">{es ? 'El producto, no el discurso' : 'The product, not the pitch'}</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.025em] sm:text-5xl">{es ? 'Un veredicto útil muestra qué sabe y qué todavía no sabe.' : 'A useful verdict shows what it knows and what it still needs to learn.'}</h2>
+            <p className="mt-5 text-lg leading-8 text-ink-soft">{es ? 'La puntuación es un resumen. La decisión viene con una señal, una incertidumbre y una prueba que puedes ejecutar.' : 'The score is a summary. The decision comes with a signal, an uncertainty, and a test you can run.'}</p>
+          </div>
+          <div className="min-w-0 rounded-evidence border border-evidence-border bg-surface-raised p-5 shadow-lantern sm:p-7">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+              <p className="font-score text-xs font-bold uppercase tracking-[0.15em] text-rust">{es ? 'Ejemplo de estructura' : 'Example structure'}</p>
+              <span className="status-badge status-badge--watch">{es ? 'Incertidumbre abierta' : 'Open uncertainty'}</span>
+            </div>
+            <div className="mt-6 grid min-w-0 gap-5 sm:grid-cols-2">
+              {(es ? [
+                ['Decisión', 'Prueba primero', 'No construyas todavía; reúne una señal de pago.'],
+                ['Señal más fuerte', 'Dolor reconocible', 'El comprador ya usa una solución costosa o incómoda.'],
+                ['Mayor incertidumbre', 'Compromiso', 'El interés declarado todavía no es una compra.'],
+                ['Próxima prueba', 'Piloto manual', 'Habla con diez compradores y pide tres compromisos pagados.']
+              ] : [
+                ['Decision', 'Test first', 'Do not build yet; collect a payment signal.'],
+                ['Strongest signal', 'Recognized pain', 'The buyer already uses an expensive or awkward alternative.'],
+                ['Biggest uncertainty', 'Commitment', 'Stated interest is not a purchase yet.'],
+                ['Next test', 'Manual pilot', 'Talk to ten buyers and ask for three paid commitments.']
+              ]).map(([label, title, body]) => (
+                <div key={label} className="min-w-0 rounded-panel bg-surface-muted p-4">
+                  <p className="font-score text-[0.68rem] font-bold uppercase tracking-[0.12em] text-ink-muted">{label}</p>
+                  <h3 className="mt-2 text-lg font-bold">{title}</h3>
+                  <p className="mt-1 text-sm leading-6 text-ink-soft">{body}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-5 border-t border-border pt-4 text-xs leading-5 text-ink-muted">{es ? 'Demostración ilustrativa. No es un resultado de cliente ni una garantía.' : 'Illustrative demonstration. Not a customer result or a guarantee.'}</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="method" className="bg-canvas">
+        <div className="mx-auto max-w-decision px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+          <div className="max-w-reading">
+            <p className="font-score text-xs font-bold uppercase tracking-[0.18em] text-rust">{es ? 'Cómo funciona' : 'How it works'}</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.025em] sm:text-5xl">{es ? 'Una evaluación enfocada. Una decisión que puedes usar.' : 'A focused assessment. A decision you can use.'}</h2>
+          </div>
+          <div className="mt-10 grid min-w-0 gap-3 md:grid-cols-3">
+            {methodSteps.map(([number, title, body]) => (
+              <article key={number} className="min-w-0 border-t-2 border-rust bg-surface-raised p-5 shadow-quiet sm:p-6">
+                <span className="font-score text-sm font-bold text-rust">{number}</span>
+                <h3 className="mt-5 text-xl font-bold">{title}</h3>
+                <p className="mt-2 leading-7 text-ink-soft">{body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-border bg-surface-raised">
+        <div className="mx-auto max-w-decision px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+          <div className="max-w-reading">
+            <p className="font-score text-xs font-bold uppercase tracking-[0.18em] text-rust">{es ? 'Lo que recibes gratis' : 'What you receive for free'}</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.025em] sm:text-5xl">{es ? 'Sal con algo que hacer, no solo algo que leer.' : 'Leave with something to do, not just something to read.'}</h2>
+          </div>
+          <div className="mt-10 grid min-w-0 gap-3 md:grid-cols-3">
+            {immediateOutputs.map(([title, body], index) => (
+              <article key={title} className="min-w-0 rounded-card border border-border bg-canvas p-5 sm:p-6">
+                <span className="status-badge status-badge--pass">{es ? 'Salida' : 'Output'} 0{index + 1}</span>
+                <h3 className="mt-4 text-xl font-bold">{title}</h3>
+                <p className="mt-2 leading-7 text-ink-soft">{body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <ExampleIdeaGallery onSelect={onSelectExample} locale={locale} />
+      <ProofStandard locale={locale} />
+
+      <section id="thirty-day-offer" className="bg-surface-stone">
+        <div className="mx-auto grid max-w-decision min-w-0 gap-8 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:px-8">
+          <div className="min-w-0">
+            <p className="font-score text-xs font-bold uppercase tracking-[0.18em] text-rust">{es ? 'Después del veredicto' : 'After the verdict'}</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.025em] sm:text-5xl">{GHOSTTOWN_30_DAY_PLAN_V1.name}</h2>
+            <p className="mt-5 max-w-reading text-lg leading-8 text-ink-soft">
+              {es
+                ? `Una continuación personalizada por ${displayPrice} para convertir una idea con señal en un plan de 30 días con oferta, acceso, distribución, activos de alcance y una Launch Site funcional.`
+                : `A personalized ${displayPrice} continuation that turns a signal-bearing idea into a 30-day plan with an offer, buyer access, distribution, outreach assets, and a working Launch Site.`}
+            </p>
+            <p className="mt-4 max-w-reading text-sm leading-6 text-ink-muted">{es ? 'El Blueprint organiza evidencia y acciones. No garantiza clientes, ingresos ni éxito de mercado.' : 'The Blueprint organizes evidence and action. It does not guarantee customers, revenue, or market success.'}</p>
+          </div>
+          <div className="min-w-0 rounded-evidence border border-evidence-border bg-surface-raised p-5 shadow-lantern sm:p-7">
+            <h3 className="text-xl font-bold">{es ? 'Qué incluye' : 'What it includes'}</h3>
+            <ul className="mt-4 space-y-3 text-sm leading-6 text-ink-soft">
+              {(es ? [
+                'Oferta, precio y posicionamiento personalizados',
+                'Investigación de acceso al cliente y distribución',
+                'Mensajes, scripts de alcance y calendario diario',
+                'Launch Site Starter y activos descargables guardados en tu cuenta'
+              ] : GHOSTTOWN_30_DAY_PLAN_V1.customerPromise.slice(0, 4)).map(item => <li key={item} className="flex gap-3"><span className="font-score text-rust" aria-hidden="true">→</span><span>{item}</span></li>)}
             </ul>
-            <h3 className="mt-6 font-bold text-gray-950">{es ? 'No promete' : 'What it does not promise'}</h3>
-            <ul className="mt-4 space-y-2 text-sm text-gray-700">
-              <li>{es ? 'No garantiza clientes, ingresos, inversion o product-market fit.' : 'No guaranteed customers, revenue, funding, or product-market fit.'}</li>
-              <li>{es ? 'No inventa citas, tamano de mercado, competidores o investigacion externa.' : 'No invented quotes, market size, competitor facts, or external research.'}</li>
-              <li>{es ? 'No sustituye asesoria legal, financiera, medica o profesional.' : 'Not legal, financial, medical, or professional advice.'}</li>
-            </ul>
+            <p className="mt-6 border-t border-border pt-4 text-sm leading-6 text-ink-muted">{es ? 'Después del pago, confirmas 2–3 competidores o productos adyacentes para orientar la investigación.' : 'After payment, you confirm 2–3 competitors or adjacent products to guide the research.'}</p>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">{es ? 'Para fundadores sin tiempo que perder' : 'Built for founders who don\'t have time to waste'}</h2>
-          <p className="mt-4 text-lg text-gray-600">{es ? 'Una evaluación enfocada. Un veredicto útil. Una prueba que puedes ejecutar.' : 'A focused evaluation. A useful verdict. A test you can run next.'}</p>
-        </div>
-
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
-          {(es ? [
-            { icon: '01', title: 'Describe la idea', body: 'Cuéntanos qué construyes, quién lo necesita y cómo resuelve el problema hoy.' },
-            { icon: '02', title: `Responde ${litQuestions.length} preguntas`, body: 'Pon a prueba la demanda, la ventaja del fundador, el momento, el modelo y la defensibilidad.' },
-            { icon: '03', title: 'Obtén el próximo paso', body: 'Ve el veredicto, el mayor riesgo y la evidencia exacta que debes reunir antes de construir.' }
-          ] : [
-            { icon: '01', title: 'Describe the idea', body: 'Tell us what you are building, who needs it, and how they solve the problem today.' },
-            { icon: '02', title: `Answer ${litQuestions.length} questions`, body: 'Pressure-test demand, founder advantage, market insight, timing, business model, and defensibility.' },
-            { icon: '03', title: 'Get the next move', body: 'See the verdict, scores, biggest trap, and the exact evidence to gather before building.' }
-          ]).map(item => (
-            <article key={item.title} className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-              <div className="text-sm font-bold tracking-wider text-orange-500">{item.icon}</div>
-              <h3 className="mt-4 text-xl font-bold text-gray-900">{item.title}</h3>
-              <p className="mt-3 leading-relaxed text-gray-600">{item.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="bg-ghost-ink py-20">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-ghost-sand">Sample verdicts</p>
-            <h2 className="mt-3 font-display text-3xl font-semibold text-white sm:text-4xl">Sharp advice, without the startup theater.</h2>
+      <section className="bg-surface-raised">
+        <div className="mx-auto max-w-decision px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+          <div className="max-w-reading">
+            <p className="font-score text-xs font-bold uppercase tracking-[0.18em] text-rust">{es ? 'Preguntas honestas' : 'Honest boundaries'}</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.025em] sm:text-5xl">{es ? 'La claridad también incluye decir lo que no sabemos.' : 'Clarity also means saying what we do not know.'}</h2>
           </div>
-
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            <article className="rounded-lg border border-ghost-forest/70 bg-ghost-forest/20 p-6">
-              <h3 className="font-display text-2xl font-semibold text-white">Build Now</h3>
-              <p className="mt-4 leading-relaxed text-gray-200">You have demand, timing, and an unfair advantage. Stop polishing the plan and secure the first three pilot commitments.</p>
-              <p className="mt-5 text-sm font-bold text-ghost-sand">Next: confirm three paid pilots</p>
-            </article>
-            <article className="rounded-lg border border-white/20 bg-white/5 p-6">
-              <h3 className="font-display text-2xl font-semibold text-white">Test First</h3>
-              <p className="mt-4 leading-relaxed text-gray-300">The pain sounds real, but willingness to pay is still an assumption. Proof beats plans every time.</p>
-              <p className="mt-5 text-sm font-bold text-ghost-sand">Next: pitch ten target customers</p>
-            </article>
-            <article className="rounded-lg border border-white/20 bg-white/5 p-6">
-              <h3 className="font-display text-2xl font-semibold text-white">Kill It</h3>
-              <p className="mt-4 leading-relaxed text-gray-300">There is no urgent demand or defensible advantage yet. Save six months and redirect the insight.</p>
-              <p className="mt-5 text-sm font-bold text-ghost-sand">Next: find a sharper problem</p>
-            </article>
+          <div className="mt-10 grid min-w-0 gap-3 md:grid-cols-2">
+            {(es ? [
+              ['¿Me dirá si la idea funcionará?', 'No. Te ayuda a decidir qué probar, qué sigue siendo incierto y cuándo pausar o cambiar de dirección.'],
+              ['¿Qué ocurre después del pago?', 'Confirmas las semillas de investigación, el sistema avanza por sus estados y el Blueprint queda disponible cuando termina.'],
+              ['¿Necesito tener competidores elegidos?', 'No. Después del pago confirmas 2–3 competidores o productos adyacentes para orientar la investigación.'],
+              ['¿Es una salida genérica de IA?', 'No es una promesa de texto genérico: usa tus respuestas, tus restricciones y señales de evidencia para organizar un plan.'],
+              ['¿Qué pasa si la evidencia es débil?', 'La respuesta puede ser probar primero, reducir el nicho, pausar o detenerse. Una señal débil no se presenta como certeza.'],
+              ['¿Cuánto tarda la prueba gratis?', `La evaluación está diseñada para empezar en unos cinco minutos y cubre ${litQuestions.length} preguntas enfocadas.`]
+            ] : [
+              ['Will it tell me whether the idea is guaranteed to work?', 'No. It helps you decide what to test, what remains uncertain, and when to pause or change direction.'],
+              ['What happens after payment?', 'You confirm research seeds, the system moves through its status states, and the Blueprint becomes available when it is ready.'],
+              ['Do I need competitors already selected?', 'No. After payment you confirm 2–3 competitors or adjacent products to guide the research.'],
+              ['Is this generic AI output?', 'It is not a promise of generic copy: your answers, constraints, and evidence signals organize the plan.'],
+              ['What if the evidence is weak?', 'The answer may be test first, narrow the niche, pause, or stop. Weak evidence is not presented as certainty.'],
+              ['How long does the free test take?', `The assessment is designed to start in about five minutes and covers ${litQuestions.length} focused questions.`]
+            ]).map(([question, answer]) => (
+              <article key={question} className="min-w-0 rounded-card border border-border bg-canvas p-5 sm:p-6">
+                <h3 className="break-words text-lg font-bold">{question}</h3>
+                <p className="mt-2 leading-7 text-ink-soft">{answer}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-ghost-sand py-20 text-center">
-        <div className="mx-auto max-w-3xl px-4">
-          <h2 className="font-display text-4xl font-semibold text-ghost-ink sm:text-5xl">Stop guessing. Start validating.</h2>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-gray-700">
-            Give your idea a fair test and leave with a decision you can act on.
-          </p>
-          <button
-            type="button"
-            onClick={onStart}
-            className="mt-9 rounded-lg bg-ghost-forest px-10 py-4 text-lg font-bold text-white shadow-xl transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-ghost-forest/30"
-          >
-            Validate Your Idea Free
-          </button>
-          <p className="mt-5 text-sm text-gray-600">One free test · No commitment · No credit card</p>
+      <section className="bg-ink text-center text-ink-inverse">
+        <div className="mx-auto max-w-decision px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
+          <p className="font-score text-xs font-bold uppercase tracking-[0.18em] text-rust-soft">{es ? 'Una prueba. Una decisión mejor.' : 'One test. One better decision.'}</p>
+          <h2 className="mx-auto mt-4 max-w-4xl font-display text-4xl font-semibold leading-[0.98] tracking-[-0.035em] sm:text-6xl">{es ? 'No construyas sobre una suposición.' : 'Do not build on a guess.'}</h2>
+          <p className="mx-auto mt-5 max-w-reading text-lg leading-8 text-white/70">{es ? 'Empieza gratis y descubre qué evidencia merece tu próximo mes.' : 'Start free and find out what evidence deserves your next month.'}</p>
+          <button type="button" onClick={onStart} className="btn-primary mt-8">{es ? 'Probar mi idea gratis' : 'Test my idea free'}<span className="ml-2" aria-hidden="true">↗</span></button>
         </div>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 p-3 shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur sm:hidden">
-        <button
-          type="button"
-          onClick={hasDraft ? onResume : onStart}
-          className="min-h-12 w-full rounded-lg bg-ghost-forest px-5 py-3 font-bold text-white shadow-lg active:bg-blue-700"
-        >
-          {hasDraft ? 'Resume Assessment' : 'Validate My Idea Free'}
+      <div id="ghosttown-landing-sticky-cta" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface-raised/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-dust backdrop-blur sm:hidden" >
+        <button type="button"  onClick={hasDraft ? onResume : onStart} className="btn-primary w-full">
+          {hasDraft ? (es ? 'Continuar evaluación' : 'Continue assessment') : (es ? 'Probar mi idea gratis' : 'Test my idea free')}
         </button>
       </div>
     </div>

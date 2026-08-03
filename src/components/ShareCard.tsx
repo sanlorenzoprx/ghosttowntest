@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { EvaluationResult } from '../types/lit';
 import { createShareSummary, copyToClipboard } from '../lib/share';
 import { apiUrl, authHeaders } from '../lib/api';
@@ -26,6 +26,7 @@ interface RewardResponse {
 }
 
 export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardClaimed }: Props) {
+  const isSpanish = useDocumentLocale();
   const [format, setFormat] = useState<VerdictCardFormat>('landscape');
   const [includeIdeaName, setIncludeIdeaName] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,8 +37,9 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
   const previewSvg = useMemo(() => createVerdictCardSvg(result, {
     format,
     includeIdeaName,
-    shareUrl: window.location.origin
-  }), [format, includeIdeaName, result]);
+    shareUrl: window.location.origin,
+    locale: isSpanish ? 'es' : 'en'
+  }), [format, includeIdeaName, isSpanish, result]);
 
   const handleShareAndUnlock = async () => {
     if (!isLoggedIn) {
@@ -55,27 +57,23 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
         headers: authHeaders()
       });
       const linkData = await linkResponse.json<{ refId?: string; link?: string; error?: string }>();
-      if (!linkResponse.ok || !linkData.refId || !linkData.link) {
-        throw new Error(linkData.error || 'Could not create your share link');
-      }
+      if (!linkResponse.ok || !linkData.refId || !linkData.link) throw new Error(linkData.error || (isSpanish ? 'No se pudo crear el enlace para compartir.' : 'Could not create your share link'));
 
-      const summary = createShareSummary(result, linkData.link, includeIdeaName);
-      const cardFile = await createVerdictCardPng(result, {
-        format,
-        includeIdeaName,
-        shareUrl: linkData.link
-      });
+      const summary = isSpanish ? createSpanishShareSummary(result, linkData.link, includeIdeaName) : createShareSummary(result, linkData.link, includeIdeaName);
+      const cardFile = await createVerdictCardPng(result, { format, includeIdeaName, shareUrl: linkData.link, locale: isSpanish ? 'es' : 'en' });
+      const shareTitle = includeIdeaName
+        ? (isSpanish ? `Mi veredicto LIT: ${result.idea.ideaName}` : `My LIT verdict: ${result.idea.ideaName}`)
+        : (isSpanish ? 'Mi veredicto de Ghost Town LIT' : 'My LIT Ghost Town verdict');
 
       if (navigator.share) {
         try {
-          const canShareFile = typeof navigator.canShare === 'function'
-            && navigator.canShare({ files: [cardFile] });
+          const canShareFile = typeof navigator.canShare === 'function' && navigator.canShare({ files: [cardFile] });
           await navigator.share(canShareFile ? {
-            title: includeIdeaName ? `My LIT verdict: ${result.idea.ideaName}` : 'My LIT Ghost Town verdict',
+            title: shareTitle,
             text: summary,
             files: [cardFile]
           } : {
-            title: includeIdeaName ? `My LIT verdict: ${result.idea.ideaName}` : 'My LIT Ghost Town verdict',
+            title: shareTitle,
             text: summary
           });
         } catch (caught) {
@@ -93,16 +91,12 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
         body: JSON.stringify({ resultId: result.resultId, refId: linkData.refId })
       });
       const reward = await rewardResponse.json<RewardResponse>();
-      if (!rewardResponse.ok) {
-        throw new Error(reward.error || 'Your share completed, but the reward could not be unlocked');
-      }
+      if (!rewardResponse.ok) throw new Error(reward.error || (isSpanish ? 'El intercambio se completó, pero no se pudo desbloquear la recompensa.' : 'Your share completed, but the reward could not be unlocked'));
 
-      setMessage(reward.message || (reward.rewarded
-        ? `Assessment ${reward.totalFreeAssessments} of 2 is now unlocked.`
-        : 'Share completed.'));
+      setMessage(reward.message || (reward.rewarded ? (isSpanish ? `La evaluación ${reward.totalFreeAssessments} de 2 ya está desbloqueada.` : `Assessment ${reward.totalFreeAssessments} of 2 is now unlocked.`) : (isSpanish ? 'Intercambio completado.' : 'Share completed.')));
       onRewardClaimed();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Sharing failed. Please try again.');
+      setError(caught instanceof Error ? caught.message : (isSpanish ? 'No se pudo compartir. Inténtalo de nuevo.' : 'Sharing failed. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -110,118 +104,145 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
 
   const handleSaveImage = async () => {
     setSaving(true);
+    setMessage('');
     setError('');
     try {
-      const cardFile = await createVerdictCardPng(result, {
-        format,
-        includeIdeaName,
-        shareUrl: window.location.origin
-      });
+      const cardFile = await createVerdictCardPng(result, { format, includeIdeaName, shareUrl: window.location.origin, locale: isSpanish ? 'es' : 'en' });
       saveFile(cardFile);
+      setMessage(isSpanish ? 'Imagen del veredicto guardada.' : 'Verdict image saved.');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not save the verdict image');
+      setError(caught instanceof Error ? caught.message : (isSpanish ? 'No se pudo guardar la imagen del veredicto.' : 'Could not save the verdict image'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <section className="rounded-lg border border-blue-200 bg-ghost-sand p-5 sm:p-6">
-      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Share reward</p>
-      <h3 className="mt-2 text-xl font-bold text-blue-950">
-        {isLoggedIn ? 'Share your verdict card to unlock the next assessment' : 'Create an account to join the share reward'}
-      </h3>
-      <p className="mt-2 text-sm leading-relaxed text-blue-800">
-        Your idea name stays private unless you choose to include it. Registered members can unlock one bonus assessment by sharing a completed result.
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2" aria-label="Supported social sharing destinations">
-        {['Instagram', 'TikTok', 'YouTube', 'Facebook'].map(platform => (
-          <span key={platform} className="rounded-full border border-blue-200 bg-white/80 px-3 py-1 text-xs font-bold text-blue-800">
-            {platform}
-          </span>
-        ))}
+    <section className="card min-w-0 p-5 sm:p-7" aria-labelledby="share-card-title" aria-busy={loading || saving}>
+      <div className="max-w-reading">
+        <p className="font-score text-xs font-bold uppercase tracking-[0.16em] text-rust">{isSpanish ? 'Guarda o comparte tu resumen de decisión' : 'Save or share your decision brief'}</p>
+        <h2 id="share-card-title" className="mt-3 font-display text-3xl font-semibold leading-tight text-ink">
+          {isLoggedIn ? (isSpanish ? 'Comparte la tarjeta del veredicto cuando sea útil.' : 'Share the verdict card when it is useful.') : (isSpanish ? 'Crea una cuenta para usar la recompensa por compartir.' : 'Create an account to use the share reward.')}
+        </h2>
+        <p className="mt-3 leading-7 text-ink-soft">{isSpanish ? 'La tarjeta comparte un resumen del veredicto y un enlace. El nombre de tu idea permanece privado a menos que elijas incluirlo.' : 'The card shares a verdict summary and link. Your idea name stays private unless you choose to include it.'}</p>
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-xl border border-white/80 bg-slate-950 shadow-lg">
-        <img
-          src={svgDataUrl(previewSvg)}
-          alt={getVerdictCardAlt(result)}
-          className={`block h-auto w-full ${format === 'square' ? 'aspect-square' : 'aspect-[1200/630]'}`}
-        />
+      <div className="mt-5 flex flex-wrap gap-2" aria-label={isSpanish ? 'Destinos compatibles para compartir en redes sociales' : 'Supported social sharing destinations'}>
+        {['Instagram', 'TikTok', 'YouTube', 'Facebook'].map(platform => <span key={platform} className="status-badge border-border bg-surface-muted text-ink-soft">{platform}</span>)}
       </div>
 
-      <div className="mt-4 flex flex-col gap-4 rounded-lg border border-blue-100 bg-white/70 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <span className="block text-xs font-bold uppercase tracking-wider text-gray-500">Image format</span>
-          <div className="mt-2 inline-flex rounded-lg border border-gray-200 bg-white p-1" role="group" aria-label="Verdict card image format">
+      <div className="mt-6 overflow-hidden rounded-evidence border border-ink/15 bg-ink shadow-lift">
+        <img src={svgDataUrl(previewSvg)} alt={getVerdictCardAlt(result, isSpanish ? 'es' : 'en')} className={`block h-auto w-full ${format === 'square' ? 'aspect-square' : 'aspect-[1200/630]'}`} />
+      </div>
+
+      <div className="mt-6 grid min-w-0 gap-5 border-y border-border py-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <fieldset className="min-w-0">
+          <legend className="font-score text-xs font-bold uppercase tracking-[0.14em] text-ink-muted">{isSpanish ? 'Formato de imagen' : 'Image format'}</legend>
+          <div className="mt-3 inline-flex min-w-0 rounded-field border border-border bg-surface-muted p-1" role="group" aria-label={isSpanish ? 'Formato de imagen de la tarjeta del veredicto' : 'Verdict card image format'}>
             {(['landscape', 'square'] as VerdictCardFormat[]).map(option => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setFormat(option)}
-                aria-pressed={format === option}
-                className={`rounded-md px-3 py-1.5 text-sm font-bold capitalize transition ${
-                  format === option ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <span className="block capitalize">{option}</span>
-                <span className="block text-[10px] font-medium opacity-80">
-                  {option === 'square' ? 'Instagram · TikTok' : 'Facebook · YouTube'}
-                </span>
+              <button key={option} type="button" onClick={() => setFormat(option)} aria-pressed={format === option} className={`min-w-0 rounded-field px-3 py-2 text-left text-sm font-bold transition-colors ${format === option ? 'bg-rust text-rust-foreground shadow-quiet' : 'text-ink-soft hover:bg-surface-raised hover:text-ink'}`}>
+                <span className="block capitalize">{option === 'square' ? (isSpanish ? 'Cuadrado' : 'Square') : (isSpanish ? 'Horizontal' : 'Landscape')}</span>
+                <span className="mt-0.5 block text-[0.65rem] font-medium opacity-80">{option === 'square' ? 'Instagram · TikTok' : 'Facebook · YouTube'}</span>
               </button>
             ))}
           </div>
-        </div>
+        </fieldset>
 
-        <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-gray-700">
-          <input
-            type="checkbox"
-            checked={includeIdeaName}
-            onChange={event => setIncludeIdeaName(event.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          Include my idea name
+        <label className="flex min-h-11 min-w-0 cursor-pointer items-center gap-3 text-sm font-semibold text-ink">
+          <input type="checkbox" checked={includeIdeaName} onChange={event => setIncludeIdeaName(event.target.checked)} className="h-5 w-5 shrink-0 rounded border-input text-rust focus:ring-rust" />
+          <span className="min-w-0">{isSpanish ? 'Incluir el nombre de mi idea' : 'Include my idea name'}</span>
         </label>
       </div>
 
-      {message && (
-        <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-800" role="status">
-          ✓ {message}
-        </div>
-      )}
-      {error && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
-          {error}
-        </div>
-      )}
+      {message && <div className="state-shell state-shell--success mt-5 text-sm font-semibold" role="status" aria-live="polite">✓ {message}</div>}
+      {error && <div className="state-shell state-shell--error mt-5 text-sm" role="alert">{error}</div>}
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
-        <button
-          type="button"
-          onClick={handleShareAndUnlock}
-          disabled={loading || saving}
-          className="rounded-lg bg-blue-600 px-5 py-3 font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {loading
-            ? 'Creating your verdict card...'
-            : isLoggedIn
-              ? 'Share to Social Apps & Unlock 1 Assessment'
-              : 'Create Free Account to Unlock More'}
+      <div className="mt-6 grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <button type="button" onClick={handleShareAndUnlock} disabled={loading || saving} className="btn-primary min-w-0 text-center disabled:opacity-60">
+          {loading ? (isSpanish ? 'Procesando tu intercambio…' : 'Working on your share...') : isLoggedIn ? (isSpanish ? 'Compartir en redes y desbloquear 1 evaluación' : 'Share to Social Apps & Unlock 1 Assessment') : (isSpanish ? 'Crear una cuenta gratuita para desbloquear más' : 'Create Free Account to Unlock More')}
         </button>
-        <button
-          type="button"
-          onClick={handleSaveImage}
-          disabled={loading || saving}
-          className="rounded-lg border border-blue-300 bg-white px-5 py-3 font-bold text-blue-700 transition hover:bg-blue-50 disabled:opacity-60"
-        >
-          {saving ? 'Creating...' : 'Save Image'}
+        <button type="button" onClick={handleSaveImage} disabled={loading || saving} className="btn-secondary min-w-0 disabled:opacity-60">
+          {saving ? (isSpanish ? 'Preparando imagen…' : 'Preparing image...') : (isSpanish ? 'Guardar imagen' : 'Save image')}
         </button>
       </div>
-      <p className="mt-3 text-center text-xs text-blue-700">
-        On mobile, choose Instagram, TikTok, YouTube, or Facebook from your share sheet. One bonus reward maximum.
-      </p>
+      <p className="mt-4 text-sm leading-6 text-ink-muted">{isSpanish ? 'En móvil, elige Instagram, TikTok, YouTube o Facebook desde la hoja para compartir. Solo se concede una recompensa adicional.' : 'On mobile, choose Instagram, TikTok, YouTube, or Facebook from your share sheet. One bonus reward maximum.'}</p>
     </section>
   );
+}
+
+function useDocumentLocale(): boolean {
+  const [isSpanish, setIsSpanish] = useState(() => typeof document !== 'undefined' && document.documentElement.lang === 'es');
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setIsSpanish(root.lang === 'es');
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { attributes: true, attributeFilter: ['lang'] });
+    return () => observer.disconnect();
+  }, []);
+
+  return isSpanish;
+}
+
+const spanishShareVerdictLabels = {
+  build_now: 'Construir ahora',
+  test_first: 'Probar primero',
+  niche_down: 'Enfocar el nicho',
+  change_business_dna: 'Cambiar el modelo de negocio',
+  kill_it_before_it_kills_years: 'Detenerse y replantear'
+} as const;
+
+const spanishShareRiskLabels = {
+  low: 'bajo',
+  medium: 'medio',
+  high: 'alto'
+} as const;
+
+const spanishShareBusinessDnaLabels = {
+  service: 'servicio',
+  physical_product: 'producto físico',
+  digital_product: 'producto digital',
+  marketplace: 'mercado',
+  media: 'medios',
+  capital: 'capital',
+  asset: 'activo'
+} as const;
+
+const spanishShareAdvice = {
+  build_now: 'Empieza a construir el MVP esta semana.',
+  test_first: 'Prueba un supuesto crítico antes de construir.',
+  niche_down: 'Enfoca el nicho. Encuentra el segmento donde ganas.',
+  change_business_dna: 'Cambia el modelo antes de aumentar la inversión.',
+  kill_it_before_it_kills_years: 'No construyas esto. Mátalo antes de que te quite años de vida.'
+} as const;
+
+const spanishShareNextTest = {
+  build_now: 'Construye un MVP mínimo y pruébalo con tus primeros 3 clientes.',
+  test_first: 'Ejecuta una prueba específica para validar tu supuesto principal antes de construir.',
+  niche_down: 'Identifica el nicho o segmento más pequeño donde tienes una ventaja injusta.',
+  change_business_dna: 'Prueba un modelo de entrega o monetización diferente antes de construir más.',
+  kill_it_before_it_kills_years: 'Habla con 10 clientes potenciales antes de reconsiderar esta idea.'
+} as const;
+
+function createSpanishShareSummary(result: EvaluationResult, shareUrl: string, includeIdeaName: boolean): string {
+  const scores = result.deterministicScores;
+
+  return `Probé mi idea con GhostTown LIT.
+
+**Idea:** ${includeIdeaName ? result.idea.ideaName : 'Privada'}
+
+**Veredicto:** ${spanishShareVerdictLabels[scores.finalVerdict]}
+
+**Riesgo de Ghost Town:** ${scores.ghostTownScore}/5 (${spanishShareRiskLabels[scores.ghostTownRisk]})
+**Puntuación LIT:** ${scores.litScore}/5
+**ADN del negocio:** ${spanishShareBusinessDnaLabels[scores.businessDnaType]}
+
+**Consejo:** ${spanishShareAdvice[scores.finalVerdict]}
+
+**Próxima prueba:** ${spanishShareNextTest[scores.finalVerdict]}
+
+Prueba tu idea: ${shareUrl}`;
 }
 
 function saveFile(file: File): void {
