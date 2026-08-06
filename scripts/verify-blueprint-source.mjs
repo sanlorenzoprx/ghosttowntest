@@ -13,6 +13,13 @@ function fail(message) {
   process.exit(1);
 }
 
+function normalizeCanonicalSource(content) {
+  // Git stores the canonical contract with LF line endings. Windows checkouts may
+  // materialize the same tracked content with CRLF. Normalize line endings only;
+  // every other byte remains protected by the canonical Git blob SHA-1.
+  return content.replace(/\r\n?/g, '\n');
+}
+
 function gitBlobSha1(content) {
   const body = Buffer.from(content, 'utf8');
   const header = Buffer.from(`blob ${body.byteLength}\0`, 'utf8');
@@ -35,7 +42,7 @@ if (!manifest?.changeId || !manifest?.canonical?.version || !expectedHash) {
 
 let canonicalSource;
 try {
-  canonicalSource = readFileSync(canonicalPath, 'utf8');
+  canonicalSource = normalizeCanonicalSource(readFileSync(canonicalPath, 'utf8'));
 } catch (error) {
   fail(`Unable to read canonical Blueprint at ${canonicalPath}: ${error.message}`);
 }
