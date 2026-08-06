@@ -36,6 +36,23 @@ The artifact must not pass unless it produces:
 14. Private PDF and canonical JSON saved to the owner account.
 15. A downloadable ZIP containing the finished research, scripts, posts, landing copy, Launch Site config, calendar, metrics, and sources.
 
+## Staged Vertex generation acceptance
+
+When `VERTEX_BLUEPRINT_REQUIRED` is not explicitly `false`, the paid Workflow must not persist a ready Blueprint unless all of these gates pass:
+
+1. **Evidence normalization** selects only immutable evidence IDs supplied by the verdict, paid intake, starting-state audit, and verified research ledger.
+2. **Strategy synthesis** may revise only the allowed strategy fields and may prioritize only existing channel IDs.
+3. **Asset generation** may revise only existing post/script slots and must return Day 1 through Day 30 exactly once.
+4. **Independent red-team review** checks unsupported claims, invented sources, contradictions, generic language, business-model mismatch, impossible workload, missing daily assets, unclear measurements, softened stop criteria, and pricing/fulfillment inconsistency.
+5. A failed red-team check or blocking finding prevents persistence and leaves the order failed/retryable.
+6. **Schema validation** reruns the canonical v2.1 quality gate after all model outputs are applied.
+7. Order ownership, source verdict ID, source IDs, source URLs, channel source ledgers, schema version, contract version, and canonical Blueprint hash remain immutable.
+8. The generation receipt contains four ordered stage receipts with model, prompt hash, response hash, token counts when available, response ID when available, and completion time.
+9. Raw prompts, provider payloads, OAuth tokens, service-account keys, and owner-only research never enter the customer record.
+10. Dashboard, PDF, ZIP, Launch Site, calendar, sources, and progress all render from the same validated canonical record.
+
+An environment that explicitly sets `VERTEX_BLUEPRINT_REQUIRED=false` may use the deterministic v2.1 generator, but its receipt must record that the staged Vertex pipeline was skipped and why.
+
 ## Post-purchase intake acceptance
 
 1. Payment enters `awaiting_seeds`.
