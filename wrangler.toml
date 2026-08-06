@@ -14,6 +14,9 @@ GEMINI_RESEARCH_MODEL = "gemini-2.5-flash"
 GEMINI_GOOGLE_SEARCH_MODEL = "gemini-2.5-flash"
 DISTRIBUTION_FOOTPRINT_ENABLED = "false"
 DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
+VERTEX_BLUEPRINT_REQUIRED = "true"
+VERTEX_LOCATION = "us-central1"
+VERTEX_BLUEPRINT_MODEL = "gemini-2.5-flash"
 FRONTEND_URL = "https://ghosttowntest.com"
 
 [[env.production.kv_namespaces]]
@@ -46,14 +49,23 @@ bucket_name = "ghosttowntest-public-videos"
 # name = "ghosttown-launch-blueprint"
 # class_name = "LaunchBlueprintWorkflow"
 #
-# Required production secrets/configuration:
+# Required production variables/configuration:
+# VERTEX_PROJECT_ID
+# VERTEX_LOCATION
+# VERTEX_BLUEPRINT_MODEL
+# VERTEX_BLUEPRINT_REQUIRED=true
+# INTERNAL_RESEARCH_OWNER_EMAILS
+#
+# Required production secrets:
+# VERTEX_SERVICE_ACCOUNT_EMAIL
+# VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY
+# VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID (optional when the key has no explicit ID)
 # GEMINI_API_KEY
 # DATAFORSEO_LOGIN
 # DATAFORSEO_PASSWORD
 # PODCAST_INDEX_API_KEY
 # PODCAST_INDEX_API_SECRET
 # YOUTUBE_API_KEY
-# INTERNAL_RESEARCH_OWNER_EMAILS
 
 [env.development.vars]
 AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
