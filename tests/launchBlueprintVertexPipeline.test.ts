@@ -58,7 +58,7 @@ function fixtureVerdict(): EvaluationResult {
 function fixtureOrder(): PaidTestOrder {
   return {
     orderId: 'gtt_fixture_12345678',
-    email: 'owner@example.com',
+    email: 'founder@familygamenight.co',
     verdictId: 'fixture-verdict',
     status: 'generating',
     artifactType: 'launch_blueprint_v2',
@@ -229,7 +229,7 @@ function assetStage(context = fixtureContext()): VertexAssetGeneration {
     helpfulPosts: context.draft.customerAccessPack.helpfulPosts.slice(0, 3).map((post, index) => ({
       postId: post.postId,
       title: `Useful family game-selection lesson ${index + 1}`,
-      body: 'Share one practical way to match a game to age, complexity, and available time without promoting the pilot.',
+      body: `Before buying another family game, write down the players' ages, the time available, the reading level, how much conflict the group enjoys, and what failed during the last game night. Compare each option against those constraints, choose the smallest complete test, and record whether everyone actually played rather than relying on a general opinion. This keeps the decision practical without promoting the pilot.`,
       closingQuestion: 'What makes a game work for your family?'
     })),
     outreachScripts: context.draft.customerAccessPack.outreachScripts.slice(0, 4).map(script => ({
