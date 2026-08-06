@@ -37,7 +37,7 @@ async function persistLifecycle(
   ideaName: string
 ): Promise<PaidTestOrder> {
   order.artifactType = 'launch_blueprint_v2';
-  order.planVersion = '2.1';
+  order.planVersion = '2.0';
   order.updatedAt = new Date().toISOString();
   await env.KV.put(orderKey(order.orderId), JSON.stringify(order));
   await saveOrderSummaryV21(env, order, ideaName);
@@ -54,6 +54,7 @@ async function recordCompletionV21(env: Env, order: PaidTestOrder, canonicalHash
     offerId: order.offerId,
     artifactType: order.artifactType,
     planVersion: order.planVersion,
+    contractVersion: '2.1.0',
     canonicalHash,
     stripeMode: order.stripeMode,
     stripeEventId: order.stripeEventId,
