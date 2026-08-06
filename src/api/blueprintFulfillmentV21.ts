@@ -1,5 +1,6 @@
 import type { Env } from './env';
 import type { PaidTestOrder } from '../types/paidTest';
+import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
 import { loadLaunchBlueprintWorkflowContext } from './blueprintFulfillment';
 import { saveBlueprintRecord } from './blueprintStore';
@@ -8,6 +9,11 @@ import { createGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21
 
 const orderKey = (id: string) => `paid_test_order_${id}`;
 const userOrdersKey = (email: string) => `paid_test_orders_${email.trim().toLowerCase()}`;
+
+export interface CompleteLaunchBlueprintOrderV21Options {
+  blueprint?: GhostTownLaunchBlueprintV21;
+  vertexRequired?: boolean;
+}
 
 async function saveOrderSummaryV21(env: Env, order: PaidTestOrder, ideaName: string): Promise<void> {
   const key = userOrdersKey(order.email);
@@ -29,6 +35,7 @@ async function saveOrderSummaryV21(env: Env, order: PaidTestOrder, ideaName: str
     .sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || '')))
     .slice(0, 50);
   await env.KV.put(key, JSON.stringify(next));
+  return;
 }
 
 async function persistLifecycle(
@@ -63,6 +70,30 @@ async function recordCompletionV21(env: Env, order: PaidTestOrder, canonicalHash
   }), { expirationTtl: 86400 * 365 });
 }
 
+function assertVertexPipelineComplete(
+  blueprint: GhostTownLaunchBlueprintV21,
+  required: boolean
+): void {
+  const receipt = blueprint.generationReceipt.vertexPipeline;
+  if (!required) return;
+  if (!receipt || receipt.status !== 'complete' || !receipt.required) {
+    throw new Error('Launch Blueprint v2.1 requires a completed staged Vertex pipeline receipt');
+  }
+  const expectedStages = [
+    'evidence_normalization',
+    'strategy_synthesis',
+    'asset_generation',
+    'red_team_review'
+  ];
+  const stages = receipt.stages.map(stage => stage.stage);
+  if (stages.join(',') !== expectedStages.join(',')) {
+    throw new Error(`Launch Blueprint v2.1 Vertex stage receipt mismatch: ${stages.join(',')}`);
+  }
+  if (!receipt.redTeam.passed || receipt.redTeam.findings.some(finding => finding.severity === 'blocking')) {
+    throw new Error('Launch Blueprint v2.1 red-team receipt did not pass');
+  }
+}
+
 export async function markLaunchBlueprintGeneratingV21(
   env: Env,
   orderId: string
@@ -95,19 +126,28 @@ export async function failLaunchBlueprintOrderV21(
 export async function completeLaunchBlueprintOrderV21(
   env: Env,
   orderId: string,
-  result: CustomerAccessResearchResult
+  result: CustomerAccessResearchResult,
+  options: CompleteLaunchBlueprintOrderV21Options = {}
 ): Promise<PaidTestOrder> {
   const { order, verdict } = await loadLaunchBlueprintWorkflowContext(env, orderId);
-  const blueprint = createGhostTownLaunchBlueprintV21(
+  const blueprint = options.blueprint || createGhostTownLaunchBlueprintV21(
     order,
     verdict,
     result.research,
     order.paidAt
   );
-  blueprint.generationReceipt.model = result.receipt.model;
-  blueprint.generationReceipt.promptVersion = 'distribution-footprint-v1+canonical-blueprint-v2.1';
-  blueprint.generationReceipt.fallbackStatus = 'ai_enriched';
-  blueprint.generationReceipt.fallbackReason = undefined;
+
+  assertVertexPipelineComplete(blueprint, options.vertexRequired === true);
+
+  if (blueprint.generationReceipt.vertexPipeline?.status !== 'complete') {
+    blueprint.generationReceipt.model = blueprint.generationReceipt.model || result.receipt.model;
+    blueprint.generationReceipt.promptVersion = blueprint.generationReceipt.promptVersion ||
+      'distribution-footprint-v1+canonical-blueprint-v2.1';
+    if (!blueprint.generationReceipt.vertexPipeline) {
+      blueprint.generationReceipt.fallbackStatus = 'deterministic_only';
+      blueprint.generationReceipt.fallbackReason = 'Staged Vertex generation was not required for this environment.';
+    }
+  }
 
   if (!blueprint.qualityGate.passed) {
     throw new Error(`Launch Blueprint v2.1 quality gate failed: ${blueprint.qualityGate.failures.join(' | ')}`);
