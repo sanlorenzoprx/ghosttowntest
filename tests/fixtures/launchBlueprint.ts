@@ -9,7 +9,7 @@ export function launchBlueprintFixture() {
     deterministicScores: { ghostTownScore: 3, ghostTownRisk: 'medium', leverageScore: 3, insightScore: 3, timingScore: 3, litScore: 3, litBand: 'unclear', highWallsScore: 2, highWallsBand: 'weak', businessDnaType: 'subscription', businessDnaTrap: 'Inventory risk', businessDnaWinStrategy: 'Concierge pilot', finalVerdict: 'test_first', verdictHeadline: 'Test first', verdictExplanation: 'Demand is not yet proven.', recommendedNextTest: 'Sell a pilot.', doNotBuildUntil: 'A family pays.', oneSentenceAdvice: 'Sell before stocking.' }, usedAI: false, cacheHit: false, answers: {}
   } as EvaluationResult;
   const order = {
-    orderId: 'gtt_fixture_12345678', email: 'owner@example.com', verdictId: verdict.resultId, status: 'generating', artifactType: 'launch_blueprint_v2', reportVersion: '1.0', planVersion: '2.0',
+    orderId: 'gtt_fixture_12345678', email: 'founder@fixture.test', verdictId: verdict.resultId, status: 'generating', artifactType: 'launch_blueprint_v2', reportVersion: '1.0', planVersion: '2.0',
     intake: { verdictId: verdict.resultId, targetBuyer: 'Families with children', problem: 'Choosing games is difficult.', currentWorkaround: 'Buying random games' },
     createdAt: verdict.generatedAt, updatedAt: verdict.generatedAt
   } as PaidTestOrder;
