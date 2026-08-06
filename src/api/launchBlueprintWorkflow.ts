@@ -16,6 +16,18 @@ import {
   runResearchBatch,
   type ResearchBatchResult
 } from './customerAccessResearch';
+import { createGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
+import {
+  applyVertexPipelineDraft,
+  createLaunchBlueprintVertexContext,
+  finalizeLaunchBlueprintVertexPipeline,
+  markVertexPipelineSkipped,
+  runVertexAssetGenerationStage,
+  runVertexEvidenceNormalizationStage,
+  runVertexRedTeamReviewStage,
+  runVertexStrategySynthesisStage
+} from './launchBlueprintVertexPipeline';
+import { vertexBlueprintRequired } from './vertexStructuredGeneration';
 
 function batchSize(value: string | undefined): number {
   const parsed = Number(value);
@@ -55,10 +67,83 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
       await step.do('mark canonical blueprint v2.1 generating', async () =>
         markLaunchBlueprintGeneratingV21(this.env, orderId)
       );
+
+      const draft = await step.do('build deterministic canonical blueprint v2.1 draft', async () =>
+        createGhostTownLaunchBlueprintV21(
+          context.order,
+          context.verdict,
+          result.research,
+          context.order.paidAt
+        )
+      );
+
+      const vertexRequired = vertexBlueprintRequired(this.env);
+      let blueprint = draft;
+
+      if (vertexRequired) {
+        const vertexContext = createLaunchBlueprintVertexContext(
+          context.order,
+          context.verdict,
+          result,
+          draft
+        );
+
+        const evidence = await step.do(
+          'vertex stage 1 evidence normalization',
+          { retries: { limit: 2, delay: '15 seconds', backoff: 'exponential' } },
+          async () => runVertexEvidenceNormalizationStage(this.env, vertexContext)
+        );
+
+        const strategy = await step.do(
+          'vertex stage 2 strategy synthesis',
+          { retries: { limit: 2, delay: '15 seconds', backoff: 'exponential' } },
+          async () => runVertexStrategySynthesisStage(this.env, vertexContext, evidence.data)
+        );
+
+        const assets = await step.do(
+          'vertex stage 3 asset generation',
+          { retries: { limit: 2, delay: '20 seconds', backoff: 'exponential' } },
+          async () => runVertexAssetGenerationStage(this.env, vertexContext, strategy.data)
+        );
+
+        const candidate = applyVertexPipelineDraft(
+          vertexContext,
+          evidence.data,
+          strategy.data,
+          assets.data
+        );
+
+        const redTeam = await step.do(
+          'vertex stage 4 independent red-team review',
+          { retries: { limit: 2, delay: '15 seconds', backoff: 'exponential' } },
+          async () => runVertexRedTeamReviewStage(this.env, vertexContext, candidate)
+        );
+
+        blueprint = await step.do('stage 5 validate canonical blueprint schema and receipts', async () =>
+          finalizeLaunchBlueprintVertexPipeline(
+            vertexContext,
+            evidence,
+            strategy,
+            assets,
+            redTeam
+          )
+        );
+      } else {
+        blueprint = await step.do('record deterministic Vertex opt-out', async () =>
+          markVertexPipelineSkipped(
+            draft,
+            'VERTEX_BLUEPRINT_REQUIRED=false; deterministic v2.1 generation was explicitly selected for this environment.'
+          )
+        );
+      }
+
       const order = await step.do(
         'persist canonical blueprint v2.1 artifacts before ready',
         { retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' } },
-        async () => completeLaunchBlueprintOrderV21(this.env, orderId, result)
+        async () => completeLaunchBlueprintOrderV21(this.env, orderId, result, {
+          blueprint,
+          vertexRequired
+        })
       );
       return { orderId, status: order.status };
     } catch (error) {
