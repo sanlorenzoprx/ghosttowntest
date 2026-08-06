@@ -11,8 +11,12 @@ function clean(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function withoutTerminalPunctuation(value: string): string {
+  return clean(value).replace(/[.!?]+$/g, '');
+}
+
 function sentence(value: string): string {
-  const normalized = clean(value).replace(/[.!?]+$/g, '');
+  const normalized = withoutTerminalPunctuation(value);
   return normalized ? `${normalized}.` : '';
 }
 
@@ -59,7 +63,7 @@ export function synchronizeVertexBlueprintSurfaces(
 
   next.positioning.firstTargetCustomer = offer.targetCustomer;
   next.positioning.positioningStatement =
-    `For ${offer.targetCustomer}, ${offer.offerName} is a validation-stage, fixed-scope offer that ${clean(offer.oneSentencePromise).replace(/[.!?]+$/g, '')}.`;
+    `For ${offer.targetCustomer}, ${offer.offerName} is a validation-stage, fixed-scope offer that ${withoutTerminalPunctuation(offer.oneSentencePromise)}.`;
   next.positioning.differentiator =
     `The first version is intentionally manual, evidence-led, and bounded by written scope, ${offer.initialTestPrice} test pricing, and explicit stop criteria.`;
 
@@ -82,7 +86,7 @@ export function synchronizeVertexBlueprintSurfaces(
       },
       {
         step: '3. Receive the first result',
-        description: `Complete the required inputs and receive the first useful result in ${clean(offer.timeToFirstUsefulResult).replace(/[.!?]+$/g, '').toLowerCase()}.`
+        description: `Complete the required inputs and receive the first useful result in ${withoutTerminalPunctuation(offer.timeToFirstUsefulResult).toLowerCase()}.`
       },
       {
         step: '4. Review the evidence',
@@ -95,7 +99,7 @@ export function synchronizeVertexBlueprintSurfaces(
     faq: [
       {
         question: 'Who is this for?',
-        answer: `The first test is for ${offer.targetCustomer} who can describe a recent instance of ${clean(offer.painfulProblem).replace(/[.!?]+$/g, '')}.`
+        answer: `The first test is for ${offer.targetCustomer} who can describe a recent instance of ${withoutTerminalPunctuation(offer.painfulProblem)}.`
       },
       {
         question: 'What exactly do I receive?',
@@ -111,7 +115,7 @@ export function synchronizeVertexBlueprintSurfaces(
       },
       {
         question: 'What is not included?',
-        answer: `${offer.exclusions.join('; ')}.`
+        answer: `${offer.exclusions.map(withoutTerminalPunctuation).join('; ')}.`
       },
       {
         question: 'What happens if a listed deliverable is missing?',
