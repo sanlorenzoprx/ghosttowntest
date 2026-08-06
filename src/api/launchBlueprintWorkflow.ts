@@ -2,12 +2,12 @@ import { WorkflowEntrypoint, WorkflowStep } from 'cloudflare:workers';
 import type { WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from './env';
 import {
-  completeLaunchBlueprintOrder,
   failLaunchBlueprintOrder,
   loadLaunchBlueprintWorkflowContext,
   markLaunchBlueprintGenerating,
   type LaunchBlueprintWorkflowParams
 } from './blueprintFulfillment';
+import { completeLaunchBlueprintOrderV21 } from './blueprintFulfillmentV21';
 import {
   finalizeCustomerAccessResearch,
   planCustomerAccessResearch,
@@ -52,9 +52,9 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
 
       await step.do('mark blueprint generating', async () => markLaunchBlueprintGenerating(this.env, orderId));
       const order = await step.do(
-        'generate PDF and persist canonical blueprint',
+        'generate PDF and persist canonical blueprint v2.1',
         { retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' } },
-        async () => completeLaunchBlueprintOrder(this.env, orderId, result)
+        async () => completeLaunchBlueprintOrderV21(this.env, orderId, result)
       );
       return { orderId, status: order.status };
     } catch (error) {
