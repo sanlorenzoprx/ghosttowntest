@@ -27,6 +27,10 @@ import {
   runVertexRedTeamReviewStage,
   runVertexStrategySynthesisStage
 } from './launchBlueprintVertexPipeline';
+import {
+  assertVertexEvidenceClassification,
+  synchronizeVertexBlueprintSurfaces
+} from './launchBlueprintVertexGuards';
 import { vertexBlueprintRequired } from './vertexStructuredGeneration';
 
 function batchSize(value: string | undefined): number {
@@ -94,6 +98,10 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
           async () => runVertexEvidenceNormalizationStage(this.env, vertexContext)
         );
 
+        await step.do('validate vertex evidence truth labels', async () =>
+          assertVertexEvidenceClassification(vertexContext, evidence.data)
+        );
+
         const strategy = await step.do(
           'vertex stage 2 strategy synthesis',
           { retries: { limit: 2, delay: '15 seconds', backoff: 'exponential' } },
@@ -106,11 +114,13 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
           async () => runVertexAssetGenerationStage(this.env, vertexContext, strategy.data)
         );
 
-        const candidate = applyVertexPipelineDraft(
-          vertexContext,
-          evidence.data,
-          strategy.data,
-          assets.data
+        const candidate = synchronizeVertexBlueprintSurfaces(
+          applyVertexPipelineDraft(
+            vertexContext,
+            evidence.data,
+            strategy.data,
+            assets.data
+          )
         );
 
         const redTeam = await step.do(
@@ -120,12 +130,14 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         );
 
         blueprint = await step.do('stage 5 validate canonical blueprint schema and receipts', async () =>
-          finalizeLaunchBlueprintVertexPipeline(
-            vertexContext,
-            evidence,
-            strategy,
-            assets,
-            redTeam
+          synchronizeVertexBlueprintSurfaces(
+            finalizeLaunchBlueprintVertexPipeline(
+              vertexContext,
+              evidence,
+              strategy,
+              assets,
+              redTeam
+            )
           )
         );
       } else {
