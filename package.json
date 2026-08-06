@@ -6,10 +6,15 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "wrangler dev --env development --local",
+    "verify:blueprint": "node scripts/verify-blueprint-source.mjs",
+    "pretype-check": "npm run verify:blueprint",
+    "type-check": "tsc --noEmit",
+    "pretest": "npm run verify:blueprint",
+    "test": "vitest run",
+    "prebuild": "npm run verify:blueprint",
     "build": "vite build",
     "preview": "vite preview",
-    "type-check": "tsc --noEmit",
-    "test": "vitest run",
+    "preworker:check": "npm run verify:blueprint",
     "worker:check": "wrangler deploy --dry-run --env development",
     "check": "npm run type-check && npm test && npm run build && npm run worker:check"
   },
