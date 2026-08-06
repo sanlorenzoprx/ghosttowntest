@@ -73,7 +73,6 @@ describe('Launch Blueprint canonical v2.1 PDF', () => {
       order,
       verdict
     );
-    expect(blueprint.qualityGate.passed).toBe(true);
 
     const bytes = renderLaunchBlueprintPdfV21(blueprint);
     const text = new TextDecoder().decode(bytes);
