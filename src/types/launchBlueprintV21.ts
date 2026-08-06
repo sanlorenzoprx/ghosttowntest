@@ -175,8 +175,42 @@ export interface CanonicalContractReceipt {
   verifiedAt: string;
 }
 
+export interface BlueprintVertexStageReceipt {
+  stage: 'evidence_normalization' | 'strategy_synthesis' | 'asset_generation' | 'red_team_review';
+  model: string;
+  modelVersion?: string;
+  responseId?: string;
+  promptHash: string;
+  responseHash: string;
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  totalTokenCount?: number;
+  completedAt: string;
+}
+
+export interface BlueprintVertexRedTeamFinding {
+  code: string;
+  severity: 'warning' | 'blocking';
+  field: string;
+  message: string;
+}
+
+export interface BlueprintVertexPipelineReceipt {
+  pipelineVersion: 'vertex-blueprint-staged-v1';
+  required: boolean;
+  status: 'complete' | 'skipped';
+  stages: BlueprintVertexStageReceipt[];
+  redTeam: {
+    passed: boolean;
+    findings: BlueprintVertexRedTeamFinding[];
+  };
+  completedAt: string;
+  skippedReason?: string;
+}
+
 export type BlueprintGenerationReceiptV21 = BlueprintGenerationReceipt & {
   canonicalContract: CanonicalContractReceipt;
+  vertexPipeline?: BlueprintVertexPipelineReceipt;
 };
 
 export type GhostTownLaunchBlueprintV21 = Omit<
