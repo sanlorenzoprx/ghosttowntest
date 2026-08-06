@@ -50,7 +50,7 @@ function fixtureVerdict(): EvaluationResult {
 function fixtureOrder(): PaidTestOrder {
   return {
     orderId: 'gtt_fixture_12345678',
-    email: 'owner@example.com',
+    email: 'founder@familygamenight.co',
     verdictId: 'fixture-verdict',
     status: 'generating',
     artifactType: 'launch_blueprint_v2',
