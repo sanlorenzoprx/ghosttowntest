@@ -2,12 +2,14 @@ import { WorkflowEntrypoint, WorkflowStep } from 'cloudflare:workers';
 import type { WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from './env';
 import {
-  failLaunchBlueprintOrder,
   loadLaunchBlueprintWorkflowContext,
-  markLaunchBlueprintGenerating,
   type LaunchBlueprintWorkflowParams
 } from './blueprintFulfillment';
-import { completeLaunchBlueprintOrderV21 } from './blueprintFulfillmentV21';
+import {
+  completeLaunchBlueprintOrderV21,
+  failLaunchBlueprintOrderV21,
+  markLaunchBlueprintGeneratingV21
+} from './blueprintFulfillmentV21';
 import {
   finalizeCustomerAccessResearch,
   planCustomerAccessResearch,
@@ -50,15 +52,17 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         async () => finalizeCustomerAccessResearch(this.env, context.order, context.verdict, plan, completedBatches)
       );
 
-      await step.do('mark blueprint generating', async () => markLaunchBlueprintGenerating(this.env, orderId));
+      await step.do('mark canonical blueprint v2.1 generating', async () =>
+        markLaunchBlueprintGeneratingV21(this.env, orderId)
+      );
       const order = await step.do(
-        'generate PDF and persist canonical blueprint v2.1',
+        'persist canonical blueprint v2.1 artifacts before ready',
         { retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' } },
         async () => completeLaunchBlueprintOrderV21(this.env, orderId, result)
       );
       return { orderId, status: order.status };
     } catch (error) {
-      await failLaunchBlueprintOrder(this.env, orderId, error);
+      await failLaunchBlueprintOrderV21(this.env, orderId, error);
       throw error;
     }
   }
