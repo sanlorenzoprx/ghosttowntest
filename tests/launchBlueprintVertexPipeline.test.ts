@@ -350,7 +350,7 @@ describe('staged Vertex Launch Blueprint pipeline', () => {
       'asset_generation',
       'red_team_review'
     ]);
-    expect(finalized.qualityGate.warnings).toContain(expect.stringContaining('WARN_PRICE_TEST'));
+    expect(finalized.qualityGate.warnings.some(warning => warning.includes('WARN_PRICE_TEST'))).toBe(true);
   });
 
   it('rejects a strategy that references an invented channel ID', () => {
