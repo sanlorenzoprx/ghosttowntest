@@ -130,6 +130,12 @@ function pemBytes(pem: string): Uint8Array {
   }
 }
 
+function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
 async function signedAssertion(config: VertexServiceAccountConfig): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header: Record<string, string> = { alg: 'RS256', typ: 'JWT' };
@@ -144,7 +150,7 @@ async function signedAssertion(config: VertexServiceAccountConfig): Promise<stri
   const unsigned = `${base64UrlJson(header)}.${base64UrlJson(claims)}`;
   const key = await crypto.subtle.importKey(
     'pkcs8',
-    pemBytes(config.privateKey),
+    ownedArrayBuffer(pemBytes(config.privateKey)),
     { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
     false,
     ['sign']
