@@ -203,6 +203,13 @@ Implemented on `feat/launch-blueprint-spa` and to be preserved:
 12. The production frontend/API domain pair is explicitly selected and recorded.
 13. The acceptance receipt is complete and reviewed.
 
-The implementation handoff remains:
+## Current execution documents
 
-`docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CURSOR_CODEX_IMPLEMENTATION_HANDOFF.md`
+Use only these current documents for implementation and acceptance work:
+
+- Canonical product and implementation contract: `docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md`
+- Environment acceptance handoff: `docs/GHOSTTOWN_ENVIRONMENT_ACCEPTANCE_CURSOR_CODEX_HANDOFF.md`
+- Change record: `docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_CHANGE_RECORD.md`
+- Evidence chain: `docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1-evidence-chain.json`
+
+Older Cursor/Codex implementation handoff files are obsolete and must not be restored or referenced.
