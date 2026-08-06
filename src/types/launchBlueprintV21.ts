@@ -2,9 +2,9 @@ import type {
   BlueprintDailyAction,
   BlueprintGenerationReceipt,
   BlueprintQualityGate,
-  GhostTownLaunchBlueprint,
-  TruthLabel
+  GhostTownLaunchBlueprint
 } from './launchBlueprint';
+import type { TruthLabel } from './paidTest';
 
 export type BusinessModelExecutionLane =
   | 'service_or_consulting'
