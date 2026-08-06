@@ -6,7 +6,7 @@ import {
   loadLaunchBlueprintWorkflowContext
 } from './blueprintFulfillment';
 import { loadBlueprintRecord, saveBlueprintRecord } from './blueprintStore';
-import { renderLaunchBlueprintPdf } from './blueprintPdf';
+import { renderLaunchBlueprintPdfV21 } from './blueprintPdfV21';
 import { upgradeGhostTownLaunchBlueprintToV21 } from './launchBlueprintGeneratorV21';
 
 /**
@@ -35,7 +35,7 @@ export async function completeLaunchBlueprintOrderV21(
     throw new Error(`Launch Blueprint v2.1 quality gate failed: ${blueprint.qualityGate.failures.join(' | ')}`);
   }
 
-  const pdf = renderLaunchBlueprintPdf(blueprint);
+  const pdf = renderLaunchBlueprintPdfV21(blueprint);
   await saveBlueprintRecord(env, blueprint, stored.researchReceipt, pdf);
   return completedOrder;
 }
