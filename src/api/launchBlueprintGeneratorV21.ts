@@ -1,6 +1,6 @@
 import type { EvaluationResult } from '../types/lit';
-import type { PaidTestOrder, TruthLabel } from '../types/paidTest';
 import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
+import type { PaidTestOrder, TruthLabel } from '../types/paidTest';
 import type {
   AdaptiveCheckpoint,
   BlueprintDailyActionV21,
@@ -29,7 +29,7 @@ function clean(value: string | undefined): string {
   return value?.replace(/\s+/g, ' ').trim() || '';
 }
 
-function statement(
+function evidence(
   value: string,
   truthLabel: TruthLabel,
   source: BlueprintEvidenceStatement['source']
@@ -37,11 +37,11 @@ function statement(
   return { statement: value, truthLabel, source };
 }
 
-function customerInput(value: string | undefined, missingMessage: string): BlueprintEvidenceStatement {
+function supplied(value: string | undefined, missing: string): BlueprintEvidenceStatement {
   const normalized = clean(value);
   return normalized
-    ? statement(normalized, 'Verified', 'customer_input')
-    : statement(missingMessage, 'Test', 'missing_input');
+    ? evidence(normalized, 'Verified', 'customer_input')
+    : evidence(missing, 'Test', 'missing_input');
 }
 
 function classifyLane(order: PaidTestOrder, verdict: EvaluationResult): BusinessModelExecutionLane {
@@ -64,53 +64,50 @@ function classifyLane(order: PaidTestOrder, verdict: EvaluationResult): Business
   return 'service_or_consulting';
 }
 
-function laneDefinition(lane: BusinessModelExecutionLane): Omit<BusinessModelLane, 'lane'> {
-  const definitions: Record<BusinessModelExecutionLane, Omit<BusinessModelLane, 'lane'>> = {
-    service_or_consulting: {
-      rationale: 'The first useful result can be delivered manually through a bounded professional engagement.',
-      firstMeaningfulTest: 'Ask a qualified buyer to purchase a paid diagnostic, fixed-scope pilot, or manually delivered engagement.',
-      earliestCommercialAskDay: 8,
-      intentionallyDeferred: ['Broad service catalog', 'Long-term retainer', 'Automation before repeatable delivery', 'Hiring before paid demand']
-    },
-    saas: {
-      rationale: 'The workflow can be validated before a full software product exists.',
-      firstMeaningfulTest: 'Offer a concierge workflow, working demonstration, paid design-partner pilot, or deposit tied to one narrow process.',
-      earliestCommercialAskDay: 10,
-      intentionallyDeferred: ['Full multi-tenant product', 'Large integration surface', 'Self-service onboarding', 'Feature expansion without workflow evidence']
-    },
-    digital_product: {
-      rationale: 'A complete early edition can be sold and used before a larger content catalog is produced.',
-      firstMeaningfulTest: 'Request a presale, paid workshop registration, founding-member purchase, or preorder for a complete initial resource.',
-      earliestCommercialAskDay: 8,
-      intentionallyDeferred: ['Large course library', 'Membership platform', 'Affiliate program', 'Content expansion before purchase evidence']
-    },
-    physical_product: {
-      rationale: 'A small-batch or manually assembled version can test purchase and use before inventory is scaled.',
-      firstMeaningfulTest: 'Request a preorder, deposit, prototype evaluation, or retailer conversation with written delivery boundaries.',
-      earliestCommercialAskDay: 12,
-      intentionallyDeferred: ['Large production run', 'Broad inventory', 'Retail expansion', 'Unsupported safety or performance claims']
-    },
-    marketplace: {
-      rationale: 'The transaction can be tested by manually matching one narrow buyer and provider segment.',
-      firstMeaningfulTest: 'Complete one manually qualified match and request a concierge fee, transaction commitment, or explicit access from both sides.',
-      earliestCommercialAskDay: 10,
-      intentionallyDeferred: ['Self-service marketplace', 'Mass provider acquisition', 'Automated matching', 'Multiple market sides at once']
-    },
-    local_business: {
-      rationale: 'Demand can be tested through a real appointment, estimate, reservation, deposit, or paid service.',
-      firstMeaningfulTest: 'Ask a qualified local buyer for an appointment, estimate approval, reservation, deposit, or fixed-scope paid service.',
-      earliestCommercialAskDay: 7,
-      intentionallyDeferred: ['New location', 'Large equipment purchase', 'Staff expansion', 'Broad service area before local conversion evidence']
-    },
-    creator_or_media: {
-      rationale: 'Audience quality is better tested through a qualified subscriber action, sponsor conversation, or paid product than through views alone.',
-      firstMeaningfulTest: 'Request a qualified subscriber action, sponsor conversation, paid workshop, or purchase connected to one audience problem.',
-      earliestCommercialAskDay: 10,
-      intentionallyDeferred: ['High-volume publishing', 'Multiple channels', 'Large production spend', 'Treating views or likes as demand']
-    }
-  };
-  return definitions[lane];
-}
+const LANE_CONFIG: Record<BusinessModelExecutionLane, Omit<BusinessModelLane, 'lane'>> = {
+  service_or_consulting: {
+    rationale: 'The first useful result can be delivered manually through a bounded professional engagement.',
+    firstMeaningfulTest: 'Ask a qualified buyer to purchase a paid diagnostic, fixed-scope pilot, or manually delivered engagement.',
+    earliestCommercialAskDay: 8,
+    intentionallyDeferred: ['Broad service catalog', 'Long-term retainer', 'Automation before repeatable delivery', 'Hiring before paid demand']
+  },
+  saas: {
+    rationale: 'The workflow can be validated before a full software product exists.',
+    firstMeaningfulTest: 'Offer a concierge workflow, working demonstration, paid design-partner pilot, or deposit tied to one narrow process.',
+    earliestCommercialAskDay: 10,
+    intentionallyDeferred: ['Full multi-tenant product', 'Large integration surface', 'Self-service onboarding', 'Feature expansion without workflow evidence']
+  },
+  digital_product: {
+    rationale: 'A complete early edition can be sold and used before a larger content catalog is produced.',
+    firstMeaningfulTest: 'Request a presale, paid workshop registration, founding-member purchase, or preorder for a complete initial resource.',
+    earliestCommercialAskDay: 8,
+    intentionallyDeferred: ['Large course library', 'Membership platform', 'Affiliate program', 'Content expansion before purchase evidence']
+  },
+  physical_product: {
+    rationale: 'A small-batch or manually assembled version can test purchase and use before inventory is scaled.',
+    firstMeaningfulTest: 'Request a preorder, deposit, prototype evaluation, or retailer conversation with written delivery boundaries.',
+    earliestCommercialAskDay: 12,
+    intentionallyDeferred: ['Large production run', 'Broad inventory', 'Retail expansion', 'Unsupported safety or performance claims']
+  },
+  marketplace: {
+    rationale: 'The transaction can be tested by manually matching one narrow buyer and provider segment.',
+    firstMeaningfulTest: 'Complete one manually qualified match and request a concierge fee, transaction commitment, or explicit access from both sides.',
+    earliestCommercialAskDay: 10,
+    intentionallyDeferred: ['Self-service marketplace', 'Mass provider acquisition', 'Automated matching', 'Multiple market sides at once']
+  },
+  local_business: {
+    rationale: 'Demand can be tested through a real appointment, estimate, reservation, deposit, or paid service.',
+    firstMeaningfulTest: 'Ask a qualified local buyer for an appointment, estimate approval, reservation, deposit, or fixed-scope paid service.',
+    earliestCommercialAskDay: 7,
+    intentionallyDeferred: ['New location', 'Large equipment purchase', 'Staff expansion', 'Broad service area before local conversion evidence']
+  },
+  creator_or_media: {
+    rationale: 'Audience quality is better tested through a qualified subscriber action, sponsor conversation, or paid product than through views alone.',
+    firstMeaningfulTest: 'Request a qualified subscriber action, sponsor conversation, paid workshop, or purchase connected to one audience problem.',
+    earliestCommercialAskDay: 10,
+    intentionallyDeferred: ['High-volume publishing', 'Multiple channels', 'Large production spend', 'Treating views or likes as demand']
+  }
+};
 
 function startingStateAudit(
   order: PaidTestOrder,
@@ -119,103 +116,73 @@ function startingStateAudit(
 ): StartingStateAudit {
   const notes = clean(order.intake.customerNotes);
   const landingPage = clean(order.intake.landingPageLink);
-  const offerHypothesis = clean(order.intake.offerHypothesis);
   const price = clean(order.intake.expectedPrice);
-  const geography = clean(order.intake.geography);
-  const researchSignals = order.intake.researchSignals;
-  const audienceSignals = [
-    ...(researchSignals?.audience || []).map(item => item.name),
-    ...(researchSignals?.ecosystem || []).map(item => item.name)
-  ].filter(Boolean);
+  const signals = order.intake.researchSignals;
+  const audienceSignals = [signals?.audience?.value, signals?.ecosystem?.value]
+    .filter((value): value is string => Boolean(value));
+  const targetBuyer = clean(order.intake.targetBuyer) || clean(verdict.idea.targetUser) || 'not supplied';
+  const problem = clean(order.intake.problem) || clean(verdict.idea.painfulProblem) || 'not supplied';
+  const workaround = clean(order.intake.currentWorkaround) || clean(verdict.idea.currentAlternative) || 'not supplied';
 
-  const verifiedFacts: BlueprintEvidenceStatement[] = [
-    statement(`Target buyer supplied by the founder: ${clean(order.intake.targetBuyer) || clean(verdict.idea.targetUser) || 'not supplied'}.`, 'Verified', 'customer_input'),
-    statement(`Problem supplied by the founder: ${clean(order.intake.problem) || clean(verdict.idea.painfulProblem) || 'not supplied'}.`, 'Verified', 'customer_input'),
-    statement(`Current workaround supplied by the founder: ${clean(order.intake.currentWorkaround) || clean(verdict.idea.currentAlternative) || 'not supplied'}.`, 'Verified', 'customer_input')
+  const verifiedFacts = [
+    evidence(`Target buyer supplied by the founder: ${targetBuyer}.`, 'Verified', 'customer_input'),
+    evidence(`Problem supplied by the founder: ${problem}.`, 'Verified', 'customer_input'),
+    evidence(`Current workaround supplied by the founder: ${workaround}.`, 'Verified', 'customer_input')
   ];
-  if (price) verifiedFacts.push(statement(`Founder-entered price hypothesis: ${price}.`, 'Verified', 'customer_input'));
-  if (landingPage) verifiedFacts.push(statement(`Founder supplied an existing landing page: ${landingPage}.`, 'Verified', 'customer_input'));
+  if (price) verifiedFacts.push(evidence(`Founder-entered price hypothesis: ${price}.`, 'Verified', 'customer_input'));
+  if (landingPage) verifiedFacts.push(evidence(`Founder supplied an existing landing page: ${landingPage}.`, 'Verified', 'customer_input'));
 
   return {
-    currentStage: customerInput(order.intake.currentStage, 'Current business stage was not supplied; confirm it before increasing investment.'),
-    existingOffer: customerInput(order.intake.offerHypothesis, 'No existing offer was supplied; the generated founding-customer offer remains a test.'),
+    currentStage: supplied(order.intake.currentStage, 'Current business stage was not supplied; confirm it before increasing investment.'),
+    existingOffer: supplied(order.intake.offerHypothesis, 'No existing offer was supplied; the generated founding-customer offer remains a test.'),
     existingLandingPage: landingPage
-      ? statement(landingPage, 'Verified', 'customer_input')
-      : statement('No existing landing page was supplied.', 'Verified', 'customer_input'),
+      ? evidence(landingPage, 'Verified', 'customer_input')
+      : evidence('No existing landing page was supplied.', 'Verified', 'customer_input'),
     previousOutreach: notes
-      ? statement(`Customer notes supplied for review: ${notes}`, 'Verified', 'customer_input')
-      : statement('Previous outreach attempts and results were not supplied.', 'Test', 'missing_input'),
+      ? evidence(`Customer notes supplied for review: ${notes}`, 'Verified', 'customer_input')
+      : evidence('Previous outreach attempts and results were not supplied.', 'Test', 'missing_input'),
     existingCustomersAudienceOrPartners: audienceSignals.length
-      ? statement(`Founder identified these audience or ecosystem starting points: ${audienceSignals.join(', ')}.`, 'Verified', 'customer_input')
-      : statement('Existing customers, audience, contacts, and partners were not supplied.', 'Test', 'missing_input'),
+      ? evidence(`Founder identified these audience or ecosystem starting points: ${audienceSignals.join(', ')}.`, 'Verified', 'customer_input')
+      : evidence('Existing customers, audience, contacts, and partners were not supplied.', 'Test', 'missing_input'),
     existingSkillsAndAssets: [
-      offerHypothesis
-        ? statement(`Existing offer hypothesis: ${offerHypothesis}.`, 'Verified', 'customer_input')
-        : statement('No founder-authored offer asset was supplied.', 'Test', 'missing_input'),
+      supplied(order.intake.offerHypothesis, 'No founder-authored offer asset was supplied.'),
       landingPage
-        ? statement(`Existing landing-page asset: ${landingPage}.`, 'Verified', 'customer_input')
-        : statement('No existing landing-page asset was supplied.', 'Test', 'missing_input'),
+        ? evidence(`Existing landing-page asset: ${landingPage}.`, 'Verified', 'customer_input')
+        : evidence('No existing landing-page asset was supplied.', 'Test', 'missing_input'),
       order.intake.competitorSeeds?.length
-        ? statement(`${order.intake.competitorSeeds.length} confirmed commercial seed domains are available for research.`, 'Verified', 'customer_input')
-        : statement('Confirmed commercial seed domains are not yet available.', 'Test', 'missing_input')
+        ? evidence(`${order.intake.competitorSeeds.length} confirmed commercial seed domains are available for research.`, 'Verified', 'customer_input')
+        : evidence('Confirmed commercial seed domains are not yet available.', 'Test', 'missing_input')
     ],
     founderConstraints: {
-      hoursPerWeek: statement('Founder hours per week were not supplied; use the Blueprint time ceiling until confirmed.', 'Test', 'missing_input'),
-      testBudget: statement('Founder test budget was not supplied; use the Blueprint cash-risk ceiling until confirmed.', 'Test', 'missing_input'),
-      geography: geography
-        ? statement(geography, 'Verified', 'customer_input')
-        : statement('Geographic constraints were not supplied.', 'Test', 'missing_input'),
-      language: statement('Language constraints were not supplied; current customer artifacts are generated in English.', 'Test', 'missing_input'),
-      technicalCapability: statement('Technical capability was not supplied and must not be assumed.', 'Test', 'missing_input')
+      hoursPerWeek: evidence('Founder hours per week were not supplied; use the Blueprint time ceiling until confirmed.', 'Test', 'missing_input'),
+      testBudget: evidence('Founder test budget was not supplied; use the Blueprint cash-risk ceiling until confirmed.', 'Test', 'missing_input'),
+      geography: supplied(order.intake.geography, 'Geographic constraints were not supplied.'),
+      language: evidence('Language constraints were not supplied; current customer artifacts are generated in English.', 'Test', 'missing_input'),
+      technicalCapability: evidence('Technical capability was not supplied and must not be assumed.', 'Test', 'missing_input')
     },
-    manualFulfillmentReadiness: statement(
-      `The ${lane.replaceAll('_', ' ')} lane appears manually testable, but the founder must confirm tools, capacity, permissions, and delivery competence before the first paid ask.`,
+    manualFulfillmentReadiness: evidence(
+      `The ${lane.replace(/_/g, ' ')} lane appears manually testable, but the founder must confirm tools, capacity, permissions, and delivery competence before the first paid ask.`,
       'Inferred',
       'system_inference'
     ),
     priorSignals: notes
-      ? [statement('Customer notes may contain prior market signals; separate exact behavior from interpretation during Day 1.', 'Inferred', 'system_inference')]
+      ? [evidence('Customer notes may contain prior market signals; separate exact behavior from interpretation during Day 1.', 'Inferred', 'system_inference')]
       : [],
     priorNoSignals: notes
-      ? [statement('Customer notes may contain failed attempts; record the exact audience, message, quantity, and response before repeating them.', 'Inferred', 'system_inference')]
+      ? [evidence('Customer notes may contain failed attempts; record the exact audience, message, quantity, and response before repeating them.', 'Inferred', 'system_inference')]
       : [],
     verifiedFacts,
     inferences: [
-      statement(`GhostTown recommends the initial customer: ${clean(order.intake.targetBuyer) || clean(verdict.idea.targetUser)}.`, 'Inferred', 'ghosttown_verdict'),
-      statement(`The recommended execution lane is ${lane.replaceAll('_', ' ')}.`, 'Inferred', 'system_inference'),
-      statement(clean(verdict.deterministicScores.oneSentenceAdvice), 'Inferred', 'ghosttown_verdict')
+      evidence(`GhostTown recommends the initial customer: ${targetBuyer}.`, 'Inferred', 'ghosttown_verdict'),
+      evidence(`The recommended execution lane is ${lane.replace(/_/g, ' ')}.`, 'Inferred', 'system_inference'),
+      evidence(clean(verdict.deterministicScores.oneSentenceAdvice), 'Inferred', 'ghosttown_verdict')
     ].filter(item => item.statement),
     criticalTests: [
-      {
-        assumptionId: 'critical-test-problem',
-        assumption: 'Qualified buyers experienced the problem recently and consider it meaningful.',
-        failureConsequence: 'The customer/problem pair should be narrowed, pivoted, or stopped.',
-        evidenceRequired: 'Recent concrete examples, consequences, and current workarounds from qualified buyers.'
-      },
-      {
-        assumptionId: 'critical-test-access',
-        assumption: 'The first customer can be reached through at least one repeatable public or relationship channel.',
-        failureConsequence: 'The access plan must change before outreach volume increases.',
-        evidenceRequired: 'Qualified replies, interviews, introductions, or direct buyer access from a tracked channel.'
-      },
-      {
-        assumptionId: 'critical-test-offer',
-        assumption: 'The fixed-scope offer is understandable and valuable enough to earn a meaningful commitment.',
-        failureConsequence: 'Revise urgency, trust, scope, proof, or the customer before building more.',
-        evidenceRequired: 'Payment, deposit, accepted pilot scope, access, referral, or another explicit buying action.'
-      },
-      {
-        assumptionId: 'critical-test-price',
-        assumption: 'The initial test price is credible for the buyer and sustainable for delivery.',
-        failureConsequence: 'Separate price objections from fit, trust, timing, and scope before changing price.',
-        evidenceRequired: 'Real purchase behavior and exact objections from qualified buyers.'
-      },
-      {
-        assumptionId: 'critical-test-fulfillment',
-        assumption: 'The founder can deliver the promised first result within the time, cost, quality, and risk boundaries.',
-        failureConsequence: 'Revise delivery before acquiring more customers.',
-        evidenceRequired: 'A completed fulfillment rehearsal or paid pilot with recorded founder hours, direct cost, defects, and buyer outcome.'
-      }
+      { assumptionId: 'critical-test-problem', assumption: 'Qualified buyers experienced the problem recently and consider it meaningful.', failureConsequence: 'Narrow, pivot, or stop the customer/problem pair.', evidenceRequired: 'Recent concrete examples, consequences, and current workarounds from qualified buyers.' },
+      { assumptionId: 'critical-test-access', assumption: 'The first customer can be reached through at least one repeatable channel.', failureConsequence: 'Change the access plan before increasing outreach volume.', evidenceRequired: 'Qualified replies, interviews, introductions, or direct buyer access from a tracked channel.' },
+      { assumptionId: 'critical-test-offer', assumption: 'The fixed-scope offer can earn a meaningful commitment.', failureConsequence: 'Revise customer, urgency, trust, scope, or proof before building more.', evidenceRequired: 'Payment, deposit, accepted pilot scope, access, referral, or another explicit buying action.' },
+      { assumptionId: 'critical-test-price', assumption: 'The test price is credible for the buyer and sustainable for delivery.', failureConsequence: 'Separate price objections from fit, trust, timing, and scope before changing price.', evidenceRequired: 'Real purchase behavior and exact objections from qualified buyers.' },
+      { assumptionId: 'critical-test-fulfillment', assumption: 'The founder can deliver within the time, cost, quality, and risk boundaries.', failureConsequence: 'Revise delivery before acquiring more customers.', evidenceRequired: 'A fulfillment rehearsal or paid pilot with founder hours, direct cost, defects, and buyer outcome.' }
     ]
   };
 }
@@ -231,50 +198,34 @@ function evidenceHierarchy(): EvidenceHierarchy {
 }
 
 function firstRevenuePath(base: GhostTownLaunchBlueprint, lane: BusinessModelLane): FirstRevenuePath {
-  const firstChannel = base.customerAccessPack.channels[0];
-  const offerScript = base.customerAccessPack.outreachScripts.find(script => script.relationship === 'offer_test_invitation');
+  const channel = base.customerAccessPack.channels[0];
+  const script = base.customerAccessPack.outreachScripts.find(item => item.relationship === 'offer_test_invitation');
   return {
     firstOfferFormat: lane.firstMeaningfulTest,
     firstBuyer: base.executiveDecision.recommendedInitialCustomer,
-    firstChannel: firstChannel ? `${firstChannel.community} via ${firstChannel.platform}` : 'Highest-priority verified customer-access channel',
-    firstAsk: offerScript?.message || `Review the written scope for ${base.offer.offerName} and decide whether the ${base.offer.initialTestPrice} founding-customer pilot fits.`,
+    firstChannel: channel ? `${channel.community} via ${channel.platform}` : 'Highest-priority verified customer-access channel',
+    firstAsk: script?.message || `Review the written scope for ${base.offer.offerName} and decide whether the ${base.offer.initialTestPrice} founding-customer pilot fits.`,
     firstPrice: base.offer.initialTestPrice,
-    requiredProof: ['Written fixed scope', 'Explicit deliverables and exclusions', 'Transparent validation-stage proof boundary', 'First-result timeline', 'Payment or commitment method'],
-    commitmentMethod: 'Use a real payment link, deposit request, accepted written scope, booked paid appointment, preorder, or another lane-appropriate commitment. Do not count compliments.',
+    requiredProof: ['Written fixed scope', 'Explicit deliverables and exclusions', 'Validation-stage proof boundary', 'First-result timeline', 'Payment or commitment method'],
+    commitmentMethod: 'Use a real payment link, deposit, accepted written scope, booked paid appointment, preorder, or another lane-appropriate commitment. Do not count compliments.',
     targetDay: lane.earliestCommercialAskDay,
     minimumQualifiedAsks: 5,
-    followUpSequence: [
-      'Send the prepared first ask to a qualified buyer.',
-      'Follow up once after at least three business days when appropriate.',
-      'Record the exact objection or commitment.',
-      'Stop repeated contact after a clear rejection or the stated no-response limit.'
-    ],
+    followUpSequence: ['Send the first ask to a qualified buyer.', 'Follow up once after at least three business days when appropriate.', 'Record the exact objection or commitment.', 'Stop after a clear rejection or the stated no-response limit.'],
     successThreshold: 'At least one qualified buyer makes a strong commitment, or multiple qualified buyers provide specific buying-process evidence that identifies one correctable constraint.'
   };
 }
 
-function manualFulfillmentPlan(base: GhostTownLaunchBlueprint, lane: BusinessModelExecutionLane): ManualFulfillmentPlan {
+function fulfillmentPlan(base: GhostTownLaunchBlueprint, lane: BusinessModelExecutionLane): ManualFulfillmentPlan {
   const capacity = lane === 'physical_product' || lane === 'local_business' ? 1 : lane === 'digital_product' ? 3 : 2;
   return {
-    onboardingSteps: [
-      'Confirm buyer qualification and the recent problem.',
-      'Review the written scope, exclusions, price, timeline, and buyer responsibilities.',
-      'Collect only the inputs required for the first useful result.',
-      'Confirm payment or the lane-appropriate commitment before unbounded work begins.'
-    ],
+    onboardingSteps: ['Confirm buyer qualification and the recent problem.', 'Review scope, exclusions, price, timeline, and responsibilities.', 'Collect only required inputs.', 'Confirm payment or commitment before unbounded work.'],
     customerInputs: base.offer.buyerResponsibilities,
     founderWork: base.offer.deliverables.map(item => `${item.name}: ${item.description}`),
     expectedDeliveryTime: base.offer.timeToFirstUsefulResult,
-    toolsRequired: ['Email and calendar', 'Payment or commitment method', 'Written scope and checklist', 'Evidence and time tracker', 'Only the delivery tools required for the fixed-scope pilot'],
-    customerCommunicationPoints: ['Fit confirmation', 'Scope and payment confirmation', 'Delivery start', 'First useful result', 'Evidence review and next-decision conversation'],
-    successfulDeliveryDefinition: `Every promised deliverable is complete, the buyer can identify the first useful result, exclusions were respected, and the founder recorded time, direct cost, defects, and buyer feedback.`,
-    qualityChecklist: [
-      'Buyer and problem match the qualification criteria.',
-      'Scope, price, timeline, responsibilities, and exclusions are written.',
-      'No unsupported guarantee or fabricated proof appears.',
-      'The first useful result is delivered and documented.',
-      'Founder hours and variable costs are recorded before deciding to repeat.'
-    ],
+    toolsRequired: ['Email and calendar', 'Payment or commitment method', 'Written scope and checklist', 'Evidence and time tracker', 'Only tools required for the fixed-scope pilot'],
+    customerCommunicationPoints: ['Fit confirmation', 'Scope and payment confirmation', 'Delivery start', 'First useful result', 'Evidence review and next decision'],
+    successfulDeliveryDefinition: 'Every promised deliverable is complete, exclusions were respected, and time, direct cost, defects, and buyer feedback were recorded.',
+    qualityChecklist: ['Buyer and problem match the qualification criteria.', 'Scope, price, timeline, responsibilities, and exclusions are written.', 'No unsupported guarantee or fabricated proof appears.', 'The first useful result is documented.', 'Founder hours and variable costs are recorded before deciding to repeat.'],
     capacityPerWeek: capacity,
     estimatedVariableCost: 'Record the real direct cost before the first ask. Do not use a guessed margin as evidence.',
     estimatedFounderHours: lane === 'physical_product' || lane === 'local_business' ? 'Initial guardrail: no more than 8 founder hours per pilot.' : 'Initial guardrail: no more than 6 founder hours per pilot.',
@@ -283,101 +234,52 @@ function manualFulfillmentPlan(base: GhostTownLaunchBlueprint, lane: BusinessMod
   };
 }
 
-function launchCard(base: GhostTownLaunchBlueprint, firstRevenue: FirstRevenuePath): LaunchCard48Hour {
-  const approaches = base.customerAccessPack.channels.slice(0, 3).map(channel => ({
-    name: channel.community,
-    channelId: channel.channelId,
-    publicUrl: channel.publicUrl,
-    firstAction: channel.firstAction
-  }));
-  return {
-    firstCustomer: base.executiveDecision.recommendedInitialCustomer,
-    firstOffer: `${base.offer.offerName} at ${base.offer.initialTestPrice}`,
-    firstThreeApproaches: approaches,
-    exactFirstMessage: firstRevenue.firstAsk,
-    firstCommitmentRequest: firstRevenue.commitmentMethod,
-    launchSitePreviewReady: Boolean(base.launchSite.offer.headline && base.launchSite.leadCapture.destination),
-    completionDeadlineHours: 48
-  };
-}
-
-function adaptiveCheckpoints(): AdaptiveCheckpoint[] {
+function checkpoints(): AdaptiveCheckpoint[] {
   return [
-    {
-      checkpointId: 'day-7',
-      dayNumber: 7,
-      title: 'Customer, problem, and access review',
-      questions: ['Is the customer definition coherent?', 'Can qualified people be reached?', 'Which assumptions remain unsupported?', 'Should the offer or customer change before more outreach?'],
-      evidenceRequired: ['Completed first actions', 'Qualified target list', 'Exact replies or non-response counts', 'Updated critical-test register'],
-      branches: [
-        { condition: 'Ten qualified messages produce no replies.', action: 'Stop increasing volume. Review customer fit, channel relevance, and the opening message.' },
-        { condition: 'Qualified people cannot be identified or reached.', action: 'Revise the access path or customer segment before continuing.' }
-      ]
-    },
-    {
-      checkpointId: 'day-14',
-      dayNumber: 14,
-      title: 'Conversation and problem-evidence review',
-      questions: ['Are qualified conversations occurring?', 'Is the problem recent and meaningful?', 'Which alternatives recur?', 'Has a transparent commercial ask been made?'],
-      evidenceRequired: ['Interview notes', 'Exact customer language', 'Current alternatives', 'Commercial asks and responses'],
-      branches: [
-        { condition: 'Prospects reply but refuse calls.', action: 'Reduce the requested commitment and test a smaller next step.' },
-        { condition: 'Conversations occur but the problem is not recent or costly.', action: 'Narrow or pivot the problem before revising copy.' }
-      ]
-    },
-    {
-      checkpointId: 'day-21',
-      dayNumber: 21,
-      title: 'Commitment and fulfillment review',
-      questions: ['Is there meaningful commitment?', 'Which channel produces the strongest signal?', 'What is the main conversion constraint?', 'Is fulfillment practical and sustainable?'],
-      evidenceRequired: ['Payments or commitments', 'Objection categories', 'Channel comparison', 'Founder hours and direct cost'],
-      branches: [
-        { condition: 'Calls occur but nobody accepts the offer.', action: 'Examine urgency, trust, scope, price, and proof; change only the strongest supported constraint.' },
-        { condition: 'Customers accept but fulfillment is unprofitable or unsafe.', action: 'Revise delivery before acquiring more customers.' }
-      ]
-    },
-    {
-      checkpointId: 'day-30',
-      dayNumber: 30,
-      title: 'Evidence-led business decision',
-      questions: ['What is the strongest behavioral evidence?', 'Which critical assumption failed?', 'Is the acquisition path repeatable?', 'Is delivery viable within the risk boundaries?'],
-      evidenceRequired: ['Evidence ledger', 'Commitment and revenue record', 'Fulfillment economics', 'Decision memo with missing evidence'],
-      branches: [
-        { condition: 'Strong demand and viable fulfillment exist.', action: 'Continue with one bounded next test before broad automation.' },
-        { condition: 'One correctable constraint blocks otherwise credible evidence.', action: 'Continue with revision and test one variable.' },
-        { condition: 'Customer, problem, or offer evidence points elsewhere.', action: 'Issue an explicit pivot decision and preserve the evidence chain.' },
-        { condition: 'Critical evidence remains missing.', action: 'Pause rather than manufacture confidence.' },
-        { condition: 'Qualified buyers show no meaningful problem or commitment.', action: 'Stop and archive the evidence.' }
-      ]
-    }
+    { checkpointId: 'day-7', dayNumber: 7, title: 'Customer, problem, and access review', questions: ['Is the customer definition coherent?', 'Can qualified people be reached?', 'Which assumptions remain unsupported?', 'Should the offer or customer change before more outreach?'], evidenceRequired: ['Completed first actions', 'Qualified target list', 'Exact replies or non-response counts', 'Updated critical-test register'], branches: [{ condition: 'Ten qualified messages produce no replies.', action: 'Stop increasing volume. Review customer fit, channel relevance, and the opening message.' }, { condition: 'Qualified people cannot be identified or reached.', action: 'Revise the access path or customer segment before continuing.' }] },
+    { checkpointId: 'day-14', dayNumber: 14, title: 'Conversation and problem-evidence review', questions: ['Are qualified conversations occurring?', 'Is the problem recent and meaningful?', 'Which alternatives recur?', 'Has a transparent commercial ask been made?'], evidenceRequired: ['Interview notes', 'Exact customer language', 'Current alternatives', 'Commercial asks and responses'], branches: [{ condition: 'Prospects reply but refuse calls.', action: 'Reduce the requested commitment and test a smaller next step.' }, { condition: 'The problem is not recent or costly.', action: 'Narrow or pivot the problem before revising copy.' }] },
+    { checkpointId: 'day-21', dayNumber: 21, title: 'Commitment and fulfillment review', questions: ['Is there meaningful commitment?', 'Which channel produces the strongest signal?', 'What is the main conversion constraint?', 'Is fulfillment practical and sustainable?'], evidenceRequired: ['Payments or commitments', 'Objection categories', 'Channel comparison', 'Founder hours and direct cost'], branches: [{ condition: 'Calls occur but nobody accepts the offer.', action: 'Examine urgency, trust, scope, price, and proof; change only the strongest supported constraint.' }, { condition: 'Customers accept but fulfillment is unprofitable or unsafe.', action: 'Revise delivery before acquiring more customers.' }] },
+    { checkpointId: 'day-30', dayNumber: 30, title: 'Evidence-led business decision', questions: ['What is the strongest behavioral evidence?', 'Which critical assumption failed?', 'Is the acquisition path repeatable?', 'Is delivery viable within the risk boundaries?'], evidenceRequired: ['Evidence ledger', 'Commitment and revenue record', 'Fulfillment economics', 'Decision memo with missing evidence'], branches: [{ condition: 'Strong demand and viable fulfillment exist.', action: 'Continue with one bounded next test before broad automation.' }, { condition: 'One correctable constraint blocks credible evidence.', action: 'Continue with revision and test one variable.' }, { condition: 'Customer, problem, or offer evidence points elsewhere.', action: 'Issue an explicit pivot and preserve the evidence chain.' }, { condition: 'Critical evidence remains missing.', action: 'Pause rather than manufacture confidence.' }, { condition: 'Qualified buyers show no meaningful problem or commitment.', action: 'Stop and archive the evidence.' }] }
   ];
 }
 
+function dailyCalendar(base: GhostTownLaunchBlueprint): BlueprintDailyActionV21[] {
+  const checkpointSet = checkpoints();
+  return base.dailyCalendar.map(day => ({
+    ...day,
+    whyItMatters: day.primaryObjective,
+    estimatedMinutes: day.estimatedEffort === 'light' ? 30 : day.estimatedEffort === 'moderate' ? 60 : 90,
+    ifThenBranches: checkpointSet.find(item => item.dayNumber === day.dayNumber)?.branches || [
+      { condition: 'Required evidence is missing.', action: 'Mark the item unsupported and collect the evidence before treating the action as complete.' },
+      { condition: 'New evidence contradicts the recommendation.', action: 'Preserve the original recommendation, record the contradiction, and route it to the next checkpoint.' }
+    ]
+  }));
+}
+
 function interviewGuide(base: GhostTownLaunchBlueprint): CustomerInterviewGuide {
-  const problem = base.offer.painfulProblem;
   return {
-    opening: `I am researching how people currently handle ${problem}. This is not a sales call. I want to understand a recent real example, what you tried, and what happened next.`,
+    opening: `I am researching how people currently handle ${base.offer.painfulProblem}. This is not a sales call.`,
     problemHistoryQuestions: ['When did this first become a problem?', 'How often has it happened?', 'Who experiences the consequence most directly?'],
     lastOccurrenceQuestions: ['Tell me about the most recent occurrence.', 'What triggered it?', 'What did you do first?', 'What happened after that?'],
     currentWorkaroundQuestions: ['What do you use today?', 'Why did you choose it?', 'Where does it fail or create extra work?'],
-    costAndConsequenceQuestions: ['What did the last occurrence cost in money, time, delay, risk, or frustration?', 'What happens when nothing changes?'],
+    costAndConsequenceQuestions: ['What did the last occurrence cost?', 'What happens when nothing changes?'],
     buyingProcessQuestions: ['Who decides whether to spend money?', 'Who can block the decision?', 'What must be true before approval?'],
     existingSpendingQuestions: ['Have you paid for an alternative?', 'How much and how recently?', 'What made that purchase acceptable?'],
     switchingFrictionQuestions: ['What would make switching risky?', 'What data, access, training, habit, or trust would slow adoption?'],
-    closingAndReferralQuestions: ['What did I fail to ask?', 'May I follow up with the findings?', 'Who else has dealt with this recently and might share their experience?']
+    closingAndReferralQuestions: ['What did I fail to ask?', 'May I follow up with the findings?', 'Who else has dealt with this recently?']
   };
 }
 
 function offerGuide(base: GhostTownLaunchBlueprint): OfferConversationGuide {
   return {
-    opening: `You described a recent problem that appears to fit ${base.offer.offerName}. I will confirm the problem and scope before discussing the ${base.offer.initialTestPrice} test price.`,
-    problemConfirmation: ['Confirm the recent problem and consequence.', 'Confirm the buyer and decision maker.', 'Confirm the current workaround and why it is insufficient now.'],
-    offerExplanation: `${base.offer.oneSentencePromise} The pilot is fixed-scope, validation-stage, and designed to produce the first useful result in ${base.offer.timeToFirstUsefulResult}.`,
+    opening: `Confirm the recent problem and scope before discussing the ${base.offer.initialTestPrice} test price.`,
+    problemConfirmation: ['Confirm the recent problem and consequence.', 'Confirm the buyer and decision maker.', 'Confirm the current workaround.'],
+    offerExplanation: `${base.offer.oneSentencePromise} The pilot is fixed-scope and validation-stage.`,
     scopeConfirmation: [...base.offer.deliverables.map(item => item.name), ...base.offer.exclusions.map(item => `Not included: ${item}`)],
-    pricePresentation: `The founding-customer test price is ${base.offer.initialTestPrice}. It is a real market test, not a claim that final pricing is proven.`,
-    objectionCapture: ['Record the objection exactly.', 'Classify it as customer fit, urgency, access, trust, scope, fulfillment, price, or message.', 'Do not discount before identifying the constraint.'],
+    pricePresentation: `The founding-customer test price is ${base.offer.initialTestPrice}; final pricing remains unproven.`,
+    objectionCapture: ['Record the objection exactly.', 'Classify it as fit, urgency, access, trust, scope, fulfillment, price, or message.', 'Do not discount before identifying the constraint.'],
     commitmentRequest: 'Would you like to approve the written scope and take the lane-appropriate payment or commitment step?',
-    followUpAgreement: 'Agree on one dated next step or close the opportunity respectfully. Do not leave an undefined follow-up.'
+    followUpAgreement: 'Agree on one dated next step or close the opportunity respectfully.'
   };
 }
 
@@ -392,30 +294,6 @@ function pilotBrief(base: GhostTownLaunchBlueprint): FoundingCustomerPilotBrief 
     proofBoundary: 'Validation-stage offer. No fabricated testimonial, guaranteed result, invented scarcity, or unsupported performance claim is permitted.',
     nextStep: base.landingPageCopy.primaryCallToAction
   };
-}
-
-function dailyBranches(dayNumber: number): BlueprintDailyActionV21['ifThenBranches'] {
-  const checkpointBranches = adaptiveCheckpoints().find(checkpoint => checkpoint.dayNumber === dayNumber)?.branches;
-  if (checkpointBranches) return checkpointBranches;
-  if ([8, 9, 10, 12, 15, 16, 18, 19, 24, 25, 26, 27].includes(dayNumber)) {
-    return [
-      { condition: 'The channel rules prohibit promotion or direct outreach.', action: 'Use the prepared helpful contribution or choose another verified access path; do not evade the rules.' },
-      { condition: 'A qualified buyer gives a specific objection.', action: 'Record it exactly and change nothing until the objection is compared with other evidence.' }
-    ];
-  }
-  return [
-    { condition: 'Required evidence is missing.', action: 'Mark the item unsupported and collect the evidence before treating the action as complete.' },
-    { condition: 'New evidence contradicts the current recommendation.', action: 'Preserve the original recommendation, record the contradiction, and route it to the next checkpoint.' }
-  ];
-}
-
-function enrichDailyCalendar(base: GhostTownLaunchBlueprint): BlueprintDailyActionV21[] {
-  return base.dailyCalendar.map(day => ({
-    ...day,
-    whyItMatters: day.primaryObjective,
-    estimatedMinutes: day.estimatedEffort === 'light' ? 30 : day.estimatedEffort === 'moderate' ? 60 : 90,
-    ifThenBranches: dailyBranches(day.dayNumber)
-  }));
 }
 
 export function validateGhostTownLaunchBlueprintV21(
@@ -439,15 +317,10 @@ export function validateGhostTownLaunchBlueprintV21(
   if (blueprint.dailyCalendar.some(day => !day.whyItMatters || day.estimatedMinutes <= 0 || !day.ifThenBranches.length)) failures.push('Every v2.1 daily action must include why it matters, time, and an if-then branch.');
   if (!blueprint.customerInterviewGuide.lastOccurrenceQuestions.length || !blueprint.offerConversationGuide.commitmentRequest) failures.push('Interview or offer-conversation guide is incomplete.');
   if (!blueprint.foundingCustomerPilotBrief.deliverables.length || !blueprint.foundingCustomerPilotBrief.proofBoundary) failures.push('Founding Customer Pilot Brief is incomplete.');
-
   if (blueprint.startingStateAudit.founderConstraints.hoursPerWeek.source === 'missing_input') warnings.push('Founder hours per week remain unconfirmed.');
   if (blueprint.startingStateAudit.founderConstraints.testBudget.source === 'missing_input') warnings.push('Founder test budget remains unconfirmed.');
 
-  return {
-    passed: failures.length === 0,
-    failures: [...new Set(failures)],
-    warnings: [...new Set(warnings)]
-  };
+  return { passed: failures.length === 0, failures: [...new Set(failures)], warnings: [...new Set(warnings)] };
 }
 
 export function upgradeGhostTownLaunchBlueprintToV21(
@@ -456,22 +329,38 @@ export function upgradeGhostTownLaunchBlueprintToV21(
   verdict: EvaluationResult
 ): GhostTownLaunchBlueprintV21 {
   const lane = classifyLane(order, verdict);
-  const businessModelLane: BusinessModelLane = { lane, ...laneDefinition(lane) };
+  const businessModelLane: BusinessModelLane = { lane, ...LANE_CONFIG[lane] };
   const revenue = firstRevenuePath(base, businessModelLane);
+  const approaches = base.customerAccessPack.channels.slice(0, 3).map(channel => ({
+    name: channel.community,
+    channelId: channel.channelId,
+    publicUrl: channel.publicUrl,
+    firstAction: channel.firstAction
+  }));
+  const launchCard: LaunchCard48Hour = {
+    firstCustomer: base.executiveDecision.recommendedInitialCustomer,
+    firstOffer: `${base.offer.offerName} at ${base.offer.initialTestPrice}`,
+    firstThreeApproaches: approaches,
+    exactFirstMessage: revenue.firstAsk,
+    firstCommitmentRequest: revenue.commitmentMethod,
+    launchSitePreviewReady: Boolean(base.launchSite.offer.headline && base.launchSite.leadCapture.destination),
+    completionDeadlineHours: 48
+  };
+
   const upgraded = {
     ...base,
     contractVersion: '2.1.0' as const,
     startingStateAudit: startingStateAudit(order, verdict, lane),
     businessModelLane,
     firstRevenuePath: revenue,
-    manualFulfillmentPlan: manualFulfillmentPlan(base, lane),
-    launchCard48Hour: launchCard(base, revenue),
+    manualFulfillmentPlan: fulfillmentPlan(base, lane),
+    launchCard48Hour: launchCard,
     evidenceHierarchy: evidenceHierarchy(),
-    adaptiveCheckpoints: adaptiveCheckpoints(),
+    adaptiveCheckpoints: checkpoints(),
     customerInterviewGuide: interviewGuide(base),
     offerConversationGuide: offerGuide(base),
     foundingCustomerPilotBrief: pilotBrief(base),
-    dailyCalendar: enrichDailyCalendar(base),
+    dailyCalendar: dailyCalendar(base),
     generationReceipt: {
       ...base.generationReceipt,
       canonicalContract: {
@@ -497,6 +386,9 @@ export function createGhostTownLaunchBlueprintV21(
   research: CustomerAccessResearchInput,
   generatedAt = order.paidAt || order.updatedAt || order.createdAt
 ): GhostTownLaunchBlueprintV21 {
-  const base = createGhostTownLaunchBlueprint(order, verdict, research, generatedAt);
-  return upgradeGhostTownLaunchBlueprintToV21(base, order, verdict);
+  return upgradeGhostTownLaunchBlueprintToV21(
+    createGhostTownLaunchBlueprint(order, verdict, research, generatedAt),
+    order,
+    verdict
+  );
 }
