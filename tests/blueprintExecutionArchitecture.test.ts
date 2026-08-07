@@ -19,14 +19,14 @@ function v21Blueprint(): GhostTownLaunchBlueprint {
   return {
     ...base,
     blueprintVersion: '2.1',
-    contractVersion: '2.1.0',
+    contractVersion: '2.1.1',
     generationReceipt: {
       ...base.generationReceipt,
       canonicalContract: {
-        version: '2.1.0',
+        version: '2.1.1',
         gitBlobSha1: CANONICAL_BLUEPRINT_V21_GIT_BLOB_SHA1,
         sourcePath: 'docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md',
-        changeRecordPath: 'docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_CHANGE_RECORD.md',
+        changeRecordPath: 'docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_1_CHANGE_RECORD.md',
         evidenceManifestPath: 'docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1-evidence-chain.json',
         verifiedAt: base.createdAt
       }
