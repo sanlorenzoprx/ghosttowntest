@@ -1,11 +1,17 @@
 # GhostTown Launch Blueprint — Canonical Contract and Build Specification v2.1
 
-**Canonical version:** `2.1.0`  
-**Source update date:** `2026-08-06`  
+**Canonical version:** `2.1.1`  
+**Source update date:** `2026-08-07`  
 **Repository target:** `sanlorenzoprx/ghosttowntest`  
 **Preserved implementation path:** PR `#7`, branch `feat/launch-blueprint-spa`
 
 The canonical Blueprint is the authoritative product and implementation guide. Every Factory slice must revalidate its exact hash before execution. Clarifying or implementation-enabling amendments are permitted only through a versioned source update, an explicit change record, and a regenerated evidence chain. No amendment may weaken, remove, substitute, or materially alter the approved customer outcome without an explicit product decision.
+
+### **v2.1.1 research-quality amendment**
+
+By explicit product decision on 2026-08-07, research quality is measured by **independent verification dimensions of the business idea**, not by quotas for provider types or content/channel formats. Valid dimensions may include customer/problem definition, competitor or alternative evidence, customer-access evidence, audience reach, ecosystem or partner evidence, prior market behavior, and later commercial evidence. Podcast, YouTube, publication, community, or other channel formats are useful metadata and ranking signals, but multiple content formats are not a release requirement by themselves.
+
+A model-selected candidate ID that does not match the current verified candidate pool is selection drift, not customer evidence and not a release blocker by itself. GhostTown must discard that unverified selection and recover from verified research already collected, or perform additional research and verification when needed. The Blueprint may become `ready` only when the actual research outcomes remain satisfied: verified candidates, independent verification coverage, public sources, research dates, confidence, access paths, risks, prepared assets, scripts, and first actions.
 
 I reviewed the earlier product decisions, the original Blueprint, the implementation handoff, the acceptance contract, and the current draft PR. The foundation is strong, but the product needs one major shift:
 
@@ -365,7 +371,9 @@ It is a commercial one-pager, not a fabricated legal agreement.
 
 This remains one of the largest and most valuable sections.
 
-The system researches 10–25 current targets across at least three categories:
+The system researches **10–25 current, verified targets** relevant to reaching, learning from, or partnering around the first customer. It should seek useful breadth when the market supports it, but it must not force three content or channel categories merely to satisfy a quota. Research quality is judged by independent verification dimensions of the idea; channel format diversity is a ranking preference, not a release minimum.
+
+Possible target types include:
 
 * Communities.
 * Associations.
@@ -421,7 +429,7 @@ Useful alternatives if the first channels do not respond.
 
 Associations, complementary providers, creators, or organizers suitable for relationships rather than direct promotion.
 
-Gemini may rank and explain verified provider candidates, but it must not invent channels, organizations, URLs, activity claims, or participation rules. That boundary is already part of the current implementation contract.
+Gemini may rank and explain verified provider candidates, but it must not invent channels, organizations, URLs, activity claims, or participation rules. An unknown model candidate reference must be discarded or researched and verified before it can become a delivered target; the unknown reference alone is not a release blocker.
 
 ---
 
@@ -1024,10 +1032,10 @@ A Blueprint cannot become `ready` unless:
 
 * Two or three verified commercial seed domains exist.
 * Required provider tasks were attempted.
-* Multiple provider types succeeded.
+* At least three independent verification dimensions are represented across available evidence. Valid dimensions include customer/problem definition, competitor or alternative evidence, customer-access evidence, audience reach, ecosystem or partner evidence, prior market behavior, and later commercial evidence.
 * At least ten verified candidates exist.
-* Final network contains 10–25 targets.
-* At least three target categories exist.
+* Final network contains 10–25 verified targets.
+* Provider-count and content/channel-category diversity are diagnostic signals, not release minimums by themselves.
 * Every delivered target has a source, date, confidence, access path, asset, script, risk, and first action.
 
 ## **Assets**
