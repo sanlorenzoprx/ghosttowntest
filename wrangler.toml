@@ -30,9 +30,8 @@ binding = "AI"
 binding = "VIDEOS"
 bucket_name = "ghosttowntest-public-videos"
 
-# Launch Blueprint v2 remains fail-closed until the owner creates the private
-# storage resources, enables the Workflow binding, and configures provider
-# secrets. Never point BLUEPRINTS at the public video bucket.
+# Launch Blueprint v2 remains fail-closed until production acceptance is complete.
+# Never point BLUEPRINTS at the public video bucket.
 #
 # [[env.production.d1_databases]]
 # binding = "DB"
@@ -59,13 +58,51 @@ bucket_name = "ghosttowntest-public-videos"
 # Required production secrets:
 # VERTEX_SERVICE_ACCOUNT_EMAIL
 # VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY
-# VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID (optional when the key has no explicit ID)
+# VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID
 # GEMINI_API_KEY
 # DATAFORSEO_LOGIN
 # DATAFORSEO_PASSWORD
 # PODCAST_INDEX_API_KEY
 # PODCAST_INDEX_API_SECRET
 # YOUTUBE_API_KEY
+
+[env.acceptance]
+workers_dev = true
+
+[env.acceptance.vars]
+AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
+ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+GEMINI_RESEARCH_MODEL = "gemini-2.5-flash"
+GEMINI_GOOGLE_SEARCH_MODEL = "gemini-2.5-flash"
+DISTRIBUTION_FOOTPRINT_ENABLED = "false"
+DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
+VERTEX_BLUEPRINT_REQUIRED = "true"
+VERTEX_PROJECT_ID = "REPLACE_WITH_VERTEX_PROJECT_ID"
+VERTEX_LOCATION = "us-central1"
+VERTEX_BLUEPRINT_MODEL = "gemini-2.5-flash"
+FRONTEND_URL = "REPLACE_AFTER_ACCEPTANCE_FRONTEND_DEPLOY"
+
+[[env.acceptance.kv_namespaces]]
+binding = "KV"
+id = "849e13521d454361aea286b8e1a5e4c7"
+
+[env.acceptance.ai]
+binding = "AI"
+
+[[env.acceptance.d1_databases]]
+binding = "DB"
+database_name = "ghosttowntest-blueprints-acceptance"
+database_id = "9863d883-3c31-4268-9a98-8392fa3b9f8f"
+migrations_dir = "migrations"
+
+[[env.acceptance.r2_buckets]]
+binding = "BLUEPRINTS"
+bucket_name = "ghosttowntest-private-blueprints-acceptance"
+
+[[env.acceptance.workflows]]
+binding = "LAUNCH_BLUEPRINT_WORKFLOW"
+name = "ghosttown-launch-blueprint-acceptance"
+class_name = "LaunchBlueprintWorkflow"
 
 [env.development.vars]
 AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
