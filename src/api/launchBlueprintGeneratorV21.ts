@@ -299,10 +299,11 @@ function pilotBrief(base: GhostTownLaunchBlueprint): FoundingCustomerPilotBrief 
 export function validateGhostTownLaunchBlueprintV21(
   blueprint: GhostTownLaunchBlueprintV21
 ): GhostTownLaunchBlueprintV21['qualityGate'] {
-  const baseGate = validateGhostTownLaunchBlueprint(blueprint);
+  const baseGate = validateGhostTownLaunchBlueprint({ ...blueprint, blueprintVersion: '2.0' } as GhostTownLaunchBlueprint);
   const failures = [...baseGate.failures];
   const warnings = [...baseGate.warnings];
 
+  if (blueprint.blueprintVersion !== '2.1') failures.push('Executable Blueprint version must be 2.1.');
   if (blueprint.contractVersion !== '2.1.0') failures.push('Canonical Blueprint contract version must be 2.1.0.');
   if (blueprint.generationReceipt.canonicalContract.gitBlobSha1 !== CANONICAL_BLUEPRINT_V21_GIT_BLOB_SHA1) failures.push('Canonical Blueprint hash does not match the approved v2.1 source.');
   if (blueprint.startingStateAudit.criticalTests.length < 1 || blueprint.startingStateAudit.criticalTests.length > 5) failures.push('Starting-state audit must identify between one and five critical tests.');
@@ -349,6 +350,7 @@ export function upgradeGhostTownLaunchBlueprintToV21(
 
   const upgraded = {
     ...base,
+    blueprintVersion: '2.1' as const,
     contractVersion: '2.1.0' as const,
     startingStateAudit: startingStateAudit(order, verdict, lane),
     businessModelLane,

@@ -270,8 +270,9 @@ export type BlueprintGenerationReceiptV21 = BlueprintGenerationReceipt & {
 
 export type GhostTownLaunchBlueprintV21 = Omit<
   GhostTownLaunchBlueprint,
-  'dailyCalendar' | 'generationReceipt' | 'qualityGate'
+  'blueprintVersion' | 'dailyCalendar' | 'generationReceipt' | 'qualityGate'
 > & {
+  blueprintVersion: '2.1';
   contractVersion: '2.1.0';
   startingStateAudit: StartingStateAudit;
   businessModelLane: BusinessModelLane;

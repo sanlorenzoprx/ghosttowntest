@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { PublicUserData } from "../types/auth";
 import { apiUrl, authHeaders } from "../lib/api";
 import type { EvaluationResult } from "../types/lit";
-import LaunchBlueprintView from "./LaunchBlueprintView";
+import LaunchBlueprintRouter from "./LaunchBlueprintRouter";
 import CompetitorSeedStep from "./CompetitorSeedStep";
 
 interface ResultSummary {
@@ -208,7 +208,7 @@ export default function UserDashboard({
   }
   if (openBlueprintOrderId)
     return (
-      <LaunchBlueprintView
+      <LaunchBlueprintRouter
         orderId={openBlueprintOrderId}
         onBack={() => {
           setOpenBlueprintOrderId("");

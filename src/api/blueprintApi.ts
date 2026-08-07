@@ -136,11 +136,11 @@ export async function handleLaunchBlueprintAssets(request: Request, env: Env, or
 export async function handleLaunchBlueprintProgress(request: Request, env: Env, orderId: string): Promise<Response> {
   const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
-  if (request.method === 'GET') return json({ progress: await loadBlueprintProgress(env, orderId, owned.email) });
+  if (request.method === 'GET') return json({ progress: await loadBlueprintProgress(env, orderId, owned.email) }, 200, { 'Cache-Control': 'private, no-store' });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   const body = await request.json<Partial<BlueprintProgress>>();
   const progress = await saveBlueprintProgress(env, orderId, owned.email, body);
-  return json({ progress });
+  return json({ progress }, 200, { 'Cache-Control': 'private, no-store' });
 }
 
 export async function handleLaunchBlueprintRetry(request: Request, env: Env, orderId: string): Promise<Response> {

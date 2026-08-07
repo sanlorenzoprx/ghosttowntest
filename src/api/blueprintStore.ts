@@ -18,6 +18,11 @@ export type BlueprintFinalDecision =
 
 export interface BlueprintEvidenceLedgerEntry {
   entryId: string;
+  blueprintId?: string;
+  blueprintVersion?: string;
+  actionId?: string;
+  checkpointId?: string;
+  createdAt?: string;
   contactOrChannel: string;
   date: string;
   action: string;
@@ -56,11 +61,32 @@ export interface BlueprintCheckpointReview {
   blueprintVersionId?: string;
 }
 
+export interface BlueprintReminderPreferences {
+  dailyAction: boolean;
+  followUps: boolean;
+  checkpoints: boolean;
+  preferredHourLocal: number;
+}
+
+export interface BlueprintScheduledReminder {
+  reminderId: string;
+  blueprintId: string;
+  blueprintVersion: string;
+  kind: 'daily_action' | 'follow_up' | 'checkpoint';
+  dueAt: string;
+  actionId?: string;
+  entryId?: string;
+  checkpointId?: string;
+  status: 'pending' | 'done' | 'dismissed';
+}
+
 export interface BlueprintProgress {
   completedDays: number[];
   evidenceNotes: Record<string, string>;
   evidenceLedger: BlueprintEvidenceLedgerEntry[];
   checkpointReviews: BlueprintCheckpointReview[];
+  reminderPreferences: BlueprintReminderPreferences;
+  scheduledReminders: BlueprintScheduledReminder[];
   metrics: {
     outreachSent: number;
     replies: number;
@@ -199,6 +225,8 @@ export function emptyBlueprintProgress(): BlueprintProgress {
     evidenceNotes: {},
     evidenceLedger: [],
     checkpointReviews: [],
+    reminderPreferences: { dailyAction: true, followUps: true, checkpoints: true, preferredHourLocal: 9 },
+    scheduledReminders: [],
     metrics: {
       outreachSent: 0,
       replies: 0,
@@ -259,6 +287,11 @@ function normalizeLedger(value: unknown): BlueprintEvidenceLedgerEntry[] {
     seen.add(entryId);
     rows.push({
       entryId,
+      blueprintId: limitedText(source.blueprintId, 120) || undefined,
+      blueprintVersion: limitedText(source.blueprintVersion, 40) || undefined,
+      actionId: limitedText(source.actionId, 120) || undefined,
+      checkpointId: limitedText(source.checkpointId, 120) || undefined,
+      createdAt: isoDate(source.createdAt, true) || undefined,
       contactOrChannel: limitedText(source.contactOrChannel, 240),
       date: isoDate(source.date),
       action: limitedText(source.action, 2000),
@@ -315,6 +348,42 @@ function normalizeCheckpoints(value: unknown): BlueprintCheckpointReview[] {
   return [...reviews.values()].sort((left, right) => left.dayNumber - right.dayNumber);
 }
 
+function normalizeReminderPreferences(value: unknown): BlueprintReminderPreferences {
+  const source = value && typeof value === 'object' ? value as Partial<BlueprintReminderPreferences> : {};
+  const preferredHourLocal = Math.min(23, nonNegativeInteger(source.preferredHourLocal));
+  return {
+    dailyAction: source.dailyAction !== false,
+    followUps: source.followUps !== false,
+    checkpoints: source.checkpoints !== false,
+    preferredHourLocal
+  };
+}
+
+function normalizeScheduledReminders(value: unknown): BlueprintScheduledReminder[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const reminders: BlueprintScheduledReminder[] = [];
+  for (const item of value.slice(0, 250)) {
+    if (!item || typeof item !== 'object') continue;
+    const source = item as Partial<BlueprintScheduledReminder>;
+    const reminderId = limitedText(source.reminderId, 100);
+    const blueprintId = limitedText(source.blueprintId, 120);
+    const blueprintVersion = limitedText(source.blueprintVersion, 40);
+    const dueAt = isoDate(source.dueAt, true);
+    if (!reminderId || !blueprintId || !blueprintVersion || !dueAt || seen.has(reminderId)) continue;
+    const kind = source.kind === 'follow_up' || source.kind === 'checkpoint' ? source.kind : 'daily_action';
+    const status = source.status === 'done' || source.status === 'dismissed' ? source.status : 'pending';
+    seen.add(reminderId);
+    reminders.push({
+      reminderId, blueprintId, blueprintVersion, kind, dueAt, status,
+      actionId: limitedText(source.actionId, 120) || undefined,
+      entryId: limitedText(source.entryId, 120) || undefined,
+      checkpointId: limitedText(source.checkpointId, 120) || undefined
+    });
+  }
+  return reminders.sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+}
+
 function finalDecision(value: unknown): BlueprintFinalDecision | undefined {
   return value === 'continue' || value === 'continue_with_revision' || value === 'revise'
     || value === 'pivot' || value === 'pivot_customer' || value === 'pivot_problem'
@@ -336,6 +405,8 @@ export function normalizeBlueprintProgress(value: Partial<BlueprintProgress>): B
     evidenceNotes,
     evidenceLedger: normalizeLedger(value.evidenceLedger),
     checkpointReviews: normalizeCheckpoints(value.checkpointReviews),
+    reminderPreferences: normalizeReminderPreferences(value.reminderPreferences),
+    scheduledReminders: normalizeScheduledReminders(value.scheduledReminders),
     metrics: {
       outreachSent: nonNegativeInteger(metrics.outreachSent),
       replies: nonNegativeInteger(metrics.replies),
@@ -362,6 +433,8 @@ export async function saveBlueprintProgress(env: Env, orderId: string, ownerId: 
     evidenceNotes: value.evidenceNotes ? { ...existing.evidenceNotes, ...value.evidenceNotes } : existing.evidenceNotes,
     evidenceLedger: value.evidenceLedger ?? existing.evidenceLedger,
     checkpointReviews: value.checkpointReviews ?? existing.checkpointReviews,
+    reminderPreferences: value.reminderPreferences ?? existing.reminderPreferences,
+    scheduledReminders: value.scheduledReminders ?? existing.scheduledReminders,
     metrics: { ...existing.metrics, ...(value.metrics || {}) }
   });
   await env.DB.prepare(`
