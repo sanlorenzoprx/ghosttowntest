@@ -32,17 +32,17 @@ Canonical Git blob SHA-1: `a6dd1fa9e8f59417b7ce00b032eabf3793537abd`.
 
 ## Validation
 
-Final Step 5 PR CI run `31160572665` passed:
+Step 5 validation requires and has passed:
 
+- Exact canonical Blueprint source verification during the implementation slice.
 - TypeScript type-check.
 - Full Vitest suite.
 - Cloudflare Worker dry-run.
 - Production Vite build.
 
-The Step 5 application workflow also revalidated the exact canonical Blueprint source before committing the implementation.
-
 Validated Step 5 product implementation commit: `93cd50157d7c73e088b7bd4989745e30b21c5265`.
-Validated clean implementation head after temporary bootstrap cleanup: `eade0c7e79a0c9bd245ef0d5dcddd1a84a71e534`.
+
+The authoritative final branch head and latest successful CI run are maintained in PR #7 so this receipt does not create a self-referential commit/run chain.
 
 ## Release boundary
 
