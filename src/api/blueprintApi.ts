@@ -35,7 +35,7 @@ function normalizedEmail(value: string): string {
 }
 
 function isV21(blueprint: GhostTownLaunchBlueprint): blueprint is GhostTownLaunchBlueprintV21 {
-  return (blueprint as GhostTownLaunchBlueprint & { contractVersion?: string }).contractVersion === '2.1.0';
+  return (blueprint as GhostTownLaunchBlueprint & { blueprintVersion?: string }).blueprintVersion === '2.1';
 }
 
 function versionAttachedProgress(
