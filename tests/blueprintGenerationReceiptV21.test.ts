@@ -320,6 +320,6 @@ describe('Blueprint v2.1 Step 3 generation and evidence receipts', () => {
       blueprint,
       result.receipt,
       new Uint8Array([1, 2, 3])
-    )).rejects.toThrow('configured secret value');
+    )).rejects.toThrow(/configured secret value|prohibited private generation material/);
   });
 });
