@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Canonical Blueprint verification
+        run: npm run verify:blueprint
+
       - name: Type check
         run: npm run type-check
 
@@ -48,3 +51,6 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+      - name: Repository diff check
+        run: git diff --check
