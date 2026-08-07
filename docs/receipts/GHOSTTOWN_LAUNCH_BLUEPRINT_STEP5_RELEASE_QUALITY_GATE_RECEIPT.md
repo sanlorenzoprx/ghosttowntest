@@ -41,15 +41,15 @@ The research gate no longer contains `RESEARCH_UNKNOWN_CANDIDATE_ID`, `RESEARCH_
 
 ## Validation
 
-Required validation remains:
+GitHub Actions run `31164515531` passed:
 
-- exact canonical Blueprint source verification;
+- canonical Blueprint v2.1.1 source verification;
 - TypeScript type-check;
 - full Vitest suite;
 - Cloudflare Worker dry-run;
 - production Vite build.
 
-The authoritative final branch head and latest successful CI run are maintained in PR #7 so this receipt does not create a self-referential commit/run chain.
+The authoritative final branch head remains maintained in PR #7 so this receipt does not create a recursive head/receipt chain.
 
 ## Release boundary
 
