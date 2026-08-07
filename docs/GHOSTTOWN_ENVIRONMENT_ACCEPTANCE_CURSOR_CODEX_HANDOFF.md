@@ -4,6 +4,7 @@
 **Authoritative branch:** `feat/launch-blueprint-spa`  
 **Pull request:** `#7`  
 **Required baseline:** commit `4579cba191ba5e7f4e69a933bd5cfb76e36bfde5` or a direct descendant  
+**Canonical contract:** v2.1.1, Git blob `616c691e6b4c9cea93615963a07375d13ffba57f`  
 **Status:** PR remains draft. Do not merge or enable live fulfillment until this handoff passes completely.
 
 ---
@@ -24,6 +25,7 @@ Free verdict
 → DataForSEO + Podcast Index + YouTube
 → original-source verification
 → Gemini candidate-ID selection
+→ staged Vertex Blueprint generation
 → canonical Blueprint
 → D1 + private R2 persistence
 → PDF + asset ZIP
@@ -47,11 +49,12 @@ Preserve these existing systems:
 - Stripe webhook as the payment authority.
 - `awaiting_seeds → researching → generating → ready` order progression.
 - Cloudflare Workflow as the durable research/generation executor.
-- D1 as the canonical Blueprint, progress, Launch Site, and lead database.
+- D1 as the canonical Blueprint, normalized execution log, progress, Launch Site, and lead database.
 - Private `BLUEPRINTS` R2 bucket for PDF, canonical JSON, and asset ZIP.
 - KV only for order/index compatibility, Stripe receipts, rate limits, locks, and lightweight pointers.
 - DataForSEO, Podcast Index, YouTube, and direct-source verification as the paid research inputs.
-- Gemini limited to selecting or structuring immutable provider candidate IDs.
+- Gemini research selection limited to provider-verified candidates; unknown candidate references are selection drift, not evidence.
+- Vertex AI as the staged paid Blueprint generation path when `VERTEX_BLUEPRINT_REQUIRED=true`.
 - The owner-only Google console isolated from paid fulfillment and customer artifacts.
 
 Do not:
@@ -142,9 +145,13 @@ Expected repository validation:
 
 ```powershell
 npm ci
+npm run verify:blueprint
 npm run check
+npm run worker:check:acceptance
 git diff --check
 ```
+
+`npm run verify:blueprint` must confirm canonical Git blob `616c691e6b4c9cea93615963a07375d13ffba57f` before the acceptance slice continues.
 
 Record:
 
@@ -285,9 +292,9 @@ npx wrangler r2 bucket create ghosttowntest-private-blueprints-acceptance
 
 Record the returned KV ID and D1 database ID privately in the acceptance receipt. These IDs are configuration identifiers, not secrets, but do not invent them.
 
-### Add `[env.acceptance]` to `wrangler.toml`
+### `[env.acceptance]` in `wrangler.toml`
 
-Cursor/Codex must add a real acceptance environment using the returned IDs.
+The current branch contains an isolated acceptance environment using the previously provisioned acceptance KV and D1 identifiers. Re-inventory those resources before a live run; never assume an old receipt proves their current state.
 
 Required shape:
 
@@ -306,11 +313,11 @@ VERTEX_BLUEPRINT_REQUIRED = "true"
 VERTEX_PROJECT_ID = "REPLACE_WITH_VERTEX_PROJECT_ID"
 VERTEX_LOCATION = "us-central1"
 VERTEX_BLUEPRINT_MODEL = "gemini-2.5-flash"
-FRONTEND_URL = "REPLACE_AFTER_PAGES_ACCEPTANCE_DEPLOY"
+FRONTEND_URL = "REPLACE_AFTER_ACCEPTANCE_FRONTEND_DEPLOY"
 
 [[env.acceptance.kv_namespaces]]
 binding = "KV"
-id = "REPLACE_WITH_ACCEPTANCE_KV_ID"
+id = "REPLACE_WITH_VERIFIED_ACCEPTANCE_KV_ID"
 
 [env.acceptance.ai]
 binding = "AI"
@@ -318,7 +325,7 @@ binding = "AI"
 [[env.acceptance.d1_databases]]
 binding = "DB"
 database_name = "ghosttowntest-blueprints-acceptance"
-database_id = "REPLACE_WITH_ACCEPTANCE_D1_ID"
+database_id = "REPLACE_WITH_VERIFIED_ACCEPTANCE_D1_ID"
 migrations_dir = "migrations"
 
 [[env.acceptance.r2_buckets]]
@@ -336,7 +343,7 @@ If free-verdict video generation is required in the acceptance run, bind a dedic
 ### Validate config before secrets
 
 ```powershell
-npx wrangler deploy --dry-run --env acceptance *>&1 |
+npm run worker:check:acceptance *>&1 |
   Tee-Object ".acceptance-receipts\08-acceptance-dry-run.txt"
 ```
 
@@ -344,14 +351,17 @@ Stop on any missing binding or class export error.
 
 ---
 
-## 7. Phase 3 — apply migrations 0002 and 0003
+## 7. Phase 3 — apply the complete current migration chain
 
-The migrations must run in filename order:
+The current v2.1.1 acceptance environment requires the Blueprint, Launch Site, and normalized Daily Execution Log schemas. Apply all unapplied migrations in filename order:
 
 ```text
 0002_launch_blueprints.sql
 0003_launch_sites.sql
+0004_blueprint_execution_log.sql
 ```
+
+Do not mark acceptance storage ready if `0004_blueprint_execution_log.sql` is absent. The executable account Blueprint, evidence ledger, checkpoint reviews, reminders, and version-attached recovery depend on its normalized tables.
 
 List unapplied migrations:
 
@@ -362,7 +372,7 @@ npx wrangler d1 migrations list ghosttowntest-blueprints-acceptance `
   Tee-Object ".acceptance-receipts\09-migrations-before.txt"
 ```
 
-Apply them:
+Apply all unapplied migrations:
 
 ```powershell
 npx wrangler d1 migrations apply ghosttowntest-blueprints-acceptance `
@@ -390,16 +400,26 @@ npx wrangler d1 execute ghosttowntest-blueprints-acceptance `
   Tee-Object ".acceptance-receipts\12-d1-tables.txt"
 ```
 
-Required tables:
+Required tables include the canonical delivery tables and normalized execution architecture:
 
 ```text
 launch_blueprints
 launch_blueprint_progress
 launch_sites
 launch_site_leads
+accounts
+blueprints
+blueprint_actions
+action_progress
+journal_entries
+journal_evidence
+reminder_preferences
+scheduled_reminders
+checkpoint_reviews
+acs_readiness_assessments
 ```
 
-Stop if any table is absent.
+Stop if any required table is absent. This is a schema-presence check only; acceptance data must still be created through the real paid/customer paths.
 
 ---
 
@@ -605,7 +625,7 @@ Run:
 
 ```powershell
 npm run check
-npx wrangler deploy --dry-run --env acceptance
+npm run worker:check:acceptance
 npx wrangler deploy --env acceptance
 ```
 
@@ -709,7 +729,8 @@ Query by order ID and verify:
 - `ghosttown-launch-blueprint-v2` schema;
 - ready status;
 - research receipt;
-- one progress record after progress is saved.
+- one progress record after progress is saved;
+- normalized v2.1 execution records attach to the same account, Blueprint ID, Blueprint version, action, and checkpoint.
 
 ### Private R2 objects
 
@@ -730,7 +751,7 @@ Download as the purchasing account and inspect:
 - executive decision;
 - offer and pricing;
 - positioning;
-- Media & Distribution Network;
+- customer-access and idea-verification evidence;
 - source links and research dates;
 - outreach scripts;
 - landing-page copy;
@@ -742,7 +763,8 @@ Download as the purchasing account and inspect:
 
 Verify the ZIP contains the expected 16 files and that:
 
-- `blueprint.json` matches the canonical Blueprint;
+- `blueprint.json` matches the canonical Blueprint exactly;
+- the current v2.1.1 enrichment is present in README/executive/offer/checkpoint/decision assets;
 - CSV files open correctly;
 - scripts and posts are usable text;
 - no secret, prompt, provider raw payload, or owner Google result is present.
@@ -780,7 +802,7 @@ Verify D1:
 
 Verify response headers:
 
-- public page is cacheable according to policy;
+- public page follows the implemented public cache policy;
 - owner routes and lead lists use `private, no-store`;
 - unsafe HTML is not executed;
 - oversized or invalid lead fields are rejected.
@@ -792,10 +814,10 @@ Verify response headers:
 ### Account recovery
 
 1. Save progress on multiple days.
-2. Add evidence notes and metrics.
+2. Add evidence notes, metrics, fulfillment economics, and at least one checkpoint review.
 3. Sign out.
 4. Sign in on another browser/device with the purchasing account.
-5. Confirm Blueprint, progress, PDF, ZIP, Launch Site state, and leads are restored.
+5. Confirm Blueprint, normalized progress/evidence, PDF, ZIP, Launch Site state, and leads are restored.
 
 ### Cross-account denial
 
@@ -807,11 +829,12 @@ Attempt to:
 - download PDF;
 - download ZIP;
 - request technical JSON;
+- read or save progress;
 - publish/unpublish the Launch Site;
 - list/export leads;
 - retry the order.
 
-Every attempt must return a privacy-safe denial, preferably `404` where the existing ownership boundary uses it. No response may reveal the owner email, order details, R2 keys, site ID, lead count, or Blueprint existence.
+Every attempt must return a privacy-safe denial, preferably `404` where the existing ownership boundary uses it. No response may reveal the owner email, order details, Stripe checkout metadata, R2 keys, site ID, lead count, verdict ID, or Blueprint existence.
 
 Record request path and status only.
 
@@ -871,7 +894,7 @@ Check:
 - seed confirmation map;
 - building/status screens;
 - Blueprint navigation;
-- Media & Distribution target cards;
+- customer-access target cards;
 - daily calendar and evidence fields;
 - PDF/ZIP buttons;
 - Launch Site panel;
@@ -891,8 +914,8 @@ Only after all acceptance phases pass:
 1. Complete `20-production-domain-decision.md`.
 2. Create or select dedicated production D1 and private R2 resources.
 3. Configure the production `DB`, `BLUEPRINTS`, and `LAUNCH_BLUEPRINT_WORKFLOW` bindings.
-4. Apply migrations `0002` and `0003` to production D1.
-5. Configure production provider secrets and the correct Stripe mode.
+4. Apply all current migrations, including `0002_launch_blueprints.sql`, `0003_launch_sites.sql`, and `0004_blueprint_execution_log.sql`, to production D1.
+5. Configure production provider and Vertex secrets and the correct Stripe mode.
 6. Deploy with `DISTRIBUTION_FOOTPRINT_ENABLED = "false"` first.
 7. Verify health, auth, owner Google boundary, bindings, and Stripe endpoint.
 8. Enable paid research only after production smoke tests.
@@ -961,10 +984,11 @@ Do **not** copy the private key, generated JWT assertion, OAuth access token, pr
 
 Stop and report rather than improvising when:
 
+- the canonical Blueprint hash does not equal `616c691e6b4c9cea93615963a07375d13ffba57f`;
 - current branch or head is not authoritative;
 - Wrangler is authenticated to the wrong Cloudflare account;
 - resource names collide with unrelated production resources;
-- D1 migration order is unclear;
+- D1 migration order is unclear or migration `0004_blueprint_execution_log.sql` is not applied;
 - Stripe price belongs to a different account or mode;
 - webhook signature verification fails;
 - the acceptance frontend redirects to a production URL;
@@ -974,7 +998,7 @@ Stop and report rather than improvising when:
 - paid artifacts enter the public videos bucket;
 - another account can infer or access the order;
 - the Launch Site renders copy different from the canonical Blueprint;
-- a failed provider or storage operation still produces ready status.
+- a failed provider, Vertex, or storage operation still produces ready status.
 
 No architecture expansion is authorized to work around these failures. Fix the existing contract or record the blocker.
 
@@ -985,23 +1009,26 @@ No architecture expansion is authorized to work around these failures. Fix the e
 Environment acceptance is complete only when:
 
 - PR #7 remains based on the authoritative branch;
-- CI passes on the acceptance changes;
+- canonical Blueprint v2.1.1 hash verification passes;
+- CI passes on the acceptance changes, including the acceptance Worker dry-run;
 - acceptance resources are isolated from production;
-- migrations 0002 and 0003 are applied;
+- migrations 0002, 0003, and 0004 are applied;
 - all required secret names are configured privately;
 - the real Stripe test checkout succeeds;
 - webhook idempotency is proven;
 - seed confirmation starts exactly one Workflow;
 - provider research and original-source verification pass;
+- research satisfies the canonical independent-evidence-dimension gate rather than provider/content quotas;
 - the acceptance Worker explicitly requires Vertex and the four-stage Vertex pipeline, red-team result, project/location/model identity, and canonical input/output hashes are recorded;
 - quality gates pass with real data;
 - D1 and private R2 contain the expected records/objects;
-- PDF and 16-file ZIP are valid;
+- normalized Daily Execution Log records persist and recover for the purchasing account;
+- PDF and 16-file v2.1.1-enriched ZIP are valid;
 - canonical JSON remains available internally and in the ZIP;
 - public Launch Site publishes from the canonical Blueprint;
 - lead capture and owner export work;
-- account recovery works;
-- cross-account access is denied;
+- account recovery works on another authenticated browser/device;
+- cross-account access is denied across Blueprint, artifacts, progress, Launch Site, leads, and retry;
 - provider/storage failures do not deliver an incomplete Blueprint;
 - retry completes without another charge;
 - real PDF and public site pass mobile and desktop visual inspection;
