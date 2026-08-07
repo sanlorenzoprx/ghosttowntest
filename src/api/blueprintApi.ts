@@ -1,6 +1,8 @@
 import { authenticateRequest } from './auth';
 import type { Env } from './env';
 import type { PaidTestOrder } from '../types/paidTest';
+import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
+import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import { queueLaunchBlueprintOrder } from './blueprintFulfillment';
 import {
   loadBlueprintPdf,
@@ -10,6 +12,11 @@ import {
   saveBlueprintProgress,
   type BlueprintProgress
 } from './blueprintStore';
+import {
+  applyBlueprintIntegrityReceiptV21,
+  loadBlueprintIntegrityReceiptV21,
+  loadCanonicalBlueprintJsonV21
+} from './blueprintStoreV21';
 
 const json = (body: unknown, status = 200, headers: HeadersInit = {}) => new Response(JSON.stringify(body), {
   status,
@@ -18,6 +25,10 @@ const json = (body: unknown, status = 200, headers: HeadersInit = {}) => new Res
 
 function normalizedEmail(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function isV21(blueprint: GhostTownLaunchBlueprint): blueprint is GhostTownLaunchBlueprintV21 {
+  return (blueprint as GhostTownLaunchBlueprint & { contractVersion?: string }).contractVersion === '2.1.0';
 }
 
 export async function ownedLaunchBlueprintOrder(request: Request, env: Env, orderId: string, requireReady = true): Promise<{ order: PaidTestOrder; email: string } | Response> {
@@ -46,8 +57,12 @@ export async function handleLaunchBlueprint(request: Request, env: Env, orderId:
   const record = await loadBlueprintRecord(env, orderId);
   if (!record) return json({ error: 'Canonical Launch Blueprint record not found' }, 404);
   const progress = await loadBlueprintProgress(env, orderId, owned.email);
+  const integrityReceipt = await loadBlueprintIntegrityReceiptV21(env, orderId);
+  const blueprint = integrityReceipt && isV21(record.blueprint)
+    ? applyBlueprintIntegrityReceiptV21(record.blueprint, integrityReceipt)
+    : record.blueprint;
   return json({
-    blueprint: record.blueprint,
+    blueprint,
     progress,
     research: {
       provider: record.researchReceipt.provider,
@@ -73,11 +88,15 @@ export async function handleLaunchBlueprintJson(request: Request, env: Env, orde
   if (owned instanceof Response) return owned;
   const record = await loadBlueprintRecord(env, orderId);
   if (!record) return json({ error: 'Canonical Launch Blueprint record not found' }, 404);
-  return new Response(JSON.stringify(record.blueprint, null, 2), {
+  const storedCanonicalJson = await loadCanonicalBlueprintJsonV21(env, orderId).catch(() => null);
+  const canonicalJson = storedCanonicalJson || JSON.stringify(record.blueprint, null, 2);
+  const integrityReceipt = await loadBlueprintIntegrityReceiptV21(env, orderId);
+  return new Response(canonicalJson, {
     headers: {
       'Content-Type': 'application/json',
       'Content-Disposition': `attachment; filename="ghosttown-launch-blueprint-${orderId}.json"`,
-      'Cache-Control': 'private, no-store'
+      'Cache-Control': 'private, no-store',
+      ...(integrityReceipt ? { 'X-GhostTown-SHA256': integrityReceipt.hashes.canonicalBlueprintSha256 } : {})
     }
   });
 }
@@ -87,12 +106,14 @@ export async function handleLaunchBlueprintPdf(request: Request, env: Env, order
   if (owned instanceof Response) return owned;
   const object = await loadBlueprintPdf(env, orderId);
   if (!object) return json({ error: 'Launch Blueprint PDF not found' }, 404);
+  const integrityReceipt = await loadBlueprintIntegrityReceiptV21(env, orderId);
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set('Content-Type', 'application/pdf');
   headers.set('Content-Disposition', `attachment; filename="ghosttown-launch-blueprint-${orderId}.pdf"`);
   headers.set('Cache-Control', 'private, no-store');
   headers.set('ETag', object.httpEtag);
+  if (integrityReceipt) headers.set('X-GhostTown-SHA256', integrityReceipt.hashes.pdfSha256);
   return new Response(object.body, { headers });
 }
 
@@ -101,12 +122,14 @@ export async function handleLaunchBlueprintAssets(request: Request, env: Env, or
   if (owned instanceof Response) return owned;
   const object = await loadBlueprintAssets(env, orderId);
   if (!object) return json({ error: 'Launch Blueprint asset package not found' }, 404);
+  const integrityReceipt = await loadBlueprintIntegrityReceiptV21(env, orderId);
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set('Content-Type', 'application/zip');
   headers.set('Content-Disposition', `attachment; filename="ghosttown-launch-blueprint-${orderId}-assets.zip"`);
   headers.set('Cache-Control', 'private, no-store');
   headers.set('ETag', object.httpEtag);
+  if (integrityReceipt) headers.set('X-GhostTown-SHA256', integrityReceipt.hashes.zipSha256);
   return new Response(object.body, { headers });
 }
 
