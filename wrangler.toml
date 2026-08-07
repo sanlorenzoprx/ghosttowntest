@@ -67,6 +67,40 @@ bucket_name = "ghosttowntest-public-videos"
 # PODCAST_INDEX_API_SECRET
 # YOUTUBE_API_KEY
 
+[env.acceptance]
+workers_dev = true
+
+[env.acceptance.vars]
+AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
+ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+GEMINI_RESEARCH_MODEL = "gemini-2.5-flash"
+GEMINI_GOOGLE_SEARCH_MODEL = "gemini-2.5-flash"
+DISTRIBUTION_FOOTPRINT_ENABLED = "false"
+DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
+FRONTEND_URL = "https://acceptance.ghosttowntest.pages.dev"
+
+[[env.acceptance.kv_namespaces]]
+binding = "KV"
+id = "849e13521d454361aea286b8e1a5e4c7"
+
+[env.acceptance.ai]
+binding = "AI"
+
+[[env.acceptance.d1_databases]]
+binding = "DB"
+database_name = "ghosttowntest-blueprints-acceptance"
+database_id = "9863d883-3c31-4268-9a98-8392fa3b9f8f"
+migrations_dir = "migrations"
+
+[[env.acceptance.r2_buckets]]
+binding = "BLUEPRINTS"
+bucket_name = "ghosttowntest-private-blueprints-acceptance"
+
+[[env.acceptance.workflows]]
+binding = "LAUNCH_BLUEPRINT_WORKFLOW"
+name = "ghosttown-launch-blueprint-acceptance"
+class_name = "LaunchBlueprintWorkflow"
+
 [env.development.vars]
 AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
 ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"

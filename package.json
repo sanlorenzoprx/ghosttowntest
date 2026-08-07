@@ -16,6 +16,8 @@
     "preview": "vite preview",
     "preworker:check": "npm run verify:blueprint",
     "worker:check": "wrangler deploy --dry-run --env development",
+    "worker:check:acceptance": "wrangler deploy --dry-run --env acceptance",
+    "acceptance:check": "npm run check && npm run worker:check:acceptance",
     "check": "npm run type-check && npm test && npm run build && npm run worker:check"
   },
   "dependencies": {
