@@ -224,6 +224,7 @@ describe('customer access distribution footprint provider', () => {
     expect(plan.queryBySourceId['podcast:ecosystem']).toContain('Family recreation associations');
     expect(plan.queryBySourceId['youtube:ecosystem']).toContain('Family recreation associations');
   });
+
   it('builds a verified media and distribution network from competitor seeds', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);
@@ -265,6 +266,49 @@ describe('customer access distribution footprint provider', () => {
     expect(result.receipt.provider).toBe('distribution_footprint');
     expect(result.receipt.seedDomains).toEqual(['kiwico.com', 'boardgamegeek.com']);
     expect(result.receipt.successfulSourceCount).toBeGreaterThanOrEqual(4);
+  });
+
+  it('recovers an unknown model candidate ID from the provider-verified candidate pool', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes('api.dataforseo.com')) {
+        const requestBody = JSON.parse(String(init?.body)) as Array<{ target?: string }>;
+        return new Response(JSON.stringify(dataForSeoResponse(requestBody[0]?.target || 'seed')), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.includes('api.podcastindex.org')) {
+        const query = new URL(url).searchParams.get('q') || 'family games';
+        return new Response(JSON.stringify(podcastResponse(query)), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.includes('www.googleapis.com/youtube')) {
+        const query = new URL(url).searchParams.get('q') || 'family games';
+        return new Response(JSON.stringify(youtubeResponse(query)), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.includes('generativelanguage.googleapis.com')) {
+        const requestBody = JSON.parse(String(init?.body)) as { contents?: Array<{ parts?: Array<{ text?: string }> }> };
+        const prompt = requestBody.contents?.[0]?.parts?.[0]?.text || '';
+        const selection = selectionFromPrompt(prompt);
+        return new Response(JSON.stringify({
+          candidates: [{ content: { parts: [{ text: JSON.stringify({
+            channels: [
+              { ...selection.channels[0], candidateId: 'candidate_model_invented' },
+              ...selection.channels.slice(1, 5)
+            ]
+          }) }] } }]
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return new Response('<html><head><title>Family Games Media</title><meta name="description" content="Active media source covering family games, reviews, events, and activities."></head><body>Public source</body></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' }
+      });
+    });
+
+    const result = await researchCustomerAccess(env(), order, verdict);
+    expect(result.research.status).toBe('complete');
+    expect(result.research.channels.length).toBeGreaterThanOrEqual(10);
+    expect(result.research.sources.length).toBe(result.research.channels.length);
+    expect(result.receipt.model).toBe('verified-provider-recovery');
+    expect(result.receipt.candidateChannelCount).toBeGreaterThanOrEqual(10);
+    expect(result.research.channels.every(channel => channel.publicUrl.startsWith('https://'))).toBe(true);
   });
 
   it('fails closed when Distribution Footprint research is disabled', async () => {
