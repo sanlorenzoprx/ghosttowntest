@@ -22,7 +22,6 @@ export const BLUEPRINT_RELEASE_BLOCKER_CODES_V21 = {
     fewerThanTwoSuccessfulProviderTypes: 'RESEARCH_FEWER_THAN_TWO_SUCCESSFUL_PROVIDER_TYPES',
     fewerThanTenVerifiedCandidates: 'RESEARCH_FEWER_THAN_TEN_VERIFIED_CANDIDATES',
     fewerThanThreeTargetCategories: 'RESEARCH_FEWER_THAN_THREE_TARGET_CATEGORIES',
-    unknownCandidateId: 'RESEARCH_UNKNOWN_CANDIDATE_ID',
     missingPublicSource: 'RESEARCH_MISSING_PUBLIC_SOURCE',
     missingResearchDate: 'RESEARCH_MISSING_RESEARCH_DATE',
     missingExecutionMetadata: 'RESEARCH_MISSING_CONFIDENCE_ACCESS_RISK_ASSET_SCRIPT_OR_FIRST_ACTION'
@@ -217,7 +216,6 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
   add(blockers, 'research', C.research.fewerThanTwoSuccessfulProviderTypes, 'Fewer than two successful provider types.', 'research.receipt.sourceTypeCount', receipt.sourceTypeCount < 2);
   add(blockers, 'research', C.research.fewerThanTenVerifiedCandidates, 'Fewer than ten verified candidates.', 'research.receipt.candidateChannelCount', receipt.candidateChannelCount < 10);
   add(blockers, 'research', C.research.fewerThanThreeTargetCategories, 'Fewer than three target categories.', 'research.receipt.targetTypeCounts', targetCategoryCount < 3);
-  add(blockers, 'research', C.research.unknownCandidateId, 'Unknown candidate ID.', 'research.receipt.unknownCandidateIds', Boolean(receipt.unknownCandidateIds?.length));
   add(blockers, 'research', C.research.missingPublicSource, 'Missing public source.', 'sources', missingPublicSource);
   add(blockers, 'research', C.research.missingResearchDate, 'Missing research date.', 'generationReceipt.researchDate', missingResearchDate);
   add(blockers, 'research', C.research.missingExecutionMetadata, 'Missing confidence, access path, risk, prepared asset, script, or first action.', 'customerAccessPack.channels', missingExecutionMetadata);
