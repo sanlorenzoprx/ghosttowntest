@@ -1,1 +1,1 @@
-retry authoritative Blueprint v2.1.1 correction bootstrap
+retry authoritative Blueprint v2.1.1 correction bootstrap — Step 3 receipt continuation 2026-08-07
