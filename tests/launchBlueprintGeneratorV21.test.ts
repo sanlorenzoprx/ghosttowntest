@@ -125,7 +125,7 @@ describe('GhostTown Launch Blueprint canonical v2.1 generator', () => {
     const blueprint = createGhostTownLaunchBlueprintV21(order, verdict, completeResearch());
 
     expect(blueprint.status).toBe('ready');
-    expect(blueprint.contractVersion).toBe('2.1.0');
+    expect(blueprint.contractVersion).toBe('2.1.1');
     expect(blueprint.generationReceipt.canonicalContract.gitBlobSha1).toBe(CANONICAL_BLUEPRINT_V21_GIT_BLOB_SHA1);
     expect(blueprint.startingStateAudit.criticalTests).toHaveLength(5);
     expect(blueprint.startingStateAudit.verifiedFacts.some(item => item.statement.includes('$49'))).toBe(true);
