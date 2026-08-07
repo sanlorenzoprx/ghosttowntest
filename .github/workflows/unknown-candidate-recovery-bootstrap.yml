@@ -1,0 +1,42 @@
+name: Apply Unknown Candidate Recovery
+
+on:
+  push:
+    branches:
+      - feat/launch-blueprint-spa
+    paths:
+      - scripts/.unknown-candidate-recovery-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/launch-blueprint-spa
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Revalidate canonical Blueprint
+        run: npm run verify:blueprint
+      - name: Apply recovery correction
+        run: node scripts/apply-unknown-candidate-recovery.mjs
+      - run: npm run type-check
+      - run: npm run test
+      - run: npm run worker:check
+      - run: npm run build
+      - run: git diff --check
+      - name: Commit correction and remove bootstrap scaffolding
+        run: |
+          rm -f scripts/apply-unknown-candidate-recovery.mjs scripts/.unknown-candidate-recovery-trigger .github/workflows/unknown-candidate-recovery-bootstrap.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Recover from unknown research candidate selections"
+          git push origin HEAD:feat/launch-blueprint-spa
