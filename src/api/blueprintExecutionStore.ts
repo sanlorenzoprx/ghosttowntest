@@ -3,7 +3,7 @@ import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 
 export const DAILY_EXECUTION_LOG_SCHEMA_VERSION = 'ghosttown-daily-execution-log-v1' as const;
-export const CANONICAL_BLUEPRINT_V21_GIT_BLOB_SHA1 = 'a6dd1fa9e8f59417b7ce00b032eabf3793537abd' as const;
+export const CANONICAL_BLUEPRINT_V21_GIT_BLOB_SHA1 = '616c691e6b4c9cea93615963a07375d13ffba57f' as const;
 
 export type ExecutionEvidenceStrength = 'strong' | 'moderate' | 'early' | 'weak';
 export type ExecutionCheckpointId = 'day-7' | 'day-14' | 'day-21' | 'day-30';
