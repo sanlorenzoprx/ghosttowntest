@@ -13,22 +13,35 @@ Canonical Git blob SHA-1: `a6dd1fa9e8f59417b7ce00b032eabf3793537abd`.
 - Every source bullet has a stable blocker code and fail-closed predicate.
 - The real v2.1 paid fulfillment runs the gate before persistence and again after exact-byte persistence verification.
 - The order cannot become `ready` until the post-persistence delivery gate passes.
-- Research candidate selection now rejects any model-returned candidate ID outside the immutable candidate set.
+- Research candidate selection rejects any model-returned candidate ID outside the immutable candidate set.
 - Required provider attempts are evaluated against the actual planned/seed-derived count rather than only a fixed minimum.
 - Delivery verification re-reads D1 and PDF/JSON/ZIP from private R2, verifies exact hashes, checks owner identity, and proves repeated artifact retrieval before customer release.
 
 ## Explicit blocker coverage
 
-Strategy: 9 blockers.
-Research: 9 blockers.
-Assets: 7 blockers.
-Calendar: 7 blockers.
-Delivery: 7 blockers.
-Total: 39 explicit source-derived blockers.
+- Strategy: 9 blockers.
+- Research: 9 blockers.
+- Assets: 7 blockers.
+- Calendar: 7 blockers.
+- Delivery: 7 blockers.
+- Total: 39 explicit source-derived blockers.
 
 ## Tests
 
 `tests/blueprintReleaseQualityGateV21.test.ts` contains a passing complete fixture plus a table-driven failure assertion for every one of the 39 blocker codes.
+
+## Validation
+
+Clean-head CI run `31160474418` passed:
+
+- TypeScript type-check.
+- Full Vitest suite.
+- Cloudflare Worker dry-run.
+- Production Vite build.
+
+The Step 5 application workflow also revalidated the exact canonical Blueprint source before committing the implementation.
+
+Validated implementation head before this receipt-only update: `eade0c7e79a0c9bd245ef0d5dcddd1a84a71e534`.
 
 ## Release boundary
 
