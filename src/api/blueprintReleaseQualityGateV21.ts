@@ -3,6 +3,13 @@ import type { CustomerAccessResearchResult } from './customerAccessResearch';
 import type { GhostTownLaunchBlueprintV21, BlueprintGenerationEvidenceReceipt } from '../types/launchBlueprintV21';
 
 export type BlueprintReleaseBlockerCategoryV21 = 'strategy' | 'research' | 'asset' | 'calendar' | 'delivery';
+export type ResearchVerificationDimensionV21 =
+  | 'customer_problem_definition'
+  | 'competitor_alternative'
+  | 'customer_access'
+  | 'audience_reach'
+  | 'ecosystem_partner'
+  | 'prior_market_behavior';
 
 export const BLUEPRINT_RELEASE_BLOCKER_CODES_V21 = {
   strategy: {
@@ -19,9 +26,8 @@ export const BLUEPRINT_RELEASE_BLOCKER_CODES_V21 = {
   research: {
     fewerThanTwoConfirmedSeeds: 'RESEARCH_FEWER_THAN_TWO_CONFIRMED_SEEDS',
     requiredProviderAttemptsNotExecuted: 'RESEARCH_REQUIRED_PROVIDER_ATTEMPTS_NOT_EXECUTED',
-    fewerThanTwoSuccessfulProviderTypes: 'RESEARCH_FEWER_THAN_TWO_SUCCESSFUL_PROVIDER_TYPES',
+    insufficientVerificationDimensions: 'RESEARCH_INSUFFICIENT_VERIFICATION_DIMENSIONS',
     fewerThanTenVerifiedCandidates: 'RESEARCH_FEWER_THAN_TEN_VERIFIED_CANDIDATES',
-    fewerThanThreeTargetCategories: 'RESEARCH_FEWER_THAN_THREE_TARGET_CATEGORIES',
     missingPublicSource: 'RESEARCH_MISSING_PUBLIC_SOURCE',
     missingResearchDate: 'RESEARCH_MISSING_RESEARCH_DATE',
     missingExecutionMetadata: 'RESEARCH_MISSING_CONFIDENCE_ACCESS_RISK_ASSET_SCRIPT_OR_FIRST_ACTION'
@@ -114,6 +120,55 @@ function publicHttps(value: string): boolean {
   }
 }
 
+export function researchVerificationDimensionsV21(
+  blueprint: GhostTownLaunchBlueprintV21,
+  research: CustomerAccessResearchResult
+): ResearchVerificationDimensionV21[] {
+  const dimensions = new Set<ResearchVerificationDimensionV21>();
+  const channels = blueprint.customerAccessPack.channels;
+  const sourceIds = new Set(blueprint.sources.map(source => source.sourceId));
+  const verifiedFacts = blueprint.startingStateAudit.verifiedFacts.filter(item => item.truthLabel === 'Verified');
+  const hasCustomerDefinition = verifiedFacts.some(item => /target buyer/i.test(item.statement));
+  const hasProblemDefinition = verifiedFacts.some(item => /problem supplied/i.test(item.statement));
+
+  if (hasCustomerDefinition && hasProblemDefinition) dimensions.add('customer_problem_definition');
+
+  const hasCompetitorEvidence = channels.some(channel => Boolean(channel.competitorEvidence?.length));
+  const hasAlternativeDefinition = verifiedFacts.some(item => /current workaround/i.test(item.statement));
+  if (research.receipt.seedDomains.length >= 2 && (hasCompetitorEvidence || hasAlternativeDefinition)) {
+    dimensions.add('competitor_alternative');
+  }
+
+  const sourcedReachableTargets = channels.filter(channel =>
+    publicHttps(channel.publicUrl)
+    && channel.sourceIds.length > 0
+    && channel.sourceIds.every(sourceId => sourceIds.has(sourceId))
+    && hasText(channel.accessPath)
+  );
+  if (sourcedReachableTargets.length >= 10) dimensions.add('customer_access');
+
+  if (channels.some(channel =>
+    channel.targetType === 'podcast'
+    || channel.targetType === 'youtube_creator'
+    || channel.targetType === 'newsletter_or_publication'
+    || channel.targetType === 'community'
+  )) dimensions.add('audience_reach');
+
+  if (research.research.publicExpertsAndPartners.length > 0 || channels.some(channel =>
+    channel.targetType === 'association'
+    || channel.targetType === 'event'
+    || channel.targetType === 'complementary_partner'
+    || channel.targetType === 'review_site'
+  )) dimensions.add('ecosystem_partner');
+
+  if ([...blueprint.startingStateAudit.priorSignals, ...blueprint.startingStateAudit.priorNoSignals]
+    .some(item => item.truthLabel === 'Verified')) {
+    dimensions.add('prior_market_behavior');
+  }
+
+  return [...dimensions];
+}
+
 function add(
   blockers: BlueprintReleaseBlockerV21[],
   category: BlueprintReleaseBlockerCategoryV21,
@@ -198,7 +253,7 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
   const receipt = research.receipt;
   const seedCount = receipt.seedDomains.length;
   const expectedProviderAttempts = Math.max(receipt.sourceDefinitionIds.length, seedCount * 3);
-  const targetCategoryCount = Object.values(receipt.targetTypeCounts).filter(count => count > 0).length;
+  const verificationDimensions = researchVerificationDimensionsV21(blueprint, research);
   const sourceIds = new Set(blueprint.sources.map(source => source.sourceId));
   const channels = blueprint.customerAccessPack.channels;
   const missingPublicSource = blueprint.sources.length === 0
@@ -213,9 +268,8 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
 
   add(blockers, 'research', C.research.fewerThanTwoConfirmedSeeds, 'Fewer than two confirmed seeds.', 'research.receipt.seedDomains', seedCount < 2);
   add(blockers, 'research', C.research.requiredProviderAttemptsNotExecuted, 'Required provider attempts not executed.', 'research.receipt.attemptedSourceCount', receipt.attemptedSourceCount < expectedProviderAttempts);
-  add(blockers, 'research', C.research.fewerThanTwoSuccessfulProviderTypes, 'Fewer than two successful provider types.', 'research.receipt.sourceTypeCount', receipt.sourceTypeCount < 2);
+  add(blockers, 'research', C.research.insufficientVerificationDimensions, 'Fewer than three independent idea-verification dimensions.', 'research.verificationDimensions', verificationDimensions.length < 3);
   add(blockers, 'research', C.research.fewerThanTenVerifiedCandidates, 'Fewer than ten verified candidates.', 'research.receipt.candidateChannelCount', receipt.candidateChannelCount < 10);
-  add(blockers, 'research', C.research.fewerThanThreeTargetCategories, 'Fewer than three target categories.', 'research.receipt.targetTypeCounts', targetCategoryCount < 3);
   add(blockers, 'research', C.research.missingPublicSource, 'Missing public source.', 'sources', missingPublicSource);
   add(blockers, 'research', C.research.missingResearchDate, 'Missing research date.', 'generationReceipt.researchDate', missingResearchDate);
   add(blockers, 'research', C.research.missingExecutionMetadata, 'Missing confidence, access path, risk, prepared asset, script, or first action.', 'customerAccessPack.channels', missingExecutionMetadata);
