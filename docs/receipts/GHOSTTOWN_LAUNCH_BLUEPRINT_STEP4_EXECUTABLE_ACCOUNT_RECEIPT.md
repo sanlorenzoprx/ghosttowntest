@@ -3,6 +3,7 @@
 Repository: `sanlorenzoprx/ghosttowntest`  
 Branch: `feat/launch-blueprint-spa`  
 Draft PR: `#7`  
+Successful Step 4 CI run: `31155000575`  
 Production deployment: prohibited in this slice  
 PR merge: prohibited in this slice
 
@@ -116,4 +117,14 @@ Deliberately deferred:
 - Reminder preference normalization.
 - Version-attached reminder normalization.
 
-The final GitHub Actions run on this receipt head is the code-validation evidence for Step 4. This receipt does not authorize production deployment, merge, or automatic Blueprint regeneration.
+## Validation evidence
+
+GitHub Actions run `31155000575` passed through:
+
+- canonical Blueprint source verification;
+- TypeScript type-check;
+- complete Vitest suite;
+- Cloudflare Worker dry-run;
+- production Vite build.
+
+This receipt does not authorize production deployment, merge, or automatic Blueprint regeneration.
