@@ -17,6 +17,13 @@ import {
   loadBlueprintIntegrityReceiptV21,
   loadCanonicalBlueprintJsonV21
 } from './blueprintStoreV21';
+import {
+  DAILY_EXECUTION_LOG_SCHEMA_VERSION,
+  attachCanonicalExecutionReferences,
+  deriveAcsReadinessAssessment,
+  persistBlueprintExecutionArchitecture,
+  type ExecutionProgressSnapshot
+} from './blueprintExecutionStore';
 
 const json = (body: unknown, status = 200, headers: HeadersInit = {}) => new Response(JSON.stringify(body), {
   status,
@@ -29,6 +36,27 @@ function normalizedEmail(value: string): string {
 
 function isV21(blueprint: GhostTownLaunchBlueprint): blueprint is GhostTownLaunchBlueprintV21 {
   return (blueprint as GhostTownLaunchBlueprint & { contractVersion?: string }).contractVersion === '2.1.0';
+}
+
+function versionAttachedProgress(
+  blueprint: GhostTownLaunchBlueprint,
+  ownerId: string,
+  progress: BlueprintProgress
+): BlueprintProgress {
+  if (!isV21(blueprint)) return progress;
+  return attachCanonicalExecutionReferences(
+    blueprint,
+    ownerId,
+    progress as unknown as ExecutionProgressSnapshot
+  ) as unknown as BlueprintProgress;
+}
+
+function executionMetadata(blueprint: GhostTownLaunchBlueprint, progress: BlueprintProgress) {
+  if (!isV21(blueprint)) return undefined;
+  return {
+    schemaVersion: DAILY_EXECUTION_LOG_SCHEMA_VERSION,
+    acsReadiness: deriveAcsReadinessAssessment(progress as unknown as ExecutionProgressSnapshot)
+  };
 }
 
 export async function ownedLaunchBlueprintOrder(request: Request, env: Env, orderId: string, requireReady = true): Promise<{ order: PaidTestOrder; email: string } | Response> {
@@ -56,14 +84,16 @@ export async function handleLaunchBlueprint(request: Request, env: Env, orderId:
   if (owned instanceof Response) return owned;
   const record = await loadBlueprintRecord(env, orderId);
   if (!record) return json({ error: 'Canonical Launch Blueprint record not found' }, 404);
-  const progress = await loadBlueprintProgress(env, orderId, owned.email);
+  const storedProgress = await loadBlueprintProgress(env, orderId, owned.email);
   const integrityReceipt = await loadBlueprintIntegrityReceiptV21(env, orderId);
   const blueprint = integrityReceipt && isV21(record.blueprint)
     ? applyBlueprintIntegrityReceiptV21(record.blueprint, integrityReceipt)
     : record.blueprint;
+  const progress = versionAttachedProgress(blueprint, owned.email, storedProgress);
   return json({
     blueprint,
     progress,
+    executionLog: executionMetadata(blueprint, progress),
     research: {
       provider: record.researchReceipt.provider,
       model: record.researchReceipt.model,
@@ -136,11 +166,45 @@ export async function handleLaunchBlueprintAssets(request: Request, env: Env, or
 export async function handleLaunchBlueprintProgress(request: Request, env: Env, orderId: string): Promise<Response> {
   const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
-  if (request.method === 'GET') return json({ progress: await loadBlueprintProgress(env, orderId, owned.email) }, 200, { 'Cache-Control': 'private, no-store' });
+  const record = await loadBlueprintRecord(env, orderId);
+  if (!record) return json({ error: 'Canonical Launch Blueprint record not found' }, 404);
+
+  if (request.method === 'GET') {
+    const stored = await loadBlueprintProgress(env, orderId, owned.email);
+    const progress = versionAttachedProgress(record.blueprint, owned.email, stored);
+    return json({
+      progress,
+      executionLog: executionMetadata(record.blueprint, progress)
+    }, 200, { 'Cache-Control': 'private, no-store' });
+  }
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+
   const body = await request.json<Partial<BlueprintProgress>>();
-  const progress = await saveBlueprintProgress(env, orderId, owned.email, body);
-  return json({ progress }, 200, { 'Cache-Control': 'private, no-store' });
+  const initiallySaved = await saveBlueprintProgress(env, orderId, owned.email, body);
+  const progress = versionAttachedProgress(record.blueprint, owned.email, initiallySaved);
+
+  // Keep the existing progress JSON as a compatibility projection for the v2.1
+  // account UI, but write the durable evidence/reminder/checkpoint architecture
+  // into normalized, version-attached D1 tables.
+  const compatibilityProgress = isV21(record.blueprint)
+    ? await saveBlueprintProgress(env, orderId, owned.email, progress)
+    : progress;
+  const acsReadiness = isV21(record.blueprint)
+    ? await persistBlueprintExecutionArchitecture(
+        env,
+        record.blueprint,
+        owned.email,
+        compatibilityProgress as unknown as ExecutionProgressSnapshot
+      )
+    : null;
+
+  return json({
+    progress: compatibilityProgress,
+    executionLog: isV21(record.blueprint) ? {
+      schemaVersion: DAILY_EXECUTION_LOG_SCHEMA_VERSION,
+      acsReadiness
+    } : undefined
+  }, 200, { 'Cache-Control': 'private, no-store' });
 }
 
 export async function handleLaunchBlueprintRetry(request: Request, env: Env, orderId: string): Promise<Response> {
