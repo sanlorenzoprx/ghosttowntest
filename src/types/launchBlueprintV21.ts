@@ -167,10 +167,10 @@ export interface BlueprintDailyActionV21 extends BlueprintDailyAction {
 }
 
 export interface CanonicalContractReceipt {
-  version: '2.1.0';
-  gitBlobSha1: 'a6dd1fa9e8f59417b7ce00b032eabf3793537abd';
+  version: '2.1.1';
+  gitBlobSha1: '616c691e6b4c9cea93615963a07375d13ffba57f';
   sourcePath: 'docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md';
-  changeRecordPath: 'docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_CHANGE_RECORD.md';
+  changeRecordPath: 'docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_1_CHANGE_RECORD.md';
   evidenceManifestPath: 'docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1-evidence-chain.json';
   verifiedAt: string;
 }
@@ -273,7 +273,7 @@ export type GhostTownLaunchBlueprintV21 = Omit<
   'blueprintVersion' | 'dailyCalendar' | 'generationReceipt' | 'qualityGate'
 > & {
   blueprintVersion: '2.1';
-  contractVersion: '2.1.0';
+  contractVersion: '2.1.1';
   startingStateAudit: StartingStateAudit;
   businessModelLane: BusinessModelLane;
   firstRevenuePath: FirstRevenuePath;
