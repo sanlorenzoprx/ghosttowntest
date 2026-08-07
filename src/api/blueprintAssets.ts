@@ -34,10 +34,7 @@ const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
 function asV21(
   blueprint: GhostTownLaunchBlueprint,
 ): GhostTownLaunchBlueprintV21 | null {
-  const candidate = blueprint as GhostTownLaunchBlueprint & {
-    contractVersion?: string;
-  };
-  return candidate.contractVersion === "2.1.0"
+  return blueprint.blueprintVersion === "2.1" && "contractVersion" in blueprint
     ? (blueprint as GhostTownLaunchBlueprintV21)
     : null;
 }
