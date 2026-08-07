@@ -21,10 +21,6 @@
     "gitBlobSha1": "10b6e6b0e7fbd42f77c2c8fa721ebba1b01a321e",
     "sourceCommit": "99f2b220cac28097f43ec24cf6206d8a3c817e01"
   },
-  "implementation": {
-    "step5ResearchQualityHead": "82d3d82145960b934b2268100e75417782c2e0cf",
-    "successfulCiRun": "31164603859"
-  },
   "outcomeProtection": {
     "weakeningAllowed": false,
     "requiresExplicitProductDecision": true,
