@@ -62,6 +62,7 @@ async function persistLifecycle(
 async function recordCompletionV21(
   env: Env,
   order: PaidTestOrder,
+  contractVersion: GhostTownLaunchBlueprintV21['contractVersion'],
   canonicalBlueprintSha256: string,
   canonicalSourceHash: string
 ): Promise<void> {
@@ -74,7 +75,7 @@ async function recordCompletionV21(
     offerId: order.offerId,
     artifactType: order.artifactType,
     planVersion: order.planVersion,
-    contractVersion: '2.1.0',
+    contractVersion,
     canonicalBlueprintSha256,
     canonicalSourceHash,
     stripeMode: order.stripeMode,
@@ -190,6 +191,7 @@ export async function completeLaunchBlueprintOrderV21(
   await recordCompletionV21(
     env,
     order,
+    blueprint.contractVersion,
     exactReceipt.hashes.canonicalBlueprintSha256,
     blueprint.generationReceipt.canonicalContract.gitBlobSha1
   );
