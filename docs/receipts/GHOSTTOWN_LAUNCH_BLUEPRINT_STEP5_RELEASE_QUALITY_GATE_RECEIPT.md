@@ -2,45 +2,52 @@
 
 ## Source authority
 
-Step 5 is implemented from the canonical Phase Completion and Environment Acceptance Plan: **Strengthen the v2.1 release quality gate — Add explicit blockers for every required customer outcome.** No additional blocker category was substituted for the five source-defined groups.
+Step 5 follows the canonical Blueprint contract as amended by explicit product decision in v2.1.1.
 
-Canonical Git blob SHA-1: `a6dd1fa9e8f59417b7ce00b032eabf3793537abd`.
+Canonical version: `2.1.1`  
+Canonical Git blob SHA-1: `616c691e6b4c9cea93615963a07375d13ffba57f`  
+Change record: `docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_1_CHANGE_RECORD.md`
 
 ## Implementation
 
 - Central release-gate module: `src/api/blueprintReleaseQualityGateV21.ts`.
-- Five source-defined blocker groups: strategy, research, asset, calendar, delivery.
-- Every source bullet has a stable blocker code and fail-closed predicate.
+- Five blocker groups remain: strategy, research, asset, calendar, delivery.
 - The real v2.1 paid fulfillment runs the gate before persistence and again after exact-byte persistence verification.
 - The order cannot become `ready` until the post-persistence delivery gate passes.
-- Research candidate selection rejects any model-returned candidate ID outside the immutable candidate set.
 - Required provider attempts are evaluated against the actual planned/seed-derived count rather than only a fixed minimum.
+- Research quality is measured by independent idea-verification dimensions rather than provider-count or content-format quotas.
+- Current verification dimensions include customer/problem definition, competitor/alternative evidence, customer access, audience reach, ecosystem/partner evidence, and verified prior market behavior; later commercial evidence can extend this model.
+- At least three independent dimensions are required.
+- Multiple provider types and multiple content/channel categories are diagnostic signals, not release blockers by themselves.
+- An unknown model candidate reference is not evidence and is not a release blocker by itself. The unverified selection is discarded and the research layer recovers from provider-verified candidates; the real research minimums still fail closed if they cannot be satisfied.
 - Delivery verification re-reads D1 and PDF/JSON/ZIP from private R2, verifies exact hashes, checks owner identity, and proves repeated artifact retrieval before customer release.
 
-## Explicit blocker coverage
+## Explicit Step 5 blocker coverage
 
 - Strategy: 9 blockers.
-- Research: 9 blockers.
+- Research: 7 blockers.
 - Assets: 7 blockers.
 - Calendar: 7 blockers.
 - Delivery: 7 blockers.
-- Total: 39 explicit source-derived blockers.
+- Total: 37 explicit Step 5 blocker codes.
+
+The research gate no longer contains `RESEARCH_UNKNOWN_CANDIDATE_ID`, `RESEARCH_FEWER_THAN_TWO_SUCCESSFUL_PROVIDER_TYPES`, or `RESEARCH_FEWER_THAN_THREE_TARGET_CATEGORIES`. Those constraints were replaced by `RESEARCH_INSUFFICIENT_VERIFICATION_DIMENSIONS` plus verified-candidate/source/metadata requirements.
 
 ## Tests
 
-`tests/blueprintReleaseQualityGateV21.test.ts` contains a passing complete fixture plus a table-driven failure assertion for every one of the 39 blocker codes.
+`tests/blueprintReleaseQualityGateV21.test.ts` contains a passing complete fixture, a table-driven failure assertion for every current Step 5 blocker code, and an explicit test proving that one content format can pass when the idea has at least three independent verification dimensions.
+
+`tests/customerAccessResearch.test.ts` verifies that an unknown model candidate reference recovers through the provider-verified candidate pool instead of wasting an otherwise valid paid research run.
 
 ## Validation
 
-Step 5 validation requires and has passed:
+Required validation remains:
 
-- Exact canonical Blueprint source verification during the implementation slice.
-- TypeScript type-check.
-- Full Vitest suite.
-- Cloudflare Worker dry-run.
-- Production Vite build.
-
-Validated Step 5 product implementation commit: `93cd50157d7c73e088b7bd4989745e30b21c5265`.
+- exact canonical Blueprint source verification;
+- TypeScript type-check;
+- full Vitest suite;
+- Cloudflare Worker dry-run;
+- production Vite build.
 
 The authoritative final branch head and latest successful CI run are maintained in PR #7 so this receipt does not create a self-referential commit/run chain.
 
