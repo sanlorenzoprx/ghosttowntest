@@ -1,0 +1,10 @@
+import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+const path = 'src/types/launchBlueprint.ts';
+const source = readFileSync(path, 'utf8');
+const before = "  blueprintVersion: '2.0';";
+const after = "  blueprintVersion: '2.0' | '2.1';";
+if (!source.includes(before)) throw new Error('Blueprint version type anchor missing');
+writeFileSync(path, source.replace(before, after), 'utf8');
+rmSync('scripts/apply-step4-version-compat.mjs', { force: true });
+rmSync('.github/workflows/apply-step4-version-compat.yml', { force: true });
+console.log('[step4] widened base Blueprint version union for legacy + v2.1 compatibility');
