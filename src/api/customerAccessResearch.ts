@@ -28,7 +28,6 @@ export {
 
 const MIN_VERIFIED_CANDIDATES = 10;
 const MAX_DELIVERED_TARGETS = 25;
-const MIN_TARGET_CATEGORIES = 3;
 
 function clean(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
@@ -59,12 +58,18 @@ function recoveryToken(candidate: FootprintCandidate): string {
   return candidate.candidateId.replace(/^candidate_/, '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
 }
 
+function recoverableDiversityOrSelectionFailure(message: string): boolean {
+  return message.includes('STEP5_RESEARCH_UNKNOWN_CANDIDATE_ID')
+    || /used only \d+ provider types/i.test(message)
+    || /Media & Distribution Network failed its quality gate/i.test(message);
+}
+
 /**
- * Recovery path for model-selection drift. Candidate IDs returned by the model are
- * advisory selection references, not customer evidence. If selection references an
- * ID outside the immutable provider candidate set, preserve the paid research by
- * building the network directly from provider-verified candidates instead of
- * failing the order. Canonical research minimums still fail closed.
+ * Recovery path for selection drift or a provider/content diversity-only failure.
+ * The customer is never released an invented target. Recovery uses only candidates
+ * already verified by provider research and still fails closed when the canonical
+ * minimum of ten verified candidates cannot be satisfied. Content/provider type
+ * diversity is useful ranking metadata, not a release quota.
  */
 export function recoverCustomerAccessFromVerifiedCandidates(
   order: PaidTestOrder,
@@ -90,32 +95,7 @@ export function recoverCustomerAccessFromVerifiedCandidates(
     throw new Error(`Distribution Footprint recovery found only ${candidates.length} verified candidates; ${MIN_VERIFIED_CANDIDATES} are required`);
   }
 
-  const byType = new Map<DistributionTargetType, FootprintCandidate[]>();
-  for (const candidate of candidates) {
-    const group = byType.get(candidate.targetTypeHint) || [];
-    group.push(candidate);
-    byType.set(candidate.targetTypeHint, group);
-  }
-  if (byType.size < MIN_TARGET_CATEGORIES) {
-    throw new Error(`Distribution Footprint recovery found only ${byType.size} target categories; ${MIN_TARGET_CATEGORIES} are required`);
-  }
-
-  const selected: FootprintCandidate[] = [];
-  const selectedIds = new Set<string>();
-  for (const group of byType.values()) {
-    const candidate = group[0];
-    if (!candidate) continue;
-    selected.push(candidate);
-    selectedIds.add(candidate.candidateId);
-    if (selected.length >= MIN_TARGET_CATEGORIES) break;
-  }
-  for (const candidate of candidates) {
-    if (selected.length >= MAX_DELIVERED_TARGETS) break;
-    if (selectedIds.has(candidate.candidateId)) continue;
-    selected.push(candidate);
-    selectedIds.add(candidate.candidateId);
-  }
-
+  const selected = candidates.slice(0, MAX_DELIVERED_TARGETS);
   const researchDate = new Date().toISOString().slice(0, 10);
   const sources: BlueprintSource[] = [];
   const channels: CustomerAccessChannel[] = selected.map(candidate => {
@@ -135,7 +115,7 @@ export function recoverCustomerAccessFromVerifiedCandidates(
       community: candidate.title,
       platform: candidate.platform,
       publicUrl: candidate.publicUrl,
-      relevance: `${candidate.title} was retained from verified provider research for ${clean(order.intake.targetBuyer)} after model selection referenced an unknown candidate ID.`,
+      relevance: `${candidate.title} was retained from provider-verified research for ${clean(order.intake.targetBuyer)} after the model-selection layer could not produce a release-safe network.`,
       activity: candidate.activity,
       participationRules: 'Review the target’s current public contact, submission, sponsorship, review, guest, speaker, or participation rules before outreach.',
       recommendedApproach: 'Lead with a useful, audience-specific contribution and a transparent request rather than a mass promotional pitch.',
@@ -216,7 +196,7 @@ export async function finalizeCustomerAccessResearch(
     return await finalizeDistributionFootprintResearch(env, order, verdict, plan, batches);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes('STEP5_RESEARCH_UNKNOWN_CANDIDATE_ID')) throw error;
+    if (!recoverableDiversityOrSelectionFailure(message)) throw error;
     return recoverCustomerAccessFromVerifiedCandidates(order, verdict, plan, batches);
   }
 }
