@@ -23,7 +23,7 @@ import {
   type CustomerAccessResearchInput
 } from './launchBlueprintGenerator';
 
-export const CANONICAL_BLUEPRINT_V21_GIT_BLOB_SHA1 = 'a6dd1fa9e8f59417b7ce00b032eabf3793537abd' as const;
+export const CANONICAL_BLUEPRINT_V21_GIT_BLOB_SHA1 = '616c691e6b4c9cea93615963a07375d13ffba57f' as const;
 
 function clean(value: string | undefined): string {
   return value?.replace(/\s+/g, ' ').trim() || '';
@@ -304,7 +304,7 @@ export function validateGhostTownLaunchBlueprintV21(
   const warnings = [...baseGate.warnings];
 
   if (blueprint.blueprintVersion !== '2.1') failures.push('Executable Blueprint version must be 2.1.');
-  if (blueprint.contractVersion !== '2.1.0') failures.push('Canonical Blueprint contract version must be 2.1.0.');
+  if (blueprint.contractVersion !== '2.1.1') failures.push('Canonical Blueprint contract version must be 2.1.1.');
   if (blueprint.generationReceipt.canonicalContract.gitBlobSha1 !== CANONICAL_BLUEPRINT_V21_GIT_BLOB_SHA1) failures.push('Canonical Blueprint hash does not match the approved v2.1 source.');
   if (blueprint.startingStateAudit.criticalTests.length < 1 || blueprint.startingStateAudit.criticalTests.length > 5) failures.push('Starting-state audit must identify between one and five critical tests.');
   if (!blueprint.businessModelLane.firstMeaningfulTest) failures.push('Business-model execution lane is missing its first meaningful test.');
@@ -351,7 +351,7 @@ export function upgradeGhostTownLaunchBlueprintToV21(
   const upgraded = {
     ...base,
     blueprintVersion: '2.1' as const,
-    contractVersion: '2.1.0' as const,
+    contractVersion: '2.1.1' as const,
     startingStateAudit: startingStateAudit(order, verdict, lane),
     businessModelLane,
     firstRevenuePath: revenue,
@@ -366,10 +366,10 @@ export function upgradeGhostTownLaunchBlueprintToV21(
     generationReceipt: {
       ...base.generationReceipt,
       canonicalContract: {
-        version: '2.1.0' as const,
+        version: '2.1.1' as const,
         gitBlobSha1: CANONICAL_BLUEPRINT_V21_GIT_BLOB_SHA1,
         sourcePath: 'docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md' as const,
-        changeRecordPath: 'docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_CHANGE_RECORD.md' as const,
+        changeRecordPath: 'docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_1_CHANGE_RECORD.md' as const,
         evidenceManifestPath: 'docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1-evidence-chain.json' as const,
         verifiedAt: base.generationReceipt.generatedAt
       }
