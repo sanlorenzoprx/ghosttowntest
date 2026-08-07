@@ -251,7 +251,7 @@ export interface BlueprintGenerationReceipt {
 export interface GhostTownLaunchBlueprint {
   schemaVersion: 'ghosttown-launch-blueprint-v2';
   blueprintId: string;
-  blueprintVersion: '2.0';
+  blueprintVersion: '2.0' | '2.1';
   status: BlueprintStatus;
   orderId: string;
   ownerId: string;
