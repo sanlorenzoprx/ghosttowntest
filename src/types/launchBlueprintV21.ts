@@ -175,8 +175,13 @@ export interface CanonicalContractReceipt {
   verifiedAt: string;
 }
 
-export interface BlueprintVertexStageReceipt {
-  stage: 'evidence_normalization' | 'strategy_synthesis' | 'asset_generation' | 'red_team_review';
+/**
+ * Safe, non-secret receipt returned by the structured Vertex transport. Prompt and
+ * response bodies are deliberately excluded; only their hashes and public model
+ * metadata may cross into the canonical generation evidence.
+ */
+export interface VertexStructuredStageReceipt {
+  stage: string;
   model: string;
   modelVersion?: string;
   responseId?: string;
@@ -186,6 +191,10 @@ export interface BlueprintVertexStageReceipt {
   candidatesTokenCount?: number;
   totalTokenCount?: number;
   completedAt: string;
+}
+
+export interface BlueprintVertexStageReceipt extends VertexStructuredStageReceipt {
+  stage: 'evidence_normalization' | 'strategy_synthesis' | 'asset_generation' | 'red_team_review';
 }
 
 export interface BlueprintVertexRedTeamFinding {
@@ -208,9 +217,55 @@ export interface BlueprintVertexPipelineReceipt {
   skippedReason?: string;
 }
 
+export interface BlueprintGenerationVertexReceipt {
+  required: boolean;
+  projectId: string;
+  location: string;
+  configuredModel: string;
+  stages: VertexStructuredStageReceipt[];
+}
+
+export interface BlueprintGenerationHashesReceipt {
+  normalizedInputSha256: string;
+  canonicalBlueprintSha256: string;
+  pdfSha256: string;
+  zipSha256: string;
+}
+
+export interface BlueprintGenerationQualityReceipt {
+  deterministicGatePassed: boolean;
+  v21GatePassed: boolean;
+  redTeamPassed: boolean;
+  sourceVerificationPassed: boolean;
+  candidateIdValidationPassed: boolean;
+}
+
+export interface BlueprintGenerationArtifactKeysReceipt {
+  pdf: string;
+  json: string;
+  zip: string;
+}
+
+export interface BlueprintGenerationEvidenceReceipt {
+  vertex: BlueprintGenerationVertexReceipt;
+  hashes: BlueprintGenerationHashesReceipt;
+  quality: BlueprintGenerationQualityReceipt;
+  artifactKeys: BlueprintGenerationArtifactKeysReceipt;
+}
+
 export type BlueprintGenerationReceiptV21 = BlueprintGenerationReceipt & {
   canonicalContract: CanonicalContractReceipt;
   vertexPipeline?: BlueprintVertexPipelineReceipt;
+  /**
+   * Step 3 fields are populated before persistence. Exact artifact hashes are
+   * persisted in the detached integrity receipt because a file cannot contain
+   * its own SHA-256 without creating a recursive self-hash. Account responses
+   * overlay those exact values without mutating the stored canonical bytes.
+   */
+  vertex?: BlueprintGenerationVertexReceipt;
+  hashes?: BlueprintGenerationHashesReceipt;
+  quality?: BlueprintGenerationQualityReceipt;
+  artifactKeys?: BlueprintGenerationArtifactKeysReceipt;
 };
 
 export type GhostTownLaunchBlueprintV21 = Omit<
