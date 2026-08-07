@@ -6,8 +6,8 @@ The authoritative product and implementation contract is:
 
 `docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md`
 
-Canonical version: `2.1.0`  
-Canonical Git blob SHA-1: `a6dd1fa9e8f59417b7ce00b032eabf3793537abd`
+Canonical version: `2.1.1`  
+Canonical Git blob SHA-1: `616c691e6b4c9cea93615963a07375d13ffba57f`
 
 Before any Factory slice, implementation pass, test slice, build, or Worker dry run, execute:
 
@@ -26,7 +26,7 @@ Any amendment requires:
 
 Evidence files:
 
-- `docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_CHANGE_RECORD.md`
+- `docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_1_CHANGE_RECORD.md`
 - `docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1-evidence-chain.json`
 
 This file is an implementation summary. It cannot override the canonical contract.
@@ -128,7 +128,7 @@ Use a staged pipeline:
 5. Controlled schema validation.
 6. Deterministic rendering from the validated canonical record.
 
-Gemini may rank and explain verified provider candidates, but it must not invent channels, organizations, URLs, contacts, activity claims, participation rules, or customer evidence.
+Gemini may rank and explain verified provider candidates, but it must not invent channels, organizations, URLs, contacts, activity claims, participation rules, or customer evidence. An unknown model candidate reference is discarded and recovered from verified research rather than treated as customer evidence.
 
 ## Fail-closed quality gate
 
@@ -143,7 +143,10 @@ A Blueprint cannot reach `ready` unless it includes:
 - founder time and budget limits;
 - no more than five critical assumptions;
 - two or three verified commercial seed domains;
-- 10–25 verified distribution targets across at least three categories;
+- required research attempts;
+- at least three independent verification dimensions of the idea, such as customer/problem definition, competitor or alternative evidence, customer access, audience reach, ecosystem or partner evidence, prior market behavior, or later commercial evidence;
+- at least ten verified research candidates and a final network of 10–25 verified targets;
+- provider count and content/channel-format diversity used as diagnostics rather than release quotas;
 - source, date, confidence, access path, asset, script, risk, and first action for every delivered target;
 - exactly five substantive helpful posts;
 - required relationship-specific outreach scripts;
@@ -177,7 +180,7 @@ Implemented on `feat/launch-blueprint-spa` and to be preserved:
 - post-purchase competitor-seed confirmation;
 - DataForSEO, Podcast Index, and YouTube Media & Distribution research;
 - direct public-source verification;
-- Gemini ranking constrained to provider candidate IDs;
+- Gemini ranking constrained to provider candidate IDs with verified-research recovery for selection drift;
 - Cloudflare Workflow orchestration;
 - D1/R2 storage design;
 - professional PDF and canonical JSON;
@@ -209,7 +212,7 @@ Use only these current documents for implementation and acceptance work:
 
 - Canonical product and implementation contract: `docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md`
 - Environment acceptance handoff: `docs/GHOSTTOWN_ENVIRONMENT_ACCEPTANCE_CURSOR_CODEX_HANDOFF.md`
-- Change record: `docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_CHANGE_RECORD.md`
+- Change record: `docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_1_CHANGE_RECORD.md`
 - Evidence chain: `docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1-evidence-chain.json`
 
 Older Cursor/Codex implementation handoff files are obsolete and must not be restored or referenced.
