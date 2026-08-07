@@ -1,0 +1,35 @@
+name: Apply Reminder Publish Readiness
+
+on:
+  push:
+    branches:
+      - feat/launch-blueprint-spa
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reminder-publish-readiness-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/launch-blueprint-spa
+          fetch-depth: 0
+      - name: Apply reminder publish-readiness patch
+        run: node scripts/apply-reminder-publish-readiness.mjs
+      - name: Remove bootstrap scaffolding
+        run: rm scripts/apply-reminder-publish-readiness.mjs .github/workflows/reminder-publish-readiness-bootstrap.yml
+      - name: Commit reminder publish readiness
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Polish Daily Execution Log reminders"
+          git push origin HEAD:feat/launch-blueprint-spa
