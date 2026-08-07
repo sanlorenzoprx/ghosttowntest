@@ -1,25 +1,25 @@
 {
   "schemaVersion": "ghosttown-blueprint-evidence-chain-v1",
-  "changeId": "GT-BP-2026-08-06-V2.1",
-  "generatedAt": "2026-08-06T11:10:00Z",
+  "changeId": "GT-BP-2026-08-07-V2.1.1",
+  "generatedAt": "2026-08-07T08:50:00Z",
   "repository": "sanlorenzoprx/ghosttowntest",
   "branch": "feat/launch-blueprint-spa",
   "pullRequest": 7,
-  "previousHead": "e651f042be69a6aec2d1e06f8c2161cb8ff53042",
+  "previousHead": "2d9b215af0bfd5d34045322cdf2c8f038abd65d9",
   "source": {
     "name": "GhostTown Launch Blueprint 9-4-26(2).md",
     "sha256": "08b35e571897c4360aae102100f8b3b9fa8f3c57735de384f455dc76ebdf6580"
   },
   "canonical": {
     "path": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md",
-    "version": "2.1.0",
-    "gitBlobSha1": "a6dd1fa9e8f59417b7ce00b032eabf3793537abd",
-    "sourceCommit": "065f989d5fcca98b68e6aa29e118605e19e6f8be"
+    "version": "2.1.1",
+    "gitBlobSha1": "616c691e6b4c9cea93615963a07375d13ffba57f",
+    "sourceCommit": "7ee41c5e9a6c3076829e85631c0df032f0298df7"
   },
   "changeRecord": {
-    "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_CHANGE_RECORD.md",
-    "gitBlobSha1": "af44c65b9a9231462de3034fc9f97250ebe91e7d",
-    "sourceCommit": "aacbdb2492b3465d0f6e1ec343f82992d260bc36"
+    "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_1_CHANGE_RECORD.md",
+    "gitBlobSha1": "10b6e6b0e7fbd42f77c2c8fa721ebba1b01a321e",
+    "sourceCommit": "99f2b220cac28097f43ec24cf6206d8a3c817e01"
   },
   "outcomeProtection": {
     "weakeningAllowed": false,
