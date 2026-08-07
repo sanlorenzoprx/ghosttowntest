@@ -302,6 +302,10 @@ GEMINI_RESEARCH_MODEL = "gemini-2.5-flash"
 GEMINI_GOOGLE_SEARCH_MODEL = "gemini-2.5-flash"
 DISTRIBUTION_FOOTPRINT_ENABLED = "false"
 DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
+VERTEX_BLUEPRINT_REQUIRED = "true"
+VERTEX_PROJECT_ID = "REPLACE_WITH_VERTEX_PROJECT_ID"
+VERTEX_LOCATION = "us-central1"
+VERTEX_BLUEPRINT_MODEL = "gemini-2.5-flash"
 FRONTEND_URL = "REPLACE_AFTER_PAGES_ACCEPTANCE_DEPLOY"
 
 [[env.acceptance.kv_namespaces]]
@@ -399,13 +403,31 @@ Stop if any table is absent.
 
 ---
 
-## 8. Phase 4 — configure acceptance secrets privately
+## 8. Phase 4 — configure Vertex identity and acceptance secrets privately
 
-Use Stripe **test/sandbox** credentials only in the acceptance environment.
+Use Stripe **test/sandbox** credentials only in the acceptance environment. The paid acceptance run must exercise the staged Vertex Blueprint path, so do not rely on implicit Vertex defaults.
 
-Required secrets from the current `Env` contract:
+### Non-secret Vertex environment variables
+
+These values identify the intended Vertex runtime and belong in `[env.acceptance.vars]`:
 
 ```text
+VERTEX_BLUEPRINT_REQUIRED=true
+VERTEX_PROJECT_ID
+VERTEX_LOCATION
+VERTEX_BLUEPRINT_MODEL
+```
+
+`VERTEX_BLUEPRINT_REQUIRED` must be explicitly `true` for the release acceptance run. Record the exact project, location, and model used.
+
+### Cloudflare secrets
+
+Only the service-account private key is inherently secret, but keep all service-account identity fields in the Cloudflare secret store to reduce accidental exposure in config, screenshots, and logs.
+
+```text
+VERTEX_SERVICE_ACCOUNT_EMAIL
+VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY
+VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID
 JWT_SECRET
 STRIPE_SECRET_KEY
 STRIPE_WEBHOOK_SECRET
@@ -425,6 +447,9 @@ INTERNAL_RESEARCH_OWNER_EMAILS
 Enter them one at a time through the authenticated prompt:
 
 ```powershell
+npx wrangler secret put VERTEX_SERVICE_ACCOUNT_EMAIL --env acceptance
+npx wrangler secret put VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY --env acceptance
+npx wrangler secret put VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID --env acceptance
 npx wrangler secret put JWT_SECRET --env acceptance
 npx wrangler secret put STRIPE_SECRET_KEY --env acceptance
 npx wrangler secret put STRIPE_WEBHOOK_SECRET --env acceptance
@@ -450,7 +475,7 @@ npx wrangler secret list --env acceptance *>&1 |
   Tee-Object ".acceptance-receipts\13-secret-names.txt"
 ```
 
-The receipt must contain names only, never values.
+The secret inventory must contain names only, never values. Never record the Vertex private key, generated JWT assertion, OAuth access token, Stripe secret, webhook signing secret, or any other credential value.
 
 ---
 
@@ -538,15 +563,26 @@ Verify:
 - channel URLs normalize correctly;
 - quota errors fail clearly.
 
-### Gemini
+### Gemini research selection
 
 Verify:
 
 - model returns valid structured output;
-- it can select only supplied candidate IDs;
-- an invented ID is rejected.
+- supplied candidate IDs remain advisory selection references rather than evidence;
+- an unknown model-selected ID is discarded and the network is recovered only from provider-verified candidates, or the research run fails if canonical outcomes cannot be satisfied.
 
-Record only normalized outputs and error summaries. Never record credentials or complete raw provider payloads.
+### Vertex Blueprint generation
+
+Verify:
+
+- service-account OAuth succeeds without logging the assertion or access token;
+- the configured project, location, and model match the acceptance environment;
+- exactly four ordered stage receipts exist: evidence normalization, strategy synthesis, asset generation, and red-team review;
+- the red-team result passes with no blocking finding;
+- the generation evidence records the normalized input SHA-256 and, after persistence, the exact canonical Blueprint SHA-256;
+- no private key, access token, raw prompt, or raw model response enters customer artifacts or the acceptance receipt.
+
+Record only normalized outputs, receipt-safe identifiers/hashes, and error summaries. Never record credentials or complete raw provider payloads.
 
 ---
 
@@ -647,13 +683,16 @@ Verify:
 
 Verify:
 
-1. DataForSEO, Podcast Index, and YouTube tasks execute.
-2. At least two provider types succeed.
-3. At least ten verified candidates exist before selection.
-4. Gemini selects only candidate IDs supplied to it.
-5. Final network contains 10–25 targets across at least three target categories.
-6. Order progresses to `generating` and then `ready`.
-7. Incomplete research never becomes `ready`.
+1. Required DataForSEO, Podcast Index, YouTube, and original-source verification tasks execute.
+2. At least ten verified candidates exist before selection.
+3. Research covers at least three independent verification dimensions of the business idea; provider count and content/channel category diversity are diagnostic, not release quotas.
+4. Unknown model-selected candidate IDs are never treated as evidence or delivered unless independently researched and verified.
+5. Final customer-access network contains 10–25 verified targets with all required source and execution metadata.
+6. `VERTEX_BLUEPRINT_REQUIRED=true` is effective for the acceptance Worker.
+7. Vertex runs exactly four ordered stages and the red-team gate passes with no blocking finding.
+8. The generation receipt records Vertex project ID, location, configured model, four stage receipts, normalized input SHA-256, and exact canonical Blueprint SHA-256.
+9. Order progresses to `generating` and then `ready` only after the full release and delivery gates pass.
+10. Incomplete research, failed Vertex generation, failed red-team review, or missing receipt integrity never becomes `ready`.
 
 Record the Workflow instance ID and state transitions.
 
@@ -874,49 +913,47 @@ docs/receipts/GHOSTTOWN_LAUNCH_BLUEPRINT_ACCEPTANCE_RECEIPT.md
 
 Do not include secrets or sensitive customer information.
 
+Keep the receipt concise. Record only evidence needed to reproduce the environment, prove the paid path, verify customer deliverables, or authorize release. Do not duplicate raw logs that already exist in `.acceptance-receipts`.
+
 Required sections:
 
 ```text
-Repository and branch
-Final commit SHA
-GitHub Actions run and conclusion
-Cloudflare account identity (non-secret)
-Acceptance Worker URL
-Acceptance frontend URL
-KV namespace title and ID
-D1 database name and ID
-Applied migration list
-Private R2 bucket name
-Workflow name and instance ID
-Configured secret names
-Stripe test Checkout Session ID
-Stripe test event ID
-GhostTown order ID
-Confirmed seed domains
-Provider task counts
-Verified candidate count
-Final target count and categories
-Blueprint ID and schema
-D1 persistence verification
-R2 PDF key verification
-R2 JSON key verification
-R2 ZIP key verification
-PDF visual inspection result
-ZIP manifest result
-Public Launch Site URL
-Lead capture result
-Lead CSV export result
-Account recovery result
-Cross-account denial matrix
-Forced provider failure result
-Forced storage failure result
-Retry result
-Mobile visual inspection result
-Desktop visual inspection result
-Production domain decision
-Remaining blockers
-Owner approval
+1. Build identity
+- Repository, branch, final commit SHA
+- GitHub Actions run and conclusion
+
+2. Acceptance environment identity
+- Cloudflare account identity (non-secret)
+- Acceptance Worker URL and frontend URL
+- KV namespace title/ID, D1 database name/ID, applied migrations, private R2 bucket name
+- Workflow name and instance ID
+- Configured secret names only
+- Vertex project ID, location, configured model
+- Vertex service-account email identifier and key ID
+
+3. Paid-path and generation proof
+- Stripe test Checkout Session ID and event ID
+- GhostTown order ID and confirmed seed domains
+- Provider tasks attempted/succeeded, verified candidate count, and independent evidence-dimension count/set
+- Vertex stage receipt count (must be 4) and red-team result
+- Normalized input SHA-256 and exact canonical Blueprint SHA-256
+- Blueprint ID/schema and D1 persistence verification
+
+4. Customer-delivery proof
+- PDF/JSON/ZIP persistence, hash-match, and repeat-download result
+- PDF visual inspection and ZIP manifest result
+- Public Launch Site URL, lead capture, and lead CSV export result
+- Account recovery and cross-account denial result
+
+5. Resilience and release decision
+- Provider/storage failure-and-retry matrix, including no second charge and no false `ready`
+- Mobile/desktop visual acceptance result
+- Production domain decision
+- Remaining blockers
+- Owner approval
 ```
+
+Do **not** copy the private key, generated JWT assertion, OAuth access token, provider raw payloads, raw prompts, or secret values into the receipt. Individual stage prompt/response hashes are already preserved in the generation receipt and do not need to be duplicated here unless investigating a failure.
 
 ---
 
@@ -932,7 +969,7 @@ Stop and report rather than improvising when:
 - webhook signature verification fails;
 - the acceptance frontend redirects to a production URL;
 - research starts before seed confirmation;
-- Gemini introduces an unknown candidate;
+- an unknown model-selected candidate is treated as verified evidence or delivered instead of being discarded/recovered;
 - quality gates are bypassed;
 - paid artifacts enter the public videos bucket;
 - another account can infer or access the order;
@@ -956,6 +993,7 @@ Environment acceptance is complete only when:
 - webhook idempotency is proven;
 - seed confirmation starts exactly one Workflow;
 - provider research and original-source verification pass;
+- the acceptance Worker explicitly requires Vertex and the four-stage Vertex pipeline, red-team result, project/location/model identity, and canonical input/output hashes are recorded;
 - quality gates pass with real data;
 - D1 and private R2 contain the expected records/objects;
 - PDF and 16-file ZIP are valid;

@@ -25,7 +25,7 @@ The artifact must not pass unless it produces:
 3. A concrete test price and controlled lower/upper boundaries.
 4. A narrow target-customer and positioning plan.
 5. A populated landing-page and Launch Site configuration on Day 1.
-6. Ten to twenty-five current, sourced Media & Distribution targets across at least three target types.
+6. Ten to twenty-five current, sourced Media & Distribution targets, backed by at least three independent verification dimensions of the business idea; provider/content-category diversity is diagnostic rather than a release quota.
 7. Competitor/audience evidence, access path, prepared asset, matching script, risk, and first action for every priority target.
 8. Five finished helpful posts.
 9. Twelve relationship-specific outreach scripts.
@@ -35,6 +35,29 @@ The artifact must not pass unless it produces:
 13. A fail-closed result when research is absent, stale, unattributed, incomplete, or cannot be stored privately.
 14. Private PDF and canonical JSON saved to the owner account.
 15. A downloadable ZIP containing the finished research, scripts, posts, landing copy, Launch Site config, calendar, metrics, and sources.
+
+## Vertex environment contract acceptance
+
+The isolated paid acceptance Worker must explicitly configure the Vertex Blueprint environment instead of relying on defaults.
+
+Non-secret environment variables:
+
+```text
+VERTEX_BLUEPRINT_REQUIRED=true
+VERTEX_PROJECT_ID
+VERTEX_LOCATION
+VERTEX_BLUEPRINT_MODEL
+```
+
+Cloudflare secrets:
+
+```text
+VERTEX_SERVICE_ACCOUNT_EMAIL
+VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY
+VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID
+```
+
+Only the private key is inherently secret, but the email and key ID stay in the secret store to reduce accidental exposure. The acceptance receipt records the project ID, location, model, service-account email identifier, and key ID, but never the private key, signed JWT assertion, or OAuth access token.
 
 ## Staged Vertex generation acceptance
 
@@ -47,11 +70,13 @@ When `VERTEX_BLUEPRINT_REQUIRED` is not explicitly `false`, the paid Workflow mu
 5. A failed red-team check or blocking finding prevents persistence and leaves the order failed/retryable.
 6. **Schema validation** reruns the canonical v2.1 quality gate after all model outputs are applied.
 7. Order ownership, source verdict ID, source IDs, source URLs, channel source ledgers, schema version, contract version, and canonical Blueprint hash remain immutable.
-8. The generation receipt contains four ordered stage receipts with model, prompt hash, response hash, token counts when available, response ID when available, and completion time.
-9. Raw prompts, provider payloads, OAuth tokens, service-account keys, and owner-only research never enter the customer record.
-10. Dashboard, PDF, ZIP, Launch Site, calendar, sources, and progress all render from the same validated canonical record.
+8. The generation receipt contains exactly four ordered stage receipts with model, prompt hash, response hash, token counts when available, response ID when available, and completion time.
+9. The public generation evidence records the configured Vertex project ID, location, model, normalized input SHA-256, and—after exact-byte persistence—the canonical Blueprint SHA-256.
+10. The acceptance receipt records the service-account email identifier and key ID for credential traceability, but never the private key, signed JWT assertion, or OAuth access token.
+11. Raw prompts, provider payloads, OAuth tokens, service-account keys, and owner-only research never enter the customer record.
+12. Dashboard, PDF, ZIP, Launch Site, calendar, sources, and progress all render from the same validated canonical record.
 
-An environment that explicitly sets `VERTEX_BLUEPRINT_REQUIRED=false` may use the deterministic v2.1 generator, but its receipt must record that the staged Vertex pipeline was skipped and why.
+An environment that explicitly sets `VERTEX_BLUEPRINT_REQUIRED=false` may use the deterministic v2.1 generator for development or isolated deterministic tests, but that mode does **not** satisfy paid environment acceptance. The acceptance Worker must explicitly require Vertex.
 
 ## Post-purchase intake acceptance
 
@@ -85,7 +110,8 @@ PR #7 must remain draft until:
 
 - CI passes;
 - live provider credentials and Cloudflare bindings are configured outside Git;
-- one complete Stripe test-mode board-game order passes the entire flow;
+- one complete Stripe test-mode board-game order passes the entire flow with `VERTEX_BLUEPRINT_REQUIRED=true`;
+- the acceptance receipt records Vertex project/location/model, service-account email identifier/key ID, four-stage receipt count, passing red-team result, normalized input SHA-256, and exact canonical Blueprint SHA-256;
 - the actual PDF is visually reviewed;
 - the public Launch Site is visually reviewed on mobile and desktop;
 - one public test lead is captured and recovered by the owner;
