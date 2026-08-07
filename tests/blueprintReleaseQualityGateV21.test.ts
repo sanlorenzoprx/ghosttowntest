@@ -6,6 +6,7 @@ import { createGhostTownLaunchBlueprintV21 } from '../src/api/launchBlueprintGen
 import {
   BLUEPRINT_RELEASE_BLOCKER_CODES_V21,
   evaluateBlueprintReleaseQualityGateV21,
+  researchVerificationDimensionsV21,
   type BlueprintDeliveryStateV21
 } from '../src/api/blueprintReleaseQualityGateV21';
 
@@ -42,7 +43,7 @@ function result(): CustomerAccessResearchResult {
   return {
     research: { status: 'complete', researchDate, sources, channels, publicExpertsAndPartners: [] },
     receipt: {
-      provider: 'distribution_footprint', model: 'gemini-2.5-flash', requestedAt: generatedAt, completedAt: generatedAt, packs: ['customer_access'], webSearchQueries: [], attemptedSourceCount: 6, successfulSourceCount: 6, sourceTypeCount: 3, candidateChannelCount: 10, verifiedChannelCount: 10, rejectedUrls: [], failedSources: [], sourceDefinitionIds: ['dataforseo:s1','podcast:s1','youtube:s1','dataforseo:s2','podcast:s2','youtube:s2'], seedDomains: ['seed-one.example','seed-two.example'], targetTypeCounts: { podcast: 3, youtube_creator: 3, newsletter_or_publication: 4 }, responseHash: 'fixture', unknownCandidateIds: []
+      provider: 'distribution_footprint', model: 'gemini-2.5-flash', requestedAt: generatedAt, completedAt: generatedAt, packs: ['customer_access'], webSearchQueries: [], attemptedSourceCount: 6, successfulSourceCount: 6, sourceTypeCount: 3, candidateChannelCount: 10, verifiedChannelCount: 10, rejectedUrls: [], failedSources: [], sourceDefinitionIds: ['dataforseo:s1','podcast:s1','youtube:s1','dataforseo:s2','podcast:s2','youtube:s2'], seedDomains: ['seed-one.example','seed-two.example'], targetTypeCounts: { podcast: 3, youtube_creator: 3, newsletter_or_publication: 4 }, responseHash: 'fixture'
     }
   };
 }
@@ -64,6 +65,19 @@ function expectCode(mutator: (input: ReturnType<typeof fixture>) => void, code: 
 describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
   it('passes the complete fixture', () => expect(evaluateBlueprintReleaseQualityGateV21(fixture()).passed).toBe(true));
 
+  it('accepts one content format when the idea has three independent verification dimensions', () => {
+    const input = fixture();
+    input.research.receipt.sourceTypeCount = 1;
+    input.research.receipt.targetTypeCounts = { podcast: 10 };
+    input.blueprint.customerAccessPack.channels.forEach(channel => { channel.targetType = 'podcast'; });
+    expect(researchVerificationDimensionsV21(input.blueprint, input.research)).toEqual(expect.arrayContaining([
+      'customer_problem_definition',
+      'competitor_alternative',
+      'customer_access'
+    ]));
+    expect(evaluateBlueprintReleaseQualityGateV21(input).passed).toBe(true);
+  });
+
   const C = BLUEPRINT_RELEASE_BLOCKER_CODES_V21;
   const cases: Array<[string, (input: ReturnType<typeof fixture>) => void, string]> = [
     ['no first customer', i => { i.blueprint.executiveDecision.recommendedInitialCustomer = ''; i.blueprint.firstRevenuePath.firstBuyer = ''; }, C.strategy.noFirstCustomer],
@@ -77,10 +91,15 @@ describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
     ['missing risk boundary', i => { i.blueprint.executiveDecision.founderTimeRiskHours = 0; }, C.strategy.missingTimeOrCashBoundary],
     ['too few seeds', i => { i.research.receipt.seedDomains = ['one.example']; }, C.research.fewerThanTwoConfirmedSeeds],
     ['missing provider attempts', i => { i.research.receipt.attemptedSourceCount = 5; }, C.research.requiredProviderAttemptsNotExecuted],
-    ['too few provider types', i => { i.research.receipt.sourceTypeCount = 1; }, C.research.fewerThanTwoSuccessfulProviderTypes],
+    ['insufficient verification dimensions', i => {
+      i.blueprint.startingStateAudit.verifiedFacts = [];
+      i.blueprint.customerAccessPack.channels.forEach(channel => {
+        channel.targetType = 'association';
+        channel.competitorEvidence = [];
+      });
+      i.research.research.publicExpertsAndPartners = [];
+    }, C.research.insufficientVerificationDimensions],
     ['too few candidates', i => { i.research.receipt.candidateChannelCount = 9; }, C.research.fewerThanTenVerifiedCandidates],
-    ['too few categories', i => { i.research.receipt.targetTypeCounts = { podcast: 10 }; }, C.research.fewerThanThreeTargetCategories],
-    ['unknown candidate', i => { i.research.receipt.unknownCandidateIds = ['candidate_unknown']; }, C.research.unknownCandidateId],
     ['missing public source', i => { i.blueprint.customerAccessPack.channels[0].publicUrl = ''; }, C.research.missingPublicSource],
     ['missing research date', i => { i.blueprint.customerAccessPack.channels[0].researchDate = ''; }, C.research.missingResearchDate],
     ['missing research execution metadata', i => { i.blueprint.customerAccessPack.channels[0].accessPath = ''; }, C.research.missingExecutionMetadata],
