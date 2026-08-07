@@ -32,7 +32,7 @@ Canonical Git blob SHA-1: `a6dd1fa9e8f59417b7ce00b032eabf3793537abd`.
 
 ## Validation
 
-Clean-head CI run `31160474418` passed:
+Final Step 5 PR CI run `31160572665` passed:
 
 - TypeScript type-check.
 - Full Vitest suite.
@@ -41,7 +41,8 @@ Clean-head CI run `31160474418` passed:
 
 The Step 5 application workflow also revalidated the exact canonical Blueprint source before committing the implementation.
 
-Validated implementation head before this receipt-only update: `eade0c7e79a0c9bd245ef0d5dcddd1a84a71e534`.
+Validated Step 5 product implementation commit: `93cd50157d7c73e088b7bd4989745e30b21c5265`.
+Validated clean implementation head after temporary bootstrap cleanup: `eade0c7e79a0c9bd245ef0d5dcddd1a84a71e534`.
 
 ## Release boundary
 
