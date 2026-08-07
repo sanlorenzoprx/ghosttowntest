@@ -49,6 +49,9 @@ jobs:
       - name: Cloudflare Worker check
         run: npm run worker:check
 
+      - name: Acceptance Worker dry-run
+        run: npm run worker:check:acceptance
+
       - name: Production build
         run: npm run build
 
