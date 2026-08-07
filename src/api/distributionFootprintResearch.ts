@@ -40,6 +40,7 @@ export interface CustomerAccessResearchReceipt {
   seedDomains: string[];
   targetTypeCounts: Record<string, number>;
   responseHash: string;
+  unknownCandidateIds?: string[];
 }
 
 export interface CustomerAccessResearchResult {
@@ -703,6 +704,12 @@ export async function finalizeCustomerAccessResearch(
   if (!output) throw new Error('Gemini selection returned no content');
   const selection = parseSelection(output);
   const byId = new Map(candidates.map(candidate => [candidate.candidateId, candidate]));
+  const unknownCandidateIds = [...new Set((selection.channels || [])
+    .map(selected => text(selected.candidateId))
+    .filter(candidateIdValue => candidateIdValue && !byId.has(candidateIdValue)))];
+  if (unknownCandidateIds.length) {
+    throw new Error(`STEP5_RESEARCH_UNKNOWN_CANDIDATE_ID: Model returned candidate IDs outside the immutable candidate set: ${unknownCandidateIds.join(', ')}`);
+  }
   const researchDate = new Date().toISOString().slice(0, 10);
   const channels: CustomerAccessChannel[] = [];
   const sources: BlueprintSource[] = [];
@@ -793,7 +800,8 @@ export async function finalizeCustomerAccessResearch(
       sourceDefinitionIds: attempts.map(attempt => attempt.sourceId),
       seedDomains: plan.seedDomains,
       targetTypeCounts: typeCounts,
-      responseHash: fnvHash(output)
+      responseHash: fnvHash(output),
+      unknownCandidateIds: []
     }
   };
 }
