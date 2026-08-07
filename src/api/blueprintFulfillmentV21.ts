@@ -3,9 +3,12 @@ import type { PaidTestOrder } from '../types/paidTest';
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
 import { loadLaunchBlueprintWorkflowContext } from './blueprintFulfillment';
-import { saveBlueprintRecord } from './blueprintStore';
 import { renderLaunchBlueprintPdfV21 } from './blueprintPdfV21';
 import { createGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
+import {
+  prepareBlueprintGenerationReceiptV21,
+  saveBlueprintRecordV21
+} from './blueprintStoreV21';
 
 const orderKey = (id: string) => `paid_test_order_${id}`;
 const userOrdersKey = (email: string) => `paid_test_orders_${email.trim().toLowerCase()}`;
@@ -51,7 +54,12 @@ async function persistLifecycle(
   return order;
 }
 
-async function recordCompletionV21(env: Env, order: PaidTestOrder, canonicalHash: string): Promise<void> {
+async function recordCompletionV21(
+  env: Env,
+  order: PaidTestOrder,
+  canonicalBlueprintSha256: string,
+  canonicalSourceHash: string
+): Promise<void> {
   const now = new Date().toISOString();
   await env.KV.put(`analytics_event_${now}_${crypto.randomUUID()}`, JSON.stringify({
     eventName: 'launch_blueprint_completed',
@@ -62,7 +70,8 @@ async function recordCompletionV21(env: Env, order: PaidTestOrder, canonicalHash
     artifactType: order.artifactType,
     planVersion: order.planVersion,
     contractVersion: '2.1.0',
-    canonicalHash,
+    canonicalBlueprintSha256,
+    canonicalSourceHash,
     stripeMode: order.stripeMode,
     stripeEventId: order.stripeEventId,
     workflowId: order.fulfillmentWorkflowId,
@@ -120,8 +129,8 @@ export async function failLaunchBlueprintOrderV21(
 
 /**
  * A paid order becomes ready only after the v2.1 canonical record, decision-first
- * PDF, JSON, stable 16-file ZIP, research receipt, and exact source hash have all
- * passed their gates and persisted. There is no intermediate ready v2.0 state.
+ * PDF, JSON, stable 16-file ZIP, research receipt, exact source hash, and Step 3
+ * exact-byte integrity receipt have all passed their gates and persisted.
  */
 export async function completeLaunchBlueprintOrderV21(
   env: Env,
@@ -136,8 +145,9 @@ export async function completeLaunchBlueprintOrderV21(
     result.research,
     order.paidAt
   );
+  const vertexRequired = options.vertexRequired === true;
 
-  assertVertexPipelineComplete(blueprint, options.vertexRequired === true);
+  assertVertexPipelineComplete(blueprint, vertexRequired);
 
   if (blueprint.generationReceipt.vertexPipeline?.status !== 'complete') {
     blueprint.generationReceipt.model = blueprint.generationReceipt.model || result.receipt.model;
@@ -153,8 +163,17 @@ export async function completeLaunchBlueprintOrderV21(
     throw new Error(`Launch Blueprint v2.1 quality gate failed: ${blueprint.qualityGate.failures.join(' | ')}`);
   }
 
+  await prepareBlueprintGenerationReceiptV21(
+    env,
+    order,
+    verdict,
+    result,
+    blueprint,
+    vertexRequired
+  );
+
   const pdf = renderLaunchBlueprintPdfV21(blueprint);
-  await saveBlueprintRecord(env, blueprint, result.receipt, pdf);
+  const exactReceipt = await saveBlueprintRecordV21(env, blueprint, result.receipt, pdf);
 
   order.status = 'ready';
   order.fulfillmentError = undefined;
@@ -162,6 +181,7 @@ export async function completeLaunchBlueprintOrderV21(
   await recordCompletionV21(
     env,
     order,
+    exactReceipt.hashes.canonicalBlueprintSha256,
     blueprint.generationReceipt.canonicalContract.gitBlobSha1
   );
   return order;
