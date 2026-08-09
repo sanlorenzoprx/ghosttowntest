@@ -10,6 +10,7 @@ import Contact from '../components/Contact';
 import LegalPage, { type LegalPageKind } from '../components/LegalPage';
 import ActionPlanSuccess from '../components/ActionPlanSuccess';
 import InternalGoogleSearchConsole from '../components/InternalGoogleSearchConsole';
+import CommercialMetricsConsole from '../components/CommercialMetricsConsole';
 import { IdeaIntake as IdeaIntakeType, EvaluationResult } from '../types/lit';
 import {
   clearAuthToken,
@@ -24,7 +25,7 @@ import { apiUrl } from '../lib/api';
 import type { PublicUserData } from '../types/auth';
 import { getFeaturedExampleBySlug, toIdeaIntake } from '../lib/exampleIdeas';
 
-type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'contact' | 'action-plan-success' | 'internal-research' | LegalPageKind;
+type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | LegalPageKind;
 
 function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/contact') return 'contact';
@@ -34,6 +35,7 @@ function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/disclaimer') return 'disclaimer';
   if (pathname === '/paid-test/success') return 'action-plan-success';
   if (pathname === '/internal-research') return 'internal-research';
+  if (pathname === '/internal-metrics') return 'internal-metrics';
   return hasExample ? 'intake' : 'landing';
 }
 
@@ -226,6 +228,8 @@ export default function App() {
         {screen === 'action-plan-success' && <ActionPlanSuccess orderId={new URLSearchParams(window.location.search).get('order_id') || ''} onDone={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
         {screen === 'internal-research' && isLoggedIn && <InternalGoogleSearchConsole onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
         {screen === 'internal-research' && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Owner login required</h1><p className="mt-3 text-gray-700">This standalone research console is not part of the customer product.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
+        {screen === 'internal-metrics' && isLoggedIn && <CommercialMetricsConsole onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
+        {screen === 'internal-metrics' && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Owner login required</h1><p className="mt-3 text-gray-700">Commercial metrics are private operating evidence.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
       </main>
 
       <footer className="border-t border-gray-200 bg-ghost-sand px-4 py-8">
