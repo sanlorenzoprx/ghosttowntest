@@ -26,7 +26,7 @@ async function verifyWebhookSignature(body: string, signature: string, secret: s
   const digest = new Uint8Array(await crypto.subtle.sign(
     'HMAC',
     key,
-    new TextEncoder().encode(`${timestamp}.${body)`
+    new TextEncoder().encode(`${timestamp}.${body}`)
   ));
   const expected = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
   return signatures.some(candidate => constantTimeEqual(candidate, expected));
