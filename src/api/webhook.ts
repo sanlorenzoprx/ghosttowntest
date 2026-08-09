@@ -1,4 +1,5 @@
 import { UserData } from '../types/auth';
+import { recordVerifiedPurchase } from './commercialMetrics';
 import { fulfillPaidTestOrder } from './paidTest';
 import { isLaunchBlueprintCheckout, markLaunchBlueprintAwaitingSeeds } from './blueprintFulfillment';
 import type { Env } from './env';
@@ -25,7 +26,7 @@ async function verifyWebhookSignature(body: string, signature: string, secret: s
   const digest = new Uint8Array(await crypto.subtle.sign(
     'HMAC',
     key,
-    new TextEncoder().encode(`${timestamp}.${body}`)
+    new TextEncoder().encode(`${timestamp}.${body)`
   ));
   const expected = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
   return signatures.some(candidate => constantTimeEqual(candidate, expected));
@@ -36,6 +37,19 @@ function constantTimeEqual(left: string, right: string): boolean {
   let mismatch = 0;
   for (let index = 0; index < left.length; index += 1) mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index);
   return mismatch === 0;
+}
+
+async function recordCommercialPurchase(
+  env: Env,
+  eventId: string,
+  session: Record<string, unknown>,
+  context: { orderId?: string; artifactType?: string }
+): Promise<void> {
+  try {
+    await recordVerifiedPurchase(env, eventId, session, context);
+  } catch (error) {
+    console.error('Commercial purchase metrics write failed:', error);
+  }
 }
 
 /**
@@ -76,6 +90,10 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
       if (typeof paidTestOrderId === 'string' && paidTestOrderId) {
         if (isLaunchBlueprintCheckout(session)) {
           const order = await markLaunchBlueprintAwaitingSeeds(env, paidTestOrderId, session, event.id);
+          await recordCommercialPurchase(env, event.id, session, {
+            orderId: paidTestOrderId,
+            artifactType: 'launch_blueprint_v2'
+          });
           await env.KV.put(eventKey, JSON.stringify({
             receivedAt: new Date().toISOString(),
             orderId: paidTestOrderId,
@@ -91,6 +109,10 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
         }
 
         const order = await fulfillPaidTestOrder(env, paidTestOrderId, session, event.id);
+        await recordCommercialPurchase(env, event.id, session, {
+          orderId: paidTestOrderId,
+          artifactType: order.artifactType
+        });
         await env.KV.put(eventKey, new Date().toISOString(), { expirationTtl: 86400 * 90 });
         return new Response(JSON.stringify({ received: true, paidTest: order.status, artifactType: order.artifactType }), {
           status: 200,
@@ -100,6 +122,7 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
 
       const email = typeof session.customer_email === 'string' ? session.customer_email.trim().toLowerCase() : '';
       if (!email) {
+        await recordCommercialPurchase(env, event.id, session, { artifactType: 'checkout' });
         await env.KV.put(eventKey, new Date().toISOString(), { expirationTtl: 86400 * 90 });
         return new Response(JSON.stringify({ received: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
@@ -115,6 +138,9 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
         user.lastPurchaseAt = new Date().toISOString();
         await env.KV.put(`user_${email}`, JSON.stringify(user));
       }
+      await recordCommercialPurchase(env, event.id, session, {
+        artifactType: typeof metadata.purchase_type === 'string' ? metadata.purchase_type : 'assessment_pack'
+      });
     }
 
     if (event.type === 'payment_intent.payment_failed') {
