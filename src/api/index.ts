@@ -1,5 +1,6 @@
 import { handleSignup, handleLogin, handleVerify } from './auth';
 import { handleAnalyticsEvent } from './analytics';
+import { handleCommercialMetrics } from './commercialMetrics';
 import { handleCheckout } from './checkout';
 import { handleStripeWebhook } from './webhook';
 import { handleReferralClaim, handleReferralCreate } from './referral';
@@ -133,6 +134,11 @@ export default {
         applyCors(response, corsHeaders);
         return response;
       }
+      if (path === '/api/internal/commercial-metrics' && method === 'GET') {
+        const response = await handleCommercialMetrics(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
 
       if (path === '/api/checkout' && method === 'POST') {
         const response = await handleCheckout(request, env);
@@ -256,7 +262,7 @@ export default {
       }
       const paidPlanPdfMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/plan\.pdf$/);
       if (paidPlanPdfMatch && method === 'GET') {
-        const response = await handlePaidTestPlanPdf(request, env, paidPlanPdfMatch[1]);
+        const response = await handlePaidTestPlanPdf(request, env, paidPlanMatch[1]);
         applyCors(response, corsHeaders);
         return response;
       }
