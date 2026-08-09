@@ -262,7 +262,7 @@ export default {
       }
       const paidPlanPdfMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/plan\.pdf$/);
       if (paidPlanPdfMatch && method === 'GET') {
-        const response = await handlePaidTestPlanPdf(request, env, paidPlanMatch[1]);
+        const response = await handlePaidTestPlanPdf(request, env, paidPlanPdfMatch[1]);
         applyCors(response, corsHeaders);
         return response;
       }
