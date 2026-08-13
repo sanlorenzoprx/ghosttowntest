@@ -3,6 +3,7 @@ import type { Env } from './env';
 
 const FUNNEL_EVENTS = [
   'landing_viewed',
+  'qualified_click',
   'verdict_started',
   'verdict_completed',
   'paid_plan_viewed',
@@ -12,13 +13,25 @@ const FUNNEL_EVENTS = [
 
 type FunnelEventName = typeof FUNNEL_EVENTS[number];
 
-interface StoredFunnelEvent {
-  eventName?: string;
+type AcquisitionAttribution = {
+  attributionToken?: string;
+  experimentId?: string;
+  sourceVerdictId?: string;
+  creativeId?: string;
+  publicationId?: string;
+  platform?: string;
+  accountId?: string;
+  campaign?: string;
   source?: string;
+  shareType?: 'factory' | 'customer' | 'earned';
+};
+
+interface StoredFunnelEvent extends AcquisitionAttribution {
+  eventName?: string;
   createdAt?: string;
 }
 
-interface StoredPurchaseEvent {
+interface StoredPurchaseEvent extends AcquisitionAttribution {
   stripeEventId: string;
   orderId?: string;
   artifactType?: string;
@@ -79,6 +92,33 @@ function ratio(numerator: number, denominator: number): number | null {
   return Math.round((numerator / denominator) * 10000) / 10000;
 }
 
+function perThousand(value: number, denominator: number): number | null {
+  if (denominator <= 0) return null;
+  return Math.round((value * 1000 / denominator) * 10000) / 10000;
+}
+
+function clean(value: unknown, max = 160): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : undefined;
+}
+
+function attributionFromMetadata(metadata: Record<string, unknown>): AcquisitionAttribution {
+  const shareType = clean(metadata.share_type, 20);
+  return {
+    attributionToken: clean(metadata.attribution_token),
+    experimentId: clean(metadata.experiment_id),
+    sourceVerdictId: clean(metadata.source_verdict_id),
+    creativeId: clean(metadata.creative_id),
+    publicationId: clean(metadata.publication_id),
+    platform: clean(metadata.platform, 40),
+    accountId: clean(metadata.distribution_account_id),
+    campaign: clean(metadata.campaign),
+    source: clean(metadata.source),
+    shareType: shareType === 'factory' || shareType === 'customer' || shareType === 'earned'
+      ? shareType
+      : undefined
+  };
+}
+
 async function readPrefix<T>(env: Env, prefix: string): Promise<T[]> {
   const values: T[] = [];
   let cursor: string | undefined;
@@ -111,13 +151,17 @@ export async function recordVerifiedPurchase(
   const currency = typeof session.currency === 'string' && session.currency.trim()
     ? session.currency.trim().toLowerCase().slice(0, 12)
     : undefined;
+  const metadata = typeof session.metadata === 'object' && session.metadata
+    ? session.metadata as Record<string, unknown>
+    : {};
   const event: StoredPurchaseEvent = {
     stripeEventId: stripeEventId.slice(0, 160),
     orderId: context.orderId?.slice(0, 120),
     artifactType: context.artifactType?.slice(0, 80),
     amountTotal: amount,
     currency,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    ...attributionFromMetadata(metadata)
   };
   await env.KV.put(`analytics_purchase_${event.stripeEventId}`, JSON.stringify(event), {
     expirationTtl: EVENT_TTL_SECONDS
@@ -138,6 +182,7 @@ export async function buildCommercialMetrics(
 
   const counts = Object.fromEntries(FUNNEL_EVENTS.map(name => [name, 0])) as Record<FunnelEventName, number>;
   const sources = new Map<string, number>();
+  const publications = new Map<string, { purchases: number; revenueMinor: number; currency?: string }>();
   for (const event of events) {
     const createdAt = validDate(event.createdAt);
     if (!createdAt || createdAt < cutoff || createdAt > now) continue;
@@ -157,6 +202,13 @@ export async function buildCommercialMetrics(
     if (typeof purchase.amountTotal === 'number' && purchase.currency) {
       revenueByCurrency[purchase.currency] = (revenueByCurrency[purchase.currency] || 0) + purchase.amountTotal;
     }
+    if (purchase.publicationId) {
+      const current = publications.get(purchase.publicationId) || { purchases: 0, revenueMinor: 0, currency: purchase.currency };
+      current.purchases += 1;
+      current.revenueMinor += purchase.amountTotal || 0;
+      current.currency ||= purchase.currency;
+      publications.set(purchase.publicationId, current);
+    }
   }
 
   return {
@@ -168,6 +220,7 @@ export async function buildCommercialMetrics(
     },
     conversion: {
       landing_to_verdict_start: ratio(counts.verdict_started, counts.landing_viewed),
+      qualified_click_to_verdict_start: ratio(counts.verdict_started, counts.qualified_click),
       verdict_start_to_complete: ratio(counts.verdict_completed, counts.verdict_started),
       verdict_complete_to_checkout: ratio(counts.checkout_started, counts.verdict_completed),
       checkout_to_verified_purchase: ratio(verifiedPurchases, counts.checkout_started),
@@ -178,10 +231,17 @@ export async function buildCommercialMetrics(
       revenueMinorUnitsByCurrency: revenueByCurrency,
       authority: 'stripe_webhook'
     },
+    publicationRevenue: Array.from(publications.entries())
+      .map(([publicationId, value]) => ({ publicationId, ...value }))
+      .sort((left, right) => right.revenueMinor - left.revenueMinor),
     topSources: Array.from(sources.entries())
       .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
       .slice(0, 10)
-      .map(([source, eventCount]) => ({ source, eventCount }))
+      .map(([source, eventCount]) => ({ source, eventCount })),
+    metricContract: {
+      terminal: ['revenue_per_1000_impressions', 'cost_per_paid_blueprint'],
+      note: 'Impression and experiment cost denominators are joined from the Story Studio publication ledger; Stripe remains revenue authority.'
+    }
   };
 }
 
