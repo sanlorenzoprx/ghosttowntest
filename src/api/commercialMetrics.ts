@@ -28,6 +28,7 @@ type AcquisitionAttribution = {
 
 interface StoredFunnelEvent extends AcquisitionAttribution {
   eventName?: string;
+  source?: string;
   createdAt?: string;
 }
 
@@ -90,11 +91,6 @@ function validDate(value: unknown): Date | null {
 function ratio(numerator: number, denominator: number): number | null {
   if (denominator <= 0) return null;
   return Math.round((numerator / denominator) * 10000) / 10000;
-}
-
-function perThousand(value: number, denominator: number): number | null {
-  if (denominator <= 0) return null;
-  return Math.round((value * 1000 / denominator) * 10000) / 10000;
 }
 
 function clean(value: unknown, max = 160): string | undefined {
