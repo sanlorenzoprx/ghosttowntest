@@ -12,6 +12,12 @@ export interface Env {
   VIDEOS?: R2Bucket;
   BLUEPRINTS?: R2Bucket;
   LAUNCH_BLUEPRINT_WORKFLOW?: LaunchBlueprintWorkflowBinding;
+  AI_GATEWAY_ID?: string;
+  VERTEX_VERDICT_MODEL?: string;
+  VERTEX_SELECTION_MODEL?: string;
+  VERTEX_RESEARCH_MODEL?: string;
+  VERTEX_BLUEPRINT_MODEL?: string;
+  // Legacy names remain optional during acceptance migration only. Runtime inference must not use them.
   AI_MODEL?: string;
   ACTION_PLAN_AI_MODEL?: string;
   GEMINI_RESEARCH_MODEL?: string;
@@ -31,7 +37,6 @@ export interface Env {
   VERTEX_BLUEPRINT_REQUIRED?: string;
   VERTEX_PROJECT_ID?: string;
   VERTEX_LOCATION?: string;
-  VERTEX_BLUEPRINT_MODEL?: string;
   VERTEX_SERVICE_ACCOUNT_EMAIL?: string;
   VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY?: string;
   VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID?: string;
