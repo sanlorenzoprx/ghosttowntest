@@ -51,7 +51,7 @@ describe('acceptance Cloudflare environment', () => {
     expect(acceptanceVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
     expect(productionVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
 
-    expect(acceptanceVars).toContain('FRONTEND_URL = "REPLACE_AFTER_ACCEPTANCE_FRONTEND_DEPLOY"');
+    expect(acceptanceVars).toContain('FRONTEND_URL = "https://ghosttown-acceptance.pages.dev"');
     expect(acceptanceVars).not.toContain('https://ghosttowntest.com');
     expect(acceptanceVars).not.toContain('https://lit-ghosttown.app');
   });
