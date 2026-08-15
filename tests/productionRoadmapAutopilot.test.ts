@@ -110,11 +110,14 @@ describe('production roadmap autopilot contract', () => {
     expect(prep).toContain("state.gates['11'].status = 'PENDING'");
   });
 
-  it('renders the Gate 14 Gemini URL inside the temporary Worker without outer-template interpolation', async () => {
+  it('renders the Gate 14 Gemini URL inside the temporary Worker and invokes Wrangler without Windows cmd shims', async () => {
     const gate14 = await readText('scripts/roadmap-gate14-gemini-smoke.mjs');
 
     expect(gate14).toContain("fetch(GEMINI_ENDPOINT + '/' + encodeURIComponent(model) + ':generateContent'");
     expect(gate14).not.toContain('fetch(\\`${GEMINI_ENDPOINT}');
     expect(gate14).toContain("'x-goog-api-key': env.GEMINI_API_KEY");
+    expect(gate14).toContain("join(ROOT, 'node_modules', 'wrangler')");
+    expect(gate14).toContain('spawnSync(process.execPath, [WRANGLER_CLI, ...args]');
+    expect(gate14).not.toContain("'npx.cmd'");
   });
 });
