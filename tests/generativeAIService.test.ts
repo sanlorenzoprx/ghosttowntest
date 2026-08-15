@@ -53,6 +53,7 @@ async function env(): Promise<Env> {
     VERTEX_SELECTION_MODEL: 'gemini-3.5-flash-lite',
     VERTEX_RESEARCH_MODEL: 'gemini-3.5-flash',
     VERTEX_BLUEPRINT_MODEL: 'gemini-3.5-flash',
+    VERTEX_WEBSITE_MODEL: 'gemini-3.5-flash',
     VERTEX_SERVICE_ACCOUNT_EMAIL: 'ghosttown@ghosttown-test-project.iam.gserviceaccount.com',
     VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY: pem(privateKey),
     JWT_SECRET: 'fixture',
@@ -72,12 +73,14 @@ describe('GenerativeAIService', () => {
       VERTEX_VERDICT_MODEL: 'verdict-model',
       VERTEX_SELECTION_MODEL: 'selection-model',
       VERTEX_RESEARCH_MODEL: 'research-model',
-      VERTEX_BLUEPRINT_MODEL: 'blueprint-model'
+      VERTEX_BLUEPRINT_MODEL: 'blueprint-model',
+      VERTEX_WEBSITE_MODEL: 'website-model'
     } as Env;
     expect(resolveGenerativeModel(configured, 'verdict')).toBe('verdict-model');
     expect(resolveGenerativeModel(configured, 'candidate_selection')).toBe('selection-model');
     expect(resolveGenerativeModel(configured, 'grounded_research')).toBe('research-model');
     expect(resolveGenerativeModel(configured, 'blueprint')).toBe('blueprint-model');
+    expect(resolveGenerativeModel(configured, 'custom_website')).toBe('website-model');
   });
 
   it('builds the provider-native Cloudflare AI Gateway URL for Vertex', async () => {
@@ -85,6 +88,7 @@ describe('GenerativeAIService', () => {
     await expect(aiGatewayVertexUrl(configured, 'candidate_selection')).resolves.toBe(
       'https://gateway.ai.cloudflare.com/v1/account/default/google-vertex-ai/v1/projects/ghosttown-test-project/locations/us/publishers/google/models/gemini-3.5-flash-lite:generateContent'
     );
+    await expect(aiGatewayVertexUrl(configured, 'custom_website')).resolves.toContain('/models/gemini-3.5-flash:generateContent');
   });
 
   it('uses short-lived Vertex OAuth upstream while routing generation through AI Gateway', async () => {
@@ -95,7 +99,7 @@ describe('GenerativeAIService', () => {
       calls.push({ url, init });
       if (url === 'https://oauth2.googleapis.com/token') {
         const form = new URLSearchParams(String(init?.body || ''));
-        expect(form.get('grant_type')).toBe('urn:ietf:params:oauth:grant-type:jwt-bearer');
+        expect(form.get('grant_type')).toBe('urn:ietf:params:oauth-grant-type:jwt-bearer'.replace('oauth-grant', 'oauth:grant'));
         return Response.json({ access_token: 'vertex-short-lived-token', expires_in: 3600 });
       }
       expect(url).toContain('/google-vertex-ai/v1/projects/ghosttown-test-project/locations/us/');
@@ -151,7 +155,7 @@ describe('GenerativeAIService', () => {
     }));
 
     const output = await generateAIJson<{ ok: boolean }>(configured, {
-      task: 'blueprint',
+      task: 'custom_website',
       prompt: 'Return structured fixture.',
       responseSchema: {
         type: 'OBJECT',
@@ -160,5 +164,6 @@ describe('GenerativeAIService', () => {
       }
     });
     expect(output.data).toEqual({ ok: true });
+    expect(output.result.receipt.task).toBe('custom_website');
   });
 });
