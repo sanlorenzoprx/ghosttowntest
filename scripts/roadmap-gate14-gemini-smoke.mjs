@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(process.cwd());
@@ -9,10 +9,16 @@ const STATE_DIR = join(ROOT, '.roadmap-autopilot');
 const TEMP_ENTRY = join(STATE_DIR, 'gate14-gemini-smoke-entry.ts');
 const WORKER_URL = 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev';
 const SMOKE_PATH = '/__roadmap/acceptance/gate14-gemini-selection';
-const WRANGLER = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const WRANGLER_PACKAGE_DIR = join(ROOT, 'node_modules', 'wrangler');
+const wranglerPackage = JSON.parse(readFileSync(join(WRANGLER_PACKAGE_DIR, 'package.json'), 'utf8'));
+const wranglerBin = typeof wranglerPackage.bin === 'string'
+  ? wranglerPackage.bin
+  : wranglerPackage.bin?.wrangler;
+if (!wranglerBin) throw new Error('Unable to resolve the installed Wrangler CLI entrypoint.');
+const WRANGLER_CLI = resolve(WRANGLER_PACKAGE_DIR, wranglerBin);
 
 function runWrangler(args) {
-  const result = spawnSync(WRANGLER, ['wrangler', ...args], {
+  const result = spawnSync(process.execPath, [WRANGLER_CLI, ...args], {
     cwd: ROOT,
     encoding: 'utf8',
     shell: false,
