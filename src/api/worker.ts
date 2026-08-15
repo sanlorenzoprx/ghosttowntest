@@ -8,6 +8,9 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === '/api/integrations/shorts-factory/health' && request.method === 'GET') {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const origin = request.headers.get('Origin');
+      if (origin && env.FRONTEND_URL?.trim() === origin) headers['Access-Control-Allow-Origin'] = origin;
       return new Response(JSON.stringify({
         status: 'ok',
         service: 'ghosttowntest',
@@ -26,7 +29,7 @@ export default {
           gateway_id: env.AI_GATEWAY_ID?.trim() || 'default'
         },
         live_publishing_enabled: false
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }), { status: 200, headers });
     }
     return app.fetch(request, env);
   }
