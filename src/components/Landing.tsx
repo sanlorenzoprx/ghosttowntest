@@ -84,6 +84,19 @@ export default function Landing({
   return (
     <div className="min-h-screen overflow-hidden bg-[#F6F3ED] text-[#17201C]">
       <style>{`
+        body:has(#ghosttown-landing-sticky-cta) .site-header {
+          position: sticky;
+          top: 0;
+          z-index: 60;
+          border-color: rgba(23, 32, 28, 0.09);
+          background: rgba(255, 255, 255, 0.92);
+          backdrop-filter: saturate(165%) blur(18px);
+        }
+
+        body:has(#ghosttown-landing-sticky-cta) .site-wordmark-kicker {
+          display: none;
+        }
+
         @media (max-width: 639px) {
           html:has(#ghosttown-landing-sticky-cta) {
             scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom));
