@@ -20,6 +20,7 @@ export interface Env {
   DISTRIBUTION_FOOTPRINT_BATCH_SIZE?: string;
   INTERNAL_RESEARCH_OWNER_EMAILS?: string;
   FRONTEND_URL?: string;
+  DEPLOYMENT_ENV?: 'production' | 'acceptance' | 'development';
   LIT_API_KEY?: string;
   GEMINI_API_KEY?: string;
   DATAFORSEO_LOGIN?: string;

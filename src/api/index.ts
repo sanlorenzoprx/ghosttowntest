@@ -314,7 +314,14 @@ const LOCAL_ORIGINS = new Set([
 function getAllowedOrigin(request: Request, env: Env): string | undefined {
   const origin = request.headers.get('Origin');
   if (!origin) return undefined;
-  if (LOCAL_ORIGINS.has(origin) || origin === env.FRONTEND_URL?.replace(/\/$/, '')) return origin;
+
+  const configuredFrontend = env.FRONTEND_URL?.replace(/\/$/, '');
+  if (LOCAL_ORIGINS.has(origin) || origin === configuredFrontend) return origin;
+
+  // Acceptance and development fail closed for all non-configured remote origins.
+  // The legacy production aliases are valid only in the production environment.
+  if (env.DEPLOYMENT_ENV !== 'production') return undefined;
+
   try {
     const hostname = new URL(origin).hostname;
     if (
@@ -328,6 +335,7 @@ function getAllowedOrigin(request: Request, env: Env): string | undefined {
   } catch {
     return undefined;
   }
+
   return undefined;
 }
 

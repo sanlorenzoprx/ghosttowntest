@@ -51,6 +51,7 @@ function createEnv(apiKey = '', aiMode: AiMode = 'valid') {
     } as unknown as Ai,
     AI_MODEL: '@cf/test/shorts-judge',
     FRONTEND_URL: 'https://lit-ghosttown.com',
+    DEPLOYMENT_ENV: 'production' as const,
     LIT_API_KEY: apiKey,
     JWT_SECRET: 'test-secret',
     STRIPE_SECRET_KEY: 'sk_test_placeholder',

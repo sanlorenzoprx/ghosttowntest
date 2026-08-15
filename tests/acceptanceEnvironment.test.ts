@@ -44,6 +44,8 @@ describe('acceptance Cloudflare environment', () => {
     const acceptanceVars = section(config, '[env.acceptance.vars]', /\n\[\[env\.acceptance\./);
     const productionVars = section(config, '[env.production.vars]', /\n\[\[env\.production\./);
 
+    expect(acceptanceVars).toContain('DEPLOYMENT_ENV = "acceptance"');
+    expect(productionVars).toContain('DEPLOYMENT_ENV = "production"');
     expect(acceptanceVars).toContain('VERTEX_BLUEPRINT_REQUIRED = "true"');
     expect(acceptanceVars).toContain('VERTEX_PROJECT_ID = "ghosttowntest"');
     expect(acceptanceVars).toContain('VERTEX_LOCATION = "us-central1"');
