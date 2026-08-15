@@ -48,7 +48,7 @@ export { LaunchBlueprintWorkflow } from '../src/api/launchBlueprintWorkflow.ts';
 
 const AUTH_TOKEN = ${serializedToken};
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.6-flash';
 const FIXTURE = [
   { candidateId: 'candidate_alpha', label: 'Independent trade publication', targetType: 'newsletter_or_publication' },
   { candidateId: 'candidate_bravo', label: 'Industry association', targetType: 'association' },
@@ -90,7 +90,7 @@ async function runGeminiSmoke(env) {
     })
   });
   const body = await response.json();
-  if (!response.ok) return json({ ok: false, error: body?.error?.message || \`Gemini HTTP \${response.status}\` }, 502);
+  if (!response.ok) return json({ ok: false, error: body?.error?.message || `Gemini HTTP ${response.status}` }, 502);
   const output = body?.candidates?.[0]?.content?.parts?.map(part => part?.text || '').join('\\n').trim() || '';
   if (!output) return json({ ok: false, error: 'Gemini returned no content' }, 502);
   let parsed;
