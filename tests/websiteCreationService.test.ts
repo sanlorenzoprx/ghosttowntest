@@ -66,7 +66,7 @@ function blueprint(): GhostTownLaunchBlueprint {
       timeToFirstUsefulResult: '48 hours', buyerResponsibilities: ['Provide staging URL'], exclusions: ['No guarantee of zero defects'],
       initialTestPrice: '$250 pilot', lowerTestBoundary: '$150', upperTestBoundary: '$500', pricingRationale: 'Enough commitment to test willingness to pay.',
       objections: [{ objection: 'We already use checklists', response: 'The pilot tests whether independent release verification adds value.' }],
-      riskReversal: 'If the agreed review is not delivered, refund the pilot.', truthLabel: 'proposed'
+      riskReversal: 'If the agreed review is not delivered, refund the pilot.', truthLabel: 'Test'
     },
     positioning: {
       firstTargetCustomer: 'Small web agencies', triggerEvents: ['Client launch'], currentAlternatives: ['Internal checklist', 'Manual browser review'],
