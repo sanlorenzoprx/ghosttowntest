@@ -78,4 +78,23 @@ describe('production roadmap autopilot contract', () => {
     expect(compat).toContain("args[0] === '-e'");
     expect(compat).toContain('syncBuiltinESMExports()');
   });
+
+  it('auto-repairs acceptance-only D1 schema drift when the migration ledger is already complete', async () => {
+    const packageJson = JSON.parse(await readText('package.json')) as { scripts: Record<string, string> };
+    const config = JSON.parse(await readText('config/production-roadmap-47-gates.json')) as {
+      gates: Array<{ id: number; mutation_scope: string }>;
+    };
+    const repair = await readText('scripts/roadmap-acceptance-schema-repair.mjs');
+
+    expect(packageJson.scripts['roadmap:autopilot']).toContain('scripts/roadmap-acceptance-schema-repair.mjs');
+    expect(config.gates.find(gate => gate.id === 10)?.mutation_scope).toBe('acceptance');
+    expect(repair).toContain("const DATABASE = 'ghosttowntest-blueprints-acceptance'");
+    expect(repair).toContain("const ENVIRONMENT = 'acceptance'");
+    expect(repair).toContain("state?.gates?.['9']?.status === 'PASS'");
+    expect(repair).toContain('/No migrations to apply/i');
+    expect(repair).toContain("'migrations/0002_launch_blueprints.sql'");
+    expect(repair).toContain("'migrations/0003_launch_sites.sql'");
+    expect(repair).toContain("'migrations/0004_blueprint_execution_log.sql'");
+    expect(repair).not.toContain('--env production');
+  });
 });
