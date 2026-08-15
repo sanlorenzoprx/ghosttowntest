@@ -15,6 +15,12 @@ import {
 } from './generativeAIService';
 import { buildCustomWebsite } from './websiteBuildRunner';
 import { assertWebsiteComponentContract, websiteComponentIds } from './websiteComponentRegistry';
+import { websiteStylePresets } from './websiteBrandSystem';
+import {
+  assertWebsiteAssets,
+  blueprintWebsiteAssetGenerator,
+  type WebsiteAssetGenerator
+} from './websiteAssetGenerator';
 
 export interface WebsiteBrowserTester {
   test(input: { spec: CustomWebsiteSpec; build: Awaited<ReturnType<typeof buildCustomWebsite>> }): Promise<WebsiteBrowserTestResult>;
@@ -25,6 +31,7 @@ export interface WebsiteDeploymentAdapter {
 }
 
 export interface ManufactureWebsiteOptions {
+  assetGenerator?: WebsiteAssetGenerator;
   browserTester?: WebsiteBrowserTester;
   deploymentAdapter?: WebsiteDeploymentAdapter;
   allowDeployment?: boolean;
@@ -41,13 +48,7 @@ interface GeneratedWebsitePlan {
   sections: WebsiteSectionSpec[];
 }
 
-const STYLE_PRESETS: WebsiteStylePreset[] = [
-  'warm_editorial',
-  'clean_saas',
-  'local_trust',
-  'premium_service',
-  'bold_validation'
-];
+const STYLE_PRESETS = websiteStylePresets();
 
 const COMPONENT_ORDER = [
   'hero',
@@ -358,21 +359,41 @@ export async function manufactureCustomWebsite(
   const failures = websiteCreationFailures(blueprint);
   if (failures.length) throw new Error(`Custom website source contract failed: ${failures.join(' ')}`);
 
+  const assetGenerator = options.assetGenerator || blueprintWebsiteAssetGenerator;
+  const build = async (spec: CustomWebsiteSpec) => {
+    const assets = await assetGenerator.generate({ spec, blueprint });
+    assertWebsiteAssets(assets);
+    return {
+      assets,
+      build: await buildCustomWebsite(spec, {
+        primaryActionUrl: options.primaryActionUrl,
+        secondaryActionUrl: options.secondaryActionUrl,
+        assets
+      })
+    };
+  };
+
   const first = await generateWebsitePlan(env, blueprint);
+  let latestReceipt = first.receipt;
   let spec = first.spec;
-  let build = await buildCustomWebsite(spec, options);
+  let manufactured = await build(spec);
+  let assets = manufactured.assets;
+  let websiteBuild = manufactured.build;
   let browserTest: WebsiteBrowserTestResult | undefined;
   let repairCount = 0;
   const maxRepairAttempts = Math.max(0, Math.min(3, options.maxRepairAttempts ?? 2));
 
   if (options.browserTester) {
-    browserTest = await options.browserTester.test({ spec, build });
+    browserTest = await options.browserTester.test({ spec, build: websiteBuild });
     while (!browserTest.passed && blockingFindings(browserTest) && repairCount < maxRepairAttempts) {
       const repaired = await generateWebsitePlan(env, blueprint, repairContext(spec, browserTest));
+      latestReceipt = repaired.receipt;
       spec = repaired.spec;
-      build = await buildCustomWebsite(spec, options);
+      manufactured = await build(spec);
+      assets = manufactured.assets;
+      websiteBuild = manufactured.build;
       repairCount += 1;
-      browserTest = await options.browserTester.test({ spec, build });
+      browserTest = await options.browserTester.test({ spec, build: websiteBuild });
     }
   }
 
@@ -380,12 +401,13 @@ export async function manufactureCustomWebsite(
   if (options.allowDeployment) {
     if (!options.deploymentAdapter) throw new Error('Website deployment was explicitly requested but no DeploymentAdapter was supplied.');
     if (!browserTest?.passed) throw new Error('Website deployment requires a passing browser-test result.');
-    deployment = await options.deploymentAdapter.deploy({ spec, build, sourceBlueprintId: blueprint.blueprintId });
+    deployment = await options.deploymentAdapter.deploy({ spec, build: websiteBuild, sourceBlueprintId: blueprint.blueprintId });
   }
 
   return {
     spec,
-    build,
+    assets,
+    build: websiteBuild,
     browserTest,
     deployment,
     receipt: {
@@ -393,9 +415,10 @@ export async function manufactureCustomWebsite(
       sourceBlueprintId: blueprint.blueprintId,
       sourceOrderId: blueprint.orderId,
       generatedAt: new Date().toISOString(),
-      websiteModel: first.receipt.model,
-      generationResponseHash: first.receipt.responseHash,
-      buildId: build.buildId,
+      websiteModel: latestReceipt.model,
+      generationResponseHash: latestReceipt.responseHash,
+      buildId: websiteBuild.buildId,
+      assetCount: assets.length,
       repairCount,
       browserTested: Boolean(browserTest),
       browserPassed: browserTest?.passed === true,
