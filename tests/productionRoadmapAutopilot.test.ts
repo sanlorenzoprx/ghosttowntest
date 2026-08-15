@@ -65,4 +65,17 @@ describe('production roadmap autopilot contract', () => {
       hook_env: 'ROADMAP_GATE_14_COMMAND'
     });
   });
+
+  it('preserves argument boundaries for Windows shell execution used by remote D1 and bundle checks', async () => {
+    const packageJson = JSON.parse(await readText('package.json')) as { scripts: Record<string, string> };
+    const compat = await readText('scripts/roadmap-windows-spawn-compat.cjs');
+
+    expect(packageJson.scripts['roadmap:autopilot']).toContain('--require ./scripts/roadmap-windows-spawn-compat.cjs');
+    expect(packageJson.scripts['roadmap:status']).toContain('--require ./scripts/roadmap-windows-spawn-compat.cjs');
+    expect(packageJson.scripts['roadmap:reset']).toContain('--require ./scripts/roadmap-windows-spawn-compat.cjs');
+    expect(compat).toContain("args.indexOf('--command')");
+    expect(compat).toContain("normalized.splice(commandIndex, 2, '--file', file.relative)");
+    expect(compat).toContain("args[0] === '-e'");
+    expect(compat).toContain('syncBuiltinESMExports()');
+  });
 });
