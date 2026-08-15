@@ -48,7 +48,7 @@ export function vertexBlueprintRequired(env: Env): boolean {
 export function vertexServiceAccountConfig(env: Env): VertexServiceAccountConfig {
   const config = {
     projectId: text(env.VERTEX_PROJECT_ID),
-    location: text(env.VERTEX_LOCATION) || 'us-central1',
+    location: text(env.VERTEX_LOCATION) || 'us',
     model: resolveGenerativeModel(env, 'blueprint'),
     clientEmail: text(env.VERTEX_SERVICE_ACCOUNT_EMAIL),
     privateKey: text(env.VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY).replace(/\\n/g, '\n'),
@@ -67,7 +67,7 @@ export function vertexServiceAccountConfig(env: Env): VertexServiceAccountConfig
 }
 
 /**
- * Kept as a pure compatibility helper for diagnostics/tests. Runtime generation does not call this URL;
+ * Compatibility helper for diagnostics/tests. Runtime generation does not call this URL;
  * all model inference is routed by GenerativeAIService through Cloudflare AI Gateway.
  */
 export function vertexGenerateContentUrl(config: Pick<VertexServiceAccountConfig, 'projectId' | 'location' | 'model'>): string {
