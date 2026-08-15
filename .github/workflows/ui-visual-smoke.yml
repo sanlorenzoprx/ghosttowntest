@@ -87,6 +87,15 @@ jobs:
             }
           }
 
+          async function assertInsideViewport(page, selector, label) {
+            const box = await page.locator(selector).first().boundingBox();
+            if (!box) throw new Error(`${label}: element is not measurable`);
+            const width = await page.evaluate(() => window.innerWidth);
+            if (box.x < -1 || box.x + box.width > width + 1) {
+              throw new Error(`${label}: clipped horizontally at x=${box.x}, width=${box.width}, viewport=${width}`);
+            }
+          }
+
           async function capture(browser, name, width, height, sectionSelector, setup) {
             const context = await browser.newContext({ viewport: { width, height } });
             const page = await context.newPage();
@@ -109,6 +118,8 @@ jobs:
             await capture(browser, 'hero-mobile-390x844', 390, 844, null, async page => {
               const sticky = page.locator('#ghosttown-commercial-sticky');
               if (!(await sticky.isVisible())) throw new Error('Mobile sticky CTA is not visible');
+              await assertInsideViewport(page, 'h1', 'Mobile hero heading');
+              await assertInsideViewport(page, '[aria-label="Visual story of the founder journey"]', 'Mobile founder carousel');
             });
 
             await capture(browser, 'cost-desktop-1366x768', 1366, 768, null, async page => {
@@ -116,6 +127,13 @@ jobs:
               await tabs.nth(5).click();
               const costText = await page.locator('text=The Cost').count();
               if (!costText) throw new Error('The Cost title is not visible after selecting slide 6');
+              const image = page.locator('img[alt="Older woman working at a laptop at a table"]');
+              await image.waitFor({ state: 'visible', timeout: 10000 });
+              await page.waitForFunction(() => {
+                const el = document.querySelector('img[alt="Older woman working at a laptop at a table"]');
+                return el && el.complete && el.naturalWidth > 0;
+              }, null, { timeout: 10000 });
+              await page.waitForTimeout(350);
             });
 
             await capture(browser, 'verdict-desktop-1366x768', 1366, 768, '#free-verdict', async page => {
