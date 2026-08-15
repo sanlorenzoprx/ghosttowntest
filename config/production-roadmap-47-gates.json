@@ -23,7 +23,7 @@
     {"id":7,"phase":2,"slug":"provider-secret-config","title":"Verify DataForSEO, Podcast Index, YouTube, and Gemini secret names","mode":"auto","handler":"providerSecretConfig","mutation_scope":"none","requires_user_input":true},
     {"id":8,"phase":2,"slug":"vertex-config","title":"Verify Vertex identity variables and service-account secret names","mode":"auto","handler":"vertexConfig","mutation_scope":"none","requires_user_input":true},
     {"id":9,"phase":3,"slug":"ghosttown-migrations","title":"Verify GhostTown acceptance D1 migrations are fully applied","mode":"auto","handler":"ghosttownMigrations","mutation_scope":"none","requires_user_input":false},
-    {"id":10,"phase":3,"slug":"ghosttown-schema","title":"Verify GhostTown acceptance D1 schema","mode":"auto","handler":"ghosttownSchema","mutation_scope":"none","requires_user_input":false},
+    {"id":10,"phase":3,"slug":"ghosttown-schema","title":"Verify GhostTown acceptance D1 schema","mode":"auto","handler":"ghosttownSchema","mutation_scope":"acceptance","requires_user_input":false},
     {"id":11,"phase":4,"slug":"dataforseo-smoke","title":"Run DataForSEO live acceptance smoke","mode":"auto","handler":"dataForSeoSmoke","mutation_scope":"none","requires_user_input":false},
     {"id":12,"phase":4,"slug":"podcast-index-smoke","title":"Run Podcast Index live acceptance smoke","mode":"auto","handler":"audienceProviderSmoke","mutation_scope":"none","requires_user_input":false},
     {"id":13,"phase":4,"slug":"youtube-smoke","title":"Run YouTube API live acceptance smoke","mode":"auto","handler":"audienceProviderSmoke","mutation_scope":"none","requires_user_input":false},
