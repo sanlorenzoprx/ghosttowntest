@@ -90,7 +90,7 @@ async function runGeminiSmoke(env) {
     })
   });
   const body = await response.json();
-  if (!response.ok) return json({ ok: false, error: body?.error?.message || `Gemini HTTP ${response.status}` }, 502);
+  if (!response.ok) return json({ ok: false, error: body?.error?.message || ('Gemini HTTP ' + response.status) }, 502);
   const output = body?.candidates?.[0]?.content?.parts?.map(part => part?.text || '').join('\\n').trim() || '';
   if (!output) return json({ ok: false, error: 'Gemini returned no content' }, 502);
   let parsed;
