@@ -111,16 +111,25 @@ jobs:
             await context.close();
           }
 
+          async function assertHero(browser, name, width, height) {
+            await capture(browser, name, width, height, null, async page => {
+              await assertInsideViewport(page, 'h1', `${name} hero heading`);
+              await assertInsideViewport(page, '[aria-label="Visual story of the founder journey"]', `${name} founder carousel`);
+              if (width < 640) {
+                const sticky = page.locator('#ghosttown-commercial-sticky');
+                if (!(await sticky.isVisible())) throw new Error(`${name}: mobile sticky CTA is not visible`);
+              }
+            });
+          }
+
           (async () => {
             const browser = await chromium.launch({ headless: true });
 
-            await capture(browser, 'hero-desktop-1366x768', 1366, 768);
-            await capture(browser, 'hero-mobile-390x844', 390, 844, null, async page => {
-              const sticky = page.locator('#ghosttown-commercial-sticky');
-              if (!(await sticky.isVisible())) throw new Error('Mobile sticky CTA is not visible');
-              await assertInsideViewport(page, 'h1', 'Mobile hero heading');
-              await assertInsideViewport(page, '[aria-label="Visual story of the founder journey"]', 'Mobile founder carousel');
-            });
+            await assertHero(browser, 'hero-mobile-375x667', 375, 667);
+            await assertHero(browser, 'hero-mobile-390x844', 390, 844);
+            await assertHero(browser, 'hero-tablet-768x1024', 768, 1024);
+            await assertHero(browser, 'hero-desktop-1366x768', 1366, 768);
+            await assertHero(browser, 'hero-desktop-1440x900', 1440, 900);
 
             await capture(browser, 'cost-desktop-1366x768', 1366, 768, null, async page => {
               const tabs = page.getByRole('tab');
@@ -133,6 +142,7 @@ jobs:
                 const el = document.querySelector('img[alt="Older woman working at a laptop at a table"]');
                 return el && el.complete && el.naturalWidth > 0;
               }, null, { timeout: 10000 });
+              await page.evaluate(() => window.scrollTo(0, 0));
               await page.waitForTimeout(350);
             });
 
