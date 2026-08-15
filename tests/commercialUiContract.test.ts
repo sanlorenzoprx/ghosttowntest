@@ -5,6 +5,7 @@ const readSource = (relativePath: string) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8');
 
 describe('commercial UI acceptance contract', () => {
+  const app = readSource('src/app/App.tsx');
   const hero = readSource('src/components/FounderJourneyHero.tsx');
   const landing = readSource('src/components/LandingCommercial.tsx');
   const examples = readSource('src/components/ExampleIdeaGallery.tsx');
@@ -51,5 +52,12 @@ describe('commercial UI acceptance contract', () => {
     expect(landing).toContain('id="ghosttown-commercial-sticky"');
     expect(landing).not.toContain('id="ghosttown-commercial-sticky" aria-hidden="true"');
     expect(landing).not.toContain('tabIndex={-1}');
+  });
+
+  it('keeps the site header responsive instead of absolutely overlapping the brand', () => {
+    expect(app).toContain('site-header');
+    expect(app).toContain('lg:grid-cols-[1fr_auto_1fr]');
+    expect(app).toContain('site-nav flex flex-wrap');
+    expect(app).not.toContain('site-nav absolute right-4');
   });
 });
