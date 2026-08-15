@@ -8,15 +8,24 @@ const STATE_PATH = join(ROOT, '.roadmap-autopilot', 'state.json');
 const COMPAT = './scripts/roadmap-windows-spawn-compat.cjs';
 const REPAIR = 'scripts/roadmap-acceptance-schema-repair.mjs';
 const GATE11_RETRY_PREP = 'scripts/roadmap-gate11-retry-prep.mjs';
+const GATE14_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate14-gemini-smoke.mjs');
 const RUNNER = 'scripts/production-roadmap-autopilot.mjs';
 const forwarded = process.argv.slice(2);
+
+function quoted(value) {
+  return `"${String(value).replace(/"/g, '\\"')}"`;
+}
+
+const sanctionedGate14Command = process.env.ROADMAP_GATE_14_COMMAND?.trim()
+  || `${quoted(process.execPath)} ${quoted(GATE14_ADAPTER)}`;
 
 function node(script, args = []) {
   return spawnSync(process.execPath, ['--require', COMPAT, script, ...args], {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: 'inherit',
-    shell: false
+    shell: false,
+    env: { ...process.env, ROADMAP_GATE_14_COMMAND: sanctionedGate14Command }
   });
 }
 
