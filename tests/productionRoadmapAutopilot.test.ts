@@ -9,7 +9,7 @@ describe('production roadmap autopilot contract', () => {
   it('decomposes the authoritative 25-step critical path into exactly 47 ordered executable gates', async () => {
     const config = JSON.parse(await readText('config/production-roadmap-47-gates.json')) as {
       source: { source_critical_path_steps: number; executable_gate_decomposition: number };
-      gates: Array<{ id: number; phase: number; mode: string; mutation_scope: string; requires_user_input: boolean }>;
+      gates: Array<{ id: number; phase: number; mode: string; mutation_scope: string; requires_user_input: boolean; title: string }>;
     };
 
     expect(config.source.source_critical_path_steps).toBe(25);
@@ -26,6 +26,8 @@ describe('production roadmap autopilot contract', () => {
     });
 
     expect(config.gates.filter(gate => gate.id < 36 && gate.mutation_scope === 'production')).toEqual([]);
+    expect(config.gates[13].title).toContain('Vertex supplied-candidate-only selection via AI Gateway');
+    expect(config.gates[14].title).toContain('Vertex OAuth plus AI Gateway seven-stage');
   });
 
   it('hard-blocks automatic production deployment and keeps local runtime evidence out of Git', async () => {
@@ -39,8 +41,9 @@ describe('production roadmap autopilot contract', () => {
     expect(gitignore).toContain('.roadmap-autopilot/');
   });
 
-  it('records only secret names and redacts common credential shapes from persisted/logged evidence', async () => {
+  it('records only secret names and never requires a Gemini API key for the v2.1.2 runtime', async () => {
     const script = await readText('scripts/production-roadmap-autopilot.mjs');
+    const preflight = await readText('scripts/roadmap-vertex-ai-gateway-preflight.mjs');
 
     expect(script).toContain("secret', 'list'");
     expect(script).toContain('secret_values_recorded: false');
@@ -48,22 +51,28 @@ describe('production roadmap autopilot contract', () => {
     expect(script).toContain('[REDACTED_WEBHOOK_SECRET]');
     expect(script).toContain('[REDACTED_PRIVATE_KEY]');
     expect(script).not.toContain('wrangler secret get');
+
+    expect(preflight).toContain("'VERTEX_SERVICE_ACCOUNT_EMAIL'");
+    expect(preflight).toContain("'VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY'");
+    expect(preflight).toContain('gemini_api_key_required: false');
+    expect(preflight).not.toContain("'GEMINI_API_KEY'");
+    expect(preflight).toContain('secret_values_recorded: false');
   });
 
-  it('has built-in automation through live provider preview smokes before requiring external adapters', async () => {
+  it('has built-in automation through live provider smokes and first-party Vertex gate adapters', async () => {
     const config = JSON.parse(await readText('config/production-roadmap-47-gates.json')) as {
       gates: Array<{ id: number; mode: string; handler?: string; hook_env?: string }>;
     };
+    const wrapper = await readText('scripts/roadmap-autopilot-wrapper.mjs');
 
     for (const id of Array.from({ length: 13 }, (_, index) => index + 1)) {
       expect(config.gates[id - 1].mode).toBe('auto');
       expect(config.gates[id - 1].handler).toEqual(expect.any(String));
     }
-    expect(config.gates[13]).toMatchObject({
-      id: 14,
-      mode: 'hook',
-      hook_env: 'ROADMAP_GATE_14_COMMAND'
-    });
+    expect(config.gates[13]).toMatchObject({ id: 14, mode: 'hook', hook_env: 'ROADMAP_GATE_14_COMMAND' });
+    expect(config.gates[14]).toMatchObject({ id: 15, mode: 'hook', hook_env: 'ROADMAP_GATE_15_COMMAND' });
+    expect(wrapper).toContain('roadmap-gate14-vertex-selection-smoke.mjs');
+    expect(wrapper).toContain('roadmap-gate15-vertex-structured-smoke.mjs');
   });
 
   it('preserves argument boundaries for Windows shell execution used by remote D1 and bundle checks', async () => {
@@ -110,21 +119,34 @@ describe('production roadmap autopilot contract', () => {
     expect(prep).toContain("state.gates['11'].status = 'PENDING'");
   });
 
-  it('renders Gate 14 against the supported Gemini API Flash model without outer-template interpolation', async () => {
-    const gate14 = await readText('scripts/roadmap-gate14-gemini-smoke.mjs');
-    const wrangler = await readText('wrangler.toml');
+  it('migrates only architecture-dependent persisted gates instead of resetting roadmap evidence', async () => {
+    const wrapper = await readText('scripts/roadmap-autopilot-wrapper.mjs');
+    const preflight = await readText('scripts/roadmap-vertex-ai-gateway-preflight.mjs');
 
-    expect(gate14).toContain("const DEFAULT_MODEL = 'gemini-3.6-flash'");
-    expect(gate14).toContain("fetch(GEMINI_ENDPOINT + '/' + encodeURIComponent(model) + ':generateContent'");
-    expect(gate14).not.toContain('fetch(\\`${GEMINI_ENDPOINT}');
-    expect(gate14).not.toContain('`Gemini HTTP ${response.status}`');
-    expect(gate14).toContain("'x-goog-api-key': env.GEMINI_API_KEY");
-    expect(gate14).toContain("join(ROOT, 'node_modules', 'wrangler')");
-    expect(gate14).toContain('spawnSync(process.execPath, [WRANGLER_CLI, ...args]');
+    expect(wrapper).toContain("for (const id of ['1', '4', '7', '8', '14', '15'])");
+    expect(wrapper).toContain("generative_architecture: GENERATIVE_ARCHITECTURE");
+    expect(wrapper).toContain('roadmap-vertex-ai-gateway-preflight.mjs');
+    expect(preflight).toContain('Gates 1, 4, 7, and 8 revalidated');
+    expect(preflight).toContain('GT-BP-2026-08-15-V2.1.2');
+  });
+
+  it('runs Gate 14 and 15 through Vertex AI Gateway and restores the canonical acceptance Worker', async () => {
+    const gate14 = await readText('scripts/roadmap-gate14-vertex-selection-smoke.mjs');
+    const gate15 = await readText('scripts/roadmap-gate15-vertex-structured-smoke.mjs');
+
+    expect(gate14).toContain("task: 'candidate_selection'");
+    expect(gate14).toContain("provider !== 'google_vertex_ai'");
+    expect(gate14).toContain("gateway !== 'cloudflare_ai_gateway'");
+    expect(gate14).toContain('allSelectedIdsSupplied');
+    expect(gate14).toContain("runWrangler(['deploy', '--env', 'acceptance'])");
+    expect(gate14).not.toContain('generativelanguage.googleapis.com');
+    expect(gate14).not.toContain('GEMINI_API_KEY');
     expect(gate14).not.toContain("'npx.cmd'");
 
-    expect(wrangler).toContain('GEMINI_RESEARCH_MODEL = "gemini-3.6-flash"');
-    expect(wrangler).toContain('GEMINI_GOOGLE_SEARCH_MODEL = "gemini-3.6-flash"');
-    expect(wrangler).toContain('VERTEX_BLUEPRINT_MODEL = "gemini-2.5-flash"');
+    expect(gate15).toContain('runVertexStructuredStage');
+    expect(gate15).toContain('stageCount !== 7');
+    expect(gate15).toContain("provider !== 'google_vertex_ai'");
+    expect(gate15).toContain("gateway !== 'cloudflare_ai_gateway'");
+    expect(gate15).toContain("runWrangler(['deploy', '--env', 'acceptance'])");
   });
 });
