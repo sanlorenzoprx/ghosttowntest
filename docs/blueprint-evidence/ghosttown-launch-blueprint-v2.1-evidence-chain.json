@@ -24,6 +24,7 @@
   },
   "changeRecord": {
     "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_2_CHANGE_RECORD.md",
+    "version": "2.1.2",
     "gitBlobSha1": "079a9448782b7cc5e75923162f4e2dca9355ccff"
   },
   "outcomeProtection": {
