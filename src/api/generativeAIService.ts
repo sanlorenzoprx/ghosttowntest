@@ -1,6 +1,11 @@
 import type { Env } from './env';
 
-export type GenerativeAITask = 'verdict' | 'candidate_selection' | 'grounded_research' | 'blueprint';
+export type GenerativeAITask =
+  | 'verdict'
+  | 'candidate_selection'
+  | 'grounded_research'
+  | 'blueprint'
+  | 'custom_website';
 
 export type GenerativeAIResponseSchema = {
   type: 'OBJECT' | 'ARRAY' | 'STRING' | 'INTEGER' | 'NUMBER' | 'BOOLEAN';
@@ -103,7 +108,8 @@ const DEFAULT_MODELS: Record<GenerativeAITask, string> = {
   verdict: 'gemini-3.5-flash-lite',
   candidate_selection: 'gemini-3.5-flash-lite',
   grounded_research: 'gemini-3.5-flash',
-  blueprint: 'gemini-3.5-flash'
+  blueprint: 'gemini-3.5-flash',
+  custom_website: 'gemini-3.5-flash'
 };
 
 function text(value: string | undefined): string {
@@ -117,7 +123,9 @@ export function resolveGenerativeModel(env: Env, task: GenerativeAITask): string
       ? env.VERTEX_SELECTION_MODEL
       : task === 'grounded_research'
         ? env.VERTEX_RESEARCH_MODEL
-        : env.VERTEX_BLUEPRINT_MODEL;
+        : task === 'custom_website'
+          ? env.VERTEX_WEBSITE_MODEL
+          : env.VERTEX_BLUEPRINT_MODEL;
   return text(configured) || DEFAULT_MODELS[task];
 }
 
@@ -207,8 +215,7 @@ async function signedAssertion(config: VertexServiceAccountConfig): Promise<stri
 }
 
 function tokenCacheKey(config: VertexServiceAccountConfig): string {
-  const identity = `${config.projectId}:${config.clientEmail}`;
-  return `${TOKEN_CACHE_PREFIX}${fnvHash(identity)}`;
+  return `${TOKEN_CACHE_PREFIX}${fnvHash(`${config.projectId}:${config.clientEmail}`)}`;
 }
 
 async function vertexAccessToken(env: Env, config: VertexServiceAccountConfig): Promise<string> {
@@ -237,10 +244,7 @@ async function vertexAccessToken(env: Env, config: VertexServiceAccountConfig): 
     throw new Error(body.error_description || body.error || `Vertex OAuth token exchange returned HTTP ${response.status}`);
   }
   const expiresIn = Math.max(300, Math.min(3600, Number(body.expires_in) || 3600));
-  const cached: CachedAccessToken = {
-    accessToken: body.access_token,
-    expiresAt: Date.now() + expiresIn * 1000
-  };
+  const cached: CachedAccessToken = { accessToken: body.access_token, expiresAt: Date.now() + expiresIn * 1000 };
   await env.KV.put(key, JSON.stringify(cached), { expirationTtl: Math.max(60, expiresIn - 120) });
   return body.access_token;
 }
@@ -323,9 +327,7 @@ export async function generateAI(env: Env, options: GenerateOptions): Promise<Ge
   if (!response.ok) throw new Error(body.error?.message || `Vertex ${options.task} returned HTTP ${response.status}`);
   const candidate = body.candidates?.[0];
   const output = candidate?.content?.parts?.map(part => part.text || '').join('\n').trim() || '';
-  if (!output) {
-    throw new Error(body.promptFeedback?.blockReason || candidate?.finishReason || `Vertex ${options.task} returned no content`);
-  }
+  if (!output) throw new Error(body.promptFeedback?.blockReason || candidate?.finishReason || `Vertex ${options.task} returned no content`);
   return {
     text: output,
     groundingMetadata: candidate?.groundingMetadata,
