@@ -45,7 +45,7 @@ describe('acceptance Cloudflare environment', () => {
     const productionVars = section(config, '[env.production.vars]', /\n\[\[env\.production\./);
 
     expect(acceptanceVars).toContain('VERTEX_BLUEPRINT_REQUIRED = "true"');
-    expect(acceptanceVars).toContain('VERTEX_PROJECT_ID = "REPLACE_WITH_VERTEX_PROJECT_ID"');
+    expect(acceptanceVars).toContain('VERTEX_PROJECT_ID = "ghosttowntest"');
     expect(acceptanceVars).toContain('VERTEX_LOCATION = "us-central1"');
     expect(acceptanceVars).toContain('VERTEX_BLUEPRINT_MODEL = "gemini-2.5-flash"');
     expect(acceptanceVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
