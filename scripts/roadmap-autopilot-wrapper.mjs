@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(process.cwd());
@@ -8,8 +8,10 @@ const STATE_PATH = join(ROOT, '.roadmap-autopilot', 'state.json');
 const COMPAT = './scripts/roadmap-windows-spawn-compat.cjs';
 const REPAIR = 'scripts/roadmap-acceptance-schema-repair.mjs';
 const GATE11_RETRY_PREP = 'scripts/roadmap-gate11-retry-prep.mjs';
-const GATE14_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate14-gemini-smoke.mjs');
+const GATE14_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate14-vertex-selection-smoke.mjs');
+const GATE15_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate15-vertex-structured-smoke.mjs');
 const RUNNER = 'scripts/production-roadmap-autopilot.mjs';
+const GENERATIVE_ARCHITECTURE = 'vertex-ai-gateway-v1';
 const forwarded = process.argv.slice(2);
 
 function quoted(value) {
@@ -18,6 +20,8 @@ function quoted(value) {
 
 const sanctionedGate14Command = process.env.ROADMAP_GATE_14_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(GATE14_ADAPTER)}`;
+const sanctionedGate15Command = process.env.ROADMAP_GATE_15_COMMAND?.trim()
+  || `${quoted(process.execPath)} ${quoted(GATE15_ADAPTER)}`;
 
 function node(script, args = []) {
   return spawnSync(process.execPath, ['--require', COMPAT, script, ...args], {
@@ -25,7 +29,11 @@ function node(script, args = []) {
     encoding: 'utf8',
     stdio: 'inherit',
     shell: false,
-    env: { ...process.env, ROADMAP_GATE_14_COMMAND: sanctionedGate14Command }
+    env: {
+      ...process.env,
+      ROADMAP_GATE_14_COMMAND: sanctionedGate14Command,
+      ROADMAP_GATE_15_COMMAND: sanctionedGate15Command
+    }
   });
 }
 
@@ -36,6 +44,36 @@ function readState() {
   } catch {
     return null;
   }
+}
+
+function writeState(state) {
+  writeFileSync(STATE_PATH, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+}
+
+function migrateGenerativeArchitectureState() {
+  const state = readState();
+  if (!state || state.runtime?.generative_architecture === GENERATIVE_ARCHITECTURE) return;
+  state.runtime ||= {};
+  state.gates ||= {};
+
+  // Preserve unrelated live acceptance evidence. Re-open only gates whose proof
+  // changed when the user explicitly ratified Vertex AI + AI Gateway as the one
+  // generative runtime. This is not a roadmap reset.
+  for (const id of ['1', '4', '7', '8', '14', '15']) {
+    if (!state.gates[id]) continue;
+    state.gates[id] = {
+      ...state.gates[id],
+      status: 'PENDING',
+      checked_at: new Date().toISOString(),
+      message: 'Revalidation required by v2.1.2 Vertex AI Gateway architecture amendment.'
+    };
+  }
+  delete state.runtime.acceptance_secret_names;
+  state.runtime.generative_architecture = GENERATIVE_ARCHITECTURE;
+  state.runtime.generative_architecture_migrated_at = new Date().toISOString();
+  state.updated_at = new Date().toISOString();
+  writeState(state);
+  console.log('Roadmap state migrated to Vertex AI Gateway v1; only Gates 1, 4, 7, 8, 14, and 15 were reopened for revalidation.');
 }
 
 function stateNeedsGate10Repair() {
@@ -54,16 +92,14 @@ function sleep(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-// Existing resumed state may already be positioned at Gate 10.
+migrateGenerativeArchitectureState();
+
 let repair = node(REPAIR);
 if ((repair.status ?? 1) !== 0) process.exit(repair.status ?? 1);
 
 let run = node(RUNNER, forwarded);
 if ((run.status ?? 0) === 0) process.exit(0);
 
-// On a fresh state, Gate 9 can become PASS during the first runner invocation.
-// If Gate 10 then fails, reconcile/verify only that acceptance schema gate and
-// immediately resume the same state once.
 if (stateNeedsGate10Repair()) {
   repair = node(REPAIR);
   if ((repair.status ?? 1) !== 0) process.exit(repair.status ?? 1);
@@ -71,11 +107,6 @@ if (stateNeedsGate10Repair()) {
   if ((run.status ?? 0) === 0) process.exit(0);
 }
 
-// Gate 11 previously cached a failed research-preview result, which meant a
-// resumed run could fail forever without making another provider request.
-// Clear only that transient cache and create a fresh verdict for each retry.
-// Three retries absorb provider/network transients while preserving the gate's
-// requirement for a real DataForSEO candidate.
 let gate11Retries = 0;
 while ((run.status ?? 1) !== 0 && stateNeedsGate11Retry() && gate11Retries < 3) {
   gate11Retries += 1;
