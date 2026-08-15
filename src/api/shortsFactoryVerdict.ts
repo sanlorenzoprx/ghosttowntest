@@ -2,10 +2,7 @@ import { calculateDeterministicScores } from '../lib/scoring';
 import type { EvaluationAnswers } from '../types/lit';
 import { DeterministicVerdictProvider } from '../verdict/deterministicVerdictProvider';
 import { generateValidatedVerdict } from '../verdict/verdictEngine';
-import {
-  DEFAULT_SHORTS_FACTORY_AI_MODEL,
-  WorkersAiVerdictProvider
-} from '../verdict/workersAiVerdictProvider';
+import { VertexVerdictProvider } from '../verdict/vertexVerdictProvider';
 import type { Env } from './env';
 
 interface ShortsFactoryIdea {
@@ -108,18 +105,17 @@ async function createShortsFactoryVerdict(
     responses: normalizeResponseContext(payload.answers)
   };
 
-  let evaluationMode: 'workers_ai' | 'deterministic_fallback' = 'workers_ai';
+  let evaluationMode: 'vertex_ai' | 'deterministic_fallback' = 'vertex_ai';
   let verdict;
   try {
-    const model = env.AI_MODEL?.trim() || DEFAULT_SHORTS_FACTORY_AI_MODEL;
     verdict = await generateValidatedVerdict(
-      new WorkersAiVerdictProvider(env.AI, model),
+      new VertexVerdictProvider(env),
       providerInput,
       signals
     );
   } catch {
     evaluationMode = 'deterministic_fallback';
-    console.warn('Workers AI verdict unavailable; deterministic fallback used');
+    console.warn('Vertex AI verdict unavailable; deterministic fallback used');
     verdict = await generateValidatedVerdict(
       new DeterministicVerdictProvider(),
       providerInput,
