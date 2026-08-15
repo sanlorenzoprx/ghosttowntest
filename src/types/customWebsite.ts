@@ -42,6 +42,18 @@ export interface CustomWebsiteSpec {
   sections: WebsiteSectionSpec[];
 }
 
+export type WebsiteAssetRole = 'logo' | 'hero_image' | 'supporting_image';
+export type WebsiteAssetOrigin = 'blueprint' | 'generated' | 'licensed';
+
+export interface WebsiteAsset {
+  assetId: string;
+  role: WebsiteAssetRole;
+  origin: WebsiteAssetOrigin;
+  publicUrl: string;
+  altText: string;
+  sourceReference: string;
+}
+
 export interface WebsiteBuildFile {
   path: string;
   contentType: string;
@@ -54,6 +66,7 @@ export interface WebsiteBuildResult {
   buildId: string;
   createdAt: string;
   specSha256: string;
+  assets: WebsiteAsset[];
   files: WebsiteBuildFile[];
 }
 
@@ -90,6 +103,7 @@ export interface WebsiteCreationReceipt {
   websiteModel: string;
   generationResponseHash: string;
   buildId: string;
+  assetCount: number;
   repairCount: number;
   browserTested: boolean;
   browserPassed: boolean;
@@ -99,6 +113,7 @@ export interface WebsiteCreationReceipt {
 
 export interface WebsiteCreationResult {
   spec: CustomWebsiteSpec;
+  assets: WebsiteAsset[];
   build: WebsiteBuildResult;
   browserTest?: WebsiteBrowserTestResult;
   deployment?: WebsiteDeploymentReceipt;
