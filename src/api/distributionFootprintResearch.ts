@@ -7,12 +7,11 @@ import type {
   DistributionTargetType
 } from '../types/launchBlueprint';
 import type { CustomerAccessResearchInput } from './launchBlueprintGenerator';
+import { generateAI } from './generativeAIService';
 
 const DATAFORSEO_ENDPOINT = 'https://api.dataforseo.com/v3/backlinks/backlinks/live';
 const PODCAST_INDEX_ENDPOINT = 'https://api.podcastindex.org/api/1.0/search/byterm';
 const YOUTUBE_ENDPOINT = 'https://www.googleapis.com/youtube/v3/search';
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
-const DEFAULT_MODEL = 'gemini-2.5-flash';
 const MIN_ATTEMPTS = 6;
 const MIN_SUCCESSES = 4;
 const MIN_PROVIDER_TYPES = 2;
@@ -146,11 +145,6 @@ interface YouTubeResponse {
       publishedAt?: string;
     };
   }>;
-  error?: { message?: string };
-}
-
-interface GeminiResponse {
-  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
   error?: { message?: string };
 }
 
@@ -688,20 +682,16 @@ export async function finalizeCustomerAccessResearch(
   }
   const candidates = [...deduped.values()].sort((left, right) => score(right) - score(left)).slice(0, MAX_CANDIDATES_FOR_MODEL);
   if (candidates.length < MIN_CHANNELS) throw new Error(`Distribution Footprint found only ${candidates.length} verified candidates; ${MIN_CHANNELS} are required`);
-  if (!env.GEMINI_API_KEY?.trim()) throw new Error('GEMINI_API_KEY is not configured');
-  const model = env.GEMINI_RESEARCH_MODEL?.trim() || DEFAULT_MODEL;
-  const response = await fetchWithTimeout(`${GEMINI_ENDPOINT}/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: selectionPrompt(order, verdict, candidates) }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 10000, responseMimeType: 'application/json' }
-    })
-  }, 30000);
-  const body = await response.json() as GeminiResponse;
-  if (!response.ok) throw new Error(body.error?.message || `Gemini selection returned HTTP ${response.status}`);
-  const output = body.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('\n').trim() || '';
-  if (!output) throw new Error('Gemini selection returned no content');
+
+  const ai = await generateAI(env, {
+    task: 'candidate_selection',
+    prompt: selectionPrompt(order, verdict, candidates),
+    temperature: 0.1,
+    maxOutputTokens: 10000,
+    timeoutMs: 30_000
+  });
+  const output = ai.text;
+  const model = ai.receipt.model;
   const selection = parseSelection(output);
   const byId = new Map(candidates.map(candidate => [candidate.candidateId, candidate]));
   const unknownCandidateIds = [...new Set((selection.channels || [])
@@ -800,7 +790,7 @@ export async function finalizeCustomerAccessResearch(
       sourceDefinitionIds: attempts.map(attempt => attempt.sourceId),
       seedDomains: plan.seedDomains,
       targetTypeCounts: typeCounts,
-      responseHash: fnvHash(output),
+      responseHash: ai.receipt.responseHash,
       unknownCandidateIds: []
     }
   };
