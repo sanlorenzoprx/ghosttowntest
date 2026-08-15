@@ -93,6 +93,20 @@ describe('production roadmap autopilot contract', () => {
     expect(wrapper).toContain('stateNeedsGate10Repair');
     expect(wrapper).toContain("state?.gates?.['9']?.status === 'PASS'");
     expect(wrapper).toContain("state?.gates?.['10']?.status !== 'PASS'");
-    expect(wrapper).toContain('No other failure is auto-retried.');
+  });
+
+  it('retries Gate 11 with fresh DataForSEO evidence instead of replaying a cached failure', async () => {
+    const wrapper = await readText('scripts/roadmap-autopilot-wrapper.mjs');
+    const prep = await readText('scripts/roadmap-gate11-retry-prep.mjs');
+
+    expect(wrapper).toContain('stateNeedsGate11Retry');
+    expect(wrapper).toContain('gate11Retries < 3');
+    expect(wrapper).toContain('Gate 11 fresh live retry');
+    expect(wrapper).toContain('Three fresh live DataForSEO retries failed');
+    expect(wrapper).toContain('Do not paste credentials into chat.');
+
+    expect(prep).toContain('delete state.runtime.commercial_provider_smoke');
+    expect(prep).toContain('delete state.runtime.smoke_verdict_id');
+    expect(prep).toContain("state.gates['11'].status = 'PENDING'");
   });
 });
