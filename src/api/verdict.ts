@@ -1,13 +1,13 @@
 /**
  * POST /api/verdict
  * Main endpoint: Hybrid AI verdict engine
- * 
+ *
  * Request: { idea: IdeaIntake, answers: EvaluationAnswers }
- * Response: EvaluationResult (AI verdict + deterministic fallback + caching)
- * 
+ * Response: EvaluationResult (Vertex verdict + deterministic fallback + caching)
+ *
  * Flow:
  * 1. Check cache (KV): if ideaHash exists, return cached verdict
- * 2. Try AI pipeline:
+ * 2. Try Vertex pipeline through GenerativeAIService + Cloudflare AI Gateway:
  *    - Step 1: Analyze (extract signals)
  *    - Step 2: Score (LIT framework)
  *    - Step 3: Verdict (generate judgment)
@@ -29,21 +29,17 @@ import type { UserData } from '../types/auth';
 import { handleShortsFactoryVerdict, isShortsFactoryVerdictRequest } from './shortsFactoryVerdict';
 import { saveUserResult } from './resultHistory';
 import { queuePublicVideo } from './publicVideoJobs';
+import { generateAI } from './generativeAIService';
 
-const DEFAULT_AI_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast';
-
-interface TextGenerationBinding {
-  run(model: string, input: {
-    prompt: string;
-    max_tokens: number;
-    temperature: number;
-  }): Promise<unknown>;
-}
-
-function runTextModel(env: Env, prompt: string, maxTokens: number): Promise<unknown> {
-  const model = env.AI_MODEL?.trim() || DEFAULT_AI_MODEL;
-  const ai = env.AI as unknown as TextGenerationBinding;
-  return ai.run(model, { prompt, max_tokens: maxTokens, temperature: 0.3 });
+async function runTextModel(env: Env, prompt: string, maxTokens: number): Promise<string> {
+  const result = await generateAI(env, {
+    task: 'verdict',
+    prompt,
+    maxOutputTokens: maxTokens,
+    temperature: 0.3,
+    timeoutMs: 30_000
+  });
+  return result.text;
 }
 
 async function handleVerdict(request: Request, env: Env): Promise<Response> {
@@ -65,15 +61,12 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
 
     const { idea, answers } = payload;
 
-    // User-submitted ideas are public by product design and require an explicit
-    // acknowledgement before a report or distribution video is created.
     if (payload.public_content_acknowledged !== true) {
       return new Response(JSON.stringify({
         error: 'public_content_acknowledgement_required'
       }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // Validate input
     if (!isIdeaIntake(idea) || !answers || typeof answers !== 'object') {
       return new Response(
         JSON.stringify({ error: 'Missing idea or answers' }),
@@ -96,7 +89,6 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       });
     }
 
-    // 1. CHECK CACHE
     const ideaHash = hashObject({ idea, answers });
     const cacheKey = `verdict:${ideaHash}`;
     const cached = await env.KV.get(cacheKey);
@@ -121,26 +113,21 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       }
     }
 
-    // 2. TRY AI PIPELINE
     let analysis: IdeaAnalysis | undefined;
     let scores: IdeaScores | undefined;
     let verdict: VerdictData | undefined;
     let usedAI = false;
 
     try {
-      // Step 1: Analyze
       analysis = await analyzeIdea(idea, answers, env);
       if (!analysis) throw new Error('Analysis failed');
 
-      // Step 2: Score
       scores = await scoreIdea(analysis, env);
       if (!scores) throw new Error('Scoring failed');
 
-      // Step 3: Verdict
       verdict = await generateVerdict(idea, analysis, scores, env);
       if (!verdict) throw new Error('Verdict generation failed');
 
-      // Validate
       const validation = validateVerdict(verdict);
       if (!validation.valid) {
         throw new Error(`Verdict validation failed: ${validation.errors.join(', ')}`);
@@ -148,14 +135,12 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
 
       usedAI = true;
     } catch (error) {
-      console.warn('AI pipeline failed, falling back to deterministic:', error);
+      console.warn('Vertex AI pipeline failed, falling back to deterministic:', error);
       usedAI = false;
     }
 
-    // 3. GET DETERMINISTIC SCORES (fallback or supplement)
     const deterministicResult = calculateDeterministicScores(answers);
 
-    // 4. BUILD RESULT
     const result: EvaluationResult = {
       resultId: ideaHash,
       idea,
@@ -175,7 +160,6 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       env
     );
 
-    // 5. CACHE
     try {
       await Promise.all([
         env.KV.put(cacheKey, JSON.stringify(result), { expirationTtl: 86400 * 30 }),
@@ -190,7 +174,6 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       await saveUserResult(authenticated.email, result, env);
     }
 
-    // 6. RETURN
     return new Response(JSON.stringify(result), {
       headers: { 'Content-Type': 'application/json' }
     });
@@ -220,24 +203,14 @@ function isIdeaIntake(value: unknown): value is IdeaIntake {
     .every(key => typeof idea[key] === 'string');
 }
 
-function getAiText(response: unknown): string {
-  if (!response || typeof response !== 'object') return '';
-  const text = (response as { response?: unknown }).response;
-  return typeof text === 'string' ? text : '';
-}
-
 async function analyzeIdea(
   idea: IdeaIntake,
   answers: EvaluationAnswers,
   env: Env
 ): Promise<IdeaAnalysis | undefined> {
   try {
-    const prompt = buildAnalyzePrompt(idea, answers);
-
-    const response = await runTextModel(env, prompt, 800);
-    const text = getAiText(response);
+    const text = await runTextModel(env, buildAnalyzePrompt(idea, answers), 800);
     const json = extractJSONFromText(text);
-
     return json ? json as IdeaAnalysis : undefined;
   } catch (error) {
     console.error('Analysis step failed:', error);
@@ -247,12 +220,8 @@ async function analyzeIdea(
 
 async function scoreIdea(analysis: IdeaAnalysis, env: Env): Promise<IdeaScores | undefined> {
   try {
-    const prompt = buildScorePrompt(analysis);
-
-    const response = await runTextModel(env, prompt, 1000);
-    const text = getAiText(response);
+    const text = await runTextModel(env, buildScorePrompt(analysis), 1000);
     const json = extractJSONFromText(text);
-
     return json ? json as IdeaScores : undefined;
   } catch (error) {
     console.error('Scoring step failed:', error);
@@ -267,12 +236,8 @@ async function generateVerdict(
   env: Env
 ): Promise<VerdictData | undefined> {
   try {
-    const prompt = buildVerdictPrompt(idea, analysis, scores);
-
-    const response = await runTextModel(env, prompt, 600);
-    const text = getAiText(response);
+    const text = await runTextModel(env, buildVerdictPrompt(idea, analysis, scores), 600);
     const json = extractJSONFromText(text);
-
     return json ? json as VerdictData : undefined;
   } catch (error) {
     console.error('Verdict generation step failed:', error);
