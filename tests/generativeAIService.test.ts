@@ -99,7 +99,7 @@ describe('GenerativeAIService', () => {
       calls.push({ url, init });
       if (url === 'https://oauth2.googleapis.com/token') {
         const form = new URLSearchParams(String(init?.body || ''));
-        expect(form.get('grant_type')).toBe('urn:ietf:params:oauth-grant-type:jwt-bearer'.replace('oauth-grant', 'oauth:grant'));
+        expect(form.get('grant_type')).toBe('urn:ietf:params:oauth:grant-type:jwt-bearer');
         return Response.json({ access_token: 'vertex-short-lived-token', expires_in: 3600 });
       }
       expect(url).toContain('/google-vertex-ai/v1/projects/ghosttown-test-project/locations/us/');
