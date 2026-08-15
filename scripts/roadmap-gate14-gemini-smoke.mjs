@@ -75,7 +75,7 @@ async function runGeminiSmoke(env) {
     'Immutable candidates:',
     JSON.stringify(FIXTURE)
   ].join('\\n');
-  const response = await fetch(\`${GEMINI_ENDPOINT}/\${encodeURIComponent(model)}:generateContent\`, {
+  const response = await fetch(GEMINI_ENDPOINT + '/' + encodeURIComponent(model) + ':generateContent', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
     body: JSON.stringify({
