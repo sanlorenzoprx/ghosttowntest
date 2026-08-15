@@ -1,9 +1,70 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { researchCustomerAccess } from '../src/api/customerAccessResearch';
-import { planCustomerAccessResearch } from '../src/api/distributionFootprintResearch';
 import type { Env } from '../src/api/env';
 import type { EvaluationResult } from '../src/types/lit';
 import type { PaidTestOrder } from '../src/types/paidTest';
+
+const aiState = vi.hoisted(() => ({ mode: 'valid' as 'valid' | 'unknown' }));
+
+vi.mock('../src/api/generativeAIService', () => ({
+  generateAI: async (_env: unknown, options: { prompt: string }) => {
+    const marker = 'Candidates:\n';
+    const candidates = JSON.parse(options.prompt.slice(options.prompt.indexOf(marker) + marker.length).trim()) as Array<{
+      candidateId: string;
+      targetTypeHint: string;
+      title: string;
+    }>;
+    const selected: typeof candidates = [];
+    const byType = new Map<string, typeof candidates>();
+    for (const candidate of candidates) {
+      const group = byType.get(candidate.targetTypeHint) || [];
+      group.push(candidate);
+      byType.set(candidate.targetTypeHint, group);
+    }
+    for (const group of byType.values()) {
+      selected.push(...group.slice(0, 4));
+      if (selected.length >= 12) break;
+    }
+    for (const candidate of candidates) {
+      if (selected.some(item => item.candidateId === candidate.candidateId)) continue;
+      selected.push(candidate);
+      if (selected.length >= 16) break;
+    }
+    const channels = selected.slice(0, 16).map((candidate, index) => ({
+      candidateId: candidate.candidateId,
+      targetType: candidate.targetTypeHint,
+      relevance: 'This target reaches families already evaluating games, activities, or comparable subscriptions.',
+      participationRules: 'Check current public contact, guest, review, sponsorship, or submission rules before outreach.',
+      recommendedApproach: 'Lead with a useful family game-selection resource and a transparent request.',
+      usefulTopic: 'How families choose games that work across mixed ages.',
+      risk: 'Audience fit and response are not guaranteed; avoid mass promotional outreach.',
+      firstAction: 'Open the public source and identify its current contact or submission route.',
+      audienceOwner: candidate.title,
+      accessPath: 'Use the current public contact or submission route.',
+      preparedAsset: index % 2 ? 'Family game-selection checklist and guest article outline.' : 'Review brief and interview outline.',
+      outreachScriptId: index % 3 === 0 ? 'script-06-referral_partner' : 'script-07-interview_invitation'
+    }));
+    if (aiState.mode === 'unknown' && channels.length) {
+      channels[0] = { ...channels[0], candidateId: 'candidate_model_invented' };
+      channels.splice(5);
+    }
+    return {
+      text: JSON.stringify({ channels }),
+      receipt: {
+        provider: 'google_vertex_ai',
+        gateway: 'cloudflare_ai_gateway',
+        gatewayId: 'default',
+        task: 'candidate_selection',
+        model: 'gemini-3.5-flash-lite',
+        promptHash: 'fixture-prompt',
+        responseHash: 'fixture-response',
+        completedAt: '2026-08-15T00:00:00.000Z'
+      }
+    };
+  }
+}));
+
+import { researchCustomerAccess } from '../src/api/customerAccessResearch';
+import { planCustomerAccessResearch } from '../src/api/distributionFootprintResearch';
 
 const order = {
   orderId: 'gtt_research_1',
@@ -18,24 +79,8 @@ const order = {
     currentWorkaround: 'Retail stores, libraries, and recommendations',
     expectedPrice: '$39',
     competitorSeeds: [
-      {
-        seedId: 'competitor_seed_kiwico',
-        name: 'KiwiCo',
-        website: 'https://www.kiwico.com',
-        domain: 'kiwico.com',
-        relationship: 'adjacent_product',
-        origin: 'customer_confirmed',
-        verifiedAt: '2026-07-31T12:00:00.000Z'
-      },
-      {
-        seedId: 'competitor_seed_bgg',
-        name: 'BoardGameGeek',
-        website: 'https://boardgamegeek.com',
-        domain: 'boardgamegeek.com',
-        relationship: 'adjacent_product',
-        origin: 'customer_confirmed',
-        verifiedAt: '2026-07-31T12:00:00.000Z'
-      }
+      { seedId: 'competitor_seed_kiwico', name: 'KiwiCo', website: 'https://www.kiwico.com', domain: 'kiwico.com', relationship: 'adjacent_product', origin: 'customer_confirmed', verifiedAt: '2026-07-31T12:00:00.000Z' },
+      { seedId: 'competitor_seed_bgg', name: 'BoardGameGeek', website: 'https://boardgamegeek.com', domain: 'boardgamegeek.com', relationship: 'adjacent_product', origin: 'customer_confirmed', verifiedAt: '2026-07-31T12:00:00.000Z' }
     ]
   },
   createdAt: '2026-07-31T12:00:00.000Z',
@@ -56,23 +101,13 @@ const verdict = {
     motivation: 'Family game-night experience.'
   },
   deterministicScores: {
-    ghostTownScore: 3,
-    ghostTownRisk: 'medium',
-    leverageScore: 3,
-    insightScore: 3,
-    timingScore: 3,
-    litScore: 3,
-    litBand: 'unclear',
-    highWallsScore: 2,
-    highWallsBand: 'weak',
-    businessDnaType: 'subscription',
-    businessDnaTrap: 'Inventory risk',
-    businessDnaWinStrategy: 'Validate curation before inventory',
-    finalVerdict: 'test_first',
+    ghostTownScore: 3, ghostTownRisk: 'medium', leverageScore: 3, insightScore: 3, timingScore: 3,
+    litScore: 3, litBand: 'unclear', highWallsScore: 2, highWallsBand: 'weak',
+    businessDnaType: 'subscription', businessDnaTrap: 'Inventory risk',
+    businessDnaWinStrategy: 'Validate curation before inventory', finalVerdict: 'test_first',
     verdictHeadline: 'Test the curation promise first',
     verdictExplanation: 'Prove family preference matching before buying inventory.',
-    recommendedNextTest: 'Recruit founding families.',
-    doNotBuildUntil: 'Families pay for a manual curated pilot.',
+    recommendedNextTest: 'Recruit founding families.', doNotBuildUntil: 'Families pay for a manual curated pilot.',
     oneSentenceAdvice: 'Sell the curation outcome before buying inventory.'
   },
   usedAI: false,
@@ -85,8 +120,10 @@ function env(): Env {
     KV: {} as KVNamespace,
     AI: {} as Ai,
     DISTRIBUTION_FOOTPRINT_ENABLED: 'true',
-    GEMINI_API_KEY: 'test-key',
-    GEMINI_RESEARCH_MODEL: 'gemini-test',
+    VERTEX_PROJECT_ID: 'ghosttowntest',
+    VERTEX_LOCATION: 'us',
+    VERTEX_SELECTION_MODEL: 'gemini-3.5-flash-lite',
+    AI_GATEWAY_ID: 'default',
     DATAFORSEO_LOGIN: 'login',
     DATAFORSEO_PASSWORD: 'password',
     PODCAST_INDEX_API_KEY: 'podcast-key',
@@ -103,24 +140,18 @@ function dataForSeoResponse(seed: string) {
   return {
     status_code: 20000,
     status_message: 'Ok.',
-    tasks: [{
-      status_code: 20000,
-      status_message: 'Ok.',
-      result: [{
-        items: Array.from({ length: 6 }, (_, index) => ({
-          url_from: `https://${seed}-media-${index + 1}.example.com/${index % 3 === 0 ? 'newsletter' : index % 3 === 1 ? 'events' : 'reviews'}/family-games`,
-          domain_from: `${seed}-media-${index + 1}.example.com`,
-          page_from_title: `${seed} family games coverage ${index + 1}`,
-          rank: 70 - index,
-          page_from_rank: 65 - index,
-          first_seen: '2026-05-01T00:00:00.000Z',
-          last_seen: '2026-07-25T00:00:00.000Z',
-          dofollow: true,
-          item_type: index % 3 === 0 ? 'blog' : index % 3 === 1 ? 'event' : 'review',
-          backlink_spam_score: 2
-        }))
-      }]
-    }]
+    tasks: [{ status_code: 20000, status_message: 'Ok.', result: [{ items: Array.from({ length: 6 }, (_, index) => ({
+      url_from: `https://${seed}-media-${index + 1}.example.com/${index % 3 === 0 ? 'newsletter' : index % 3 === 1 ? 'events' : 'reviews'}/family-games`,
+      domain_from: `${seed}-media-${index + 1}.example.com`,
+      page_from_title: `${seed} family games coverage ${index + 1}`,
+      rank: 70 - index,
+      page_from_rank: 65 - index,
+      first_seen: '2026-05-01T00:00:00.000Z',
+      last_seen: '2026-07-25T00:00:00.000Z',
+      dofollow: true,
+      item_type: index % 3 === 0 ? 'blog' : index % 3 === 1 ? 'event' : 'review',
+      backlink_spam_score: 2
+    })) }] }]
   };
 }
 
@@ -157,48 +188,20 @@ function youtubeResponse(query: string) {
   };
 }
 
-function selectionFromPrompt(prompt: string) {
-  const marker = 'Candidates:\n';
-  const candidates = JSON.parse(prompt.slice(prompt.indexOf(marker) + marker.length).trim()) as Array<{
-    candidateId: string;
-    targetTypeHint: string;
-    title: string;
-  }>;
-  const selected: typeof candidates = [];
-  const byType = new Map<string, typeof candidates>();
-  for (const candidate of candidates) {
-    const group = byType.get(candidate.targetTypeHint) || [];
-    group.push(candidate);
-    byType.set(candidate.targetTypeHint, group);
-  }
-  for (const group of byType.values()) {
-    selected.push(...group.slice(0, 4));
-    if (selected.length >= 12) break;
-  }
-  for (const candidate of candidates) {
-    if (selected.some(item => item.candidateId === candidate.candidateId)) continue;
-    selected.push(candidate);
-    if (selected.length >= 16) break;
-  }
-  return {
-    channels: selected.slice(0, 16).map((candidate, index) => ({
-      candidateId: candidate.candidateId,
-      targetType: candidate.targetTypeHint,
-      relevance: 'This target reaches families already evaluating games, activities, or comparable subscriptions.',
-      participationRules: 'Check the target’s current public contact, guest, review, sponsorship, or submission rules before outreach.',
-      recommendedApproach: 'Lead with a useful family game-selection resource and a transparent request for an interview, review, or partnership conversation.',
-      usefulTopic: 'How families choose games that work across mixed ages.',
-      risk: 'Audience fit and response are not guaranteed; avoid mass promotional outreach.',
-      firstAction: 'Open the public source and identify its current contact, guest, review, sponsorship, or submission route.',
-      audienceOwner: candidate.title,
-      accessPath: 'Use the current public contact or submission route.',
-      preparedAsset: index % 2 ? 'Family game-selection checklist and guest article outline.' : 'Review brief and interview outline.',
-      outreachScriptId: index % 3 === 0 ? 'script-06-referral_partner' : 'script-07-interview_invitation'
-    }))
-  };
+function mockProviders() {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+    const url = String(input);
+    if (url.includes('api.dataforseo.com')) return new Response(JSON.stringify(dataForSeoResponse('seed')), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (url.includes('api.podcastindex.org')) return new Response(JSON.stringify(podcastResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (url.includes('www.googleapis.com/youtube')) return new Response(JSON.stringify(youtubeResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response('<html><head><title>Family Games Media</title><meta name="description" content="Active media source covering family games, reviews, events, and activities."></head><body>Public source</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+  });
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  aiState.mode = 'valid';
+  vi.restoreAllMocks();
+});
 
 describe('customer access distribution footprint provider', () => {
   it('carries typed audience and ecosystem clues into Podcast Index and YouTube planning', () => {
@@ -225,36 +228,9 @@ describe('customer access distribution footprint provider', () => {
     expect(plan.queryBySourceId['youtube:ecosystem']).toContain('Family recreation associations');
   });
 
-  it('builds a verified media and distribution network from competitor seeds', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
-      const url = String(input);
-      if (url.includes('api.dataforseo.com')) {
-        const requestBody = JSON.parse(String(init?.body)) as Array<{ target?: string }>;
-        return new Response(JSON.stringify(dataForSeoResponse(requestBody[0]?.target || 'seed')), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
-      if (url.includes('api.podcastindex.org')) {
-        const query = new URL(url).searchParams.get('q') || 'family games';
-        return new Response(JSON.stringify(podcastResponse(query)), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
-      if (url.includes('www.googleapis.com/youtube')) {
-        const query = new URL(url).searchParams.get('q') || 'family games';
-        return new Response(JSON.stringify(youtubeResponse(query)), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
-      if (url.includes('generativelanguage.googleapis.com')) {
-        const requestBody = JSON.parse(String(init?.body)) as { contents?: Array<{ parts?: Array<{ text?: string }> }> };
-        const prompt = requestBody.contents?.[0]?.parts?.[0]?.text || '';
-        return new Response(JSON.stringify({
-          candidates: [{ content: { parts: [{ text: JSON.stringify(selectionFromPrompt(prompt)) }] } }]
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
-      return new Response('<html><head><title>Family Games Media</title><meta name="description" content="Active media source covering family games, reviews, events, and activities."></head><body>Public source</body></html>', {
-        status: 200,
-        headers: { 'Content-Type': 'text/html' }
-      });
-    });
-
+  it('builds a verified media and distribution network from competitor seeds using Vertex selection', async () => {
+    const fetchMock = mockProviders();
     const result = await researchCustomerAccess(env(), order, verdict);
-
     expect(fetchMock).toHaveBeenCalled();
     expect(result.research.status).toBe('complete');
     expect(result.research.channels.length).toBeGreaterThanOrEqual(10);
@@ -266,42 +242,12 @@ describe('customer access distribution footprint provider', () => {
     expect(result.receipt.provider).toBe('distribution_footprint');
     expect(result.receipt.seedDomains).toEqual(['kiwico.com', 'boardgamegeek.com']);
     expect(result.receipt.successfulSourceCount).toBeGreaterThanOrEqual(4);
+    expect(result.receipt.model).toBe('gemini-3.5-flash-lite');
   });
 
-  it('recovers an unknown model candidate ID from the provider-verified candidate pool', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
-      const url = String(input);
-      if (url.includes('api.dataforseo.com')) {
-        const requestBody = JSON.parse(String(init?.body)) as Array<{ target?: string }>;
-        return new Response(JSON.stringify(dataForSeoResponse(requestBody[0]?.target || 'seed')), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
-      if (url.includes('api.podcastindex.org')) {
-        const query = new URL(url).searchParams.get('q') || 'family games';
-        return new Response(JSON.stringify(podcastResponse(query)), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
-      if (url.includes('www.googleapis.com/youtube')) {
-        const query = new URL(url).searchParams.get('q') || 'family games';
-        return new Response(JSON.stringify(youtubeResponse(query)), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
-      if (url.includes('generativelanguage.googleapis.com')) {
-        const requestBody = JSON.parse(String(init?.body)) as { contents?: Array<{ parts?: Array<{ text?: string }> }> };
-        const prompt = requestBody.contents?.[0]?.parts?.[0]?.text || '';
-        const selection = selectionFromPrompt(prompt);
-        return new Response(JSON.stringify({
-          candidates: [{ content: { parts: [{ text: JSON.stringify({
-            channels: [
-              { ...selection.channels[0], candidateId: 'candidate_model_invented' },
-              ...selection.channels.slice(1, 5)
-            ]
-          }) }] } }]
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
-      return new Response('<html><head><title>Family Games Media</title><meta name="description" content="Active media source covering family games, reviews, events, and activities."></head><body>Public source</body></html>', {
-        status: 200,
-        headers: { 'Content-Type': 'text/html' }
-      });
-    });
-
+  it('recovers an unknown Vertex candidate ID from the provider-verified candidate pool', async () => {
+    aiState.mode = 'unknown';
+    mockProviders();
     const result = await researchCustomerAccess(env(), order, verdict);
     expect(result.research.status).toBe('complete');
     expect(result.research.channels.length).toBeGreaterThanOrEqual(10);
