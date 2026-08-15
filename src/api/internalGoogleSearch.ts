@@ -1,8 +1,7 @@
 import { authenticateRequest } from './auth';
 import type { Env } from './env';
+import { generateAI, generativeAIConfigured, resolveGenerativeModel } from './generativeAIService';
 
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
-const DEFAULT_MODEL = 'gemini-2.5-flash';
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
   headers: {
@@ -11,33 +10,6 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
     Pragma: 'no-cache'
   }
 });
-
-interface GroundingChunk {
-  web?: { uri?: string; title?: string };
-}
-
-interface GroundingSupport {
-  segment?: { startIndex?: number; endIndex?: number; text?: string };
-  groundingChunkIndices?: number[];
-  confidenceScores?: number[];
-}
-
-interface GroundingMetadata {
-  webSearchQueries?: string[];
-  searchEntryPoint?: { renderedContent?: string };
-  groundingChunks?: GroundingChunk[];
-  groundingSupports?: GroundingSupport[];
-}
-
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: { parts?: Array<{ text?: string }> };
-    groundingMetadata?: GroundingMetadata;
-    finishReason?: string;
-  }>;
-  promptFeedback?: { blockReason?: string };
-  error?: { message?: string };
-}
 
 function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
@@ -76,15 +48,17 @@ export async function handleInternalGoogleSearch(request: Request, env: Env): Pr
 
   if (request.method === 'GET') {
     return json({
-      available: Boolean(env.GEMINI_API_KEY?.trim()),
-      model: env.GEMINI_GOOGLE_SEARCH_MODEL?.trim() || DEFAULT_MODEL,
+      available: generativeAIConfigured(env),
+      model: resolveGenerativeModel(env, 'grounded_research'),
+      provider: 'google_vertex_ai',
+      gateway: 'cloudflare_ai_gateway',
       owner: owner.email,
       persistence: 'session_only',
       connectedToPaidBlueprints: false
     });
   }
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-  if (!env.GEMINI_API_KEY?.trim()) return json({ error: 'GEMINI_API_KEY is not configured' }, 503);
+  if (!generativeAIConfigured(env)) return json({ error: 'Vertex generative AI is not configured' }, 503);
 
   let prompt: string;
   try {
@@ -94,49 +68,41 @@ export async function handleInternalGoogleSearch(request: Request, env: Env): Pr
     return json({ error: error instanceof Error ? error.message : 'Invalid research request' }, 400);
   }
 
-  const model = env.GEMINI_GOOGLE_SEARCH_MODEL?.trim() || DEFAULT_MODEL;
-  const response = await fetch(`${GEMINI_ENDPOINT}/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': env.GEMINI_API_KEY
-    },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      tools: [{ google_search: {} }],
-      generationConfig: {
-        temperature: 0,
-        maxOutputTokens: 6000
-      }
-    })
-  });
-  const body = await response.json() as GeminiResponse;
-  if (!response.ok) return json({ error: body.error?.message || `Google grounded search returned HTTP ${response.status}` }, 502);
-  const candidate = body.candidates?.[0];
-  const answer = candidate?.content?.parts?.map(part => part.text || '').join('\n').trim() || '';
-  if (!answer) return json({ error: body.promptFeedback?.blockReason || candidate?.finishReason || 'Google grounded search returned no answer' }, 502);
-  const grounding = candidate?.groundingMetadata;
-  const chunks = grounding?.groundingChunks || [];
-
-  return json({
-    model,
-    answer,
-    webSearchQueries: grounding?.webSearchQueries || [],
-    searchSuggestionHtml: grounding?.searchEntryPoint?.renderedContent || '',
-    sources: chunks.map((chunk, index) => ({
-      index: index + 1,
-      title: chunk.web?.title || `Source ${index + 1}`,
-      uri: chunk.web?.uri || ''
-    })).filter(source => source.uri),
-    supports: (grounding?.groundingSupports || []).map(support => ({
-      startIndex: support.segment?.startIndex,
-      endIndex: support.segment?.endIndex,
-      text: support.segment?.text,
-      sourceIndices: (support.groundingChunkIndices || []).map(index => index + 1),
-      confidenceScores: support.confidenceScores || []
-    })),
-    persistence: 'session_only',
-    connectedToPaidBlueprints: false,
-    notice: 'This live Google-grounded result is displayed only to the owner who submitted the prompt. GhostTown does not save it or use it for paid Blueprint fulfillment.'
-  });
+  try {
+    const result = await generateAI(env, {
+      task: 'grounded_research',
+      prompt,
+      googleSearch: true,
+      temperature: 0,
+      maxOutputTokens: 6000,
+      timeoutMs: 45_000
+    });
+    const grounding = result.groundingMetadata;
+    const chunks = grounding?.groundingChunks || [];
+    return json({
+      model: result.receipt.model,
+      provider: result.receipt.provider,
+      gateway: result.receipt.gateway,
+      answer: result.text,
+      webSearchQueries: grounding?.webSearchQueries || [],
+      searchSuggestionHtml: grounding?.searchEntryPoint?.renderedContent || '',
+      sources: chunks.map((chunk, index) => ({
+        index: index + 1,
+        title: chunk.web?.title || `Source ${index + 1}`,
+        uri: chunk.web?.uri || ''
+      })).filter(source => source.uri),
+      supports: (grounding?.groundingSupports || []).map(support => ({
+        startIndex: support.segment?.startIndex,
+        endIndex: support.segment?.endIndex,
+        text: support.segment?.text,
+        sourceIndices: (support.groundingChunkIndices || []).map(index => index + 1),
+        confidenceScores: support.confidenceScores || []
+      })),
+      persistence: 'session_only',
+      connectedToPaidBlueprints: false,
+      notice: 'This live Google-grounded result is displayed only to the owner who submitted the prompt. GhostTown does not save it or use it for paid Blueprint fulfillment.'
+    });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Vertex grounded research failed' }, 502);
+  }
 }
