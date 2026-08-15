@@ -9,15 +9,15 @@ routes = [
 
 [env.production.vars]
 DEPLOYMENT_ENV = "production"
-AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
-ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
-GEMINI_RESEARCH_MODEL = "gemini-3.6-flash"
-GEMINI_GOOGLE_SEARCH_MODEL = "gemini-3.6-flash"
-DISTRIBUTION_FOOTPRINT_ENABLED = "false"
-DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
+AI_GATEWAY_ID = "default"
+VERTEX_VERDICT_MODEL = "gemini-3.5-flash-lite"
+VERTEX_SELECTION_MODEL = "gemini-3.5-flash-lite"
+VERTEX_RESEARCH_MODEL = "gemini-3.5-flash"
 VERTEX_BLUEPRINT_REQUIRED = "true"
 VERTEX_LOCATION = "us-central1"
-VERTEX_BLUEPRINT_MODEL = "gemini-2.5-flash"
+VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"
+DISTRIBUTION_FOOTPRINT_ENABLED = "false"
+DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
 FRONTEND_URL = "https://ghosttowntest.com"
 
 [[env.production.kv_namespaces]]
@@ -52,6 +52,10 @@ bucket_name = "ghosttowntest-public-videos"
 # Required production variables/configuration:
 # VERTEX_PROJECT_ID
 # VERTEX_LOCATION
+# AI_GATEWAY_ID
+# VERTEX_VERDICT_MODEL
+# VERTEX_SELECTION_MODEL
+# VERTEX_RESEARCH_MODEL
 # VERTEX_BLUEPRINT_MODEL
 # VERTEX_BLUEPRINT_REQUIRED=true
 # INTERNAL_RESEARCH_OWNER_EMAILS
@@ -60,7 +64,6 @@ bucket_name = "ghosttowntest-public-videos"
 # VERTEX_SERVICE_ACCOUNT_EMAIL
 # VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY
 # VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID
-# GEMINI_API_KEY
 # DATAFORSEO_LOGIN
 # DATAFORSEO_PASSWORD
 # PODCAST_INDEX_API_KEY
@@ -72,16 +75,16 @@ workers_dev = true
 
 [env.acceptance.vars]
 DEPLOYMENT_ENV = "acceptance"
-AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
-ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
-GEMINI_RESEARCH_MODEL = "gemini-3.6-flash"
-GEMINI_GOOGLE_SEARCH_MODEL = "gemini-3.6-flash"
+AI_GATEWAY_ID = "default"
+VERTEX_VERDICT_MODEL = "gemini-3.5-flash-lite"
+VERTEX_SELECTION_MODEL = "gemini-3.5-flash-lite"
+VERTEX_RESEARCH_MODEL = "gemini-3.5-flash"
 DISTRIBUTION_FOOTPRINT_ENABLED = "false"
 DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
 VERTEX_BLUEPRINT_REQUIRED = "true"
 VERTEX_PROJECT_ID = "ghosttowntest"
 VERTEX_LOCATION = "us-central1"
-VERTEX_BLUEPRINT_MODEL = "gemini-2.5-flash"
+VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"
 FRONTEND_URL = "https://ghosttown-acceptance.pages.dev"
 
 [[env.acceptance.kv_namespaces]]
@@ -108,10 +111,11 @@ class_name = "LaunchBlueprintWorkflow"
 
 [env.development.vars]
 DEPLOYMENT_ENV = "development"
-AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
-ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
-GEMINI_RESEARCH_MODEL = "gemini-3.6-flash"
-GEMINI_GOOGLE_SEARCH_MODEL = "gemini-3.6-flash"
+AI_GATEWAY_ID = "default"
+VERTEX_VERDICT_MODEL = "gemini-3.5-flash-lite"
+VERTEX_SELECTION_MODEL = "gemini-3.5-flash-lite"
+VERTEX_RESEARCH_MODEL = "gemini-3.5-flash"
+VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"
 DISTRIBUTION_FOOTPRINT_ENABLED = "false"
 DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
 INTERNAL_RESEARCH_OWNER_EMAILS = "owner@example.com"
