@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - 'src/app/**'
       - 'src/components/**'
       - 'src/styles/**'
       - 'src/lib/ghosttownOffer.ts'
@@ -14,6 +15,7 @@ on:
     branches:
       - feat/launch-blueprint-spa
     paths:
+      - 'src/app/**'
       - 'src/components/**'
       - 'src/styles/**'
       - 'src/lib/ghosttownOffer.ts'
@@ -96,6 +98,23 @@ jobs:
             }
           }
 
+          async function assertHeader(page, label) {
+            const brand = page.locator('button[aria-label="Ghost Town Test home"]');
+            const nav = page.locator('.site-nav');
+            await assertInsideViewport(page, 'button[aria-label="Ghost Town Test home"]', `${label} brand`);
+            await assertInsideViewport(page, '.site-nav', `${label} navigation`);
+            const brandBox = await brand.boundingBox();
+            const navBox = await nav.boundingBox();
+            if (!brandBox || !navBox) throw new Error(`${label}: header boxes are not measurable`);
+            const overlap = !(
+              brandBox.x + brandBox.width <= navBox.x ||
+              navBox.x + navBox.width <= brandBox.x ||
+              brandBox.y + brandBox.height <= navBox.y ||
+              navBox.y + navBox.height <= brandBox.y
+            );
+            if (overlap) throw new Error(`${label}: brand and navigation overlap`);
+          }
+
           async function capture(browser, name, width, height, sectionSelector, setup) {
             const context = await browser.newContext({ viewport: { width, height } });
             const page = await context.newPage();
@@ -113,6 +132,7 @@ jobs:
 
           async function assertHero(browser, name, width, height) {
             await capture(browser, name, width, height, null, async page => {
+              await assertHeader(page, name);
               await assertInsideViewport(page, 'h1', `${name} hero heading`);
               await assertInsideViewport(page, '[aria-label="Visual story of the founder journey"]', `${name} founder carousel`);
               if (width < 640) {
