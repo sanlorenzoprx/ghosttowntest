@@ -110,14 +110,20 @@ describe('production roadmap autopilot contract', () => {
     expect(prep).toContain("state.gates['11'].status = 'PENDING'");
   });
 
-  it('renders the Gate 14 Gemini URL inside the temporary Worker and invokes Wrangler without Windows cmd shims', async () => {
+  it('renders Gate 14 against the supported Gemini API Flash model without outer-template interpolation', async () => {
     const gate14 = await readText('scripts/roadmap-gate14-gemini-smoke.mjs');
+    const wrangler = await readText('wrangler.toml');
 
+    expect(gate14).toContain("const DEFAULT_MODEL = 'gemini-3.6-flash'");
     expect(gate14).toContain("fetch(GEMINI_ENDPOINT + '/' + encodeURIComponent(model) + ':generateContent'");
     expect(gate14).not.toContain('fetch(\\`${GEMINI_ENDPOINT}');
     expect(gate14).toContain("'x-goog-api-key': env.GEMINI_API_KEY");
     expect(gate14).toContain("join(ROOT, 'node_modules', 'wrangler')");
     expect(gate14).toContain('spawnSync(process.execPath, [WRANGLER_CLI, ...args]');
     expect(gate14).not.toContain("'npx.cmd'");
+
+    expect(wrangler).toContain('GEMINI_RESEARCH_MODEL = "gemini-3.6-flash"');
+    expect(wrangler).toContain('GEMINI_GOOGLE_SEARCH_MODEL = "gemini-3.6-flash"');
+    expect(wrangler).toContain('VERTEX_BLUEPRINT_MODEL = "gemini-2.5-flash"');
   });
 });
