@@ -26,6 +26,7 @@ describe('production roadmap autopilot contract', () => {
     });
 
     expect(config.gates.filter(gate => gate.id < 36 && gate.mutation_scope === 'production')).toEqual([]);
+    expect(config.gates[0].title).toContain('v2.1.3 Custom Website capability amendment');
     expect(config.gates[13].title).toContain('Vertex supplied-candidate-only selection via AI Gateway');
     expect(config.gates[14].title).toContain('Vertex OAuth plus AI Gateway seven-stage');
   });
@@ -41,7 +42,7 @@ describe('production roadmap autopilot contract', () => {
     expect(gitignore).toContain('.roadmap-autopilot/');
   });
 
-  it('records only secret names and never requires a Gemini API key for the v2.1.2 runtime', async () => {
+  it('records only secret names and never requires a Gemini API key for the Vertex runtime', async () => {
     const script = await readText('scripts/production-roadmap-autopilot.mjs');
     const preflight = await readText('scripts/roadmap-vertex-ai-gateway-preflight.mjs');
 
@@ -119,15 +120,18 @@ describe('production roadmap autopilot contract', () => {
     expect(prep).toContain("state.gates['11'].status = 'PENDING'");
   });
 
-  it('migrates only architecture-dependent persisted gates instead of resetting roadmap evidence', async () => {
+  it('migrates only capability-dependent persisted gates instead of resetting roadmap evidence', async () => {
     const wrapper = await readText('scripts/roadmap-autopilot-wrapper.mjs');
     const preflight = await readText('scripts/roadmap-vertex-ai-gateway-preflight.mjs');
 
-    expect(wrapper).toContain("for (const id of ['1', '4', '7', '8', '14', '15'])");
+    expect(wrapper).toContain("const GENERATIVE_ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1'");
+    expect(wrapper).toContain("for (const id of ['1', '4', '8'])");
     expect(wrapper).toContain("generative_architecture: GENERATIVE_ARCHITECTURE");
     expect(wrapper).toContain('roadmap-vertex-ai-gateway-preflight.mjs');
     expect(preflight).toContain('Gates 1, 4, 7, and 8 revalidated');
-    expect(preflight).toContain('GT-BP-2026-08-15-V2.1.2');
+    expect(preflight).toContain('GT-BP-2026-08-15-V2.1.3');
+    expect(preflight).toContain('VERTEX_WEBSITE_MODEL = "gemini-3.5-flash"');
+    expect(preflight).toContain("custom_website: 'gemini-3.5-flash'");
   });
 
   it('runs Gate 14 and 15 through Vertex AI Gateway and restores the canonical acceptance Worker', async () => {
