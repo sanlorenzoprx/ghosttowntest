@@ -70,7 +70,7 @@ describe('production roadmap autopilot contract', () => {
     const packageJson = JSON.parse(await readText('package.json')) as { scripts: Record<string, string> };
     const compat = await readText('scripts/roadmap-windows-spawn-compat.cjs');
 
-    expect(packageJson.scripts['roadmap:autopilot']).toContain('--require ./scripts/roadmap-windows-spawn-compat.cjs');
+    expect(packageJson.scripts['roadmap:autopilot']).toBe('node scripts/roadmap-autopilot-wrapper.mjs');
     expect(packageJson.scripts['roadmap:status']).toContain('--require ./scripts/roadmap-windows-spawn-compat.cjs');
     expect(packageJson.scripts['roadmap:reset']).toContain('--require ./scripts/roadmap-windows-spawn-compat.cjs');
     expect(compat).toContain("args.indexOf('--command')");
@@ -79,22 +79,20 @@ describe('production roadmap autopilot contract', () => {
     expect(compat).toContain('syncBuiltinESMExports()');
   });
 
-  it('auto-repairs acceptance-only D1 schema drift when the migration ledger is already complete', async () => {
-    const packageJson = JSON.parse(await readText('package.json')) as { scripts: Record<string, string> };
-    const config = JSON.parse(await readText('config/production-roadmap-47-gates.json')) as {
-      gates: Array<{ id: number; mutation_scope: string }>;
-    };
+  it('proves Gate 10 with direct remote table probes and auto-resumes only that schema blocker', async () => {
     const repair = await readText('scripts/roadmap-acceptance-schema-repair.mjs');
+    const wrapper = await readText('scripts/roadmap-autopilot-wrapper.mjs');
 
-    expect(packageJson.scripts['roadmap:autopilot']).toContain('scripts/roadmap-acceptance-schema-repair.mjs');
-    expect(config.gates.find(gate => gate.id === 10)?.mutation_scope).toBe('acceptance');
-    expect(repair).toContain("const DATABASE = 'ghosttowntest-blueprints-acceptance'");
-    expect(repair).toContain("const ENVIRONMENT = 'acceptance'");
-    expect(repair).toContain("state?.gates?.['9']?.status === 'PASS'");
-    expect(repair).toContain('/No migrations to apply/i');
-    expect(repair).toContain("'migrations/0002_launch_blueprints.sql'");
-    expect(repair).toContain("'migrations/0003_launch_sites.sql'");
-    expect(repair).toContain("'migrations/0004_blueprint_execution_log.sql'");
-    expect(repair).not.toContain('--env production');
+    expect(repair).toContain('function probeRequiredTables()');
+    expect(repair).toContain('SELECT 1 AS table_exists FROM');
+    expect(repair).toContain("state.gates['10']");
+    expect(repair).toContain("status: 'PASS'");
+    expect(repair).toContain("verification: 'per-table SELECT probe against remote acceptance D1'");
+    expect(repair).toContain('production_mutated: false');
+
+    expect(wrapper).toContain('stateNeedsGate10Repair');
+    expect(wrapper).toContain("state?.gates?.['9']?.status === 'PASS'");
+    expect(wrapper).toContain("state?.gates?.['10']?.status !== 'PASS'");
+    expect(wrapper).toContain('No other failure is auto-retried.');
   });
 });
