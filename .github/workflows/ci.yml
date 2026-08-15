@@ -57,5 +57,12 @@ jobs:
       - name: Production build
         run: npm run build
 
+      - name: Upload UI build for visual acceptance
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-ui-dist
+          path: dist
+          retention-days: 1
+
       - name: Repository diff check
         run: git diff --check
