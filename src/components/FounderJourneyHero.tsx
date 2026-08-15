@@ -21,8 +21,8 @@ const images = {
   brownMan: 'https://images.unsplash.com/photo-1758876202983-c36dd5019142?auto=format&fit=crop&w=1600&q=82',
   blackMan: 'https://images.unsplash.com/photo-1758519290830-5462f4924bb5?auto=format&fit=crop&w=1600&q=82',
   asianMan: 'https://images.unsplash.com/photo-1766066014773-0074bf4911de?auto=format&fit=crop&w=1600&q=82',
-  // Centre for Ageing Better — public domain / Unsplash License.
-  olderWoman: 'https://images.unsplash.com/photo-1664382950513-939431ef4e5c?auto=format&fit=crop&w=1600&q=82'
+  // Yan Krukau / Pexels — free to use. Thoughtful older woman at a modern office table with a laptop.
+  olderWoman: 'https://images.pexels.com/photos/8837404/pexels-photo-8837404.jpeg?auto=compress&dpr=1&h=750&w=1260'
 } as const;
 
 const sources = {
