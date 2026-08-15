@@ -11,6 +11,7 @@ interface JourneySlide {
   caption: string;
   quote?: string;
   attribution?: string;
+  sourceUrl?: string;
   verdict?: boolean;
 }
 
@@ -21,6 +22,11 @@ const images = {
   blackMan: 'https://images.unsplash.com/photo-1758519290830-5462f4924bb5?auto=format&fit=crop&w=1600&q=82',
   asianMan: 'https://images.unsplash.com/photo-1766066014773-0074bf4911de?auto=format&fit=crop&w=1600&q=82',
   olderCouple: 'https://images.unsplash.com/photo-1758691031582-0ce1b43749e7?auto=format&fit=crop&w=1600&q=82'
+} as const;
+
+const sources = {
+  luc: 'https://www.indiehackers.com/post/i-built-3-products-nobody-bought-so-i-built-a-tool-to-find-out-why-db5908bfb0',
+  pratham: 'https://www.indiehackers.com/post/i-validated-my-idea-with-23-people-who-said-yes-then-nobody-bought-it-6c237ea2e6'
 } as const;
 
 export default function FounderJourneyHero({ locale }: Props) {
@@ -53,16 +59,18 @@ export default function FounderJourneyHero({ locale }: Props) {
       alt: 'Empresario trabajando con una laptop en una cafetería',
       eyebrow: '04 · El problema',
       caption: 'La gente puede mirar sin comprar.',
-      quote: '“La gente visitó. Algunos probaron. Nadie pagó.”',
-      attribution: 'Luc Setzer · publicación pública en Indie Hackers · foto ilustrativa'
+      quote: 'Luc contó que la gente visitó y probó sus productos, pero nadie pagó.',
+      attribution: 'Luc Setzer · Indie Hackers · foto ilustrativa',
+      sourceUrl: sources.luc
     },
     {
       image: images.asianMan,
       alt: 'Profesional asiático con una laptop en una oficina',
       eyebrow: '05 · La realidad',
       caption: 'Buenas respuestas no siempre significan ventas.',
-      quote: '“Construí el MVP. Lancé a mi lista. Cero ventas.”',
-      attribution: 'Pratham Naik · publicación pública en Indie Hackers · foto ilustrativa'
+      quote: 'Pratham contó que construyó el MVP, lanzó a su lista y obtuvo cero ventas.',
+      attribution: 'Pratham Naik · Indie Hackers · foto ilustrativa',
+      sourceUrl: sources.pratham
     },
     {
       image: images.olderCouple,
@@ -101,7 +109,8 @@ export default function FounderJourneyHero({ locale }: Props) {
       eyebrow: '04 · The problem',
       caption: 'People can look without buying.',
       quote: '“People visited. Some tried. Nobody paid.”',
-      attribution: 'Luc Setzer · public Indie Hackers post · photo illustrative'
+      attribution: 'Luc Setzer · Indie Hackers · photo illustrative',
+      sourceUrl: sources.luc
     },
     {
       image: images.asianMan,
@@ -109,7 +118,8 @@ export default function FounderJourneyHero({ locale }: Props) {
       eyebrow: '05 · The reality',
       caption: 'Good feedback does not always mean sales.',
       quote: '“Built the MVP. Launched to my validation list. Zero sales.”',
-      attribution: 'Pratham Naik · public Indie Hackers post · photo illustrative'
+      attribution: 'Pratham Naik · Indie Hackers · photo illustrative',
+      sourceUrl: sources.pratham
     },
     {
       image: images.olderCouple,
@@ -144,7 +154,7 @@ export default function FounderJourneyHero({ locale }: Props) {
   const goTo = (index: number) => setActive((index + slides.length) % slides.length);
 
   return (
-    <div className="relative overflow-hidden rounded-[2.25rem] border border-white/[0.12] bg-[#192521] shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
+    <div className="relative overflow-hidden rounded-[2.25rem] border border-white/12 bg-[#192521] shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
       <div className="relative h-[31rem] sm:h-[37rem]" aria-label={es ? 'Historia visual del recorrido de un fundador' : 'Visual story of the founder journey'}>
         {slide.verdict ? (
           <div className="absolute inset-0 flex items-center bg-[radial-gradient(circle_at_25%_15%,rgba(217,111,61,0.25),transparent_34%),linear-gradient(145deg,#0D1714,#183028)] p-5 sm:p-8">
@@ -185,7 +195,11 @@ export default function FounderJourneyHero({ locale }: Props) {
             {slide.quote && (
               <div className="mt-4 border-t border-white/15 pt-4">
                 <p className="text-base font-semibold leading-6 text-white/90">{slide.quote}</p>
-                <p className="mt-2 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-white/55">{slide.attribution}</p>
+                {slide.sourceUrl ? (
+                  <a href={slide.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-[0.68rem] font-bold uppercase tracking-[0.1em] text-white/55 underline decoration-white/25 underline-offset-4 transition hover:text-white hover:decoration-white">{slide.attribution}</a>
+                ) : (
+                  <p className="mt-2 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-white/55">{slide.attribution}</p>
+                )}
               </div>
             )}
           </div>
