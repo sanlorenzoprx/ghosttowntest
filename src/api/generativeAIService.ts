@@ -133,7 +133,7 @@ export function generativeAIConfigured(env: Env): boolean {
 function serviceAccountConfig(env: Env): VertexServiceAccountConfig {
   const config = {
     projectId: text(env.VERTEX_PROJECT_ID),
-    location: text(env.VERTEX_LOCATION) || 'us-central1',
+    location: text(env.VERTEX_LOCATION) || 'us',
     clientEmail: text(env.VERTEX_SERVICE_ACCOUNT_EMAIL),
     privateKey: text(env.VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY).replace(/\\n/g, '\n'),
     privateKeyId: text(env.VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID) || undefined
@@ -228,7 +228,7 @@ async function vertexAccessToken(env: Env, config: VertexServiceAccountConfig): 
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth-grant-type:jwt-bearer'.replace('oauth-grant', 'oauth:grant'),
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
       assertion
     })
   });
