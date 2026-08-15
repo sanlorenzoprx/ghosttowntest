@@ -17,7 +17,7 @@ export default function ExampleIdeaGallery({ onSelect, locale = 'en' }: Props) {
       url.hash = '';
       await navigator.clipboard.writeText(url.toString());
       setCopiedSlug(slug);
-      window.setTimeout(() => setCopiedSlug(current => current === slug ? null : current), 1800);
+      window.setTimeout(() => setCopiedSlug(current => (current === slug ? null : current)), 1800);
     } catch {
       setCopiedSlug(null);
     }
@@ -30,59 +30,79 @@ export default function ExampleIdeaGallery({ onSelect, locale = 'en' }: Props) {
   };
 
   return (
-    <section id="example-gallery" className="border-y border-border bg-surface-raised">
-      <div className="mx-auto max-w-workspace px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-        <div className="max-w-reading">
-          <p className="font-score text-xs font-bold uppercase tracking-[0.18em] text-rust">{es ? 'Puntos de partida reales' : 'Real starting points'}</p>
-          <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.025em] sm:text-5xl">{es ? 'Mira cómo resiste una idea.' : 'See how an idea holds up.'}</h2>
-          <p className="mt-5 text-lg leading-8 text-ink-soft">{es ? 'Elige un concepto familiar, hazlo tuyo y entra a la evaluación sin empezar desde una pantalla vacía.' : 'Choose a familiar concept, make it yours, and enter the assessment without staring at an empty form.'}</p>
+    <section id="example-gallery" className="bg-[#F6F3ED]">
+      <div className="mx-auto max-w-[78rem] px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">
+              {es ? 'No empieces desde cero' : 'Do not start from a blank page'}
+            </p>
+            <h2 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">
+              {es ? 'Mira cómo entra una idea real.' : 'See how a real idea enters the test.'}
+            </h2>
+          </div>
+          <p className="max-w-2xl text-xl leading-9 text-[#4C5550]">
+            {es
+              ? 'Elige un concepto conocido, revisa el comprador y el problema, y úsalo como punto de partida. Todo sigue siendo editable antes de comenzar.'
+              : 'Choose a familiar concept, inspect the buyer and problem, and use it as a starting point. Every field is still editable before the assessment begins.'}
+          </p>
         </div>
 
-        <div className="mt-10 grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {featuredExamples.map(example => (
-            <article key={example.slug} className="group flex min-w-0 flex-col rounded-card border border-border bg-surface p-5 shadow-quiet transition hover:-translate-y-0.5 hover:shadow-lift sm:p-6">
-              <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
-                <span className="max-w-full rounded-full bg-rust-soft px-2.5 py-1 font-score text-xs font-bold text-rust">{example.category}</span>
-                <span className="rounded-full bg-surface-muted px-2.5 py-1 text-xs font-bold text-ink-muted">{es ? 'Editable' : 'Ready to edit'}</span>
+        <div className="mt-14 divide-y divide-[#D8D0C4] border-y border-[#D8D0C4]">
+          {featuredExamples.map((example, index) => (
+            <article
+              key={example.slug}
+              className="grid min-w-0 gap-7 py-9 md:grid-cols-[4rem_minmax(0,1fr)_minmax(15rem,0.6fr)] md:items-center md:gap-8"
+            >
+              <span className="font-score text-sm font-bold text-[#A94F2A]">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="rounded-full bg-[#EADFD2] px-3 py-1 text-xs font-bold uppercase tracking-[0.1em] text-[#77452D]">
+                    {example.category}
+                  </span>
+                  <span className="text-sm font-bold text-[#7A817D]">
+                    {verdictLabel(example.idea.expectedVerdict)}
+                  </span>
+                </div>
+                <h3 className="mt-4 break-words text-2xl font-bold leading-tight sm:text-3xl">
+                  {example.idea.ideaName}
+                </h3>
+                <p className="mt-3 max-w-2xl text-lg leading-8 text-[#5A645E]">
+                  {example.videoHook}
+                </p>
               </div>
 
-              <h3 className="mt-6 min-w-0 break-words text-xl font-bold leading-tight text-ink">{example.idea.ideaName}</h3>
-              <p className="mt-3 min-w-0 break-words text-sm leading-6 text-ink-soft">{example.videoHook}</p>
-
-              <dl className="mt-5 space-y-3 border-t border-border pt-4 text-sm">
-                <div className="min-w-0">
-                  <dt className="font-score text-[0.68rem] font-bold uppercase tracking-[0.12em] text-ink-muted">{es ? 'Comprador' : 'Buyer'}</dt>
-                  <dd className="mt-1 break-words font-semibold text-ink">{example.idea.targetUser}</dd>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.13em] text-[#7A817D]">
+                  {es ? 'Comprador' : 'Target buyer'}
+                </p>
+                <p className="mt-2 text-base font-semibold leading-7">
+                  {example.idea.targetUser}
+                </p>
+                <div className="mt-5 flex flex-col gap-2 sm:flex-row md:flex-col lg:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => onSelect(example.slug)}
+                    className="inline-flex min-h-12 flex-1 items-center justify-center rounded-full bg-[#17201C] px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#29342F] focus:outline-none focus:ring-4 focus:ring-[#D96F3D]/25"
+                  >
+                    {es ? 'Probar esta idea' : 'Test this idea'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void copyDeepLink(example.slug)}
+                    aria-label={`${es ? 'Copiar enlace directo a' : 'Copy direct link to'} ${example.idea.ideaName}`}
+                    className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#CFC7BB] bg-white px-5 py-3 text-sm font-bold text-[#38413D] transition hover:border-[#A94F2A] hover:text-[#A94F2A] focus:outline-none focus:ring-4 focus:ring-[#D96F3D]/20"
+                  >
+                    {copiedSlug === example.slug ? (es ? 'Copiado' : 'Copied') : (es ? 'Copiar enlace' : 'Copy link')}
+                  </button>
                 </div>
-                <div className="min-w-0">
-                  <dt className="font-score text-[0.68rem] font-bold uppercase tracking-[0.12em] text-ink-muted">{es ? 'Por qué probarlo' : 'Why test it'}</dt>
-                  <dd className="mt-1 break-words leading-6 text-ink-soft">{example.idea.painfulProblem}</dd>
-                </div>
-              </dl>
-
-              <div className="mt-5 flex items-center justify-between gap-3">
-                <span className="status-badge status-badge--watch max-w-full">{verdictLabel(example.idea.expectedVerdict)}</span>
-                <span className="shrink-0 font-score text-xs text-ink-muted">{example.slug}</span>
-              </div>
-
-              <div className="mt-6 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
-                <button type="button" onClick={() => onSelect(example.slug)} className="btn-primary min-w-0 w-full text-sm">
-                  {es ? 'Probar esta idea' : 'Test this idea'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void copyDeepLink(example.slug)}
-                  aria-label={`${es ? 'Copiar enlace directo a' : 'Copy direct link to'} ${example.idea.ideaName}`}
-                  className="btn-secondary min-w-0 px-3 text-sm"
-                >
-                  {copiedSlug === example.slug ? (es ? 'Copiado' : 'Copied') : (es ? 'Enlace' : 'Link')}
-                </button>
               </div>
             </article>
           ))}
         </div>
-
-        <p className="mt-8 text-sm text-ink-muted">{es ? 'Todos los campos siguen siendo editables antes de comenzar la evaluación.' : 'Every field remains editable before the assessment begins.'}</p>
       </div>
     </section>
   );
