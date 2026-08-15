@@ -117,6 +117,7 @@ describe('production roadmap autopilot contract', () => {
     expect(gate14).toContain("const DEFAULT_MODEL = 'gemini-3.6-flash'");
     expect(gate14).toContain("fetch(GEMINI_ENDPOINT + '/' + encodeURIComponent(model) + ':generateContent'");
     expect(gate14).not.toContain('fetch(\\`${GEMINI_ENDPOINT}');
+    expect(gate14).not.toContain('`Gemini HTTP ${response.status}`');
     expect(gate14).toContain("'x-goog-api-key': env.GEMINI_API_KEY");
     expect(gate14).toContain("join(ROOT, 'node_modules', 'wrangler')");
     expect(gate14).toContain('spawnSync(process.execPath, [WRANGLER_CLI, ...args]');
