@@ -32,6 +32,8 @@ describe('acceptance Cloudflare environment', () => {
     expect(acceptance).toContain('binding = "LAUNCH_BLUEPRINT_WORKFLOW"');
     expect(acceptance).toContain('name = "ghosttown-launch-blueprint-acceptance"');
     expect(acceptance).toContain('class_name = "LaunchBlueprintWorkflow"');
+    expect(acceptance).toContain('[env.acceptance.ai]');
+    expect(acceptance).toContain('binding = "AI"');
 
     expect(acceptance).not.toContain('ghosttowntest-public-videos');
     expect(acceptance).not.toContain('id = "289662c8981d421ba85a7ca588640650"');
@@ -39,19 +41,28 @@ describe('acceptance Cloudflare environment', () => {
     expect(acceptance).not.toContain('api.lit-ghosttown.app');
   });
 
-  it('requires Vertex while keeping paid research disabled before live provider acceptance', async () => {
+  it('uses one Vertex AI platform through AI Gateway while keeping paid research disabled', async () => {
     const config = await readText('wrangler.toml');
     const acceptanceVars = section(config, '[env.acceptance.vars]', /\n\[\[env\.acceptance\./);
     const productionVars = section(config, '[env.production.vars]', /\n\[\[env\.production\./);
 
     expect(acceptanceVars).toContain('DEPLOYMENT_ENV = "acceptance"');
     expect(productionVars).toContain('DEPLOYMENT_ENV = "production"');
+    expect(acceptanceVars).toContain('AI_GATEWAY_ID = "default"');
     expect(acceptanceVars).toContain('VERTEX_BLUEPRINT_REQUIRED = "true"');
     expect(acceptanceVars).toContain('VERTEX_PROJECT_ID = "ghosttowntest"');
-    expect(acceptanceVars).toContain('VERTEX_LOCATION = "us-central1"');
-    expect(acceptanceVars).toContain('VERTEX_BLUEPRINT_MODEL = "gemini-2.5-flash"');
+    expect(acceptanceVars).toContain('VERTEX_LOCATION = "us"');
+    expect(acceptanceVars).toContain('VERTEX_VERDICT_MODEL = "gemini-3.5-flash-lite"');
+    expect(acceptanceVars).toContain('VERTEX_SELECTION_MODEL = "gemini-3.5-flash-lite"');
+    expect(acceptanceVars).toContain('VERTEX_RESEARCH_MODEL = "gemini-3.5-flash"');
+    expect(acceptanceVars).toContain('VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"');
     expect(acceptanceVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
     expect(productionVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
+
+    for (const legacy of ['GEMINI_RESEARCH_MODEL', 'GEMINI_GOOGLE_SEARCH_MODEL', 'AI_MODEL =', 'ACTION_PLAN_AI_MODEL =']) {
+      expect(acceptanceVars).not.toContain(legacy);
+      expect(productionVars).not.toContain(legacy);
+    }
 
     expect(acceptanceVars).toContain('FRONTEND_URL = "https://ghosttown-acceptance.pages.dev"');
     expect(acceptanceVars).not.toContain('https://ghosttowntest.com');
