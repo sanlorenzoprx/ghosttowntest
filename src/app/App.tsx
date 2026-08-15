@@ -188,15 +188,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-ghost-paper">
-      <header className="border-b border-gray-200 bg-ghost-paper/95 backdrop-blur">
-        <div className="site-header-inner relative mx-auto flex max-w-6xl items-center justify-center px-4 py-4">
-          <button onClick={handleReset} className="text-center" aria-label="Ghost Town Test home">
+      <header className="site-header border-b border-gray-200 bg-ghost-paper/95 backdrop-blur">
+        <div className="site-header-inner mx-auto grid max-w-7xl grid-cols-1 items-center gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:grid-cols-[1fr_auto_1fr] lg:gap-4">
+          <div className="hidden lg:block" aria-hidden="true" />
+          <button onClick={handleReset} className="justify-self-center text-center" aria-label="Ghost Town Test home">
             <span className="leading-tight">
-              <span className="block text-[10px] font-bold uppercase tracking-[0.34em] text-ghost-rust sm:text-xs">Leverage / Insight / Timing</span>
+              <span className="site-wordmark-kicker block text-[10px] font-bold uppercase tracking-[0.34em] text-ghost-rust sm:text-xs">Leverage / Insight / Timing</span>
               <span className="brand-wordmark mt-1 block font-display text-3xl font-semibold leading-none text-ghost-ink sm:text-4xl">Ghost Town Test</span>
             </span>
           </button>
-          <div className="site-nav absolute right-4 flex items-center gap-4 sm:right-6">
+          <div className="site-nav flex flex-wrap items-center justify-center gap-x-4 gap-y-2 lg:justify-self-end lg:flex-nowrap lg:justify-end">
             <button type="button" onClick={handleReset} className="rounded border border-ghost-forest px-3 py-1.5 text-sm font-bold text-ghost-forest hover:bg-blue-50" aria-label="Go to Home">Home</button>
             <button onClick={() => { setScreen('contact'); updatePath('/contact'); }} className="text-sm font-bold text-gray-700 hover:text-ghost-rust">Contact</button>
             <div className="flex items-center gap-2 text-sm" role="group" aria-label="Language">
@@ -206,7 +207,7 @@ export default function App() {
             </div>
             {isLoggedIn ? (
               <>
-                <span className="text-sm text-gray-600">{userEmail}</span>
+                <span className="max-w-48 truncate text-sm text-gray-600" title={userEmail || undefined}>{userEmail}</span>
                 <button onClick={() => { setScreen('dashboard'); updatePath('/'); }} className="text-sm text-blue-600 hover:text-blue-700">Dashboard</button>
                 <button onClick={handleLogout} className="text-sm text-blue-600 hover:text-blue-700">Log Out</button>
               </>
