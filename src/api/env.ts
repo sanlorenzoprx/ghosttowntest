@@ -17,6 +17,7 @@ export interface Env {
   VERTEX_SELECTION_MODEL?: string;
   VERTEX_RESEARCH_MODEL?: string;
   VERTEX_BLUEPRINT_MODEL?: string;
+  VERTEX_WEBSITE_MODEL?: string;
   // Legacy names remain optional during acceptance migration only. Runtime inference must not use them.
   AI_MODEL?: string;
   ACTION_PLAN_AI_MODEL?: string;
