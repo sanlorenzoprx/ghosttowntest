@@ -5,7 +5,9 @@ import { join, resolve } from 'node:path';
 
 const ROOT = resolve(process.cwd());
 const STATE_PATH = join(ROOT, '.roadmap-autopilot', 'state.json');
+const CONFIG_PATH = join(ROOT, 'config', 'production-roadmap-47-gates.json');
 const COMPAT = './scripts/roadmap-windows-spawn-compat.cjs';
+const VERTEX_PREFLIGHT = 'scripts/roadmap-vertex-ai-gateway-preflight.mjs';
 const REPAIR = 'scripts/roadmap-acceptance-schema-repair.mjs';
 const GATE11_RETRY_PREP = 'scripts/roadmap-gate11-retry-prep.mjs';
 const GATE14_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate14-vertex-selection-smoke.mjs');
@@ -51,8 +53,26 @@ function writeState(state) {
 }
 
 function migrateGenerativeArchitectureState() {
-  const state = readState();
-  if (!state || state.runtime?.generative_architecture === GENERATIVE_ARCHITECTURE) return;
+  let state = readState();
+  if (!state) {
+    const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
+    const timestamp = new Date().toISOString();
+    state = {
+      schema_version: 'roadmap-autopilot-state-v1',
+      created_at: timestamp,
+      updated_at: timestamp,
+      source_schema_version: config.schema_version,
+      gates: {},
+      runtime: {
+        generative_architecture: GENERATIVE_ARCHITECTURE,
+        generative_architecture_migrated_at: timestamp
+      }
+    };
+    writeState(state);
+    console.log('Roadmap state initialized for Vertex AI Gateway v1.');
+    return;
+  }
+  if (state.runtime?.generative_architecture === GENERATIVE_ARCHITECTURE) return;
   state.runtime ||= {};
   state.gates ||= {};
 
@@ -93,6 +113,9 @@ function sleep(ms) {
 }
 
 migrateGenerativeArchitectureState();
+
+const architecturePreflight = node(VERTEX_PREFLIGHT);
+if ((architecturePreflight.status ?? 1) !== 0) process.exit(architecturePreflight.status ?? 1);
 
 let repair = node(REPAIR);
 if ((repair.status ?? 1) !== 0) process.exit(repair.status ?? 1);
