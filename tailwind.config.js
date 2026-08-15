@@ -10,6 +10,19 @@ export default {
       padding: { DEFAULT: '1rem', sm: '1.5rem', lg: '2rem' },
     },
     extend: {
+      opacity: {
+        6: '0.06',
+        8: '0.08',
+        12: '0.12',
+        15: '0.15',
+        35: '0.35',
+        55: '0.55',
+        65: '0.65',
+        68: '0.68',
+        72: '0.72',
+        76: '0.76',
+        82: '0.82',
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
