@@ -36,103 +36,21 @@ export default function FounderJourneyHero({ locale }: Props) {
   const [reducedMotion, setReducedMotion] = useState(false);
 
   const slides = useMemo<JourneySlide[]>(() => es ? [
-    {
-      image: images.woman,
-      alt: 'Emprendedora joven trabajando con una laptop en una oficina',
-      eyebrow: '01 · La idea',
-      caption: 'Tienes una idea.'
-    },
-    {
-      image: images.whiteMan,
-      alt: 'Emprendedor trabajando en su laptop',
-      eyebrow: '02 · Empiezas',
-      caption: 'Así que empiezas a construir.'
-    },
-    {
-      image: images.brownMan,
-      alt: 'Emprendedor concentrado trabajando en una oficina',
-      eyebrow: '03 · Más trabajo',
-      caption: 'Sigues añadiendo, arreglando y puliendo.'
-    },
-    {
-      image: images.blackMan,
-      alt: 'Empresario trabajando con una laptop en una cafetería',
-      eyebrow: '04 · El problema',
-      caption: 'La gente puede mirar sin comprar.',
-      quote: 'Luc contó que la gente visitó y probó sus productos, pero nadie pagó.',
-      attribution: 'Luc Setzer · Indie Hackers · foto ilustrativa',
-      sourceUrl: sources.luc
-    },
-    {
-      image: images.asianMan,
-      alt: 'Profesional asiático con una laptop en una oficina',
-      eyebrow: '05 · La realidad',
-      caption: 'Buenas respuestas no siempre significan ventas.',
-      quote: 'Pratham contó que construyó el MVP, lanzó a su lista y obtuvo cero ventas.',
-      attribution: 'Pratham Naik · Indie Hackers · foto ilustrativa',
-      sourceUrl: sources.pratham
-    },
-    {
-      image: images.olderCouple,
-      alt: 'Pareja mayor usando una laptop juntos',
-      eyebrow: '06 · El costo',
-      caption: 'Pueden pasar meses antes de saber si la gente realmente lo quiere.'
-    },
-    {
-      alt: 'Ejemplo de un veredicto de GhostTown',
-      eyebrow: '07 · La claridad',
-      caption: 'GhostTown te ayuda a decidir si vale la pena construirlo.',
-      verdict: true
-    }
+    { image: images.woman, alt: 'Emprendedora joven trabajando con una laptop en una oficina', eyebrow: '01 · La idea', caption: 'Tienes una idea.' },
+    { image: images.whiteMan, alt: 'Emprendedor trabajando en su laptop', eyebrow: '02 · Empiezas', caption: 'Así que empiezas a construir.' },
+    { image: images.brownMan, alt: 'Emprendedor concentrado trabajando en una oficina', eyebrow: '03 · Más trabajo', caption: 'Sigues añadiendo, arreglando y puliendo.' },
+    { image: images.blackMan, alt: 'Empresario trabajando con una laptop en una cafetería', eyebrow: '04 · El problema', caption: 'La gente puede mirar sin comprar.', quote: 'Luc contó que la gente visitó y probó sus productos, pero nadie pagó.', attribution: 'Luc Setzer · Indie Hackers · foto ilustrativa', sourceUrl: sources.luc },
+    { image: images.asianMan, alt: 'Profesional asiático con una laptop en una oficina', eyebrow: '05 · La realidad', caption: 'Buenas respuestas no siempre significan ventas.', quote: 'Pratham contó que construyó el MVP, lanzó a su lista y obtuvo cero ventas.', attribution: 'Pratham Naik · Indie Hackers · foto ilustrativa', sourceUrl: sources.pratham },
+    { image: images.olderCouple, alt: 'Pareja mayor usando una laptop juntos', eyebrow: '06 · El costo', caption: 'Pueden pasar meses antes de saber si la gente realmente lo quiere.' },
+    { alt: 'Ejemplo de un veredicto de GhostTown', eyebrow: '07 · La claridad', caption: 'GhostTown te ayuda a decidir si vale la pena construirlo.', verdict: true }
   ] : [
-    {
-      image: images.woman,
-      alt: 'Young woman founder working on a laptop in an office',
-      eyebrow: '01 · The idea',
-      caption: 'You get an idea.'
-    },
-    {
-      image: images.whiteMan,
-      alt: 'Founder working on his laptop',
-      eyebrow: '02 · You start',
-      caption: 'So you start building.'
-    },
-    {
-      image: images.brownMan,
-      alt: 'Founder focused on work in an office',
-      eyebrow: '03 · More work',
-      caption: 'You keep adding, fixing, and polishing.'
-    },
-    {
-      image: images.blackMan,
-      alt: 'Business owner working on a laptop in a cafe',
-      eyebrow: '04 · The problem',
-      caption: 'People can look without buying.',
-      quote: '“People visited. Some tried. Nobody paid.”',
-      attribution: 'Luc Setzer · Indie Hackers · photo illustrative',
-      sourceUrl: sources.luc
-    },
-    {
-      image: images.asianMan,
-      alt: 'Asian professional holding a laptop in an office',
-      eyebrow: '05 · The reality',
-      caption: 'Good feedback does not always mean sales.',
-      quote: '“Built the MVP. Launched to my validation list. Zero sales.”',
-      attribution: 'Pratham Naik · Indie Hackers · photo illustrative',
-      sourceUrl: sources.pratham
-    },
-    {
-      image: images.olderCouple,
-      alt: 'Older couple using a laptop together',
-      eyebrow: '06 · The cost',
-      caption: 'Months can pass before you know if people really want it.'
-    },
-    {
-      alt: 'Illustrative GhostTown verdict',
-      eyebrow: '07 · Clarity',
-      caption: 'GhostTown helps you decide if it’s worth building.',
-      verdict: true
-    }
+    { image: images.woman, alt: 'Young woman founder working on a laptop in an office', eyebrow: '01 · The idea', caption: 'You get an idea.' },
+    { image: images.whiteMan, alt: 'Founder working on his laptop', eyebrow: '02 · You start', caption: 'So you start building.' },
+    { image: images.brownMan, alt: 'Founder focused on work in an office', eyebrow: '03 · More work', caption: 'You keep adding, fixing, and polishing.' },
+    { image: images.blackMan, alt: 'Business owner working on a laptop in a cafe', eyebrow: '04 · The problem', caption: 'People can look without buying.', quote: '“People visited. Some tried. Nobody paid.”', attribution: 'Luc Setzer · Indie Hackers · photo illustrative', sourceUrl: sources.luc },
+    { image: images.asianMan, alt: 'Asian professional holding a laptop in an office', eyebrow: '05 · The reality', caption: 'Good feedback does not always mean sales.', quote: '“Built the MVP. Launched to my validation list. Zero sales.”', attribution: 'Pratham Naik · Indie Hackers · photo illustrative', sourceUrl: sources.pratham },
+    { image: images.olderCouple, alt: 'Older couple using a laptop together', eyebrow: '06 · The cost', caption: 'Months can pass before you know if people really want it.' },
+    { alt: 'Illustrative GhostTown verdict', eyebrow: '07 · Clarity', caption: 'GhostTown helps you decide if it’s worth building.', verdict: true }
   ], [es]);
 
   useEffect(() => {
@@ -159,63 +77,17 @@ export default function FounderJourneyHero({ locale }: Props) {
         {slide.verdict ? (
           <div className="absolute inset-0 flex items-center bg-[radial-gradient(circle_at_25%_15%,rgba(217,111,61,0.25),transparent_34%),linear-gradient(145deg,#0D1714,#183028)] p-5 sm:p-8">
             <div className="w-full rounded-[1.7rem] border border-white/15 bg-[#F9F7F1] p-5 text-[#17201C] shadow-2xl sm:p-7">
-              <div className="flex items-start justify-between gap-4 border-b border-[#DED8CE] pb-5">
-                <div>
-                  <p className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#A94F2A]">GHOSTTOWN VERDICT</p>
-                  <p className="mt-2 text-xl font-bold sm:text-2xl">{es ? '¿Vale la pena construirlo?' : 'Is it worth building?'}</p>
-                </div>
-                <span className="rounded-full bg-[#F7EAD2] px-3 py-1.5 text-xs font-bold text-[#8B5B19]">{es ? 'PROBAR PRIMERO' : 'TEST FIRST'}</span>
-              </div>
-              <div className="grid gap-5 py-6 sm:grid-cols-[0.55fr_1.45fr]">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.13em] text-[#747C77]">{es ? 'SEÑAL' : 'SIGNAL'}</p>
-                  <p className="mt-2 font-score text-5xl font-bold tracking-[-0.08em]">3.7</p>
-                  <p className="mt-1 text-xs text-[#747C77]">/ 5.0</p>
-                </div>
-                <div>
-                  <p className="text-lg font-bold leading-tight sm:text-xl">{es ? 'El problema parece real. Aún falta probar si pagan.' : 'The problem looks real. You still need to prove people will pay.'}</p>
-                  <div className="mt-4 rounded-xl bg-white p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.11em] text-[#A94F2A]">{es ? 'SIGUIENTE PASO' : 'NEXT STEP'}</p>
-                    <p className="mt-2 text-sm leading-6 text-[#59635D]">{es ? 'Ofrece un piloto simple. Sigue solo si compradores reales se comprometen.' : 'Offer a simple pilot. Keep going only if real buyers commit.'}</p>
-                  </div>
-                </div>
-              </div>
+              <div className="flex items-start justify-between gap-4 border-b border-[#DED8CE] pb-5"><div><p className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#A94F2A]">GHOSTTOWN VERDICT</p><p className="mt-2 text-xl font-bold sm:text-2xl">{es ? '¿Vale la pena construirlo?' : 'Is it worth building?'}</p></div><span className="rounded-full bg-[#F7EAD2] px-3 py-1.5 text-xs font-bold text-[#8B5B19]">{es ? 'PROBAR PRIMERO' : 'TEST FIRST'}</span></div>
+              <div className="grid gap-5 py-6 sm:grid-cols-[0.55fr_1.45fr]"><div><p className="text-xs font-bold uppercase tracking-[0.13em] text-[#747C77]">{es ? 'SEÑAL' : 'SIGNAL'}</p><p className="mt-2 font-score text-5xl font-bold tracking-[-0.08em]">3.7</p><p className="mt-1 text-xs text-[#747C77]">/ 5.0</p></div><div><p className="text-lg font-bold leading-tight sm:text-xl">{es ? 'El problema parece real. Aún falta probar si pagan.' : 'The problem looks real. You still need to prove people will pay.'}</p><div className="mt-4 rounded-xl bg-white p-4"><p className="text-xs font-bold uppercase tracking-[0.11em] text-[#A94F2A]">{es ? 'SIGUIENTE PASO' : 'NEXT STEP'}</p><p className="mt-2 text-sm leading-6 text-[#59635D]">{es ? 'Ofrece un piloto simple. Sigue solo si compradores reales se comprometen.' : 'Offer a simple pilot. Keep going only if real buyers commit.'}</p></div></div></div>
             </div>
           </div>
         ) : (
           <img key={slide.image} src={slide.image} alt={slide.alt} className="absolute inset-0 h-full w-full object-cover" loading={active === 0 ? 'eager' : 'lazy'} decoding="async" />
         )}
-
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#07100D] via-[#07100D]/25 to-transparent" aria-hidden="true" />
-
-        <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
-          <div className="max-w-xl rounded-2xl border border-white/15 bg-black/40 p-5 text-white backdrop-blur-md sm:p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#E7A178]">{slide.eyebrow}</p>
-            <p className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">{slide.caption}</p>
-            {slide.quote && (
-              <div className="mt-4 border-t border-white/15 pt-4">
-                <p className="text-base font-semibold leading-6 text-white/90">{slide.quote}</p>
-                {slide.sourceUrl ? (
-                  <a href={slide.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-[0.68rem] font-bold uppercase tracking-[0.1em] text-white/55 underline decoration-white/25 underline-offset-4 transition hover:text-white hover:decoration-white">{slide.attribution}</a>
-                ) : (
-                  <p className="mt-2 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-white/55">{slide.attribution}</p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7"><div className="max-w-xl rounded-2xl border border-white/15 bg-black/40 p-5 text-white backdrop-blur-md sm:p-6"><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#E7A178]">{slide.eyebrow}</p><p className="mt-2 text-2xl font-semibold leading-tight sm:text-3xl">{slide.caption}</p>{slide.quote && <div className="mt-4 border-t border-white/15 pt-4"><p className="text-base font-semibold leading-6 text-white/90">{slide.quote}</p>{slide.sourceUrl ? <a href={slide.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-[0.68rem] font-bold uppercase tracking-[0.1em] text-white/55 underline decoration-white/25 underline-offset-4 transition hover:text-white hover:decoration-white">{slide.attribution}</a> : <p className="mt-2 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-white/55">{slide.attribution}</p>}</div>}</div></div>
       </div>
-
-      <div className="flex items-center gap-3 border-t border-white/10 bg-[#0E1815] px-4 py-3 sm:px-5">
-        <button type="button" onClick={() => goTo(active - 1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 text-lg text-white transition hover:bg-white/10" aria-label={es ? 'Imagen anterior' : 'Previous image'}>←</button>
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5" role="tablist" aria-label={es ? 'Historia de fundador' : 'Founder journey'}>
-          {slides.map((item, index) => (
-            <button key={item.eyebrow} type="button" role="tab" aria-selected={index === active} aria-label={`${index + 1}: ${item.caption}`} onClick={() => goTo(index)} className={`h-2.5 rounded-full transition-all ${index === active ? 'w-8 bg-[#E7A178]' : 'w-2.5 bg-white/30 hover:bg-white/55'}`} />
-          ))}
-        </div>
-        <button type="button" onClick={() => setPaused(value => !value)} className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border border-white/20 px-3 text-xs font-bold text-white transition hover:bg-white/10" aria-pressed={paused} aria-label={paused ? (es ? 'Reanudar historia' : 'Resume story') : (es ? 'Pausar historia' : 'Pause story')}>{paused ? '▶' : 'Ⅱ'}</button>
-        <button type="button" onClick={() => goTo(active + 1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 text-lg text-white transition hover:bg-white/10" aria-label={es ? 'Siguiente imagen' : 'Next image'}>→</button>
-      </div>
+      <div className="flex items-center gap-3 border-t border-white/10 bg-[#0E1815] px-4 py-3 sm:px-5"><button type="button" onClick={() => goTo(active - 1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 text-lg text-white transition hover:bg-white/10" aria-label={es ? 'Imagen anterior' : 'Previous image'}>←</button><div className="flex min-w-0 flex-1 items-center justify-center gap-1.5" role="tablist" aria-label={es ? 'Historia de fundador' : 'Founder journey'}>{slides.map((item, index) => <button key={item.eyebrow} type="button" role="tab" aria-selected={index === active} aria-label={`${index + 1}: ${item.caption}`} onClick={() => goTo(index)} className={`h-2.5 rounded-full transition-all ${index === active ? 'w-8 bg-[#E7A178]' : 'w-2.5 bg-white/30 hover:bg-white/55'}`} />)}</div><button type="button" onClick={() => setPaused(value => !value)} className="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border border-white/20 px-3 text-xs font-bold text-white transition hover:bg-white/10" aria-pressed={paused} aria-label={paused ? (es ? 'Reanudar historia' : 'Resume story') : (es ? 'Pausar historia' : 'Pause story')}>{paused ? '▶' : 'Ⅱ'}</button><button type="button" onClick={() => goTo(active + 1)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/20 text-lg text-white transition hover:bg-white/10" aria-label={es ? 'Siguiente imagen' : 'Next image'}>→</button></div>
     </div>
   );
 }
