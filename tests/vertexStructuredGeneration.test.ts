@@ -16,6 +16,17 @@ function fakeKv(): KVNamespace {
   } as unknown as KVNamespace;
 }
 
+function fakeAi(): Ai {
+  return {
+    gateway: vi.fn(() => ({
+      getUrl: vi.fn(async (provider?: string) => {
+        expect(provider).toBe('google-vertex-ai');
+        return 'https://gateway.ai.cloudflare.com/v1/account/default/google-vertex-ai';
+      })
+    }))
+  } as unknown as Ai;
+}
+
 function pem(bytes: ArrayBuffer): string {
   const binary = String.fromCharCode(...new Uint8Array(bytes));
   const encoded = btoa(binary).match(/.{1,64}/g)?.join('\n') || '';
@@ -31,11 +42,12 @@ async function vertexEnv(): Promise<Env> {
   const privateKey = await crypto.subtle.exportKey('pkcs8', keys.privateKey);
   return {
     KV: fakeKv(),
-    AI: {} as Ai,
+    AI: fakeAi(),
+    AI_GATEWAY_ID: 'default',
     VERTEX_BLUEPRINT_REQUIRED: 'true',
     VERTEX_PROJECT_ID: 'ghosttown-test-project',
-    VERTEX_LOCATION: 'us-central1',
-    VERTEX_BLUEPRINT_MODEL: 'gemini-2.5-flash',
+    VERTEX_LOCATION: 'us',
+    VERTEX_BLUEPRINT_MODEL: 'gemini-3.5-flash',
     VERTEX_SERVICE_ACCOUNT_EMAIL: 'ghosttown@ghosttown-test-project.iam.gserviceaccount.com',
     VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY: pem(privateKey),
     VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID: 'fixture-key-id',
@@ -61,21 +73,21 @@ describe('Vertex structured generation service', () => {
     expect(vertexBlueprintRequired({ ...env, VERTEX_BLUEPRINT_REQUIRED: 'false' })).toBe(false);
     expect(vertexServiceAccountConfig(env)).toMatchObject({
       projectId: 'project-1',
-      location: 'us-central1',
-      model: 'gemini-2.5-flash'
+      location: 'us',
+      model: 'gemini-3.5-flash'
     });
     expect(() => vertexServiceAccountConfig({} as Env)).toThrow('VERTEX_PROJECT_ID');
   });
 
-  it('builds the regional publisher-model generateContent endpoint', () => {
+  it('keeps a pure direct Vertex URL helper while runtime calls use AI Gateway', () => {
     expect(vertexGenerateContentUrl({
       projectId: 'project-1',
-      location: 'us-central1',
-      model: 'gemini-2.5-flash'
-    })).toBe('https://us-central1-aiplatform.googleapis.com/v1/projects/project-1/locations/us-central1/publishers/google/models/gemini-2.5-flash:generateContent');
+      location: 'us',
+      model: 'gemini-3.5-flash'
+    })).toBe('https://us-aiplatform.googleapis.com/v1/projects/project-1/locations/us/publishers/google/models/gemini-3.5-flash:generateContent');
   });
 
-  it('signs a service-account assertion, caches the OAuth token, and requests schema-controlled JSON', async () => {
+  it('signs a service-account assertion, caches OAuth, and requests schema-controlled JSON through AI Gateway', async () => {
     const env = await vertexEnv();
     const calls: Array<{ url: string; init?: RequestInit }> = [];
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -87,6 +99,7 @@ describe('Vertex structured generation service', () => {
         expect(form.get('assertion')?.split('.')).toHaveLength(3);
         return Response.json({ access_token: 'fixture-access-token', expires_in: 3600 });
       }
+      expect(url).toBe('https://gateway.ai.cloudflare.com/v1/account/default/google-vertex-ai/v1/projects/ghosttown-test-project/locations/us/publishers/google/models/gemini-3.5-flash:generateContent');
       const request = JSON.parse(String(init?.body)) as {
         generationConfig: { responseMimeType: string; responseSchema: unknown };
       };
@@ -95,7 +108,7 @@ describe('Vertex structured generation service', () => {
       expect(request.generationConfig.responseSchema).toBeTruthy();
       return Response.json({
         candidates: [{ content: { parts: [{ text: '{"ok":true,"message":"structured"}' }] } }],
-        modelVersion: 'gemini-2.5-flash-001',
+        modelVersion: 'gemini-3.5-flash',
         responseId: 'vertex-response-1',
         usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5, totalTokenCount: 15 }
       });
@@ -120,10 +133,13 @@ describe('Vertex structured generation service', () => {
     expect(first.data).toEqual({ ok: true, message: 'structured' });
     expect(first.receipt).toMatchObject({
       stage: 'fixture',
-      model: 'gemini-2.5-flash',
-      modelVersion: 'gemini-2.5-flash-001',
+      model: 'gemini-3.5-flash',
+      modelVersion: 'gemini-3.5-flash',
       responseId: 'vertex-response-1',
-      totalTokenCount: 15
+      totalTokenCount: 15,
+      provider: 'google_vertex_ai',
+      gateway: 'cloudflare_ai_gateway',
+      gatewayId: 'default'
     });
     expect(second.data.ok).toBe(true);
     expect(calls.filter(call => call.url === 'https://oauth2.googleapis.com/token')).toHaveLength(1);
