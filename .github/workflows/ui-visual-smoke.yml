@@ -1,0 +1,167 @@
+name: UI Visual Smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/components/**'
+      - 'src/styles/**'
+      - 'src/lib/ghosttownOffer.ts'
+      - 'tailwind.config.js'
+      - '.github/workflows/ui-visual-smoke.yml'
+  push:
+    branches:
+      - feat/launch-blueprint-spa
+    paths:
+      - 'src/components/**'
+      - 'src/styles/**'
+      - 'src/lib/ghosttownOffer.ts'
+      - 'tailwind.config.js'
+      - '.github/workflows/ui-visual-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-visual-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: render-ui
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Install transient Playwright renderer
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start built application
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/ghosttown-preview.log 2>&1 &
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ghosttown-preview.log
+          exit 1
+
+      - name: Render and assert key UI states
+        run: |
+          mkdir -p ui-visual-smoke
+          cat > /tmp/ghosttown-ui-smoke.cjs <<'EOF'
+          const { chromium } = require('playwright');
+          const fs = require('node:fs');
+
+          const base = 'http://127.0.0.1:4173/';
+          const output = 'ui-visual-smoke';
+
+          async function assertNoHorizontalOverflow(page, label) {
+            const overflow = await page.evaluate(() => ({
+              scrollWidth: document.documentElement.scrollWidth,
+              clientWidth: document.documentElement.clientWidth,
+            }));
+            if (overflow.scrollWidth > overflow.clientWidth + 1) {
+              throw new Error(`${label}: horizontal overflow ${overflow.scrollWidth}px > ${overflow.clientWidth}px`);
+            }
+          }
+
+          async function capture(browser, name, width, height, sectionSelector, setup) {
+            const context = await browser.newContext({ viewport: { width, height } });
+            const page = await context.newPage();
+            await page.goto(base, { waitUntil: 'networkidle' });
+            await page.waitForTimeout(500);
+            await assertNoHorizontalOverflow(page, name);
+            if (setup) await setup(page);
+            if (sectionSelector) {
+              await page.locator(sectionSelector).scrollIntoViewIfNeeded();
+              await page.waitForTimeout(250);
+            }
+            await page.screenshot({ path: `${output}/${name}.png`, fullPage: false });
+            await context.close();
+          }
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+
+            await capture(browser, 'hero-desktop-1366x768', 1366, 768);
+            await capture(browser, 'hero-mobile-390x844', 390, 844, null, async page => {
+              const sticky = page.locator('#ghosttown-commercial-sticky');
+              if (!(await sticky.isVisible())) throw new Error('Mobile sticky CTA is not visible');
+            });
+
+            await capture(browser, 'cost-desktop-1366x768', 1366, 768, null, async page => {
+              const tabs = page.getByRole('tab');
+              await tabs.nth(5).click();
+              const costText = await page.locator('text=The Cost').count();
+              if (!costText) throw new Error('The Cost title is not visible after selecting slide 6');
+            });
+
+            await capture(browser, 'verdict-desktop-1366x768', 1366, 768, '#free-verdict', async page => {
+              const section = page.locator('#free-verdict');
+              const text = await section.innerText();
+              if (/TEST NOW/i.test(text)) throw new Error('Ambiguous TEST NOW copy regressed');
+              if (!/Prove they'll pay/i.test(text)) throw new Error("Concrete 'Prove they'll pay' action is missing");
+            });
+
+            await capture(browser, 'verdict-mobile-390x844', 390, 844, '#free-verdict');
+            await capture(browser, 'examples-desktop-1366x768', 1366, 768, '#example-gallery');
+            await capture(browser, 'examples-mobile-390x844', 390, 844, '#example-gallery');
+            await capture(browser, 'proof-desktop-1366x768', 1366, 768, '#proof-standard');
+            await capture(browser, 'proof-mobile-390x844', 390, 844, '#proof-standard');
+
+            const audit = await browser.newPage({ viewport: { width: 390, height: 844 } });
+            await audit.goto(base, { waitUntil: 'networkidle' });
+            const measurements = await audit.evaluate(() => {
+              const px = selector => {
+                const el = document.querySelector(selector);
+                return el ? Number.parseFloat(getComputedStyle(el).fontSize) : null;
+              };
+              return {
+                heroBodyPx: px('section p.text-xl'),
+                verdictBodyPx: px('#free-verdict .text-lg'),
+                exampleBodyPx: px('#example-gallery .text-lg'),
+                proofBodyPx: px('#proof-standard .text-base'),
+              };
+            });
+            fs.writeFileSync(`${output}/measurements.json`, JSON.stringify(measurements, null, 2));
+            for (const [key, value] of Object.entries(measurements)) {
+              if (value !== null && value < 16) throw new Error(`${key} is below 16px: ${value}`);
+            }
+            await audit.close();
+
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          EOF
+          NODE_PATH="$PWD/node_modules" node /tmp/ghosttown-ui-smoke.cjs
+
+      - name: Upload visual smoke evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-ui-visual-smoke
+          path: ui-visual-smoke
+          retention-days: 7
