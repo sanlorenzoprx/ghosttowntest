@@ -6,6 +6,8 @@ Reusable build guide for GhostTown and future Zayas House commercial product pag
 
 This guide captures the useful offer-building principles from the Hormozi-based work while removing the old visual restriction that forced GhostTown toward image-light, card-heavy presentation.
 
+**Superseded rule:** `evidence-first frontier modernism` is not a governing visual constraint for GhostTown commercial UI. Evidence integrity remains mandatory; visual expression is open.
+
 ## 1. Governing rule
 
 A commercial page exists to help a customer quickly understand:
