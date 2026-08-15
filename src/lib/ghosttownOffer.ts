@@ -12,7 +12,7 @@ export const GHOSTTOWN_30_DAY_PLAN_V1 = {
     'Customer outreach scripts and action plan',
     'Weekly priorities, milestones, and success metrics',
     'Thirty-day daily execution calendar',
-    'Personalized Cloudflare Launch Site Starter',
+    'Custom Launch Website — a real website built around your idea, offer, and customer',
     'Downloadable plan and finished assets saved to the customer account'
   ],
   launchSiteInvariant: 'The Launch Site is the working implementation of the landing-page messaging, offer, pricing, and call to action created in the Blueprint—not a separate unrelated bonus.',

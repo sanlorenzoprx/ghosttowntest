@@ -1,12 +1,14 @@
-﻿name: CI
+name: CI
 
 on:
   pull_request:
     branches:
       - main
+      - feat/launch-blueprint-spa
   push:
     branches:
       - main
+      - feat/launch-blueprint-spa
   workflow_dispatch:
 
 permissions:
