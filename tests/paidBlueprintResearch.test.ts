@@ -30,7 +30,8 @@ function order(overrides: Partial<PaidTestOrder> = {}): PaidTestOrder {
     },
     createdAt: '2026-08-16T11:55:00.000Z',
     updatedAt: '2026-08-16T12:00:00.000Z',
-    reportVersion: '1.0'
+    reportVersion: '1.0',
+    ...overrides
   } as PaidTestOrder;
 }
 
