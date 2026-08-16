@@ -468,15 +468,17 @@ export default function UserDashboard({
                           </button>}
                         </>
                       )}
-                      {plan.status === "failed" && isBlueprint && (
+                      {isBlueprint && (plan.status === "failed" || working) && (
                         <button
                           onClick={() => void retryBlueprint(plan.orderId)}
                           disabled={Boolean(retryingOrderId)}
                           className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-black text-white disabled:opacity-50"
                         >
                           {retryingOrderId === plan.orderId
-                            ? "Retrying…"
-                            : "Retry Blueprint"}
+                            ? "Checking…"
+                            : plan.status === "failed"
+                              ? "Retry Blueprint"
+                              : "Check / Retry Blueprint"}
                         </button>
                       )}
                     </div>
