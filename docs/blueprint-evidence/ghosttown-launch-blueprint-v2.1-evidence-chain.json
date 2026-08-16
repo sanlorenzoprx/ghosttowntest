@@ -1,11 +1,11 @@
 {
-  "schemaVersion": "ghosttown-blueprint-evidence-chain-v3",
-  "changeId": "GT-BP-2026-08-15-V2.1.3",
-  "generatedAt": "2026-08-15T23:39:00Z",
+  "schemaVersion": "ghosttown-blueprint-evidence-chain-v4",
+  "changeId": "GT-BP-2026-08-15-V2.1.4",
+  "generatedAt": "2026-08-16T00:20:00Z",
   "repository": "sanlorenzoprx/ghosttowntest",
   "branch": "feat/launch-blueprint-spa",
   "pullRequest": 7,
-  "previousChangeId": "GT-BP-2026-08-15-V2.1.2",
+  "previousChangeId": "GT-BP-2026-08-15-V2.1.3",
   "source": {
     "name": "GhostTown Launch Blueprint 9-4-26(2).md",
     "sha256": "08b35e571897c4360aae102100f8b3b9fa8f3c57735de384f455dc76ebdf6580"
@@ -16,28 +16,40 @@
     "gitBlobSha1": "616c691e6b4c9cea93615963a07375d13ffba57f",
     "sourceCommit": "7ee41c5e9a6c3076829e85631c0df032f0298df7"
   },
-  "previousAmendment": {
+  "platformAmendment": {
     "path": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_2_VERTEX_AI_PLATFORM_AMENDMENT.md",
     "version": "2.1.2",
     "gitBlobSha1": "5f63aa4cd694120018413c4c91f89df5ed76897e",
     "changeId": "GT-BP-2026-08-15-V2.1.2",
     "decision": "Cloudflare remains the application platform; Google Vertex AI becomes GhostTown's canonical generative-AI platform."
   },
-  "previousChangeRecord": {
+  "platformChangeRecord": {
     "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_2_CHANGE_RECORD.md",
     "version": "2.1.2",
     "gitBlobSha1": "079a9448782b7cc5e75923162f4e2dca9355ccff"
   },
-  "amendment": {
+  "previousAmendment": {
     "path": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_3_CUSTOM_WEBSITE_CAPABILITY_AMENDMENT.md",
     "version": "2.1.3",
     "gitBlobSha1": "95fc94b75b88143a64896f7f7a030c6d00ae10f4",
+    "changeId": "GT-BP-2026-08-15-V2.1.3",
     "decision": "Custom website creation is a separate post-Blueprint WebsiteCreationService capability and must not be folded into paid Blueprint generation."
   },
-  "changeRecord": {
+  "previousChangeRecord": {
     "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_3_CHANGE_RECORD.md",
     "version": "2.1.3",
     "gitBlobSha1": "3f7235187e4facd5186d097a484b462f94ddbfbb"
+  },
+  "amendment": {
+    "path": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_4_CLOUDFLARE_SPA_TEMPLATE_AMENDMENT.md",
+    "version": "2.1.4",
+    "gitBlobSha1": "e42d70aacef6f36f2f94f5a17dfe4bb58376799e",
+    "decision": "Custom Website output is a React/Vite single-page application deployed on Cloudflare. GhostTown and MemoriesMyStory are the first two governed template reference models."
+  },
+  "changeRecord": {
+    "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_4_CHANGE_RECORD.md",
+    "version": "2.1.4",
+    "gitBlobSha1": "09c746f74d141b50112fe2c888a4e36fa1ba3f1f"
   },
   "outcomeProtection": {
     "weakeningAllowed": false,
