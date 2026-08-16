@@ -10,6 +10,7 @@ describe('commercial UI acceptance contract', () => {
   const landing = readSource('src/components/LandingCommercial.tsx');
   const examples = readSource('src/components/ExampleIdeaGallery.tsx');
   const proof = readSource('src/components/ProofStandard.tsx');
+  const dashboard = readSource('src/components/UserDashboard.tsx');
 
   it('keeps the founder carousel titles clean and uses the older-woman laptop image', () => {
     for (const title of ['The Idea', 'You Start', 'More Work', 'The Problem', 'The Reality', 'The Cost', 'Clarity']) {
@@ -59,5 +60,12 @@ describe('commercial UI acceptance contract', () => {
     expect(app).toContain('lg:grid-cols-[1fr_auto_1fr]');
     expect(app).toContain('site-nav flex flex-wrap');
     expect(app).not.toContain('site-nav absolute right-4');
+  });
+
+  it('refreshes paid Blueprint status while background fulfillment is active', () => {
+    expect(dashboard).toContain('plan.status === "researching" || plan.status === "generating"');
+    expect(dashboard).toContain('window.setInterval');
+    expect(dashboard).toContain('}, 3000);');
+    expect(dashboard).toContain('window.clearInterval(timer)');
   });
 });
