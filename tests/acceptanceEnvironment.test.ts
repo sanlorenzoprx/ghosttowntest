@@ -41,7 +41,7 @@ describe('acceptance Cloudflare environment', () => {
     expect(acceptance).not.toContain('api.lit-ghosttown.app');
   });
 
-  it('uses one Vertex AI platform through AI Gateway while keeping paid research disabled', async () => {
+  it('uses one Vertex AI platform while keeping general research off and permitting only paid acceptance fulfillment', async () => {
     const config = await readText('wrangler.toml');
     const acceptanceVars = section(config, '[env.acceptance.vars]', /\n\[\[env\.acceptance\./);
     const productionVars = section(config, '[env.production.vars]', /\n\[\[env\.production\./);
@@ -57,7 +57,9 @@ describe('acceptance Cloudflare environment', () => {
     expect(acceptanceVars).toContain('VERTEX_RESEARCH_MODEL = "gemini-3.5-flash"');
     expect(acceptanceVars).toContain('VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"');
     expect(acceptanceVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
+    expect(acceptanceVars).toContain('PAID_BLUEPRINT_RESEARCH_ENABLED = "true"');
     expect(productionVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
+    expect(productionVars).toContain('PAID_BLUEPRINT_RESEARCH_ENABLED = "false"');
 
     for (const legacy of ['GEMINI_RESEARCH_MODEL', 'GEMINI_GOOGLE_SEARCH_MODEL', 'AI_MODEL =', 'ACTION_PLAN_AI_MODEL =']) {
       expect(acceptanceVars).not.toContain(legacy);
