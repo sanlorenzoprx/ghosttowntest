@@ -48,14 +48,21 @@ describe('GhostTown generative AI architecture', () => {
     const website = await readText('src/api/websiteCreationService.ts');
     const builder = await readText('src/api/websiteBuildRunner.ts');
     const registry = await readText('src/api/websiteComponentRegistry.ts');
+    const templates = await readText('src/api/websiteTemplateRegistry.ts');
 
     expect(website).toContain("task: 'custom_website'");
     expect(website).toContain('WebsiteDeploymentAdapter');
     expect(website).toContain('WebsiteBrowserTester');
+    expect(website).toContain('ghosttown_conversion');
+    expect(website).toContain('memories_story_editorial');
     expect(website).not.toContain('runVertexStructuredStage');
-    expect(builder).toContain('escapeHtml');
-    expect(builder).toContain('build-manifest.json');
+    expect(builder).toContain("runtime: 'cloudflare_spa'");
+    expect(builder).toContain('single-page-application');
+    expect(builder).toContain('src/App.jsx');
+    expect(builder).not.toContain('dangerouslySetInnerHTML');
     expect(registry).toContain('WEBSITE_COMPONENT_REGISTRY');
+    expect(templates).toContain("referenceProduct: 'GhostTown'");
+    expect(templates).toContain("referenceProduct: 'MemoriesMyStory'");
   });
 
   it('documents and hash-locks the v2.1.2 platform decision plus the v2.1.3 website capability without changing the base canonical blob', async () => {
