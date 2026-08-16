@@ -36,4 +36,18 @@ describe('paid Blueprint acceptance recovery', () => {
     expect(verifier).toContain("session?.status === 'complete'");
     expect(verifier).toContain("metadata.fulfillment_type === 'execution_plan_30day_v1'");
   });
+
+  it('reconciles a stale BUILDING order with terminal Workflow truth before retry', async () => {
+    const env = await readText('src/api/env.ts');
+    const api = await readText('src/api/blueprintApi.ts');
+
+    expect(env).toContain('get(id: string): Promise<LaunchBlueprintWorkflowInstanceBinding>');
+    expect(env).toContain("| 'errored'");
+    expect(env).toContain("| 'terminated'");
+    expect(api).toContain('workflowStatusForRetry(env, owned.order.fulfillmentWorkflowId)');
+    expect(api).toContain('ACTIVE_BLUEPRINT_WORKFLOW_STATUSES.has(workflowStatus)');
+    expect(api).toContain("workflowStatus === 'complete'");
+    expect(api).toContain('Terminal Workflow truth wins here');
+    expect(api).toContain('queueLaunchBlueprintOrder(env, orderId, session, retryEventId)');
+  });
 });
