@@ -1,8 +1,25 @@
+type LaunchBlueprintWorkflowStatus =
+  | 'queued'
+  | 'running'
+  | 'paused'
+  | 'errored'
+  | 'terminated'
+  | 'complete'
+  | 'waiting'
+  | 'waitingForPause'
+  | 'unknown';
+
+interface LaunchBlueprintWorkflowInstanceBinding {
+  id: string;
+  status(): Promise<{ status: LaunchBlueprintWorkflowStatus; error?: { name: string; message: string }; output?: unknown }>;
+}
+
 interface LaunchBlueprintWorkflowBinding {
   create(options: {
     id: string;
     params: { orderId: string; eventId: string };
   }): Promise<{ id: string }>;
+  get(id: string): Promise<LaunchBlueprintWorkflowInstanceBinding>;
 }
 
 export interface Env {
