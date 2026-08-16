@@ -44,6 +44,7 @@ async function vertexEnv(): Promise<Env> {
     KV: fakeKv(),
     AI: fakeAi(),
     AI_GATEWAY_ID: 'default',
+    AI_GATEWAY_TOKEN: 'fixture-gateway-token',
     VERTEX_BLUEPRINT_REQUIRED: 'true',
     VERTEX_PROJECT_ID: 'ghosttown-test-project',
     VERTEX_LOCATION: 'us',
@@ -103,7 +104,10 @@ describe('Vertex structured generation service', () => {
       const request = JSON.parse(String(init?.body)) as {
         generationConfig: { responseMimeType: string; responseSchema: unknown };
       };
-      expect(init?.headers).toMatchObject({ Authorization: 'Bearer fixture-access-token' });
+      expect(init?.headers).toMatchObject({
+        'cf-aig-authorization': 'Bearer fixture-gateway-token',
+        Authorization: 'Bearer fixture-access-token'
+      });
       expect(request.generationConfig.responseMimeType).toBe('application/json');
       expect(request.generationConfig.responseSchema).toBeTruthy();
       return Response.json({
