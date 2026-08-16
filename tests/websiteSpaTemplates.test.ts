@@ -23,6 +23,22 @@ describe('custom website SPA templates', () => {
     });
   });
 
+  it('encodes distinct narrative structures rather than two color skins', () => {
+    const ghosttown = websiteSpaTemplate('ghosttown_conversion');
+    const memories = websiteSpaTemplate('memories_story_editorial');
+
+    expect(ghosttown.componentOrder.slice(0, 4)).toEqual([
+      'hero', 'problem', 'solution', 'comparison'
+    ]);
+    expect(memories.componentOrder.slice(0, 4)).toEqual([
+      'hero', 'problem', 'proof', 'solution'
+    ]);
+    expect(ghosttown.componentOrder).not.toEqual(memories.componentOrder);
+    expect(ghosttown.tokens.dark).not.toBe(memories.tokens.dark);
+    expect(ghosttown.designPrinciples.join(' ')).toContain('High-contrast hero');
+    expect(memories.designPrinciples.join(' ')).toContain('Editorial pacing');
+  });
+
   it('maps commercial styles to GhostTown and editorial/premium styles to MemoriesMyStory when the model does not choose explicitly', () => {
     expect(selectWebsiteTemplateId(undefined, 'clean_saas')).toBe('ghosttown_conversion');
     expect(selectWebsiteTemplateId(undefined, 'bold_validation')).toBe('ghosttown_conversion');
