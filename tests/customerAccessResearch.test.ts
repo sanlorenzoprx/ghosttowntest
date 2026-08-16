@@ -232,6 +232,7 @@ describe('customer access distribution footprint provider', () => {
     const fetchMock = mockProviders();
     const result = await researchCustomerAccess(env(), order, verdict);
     expect(fetchMock).toHaveBeenCalled();
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(24);
     expect(result.research.status).toBe('complete');
     expect(result.research.channels.length).toBeGreaterThanOrEqual(10);
     expect(result.research.channels.length).toBeLessThanOrEqual(25);
