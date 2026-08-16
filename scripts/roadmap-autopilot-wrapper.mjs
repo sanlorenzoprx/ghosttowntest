@@ -13,7 +13,8 @@ const GATE11_RETRY_PREP = 'scripts/roadmap-gate11-retry-prep.mjs';
 const GATE14_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate14-vertex-selection-smoke.mjs');
 const GATE15_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate15-vertex-structured-smoke.mjs');
 const RUNNER = 'scripts/production-roadmap-autopilot.mjs';
-const GENERATIVE_ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1';
+const PREVIOUS_GENERATIVE_ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1';
+const GENERATIVE_ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1+cloudflare-spa-templates-v1';
 const forwarded = process.argv.slice(2);
 
 function quoted(value) {
@@ -52,6 +53,16 @@ function writeState(state) {
   writeFileSync(STATE_PATH, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 }
 
+function reopen(state, id, message) {
+  if (!state.gates[id]) return;
+  state.gates[id] = {
+    ...state.gates[id],
+    status: 'PENDING',
+    checked_at: new Date().toISOString(),
+    message
+  };
+}
+
 function migrateGenerativeArchitectureState() {
   let state = readState();
   if (!state) {
@@ -69,30 +80,31 @@ function migrateGenerativeArchitectureState() {
       }
     };
     writeState(state);
-    console.log('Roadmap state initialized for Vertex AI Gateway + Custom Website v1.');
+    console.log('Roadmap state initialized for Vertex AI Gateway + Custom Website Cloudflare SPA templates.');
     return;
   }
   if (state.runtime?.generative_architecture === GENERATIVE_ARCHITECTURE) return;
   state.runtime ||= {};
   state.gates ||= {};
 
-  // Preserve unrelated live acceptance evidence. v2.1.3 adds a new website
-  // model slot/capability but does not alter the existing Gate 14/15 Vertex
-  // acceptance semantics or external evidence-provider contract.
-  for (const id of ['1', '4', '8']) {
-    if (!state.gates[id]) continue;
-    state.gates[id] = {
-      ...state.gates[id],
-      status: 'PENDING',
-      checked_at: new Date().toISOString(),
-      message: 'Revalidation required by v2.1.3 Custom Website capability amendment.'
-    };
+  const priorArchitecture = state.runtime.generative_architecture;
+  const message = 'Revalidation required by v2.1.4 Cloudflare SPA template amendment.';
+
+  // A state that already passed the v2.1.3 Custom Website migration only needs
+  // the governing contract reopened. Older states still need the v2.1.3
+  // environment/model-slot revalidation as well. No unrelated roadmap evidence
+  // is reset.
+  if (priorArchitecture === PREVIOUS_GENERATIVE_ARCHITECTURE) {
+    reopen(state, '1', message);
+  } else {
+    for (const id of ['1', '4', '8']) reopen(state, id, message);
   }
+
   state.runtime.generative_architecture = GENERATIVE_ARCHITECTURE;
   state.runtime.generative_architecture_migrated_at = new Date().toISOString();
   state.updated_at = new Date().toISOString();
   writeState(state);
-  console.log('Roadmap state migrated to Vertex AI Gateway + Custom Website v1; only Gates 1, 4, and 8 were reopened for revalidation.');
+  console.log('Roadmap state migrated to Vertex AI Gateway + Custom Website Cloudflare SPA templates without resetting unrelated acceptance evidence.');
 }
 
 function stateNeedsGate10Repair() {
