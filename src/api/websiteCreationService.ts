@@ -6,7 +6,8 @@ import type {
   WebsiteCreationResult,
   WebsiteDeploymentReceipt,
   WebsiteSectionSpec,
-  WebsiteStylePreset
+  WebsiteStylePreset,
+  WebsiteTemplateId
 } from '../types/customWebsite';
 import {
   generateAIJson,
@@ -16,6 +17,10 @@ import {
 import { buildCustomWebsite } from './websiteBuildRunner';
 import { assertWebsiteComponentContract, websiteComponentIds } from './websiteComponentRegistry';
 import { websiteStylePresets } from './websiteBrandSystem';
+import {
+  selectWebsiteTemplateId,
+  websiteSpaTemplateIds
+} from './websiteTemplateRegistry';
 import {
   assertWebsiteAssets,
   blueprintWebsiteAssetGenerator,
@@ -44,11 +49,13 @@ interface GeneratedWebsitePlan {
   businessName: string;
   metadataTitle: string;
   metadataDescription: string;
+  templateId?: WebsiteTemplateId;
   stylePreset: WebsiteStylePreset;
   sections: WebsiteSectionSpec[];
 }
 
 const STYLE_PRESETS = websiteStylePresets();
+const TEMPLATE_IDS = websiteSpaTemplateIds();
 
 const COMPONENT_ORDER = [
   'hero',
@@ -95,10 +102,11 @@ const WEBSITE_SCHEMA: GenerativeAIResponseSchema = {
     businessName: { type: 'STRING' },
     metadataTitle: { type: 'STRING' },
     metadataDescription: { type: 'STRING' },
+    templateId: { type: 'STRING', enum: TEMPLATE_IDS },
     stylePreset: { type: 'STRING', enum: STYLE_PRESETS },
     sections: { type: 'ARRAY', items: SECTION_SCHEMA, minItems: 6, maxItems: 10 }
   },
-  required: ['businessName', 'metadataTitle', 'metadataDescription', 'stylePreset', 'sections']
+  required: ['businessName', 'metadataTitle', 'metadataDescription', 'templateId', 'stylePreset', 'sections']
 };
 
 function text(value: unknown, fallback = ''): string {
@@ -296,12 +304,14 @@ function canonicalSection(
 function normalizeGeneratedPlan(plan: GeneratedWebsitePlan, blueprint: GhostTownLaunchBlueprint): CustomWebsiteSpec {
   const selected = generatedByComponent(plan);
   const components = COMPONENT_ORDER.filter(component => REQUIRED_COMPONENTS.has(component) || selected.has(component));
+  const stylePreset = STYLE_PRESETS.includes(plan.stylePreset) ? plan.stylePreset : 'clean_saas';
   const spec: CustomWebsiteSpec = {
     schemaVersion: 'custom-website-spec-v1',
+    templateId: selectWebsiteTemplateId(plan.templateId, stylePreset),
     businessName: blueprint.launchSite.site.businessName,
     metadataTitle: text(plan.metadataTitle, blueprint.landingPageCopy.metadataTitle),
     metadataDescription: text(plan.metadataDescription, blueprint.landingPageCopy.metadataDescription),
-    stylePreset: STYLE_PRESETS.includes(plan.stylePreset) ? plan.stylePreset : 'clean_saas',
+    stylePreset,
     sections: components.map(component => canonicalSection(component, selected.get(component), blueprint))
   };
   assertWebsiteComponentContract(spec);
@@ -310,13 +320,16 @@ function normalizeGeneratedPlan(plan: GeneratedWebsitePlan, blueprint: GhostTown
 
 function promptForBlueprint(blueprint: GhostTownLaunchBlueprint): string {
   return [
-    'Create a custom launch-ready website specification from the supplied validated GhostTown Launch Blueprint.',
+    'Create a custom launch-ready Cloudflare SPA specification from the supplied validated GhostTown Launch Blueprint.',
     'This is NOT the $97 Blueprint generation task. The Blueprint is immutable source strategy for a separate website-manufacturing upsell.',
+    `Choose exactly one SPA template: ${TEMPLATE_IDS.join(', ')}.`,
+    'ghosttown_conversion is modeled on GhostTown: conversion-first, high-contrast, direct, evidence-aware, and action-oriented.',
+    'memories_story_editorial is modeled on MemoriesMyStory: warm editorial pacing, emotional clarity, trust-forward storytelling, and calm premium presentation.',
     `Use only these registered components: ${websiteComponentIds().join(', ')}.`,
     `Use only these style presets: ${STYLE_PRESETS.join(', ')}.`,
-    'Do not generate HTML, CSS, JavaScript, framework code, testimonials, customer counts, guarantees, awards, market statistics, or new pricing.',
+    'Do not generate HTML, CSS, JavaScript, React, framework code, testimonials, customer counts, guarantees, awards, market statistics, or new pricing.',
     'Do not invent proof. Proof remains validation-stage and is deterministically replaced from the approved Blueprint after generation.',
-    'The model may choose optional components, adapt low-risk sales copy, and choose visual direction. Deterministic software owns final pricing, proof, CTA labels, legal disclosure, build, testing, deployment, and release.',
+    'The model may choose the registered SPA template, optional components, low-risk sales copy, and visual direction. Deterministic software owns final pricing, proof, CTA labels, legal disclosure, application source, Cloudflare routing config, build artifacts, testing, deployment, and release.',
     'Return the requested JSON schema only.',
     'SOURCE BLUEPRINT CONTEXT:',
     JSON.stringify(sourceContext(blueprint))
@@ -330,7 +343,7 @@ async function generateWebsitePlan(env: Env, blueprint: GhostTownLaunchBlueprint
   const { data, result } = await generateAIJson<GeneratedWebsitePlan>(env, {
     task: 'custom_website',
     prompt,
-    systemInstruction: 'You create structured website specifications from validated business evidence. Never invent proof, pricing, or business facts. Never return executable code.',
+    systemInstruction: 'You create structured website specifications from validated business evidence. Choose only registered SPA templates and components. Never invent proof, pricing, or business facts. Never return executable code.',
     responseSchema: WEBSITE_SCHEMA,
     temperature: repairContext ? 0.15 : 0.35,
     maxOutputTokens: 6000,
@@ -345,7 +358,7 @@ function blockingFindings(result: WebsiteBrowserTestResult): boolean {
 
 function repairContext(spec: CustomWebsiteSpec, browser: WebsiteBrowserTestResult): string {
   return JSON.stringify({
-    instruction: 'Repair only the website specification. Keep all source facts, proof restrictions, pricing, and registered-component constraints unchanged.',
+    instruction: 'Repair only the website specification. Keep the selected SPA template, all source facts, proof restrictions, pricing, and registered-component constraints unchanged.',
     currentSpec: spec,
     browserFindings: browser.findings
   });
@@ -417,6 +430,8 @@ export async function manufactureCustomWebsite(
       generatedAt: new Date().toISOString(),
       websiteModel: latestReceipt.model,
       generationResponseHash: latestReceipt.responseHash,
+      templateId: websiteBuild.templateId,
+      runtime: websiteBuild.runtime,
       buildId: websiteBuild.buildId,
       assetCount: assets.length,
       repairCount,
