@@ -47,6 +47,7 @@ async function env(): Promise<Env> {
     KV: fakeKv(),
     AI: fakeAi(),
     AI_GATEWAY_ID: 'default',
+    AI_GATEWAY_TOKEN: 'fixture-gateway-token',
     VERTEX_PROJECT_ID: 'ghosttown-test-project',
     VERTEX_LOCATION: 'us',
     VERTEX_VERDICT_MODEL: 'gemini-3.5-flash-lite',
@@ -91,7 +92,7 @@ describe('GenerativeAIService', () => {
     await expect(aiGatewayVertexUrl(configured, 'custom_website')).resolves.toContain('/models/gemini-3.5-flash:generateContent');
   });
 
-  it('uses short-lived Vertex OAuth upstream while routing generation through AI Gateway', async () => {
+  it('uses short-lived Vertex OAuth upstream while routing generation through authenticated AI Gateway', async () => {
     const configured = await env();
     const calls: Array<{ url: string; init?: RequestInit }> = [];
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -103,7 +104,10 @@ describe('GenerativeAIService', () => {
         return Response.json({ access_token: 'vertex-short-lived-token', expires_in: 3600 });
       }
       expect(url).toContain('/google-vertex-ai/v1/projects/ghosttown-test-project/locations/us/');
-      expect(init?.headers).toMatchObject({ Authorization: 'Bearer vertex-short-lived-token' });
+      expect(init?.headers).toMatchObject({
+        'cf-aig-authorization': 'Bearer fixture-gateway-token',
+        Authorization: 'Bearer vertex-short-lived-token'
+      });
       return Response.json({
         candidates: [{
           content: { parts: [{ text: 'grounded answer' }] },
@@ -139,6 +143,7 @@ describe('GenerativeAIService', () => {
       totalTokenCount: 12
     });
     expect(JSON.stringify(result.receipt)).not.toContain('vertex-short-lived-token');
+    expect(JSON.stringify(result.receipt)).not.toContain('fixture-gateway-token');
   });
 
   it('preserves schema-controlled structured output through the same service', async () => {
