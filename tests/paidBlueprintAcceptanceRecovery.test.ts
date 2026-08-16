@@ -40,6 +40,7 @@ describe('paid Blueprint acceptance recovery', () => {
   it('reconciles a stale BUILDING order with terminal Workflow truth before retry', async () => {
     const env = await readText('src/api/env.ts');
     const api = await readText('src/api/blueprintApi.ts');
+    const dashboard = await readText('src/components/UserDashboard.tsx');
 
     expect(env).toContain('get(id: string): Promise<LaunchBlueprintWorkflowInstanceBinding>');
     expect(env).toContain("| 'errored'");
@@ -49,5 +50,7 @@ describe('paid Blueprint acceptance recovery', () => {
     expect(api).toContain("workflowStatus === 'complete'");
     expect(api).toContain('Terminal Workflow truth wins here');
     expect(api).toContain('queueLaunchBlueprintOrder(env, orderId, session, retryEventId)');
+    expect(dashboard).toContain('plan.status === "failed" || working');
+    expect(dashboard).toContain('Check / Retry Blueprint');
   });
 });
