@@ -132,6 +132,7 @@ export function resolveGenerativeModel(env: Env, task: GenerativeAITask): string
 export function generativeAIConfigured(env: Env): boolean {
   return Boolean(
     env.AI
+    && text(env.AI_GATEWAY_TOKEN)
     && text(env.VERTEX_PROJECT_ID)
     && text(env.VERTEX_SERVICE_ACCOUNT_EMAIL)
     && text(env.VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY)
@@ -281,6 +282,10 @@ export async function aiGatewayVertexUrl(env: Env, task: GenerativeAITask): Prom
 export async function generateAI(env: Env, options: GenerateOptions): Promise<GenerateResult> {
   const config = serviceAccountConfig(env);
   const gatewayId = text(env.AI_GATEWAY_ID) || DEFAULT_GATEWAY_ID;
+  const gatewayToken = text(env.AI_GATEWAY_TOKEN);
+  if (!gatewayToken) {
+    throw new Error('Generative AI Cloudflare AI Gateway configuration is missing: AI_GATEWAY_TOKEN');
+  }
   const model = resolveGenerativeModel(env, options.task);
   const token = await vertexAccessToken(env, config);
   const url = await aiGatewayVertexUrl(env, options.task);
@@ -309,6 +314,7 @@ export async function generateAI(env: Env, options: GenerateOptions): Promise<Ge
       method: 'POST',
       signal: controller.signal,
       headers: {
+        'cf-aig-authorization': `Bearer ${gatewayToken}`,
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
