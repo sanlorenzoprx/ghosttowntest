@@ -12,6 +12,7 @@ vi.mock('../src/api/generativeAIService', () => ({
         businessName: 'Model-invented business name',
         metadataTitle: 'Validated Agency QA',
         metadataDescription: 'A focused release QA offer for small agencies.',
+        templateId: 'ghosttown_conversion',
         stylePreset: 'clean_saas',
         sections: [
           { sectionId: 'hero-model', component: 'hero', eyebrow: 'For agencies', heading: '<script>alert(1)</script> Ship with confidence', body: 'Reduce release risk with a focused validation offer.', items: [], primaryCtaLabel: 'Invented CTA', secondaryCtaLabel: '' },
@@ -128,18 +129,41 @@ beforeEach(() => {
 });
 
 describe('WebsiteCreationService', () => {
-  it('uses a separate custom_website AI task while deterministic software owns truth-critical content and code', async () => {
+  it('manufactures a separate Cloudflare SPA while deterministic software owns truth-critical content and source code', async () => {
     const result = await manufactureCustomWebsite(env(), blueprint(), { primaryActionUrl: 'mailto:hello@example.com' });
     expect(generatedPlans.calls[0]?.task).toBe('custom_website');
+    expect(result.spec.templateId).toBe('ghosttown_conversion');
     expect(result.spec.businessName).toBe('Release Confidence');
     expect(result.spec.sections.find(section => section.component === 'pricing')?.heading).toBe('$250 pilot');
     expect(JSON.stringify(result.spec.sections.find(section => section.component === 'proof'))).not.toContain('500 happy customers');
     expect(JSON.stringify(result.spec.sections.find(section => section.component === 'proof'))).toContain('Three paid pilot customers');
-    const html = result.build.files.find(file => file.path === 'index.html')?.content || '';
-    expect(html).not.toContain('<script>alert(1)</script>');
-    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+
+    expect(result.build.runtime).toBe('cloudflare_spa');
+    expect(result.build.templateId).toBe('ghosttown_conversion');
+    expect(result.build.files.map(file => file.path)).toEqual(expect.arrayContaining([
+      'package.json',
+      'index.html',
+      'vite.config.js',
+      'wrangler.jsonc',
+      'src/main.jsx',
+      'src/App.jsx',
+      'src/site.js',
+      'src/styles.css',
+      'site-spec.json',
+      'build-manifest.json'
+    ]));
+    const wrangler = result.build.files.find(file => file.path === 'wrangler.jsonc')?.content || '';
+    expect(wrangler).toContain('single-page-application');
+    const siteSource = result.build.files.find(file => file.path === 'src/site.js')?.content || '';
+    expect(siteSource).not.toContain('<script>alert(1)</script>');
+    expect(siteSource).toContain('\\u003cscript\\u003ealert(1)\\u003c/script\\u003e');
+    const appSource = result.build.files.find(file => file.path === 'src/App.jsx')?.content || '';
+    expect(appSource).not.toContain('dangerouslySetInnerHTML');
+
     expect(result.receipt).toMatchObject({
       websiteModel: 'gemini-3.5-flash',
+      templateId: 'ghosttown_conversion',
+      runtime: 'cloudflare_spa',
       browserTested: false,
       browserPassed: false,
       deployed: false,
