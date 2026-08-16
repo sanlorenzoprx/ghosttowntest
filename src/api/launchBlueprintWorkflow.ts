@@ -32,6 +32,7 @@ import {
   synchronizeVertexBlueprintSurfaces
 } from './launchBlueprintVertexGuards';
 import { vertexBlueprintRequired } from './vertexStructuredGeneration';
+import { researchEnvForPaidBlueprint } from './paidBlueprintResearch';
 
 function batchSize(value: string | undefined): number {
   const parsed = Number(value);
@@ -50,6 +51,7 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         planCustomerAccessResearch(context.order, context.verdict)
       );
 
+      const researchEnv = researchEnvForPaidBlueprint(this.env, context.order);
       const completedBatches: ResearchBatchResult[] = [];
       const size = batchSize(this.env.DISTRIBUTION_FOOTPRINT_BATCH_SIZE);
       for (let index = 0; index < plan.sourceIds.length; index += size) {
@@ -57,7 +59,7 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         const batch = await step.do(
           `research distribution batch ${Math.floor(index / size) + 1}`,
           { retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' } },
-          async () => runResearchBatch(this.env, context.order, plan, sourceIds)
+          async () => runResearchBatch(researchEnv, context.order, plan, sourceIds)
         );
         completedBatches.push(batch);
       }
@@ -65,7 +67,7 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
       const result = await step.do(
         'verify and structure media distribution network',
         { retries: { limit: 2, delay: '15 seconds', backoff: 'linear' } },
-        async () => finalizeCustomerAccessResearch(this.env, context.order, context.verdict, plan, completedBatches)
+        async () => finalizeCustomerAccessResearch(researchEnv, context.order, context.verdict, plan, completedBatches)
       );
 
       await step.do('mark canonical blueprint v2.1 generating', async () =>
