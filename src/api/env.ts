@@ -13,6 +13,7 @@ export interface Env {
   BLUEPRINTS?: R2Bucket;
   LAUNCH_BLUEPRINT_WORKFLOW?: LaunchBlueprintWorkflowBinding;
   AI_GATEWAY_ID?: string;
+  AI_GATEWAY_TOKEN?: string;
   VERTEX_VERDICT_MODEL?: string;
   VERTEX_SELECTION_MODEL?: string;
   VERTEX_RESEARCH_MODEL?: string;
