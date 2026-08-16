@@ -52,14 +52,16 @@ try {
 }
 
 if (!manifest?.changeId) fail('Evidence manifest is missing the change ID.');
-if (manifest.changeId !== 'GT-BP-2026-08-15-V2.1.3') fail('Evidence manifest is not on the approved v2.1.3 change ID.');
-if (manifest.previousChangeId !== 'GT-BP-2026-08-15-V2.1.2') fail('Evidence manifest does not preserve the v2.1.2 predecessor.');
+if (manifest.changeId !== 'GT-BP-2026-08-15-V2.1.4') fail('Evidence manifest is not on the approved v2.1.4 change ID.');
+if (manifest.previousChangeId !== 'GT-BP-2026-08-15-V2.1.3') fail('Evidence manifest does not preserve the v2.1.3 predecessor.');
 
 const canonical = verifyTrackedSource(manifest.canonical, 'Canonical Blueprint');
-const previousAmendment = verifyTrackedSource(manifest.previousAmendment, 'v2.1.2 Vertex AI platform amendment');
-const previousChangeRecord = verifyTrackedSource(manifest.previousChangeRecord, 'v2.1.2 change record');
-const amendment = verifyTrackedSource(manifest.amendment, 'v2.1.3 Custom Website capability amendment');
-const changeRecord = verifyTrackedSource(manifest.changeRecord, 'v2.1.3 change record');
+const platformAmendment = verifyTrackedSource(manifest.platformAmendment, 'v2.1.2 Vertex AI platform amendment');
+const platformChangeRecord = verifyTrackedSource(manifest.platformChangeRecord, 'v2.1.2 change record');
+const previousAmendment = verifyTrackedSource(manifest.previousAmendment, 'v2.1.3 Custom Website capability amendment');
+const previousChangeRecord = verifyTrackedSource(manifest.previousChangeRecord, 'v2.1.3 change record');
+const amendment = verifyTrackedSource(manifest.amendment, 'v2.1.4 Cloudflare SPA template amendment');
+const changeRecord = verifyTrackedSource(manifest.changeRecord, 'v2.1.4 change record');
 
 const authorityClause =
   'The canonical Blueprint is the authoritative product and implementation guide. Every Factory slice must revalidate its exact hash before execution.';
@@ -69,29 +71,50 @@ if (!canonical.source.includes(authorityClause)) {
 
 const architectureDecision =
   "Cloudflare remains the application platform; Google Vertex AI becomes GhostTown's canonical generative-AI platform.";
-if (!previousAmendment.source.includes(architectureDecision)) {
+if (!platformAmendment.source.includes(architectureDecision)) {
   fail('v2.1.2 architecture decision is missing or altered.');
 }
-if (!previousAmendment.source.includes('No commercial, evidence, safety, ownership, fulfillment, or release requirement is waived')) {
+if (!platformAmendment.source.includes('No commercial, evidence, safety, ownership, fulfillment, or release requirement is waived')) {
   fail('v2.1.2 outcome-protection clause is missing or altered.');
 }
-if (!previousChangeRecord.source.includes('Weakening approved outcomes remains prohibited.')) {
+if (!platformChangeRecord.source.includes('Weakening approved outcomes remains prohibited.')) {
   fail('v2.1.2 change record does not preserve outcome protection.');
 }
 
 const websiteDecision =
   'Custom website creation is a separate post-Blueprint `WebsiteCreationService` capability and must not be folded into paid Blueprint generation.';
-if (!amendment.source.includes(websiteDecision)) {
+if (!previousAmendment.source.includes(websiteDecision)) {
   fail('v2.1.3 custom website product decision is missing or altered.');
 }
-if (!amendment.source.includes('The existing Blueprint Launch Site remains the validation-stage microsite already included in the $97 product.')) {
+if (!previousAmendment.source.includes('The existing Blueprint Launch Site remains the validation-stage microsite already included in the $97 product.')) {
   fail('v2.1.3 does not preserve the existing Launch Site boundary.');
 }
-if (!amendment.source.includes('No commercial, evidence, safety, ownership, fulfillment, or release requirement is waived')) {
+if (!previousAmendment.source.includes('No commercial, evidence, safety, ownership, fulfillment, or release requirement is waived')) {
   fail('v2.1.3 outcome-protection clause is missing or altered.');
 }
-if (!changeRecord.source.includes('Weakening approved outcomes remains prohibited.')) {
+if (!previousChangeRecord.source.includes('Weakening approved outcomes remains prohibited.')) {
   fail('v2.1.3 change record does not explicitly preserve outcome protection.');
+}
+
+const spaDecision =
+  'Custom Website output is a React/Vite single-page application deployed on Cloudflare. GhostTown and MemoriesMyStory are the first two governed template reference models.';
+if (!amendment.source.includes(spaDecision)) {
+  fail('v2.1.4 Cloudflare SPA/template product decision is missing or altered.');
+}
+for (const required of [
+  'ghosttown_conversion',
+  'memories_story_editorial',
+  '"not_found_handling": "single-page-application"',
+  'The existing Blueprint Launch Site remains the validation-stage microsite already included in the $97 product.',
+  'The Custom Website remains a separate post-Blueprint product capability.',
+  'No commercial, evidence, safety, ownership, fulfillment, or release requirement is waived by this amendment.'
+]) {
+  if (!amendment.source.includes(required)) {
+    fail(`v2.1.4 SPA template amendment is missing required contract text: ${required}`);
+  }
+}
+if (!changeRecord.source.includes('Weakening approved outcomes remains prohibited.')) {
+  fail('v2.1.4 change record does not explicitly preserve outcome protection.');
 }
 
 if (manifest?.outcomeProtection?.weakeningAllowed !== false) {
@@ -111,6 +134,7 @@ for (const required of [
 console.log(
   `[blueprint-source] verified ${manifest.amendment.version} ` +
   `${amendment.actualHash} (${manifest.changeId}); base ${manifest.canonical.version} ${canonical.actualHash}; ` +
+  `platform ${manifest.platformAmendment.version} ${platformAmendment.actualHash}; ` +
   `previous ${manifest.previousAmendment.version} ${previousAmendment.actualHash}; ` +
   `change-record ${changeRecord.actualHash}`
 );
