@@ -14,7 +14,7 @@
     "production_research_must_remain_disabled_before_explicit_release": true
   },
   "gates": [
-    {"id":1,"phase":0,"slug":"freeze-contract","title":"Freeze canonical GhostTown contract/hash including v2.1.3 Custom Website capability amendment","mode":"auto","handler":"freezeContract","mutation_scope":"none","requires_user_input":false},
+    {"id":1,"phase":0,"slug":"freeze-contract","title":"Freeze canonical GhostTown contract/hash including v2.1.4 Cloudflare SPA template amendment","mode":"auto","handler":"freezeContract","mutation_scope":"none","requires_user_input":false},
     {"id":2,"phase":1,"slug":"acceptance-reachability","title":"Verify acceptance Worker and Pages are reachable","mode":"auto","handler":"acceptanceReachability","mutation_scope":"none","requires_user_input":false},
     {"id":3,"phase":1,"slug":"acceptance-resource-identity","title":"Verify isolated KV, D1, private R2, and Workflow identities","mode":"auto","handler":"acceptanceResourceIdentity","mutation_scope":"none","requires_user_input":false},
     {"id":4,"phase":1,"slug":"acceptance-isolation","title":"Verify acceptance bindings, URLs, Vertex AI Gateway requirement, research-off state, CORS, and frontend/API isolation","mode":"auto","handler":"acceptanceIsolation","mutation_scope":"none","requires_user_input":false},
