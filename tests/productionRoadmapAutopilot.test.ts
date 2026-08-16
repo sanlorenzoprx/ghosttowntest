@@ -60,7 +60,7 @@ describe('production roadmap autopilot contract', () => {
     expect(preflight).toContain('secret_values_recorded: false');
   });
 
-  it('has built-in automation through live provider smokes and first-party Vertex and checkout adapters', async () => {
+  it('has built-in automation through live provider smokes and first-party Vertex, checkout, and webhook adapters', async () => {
     const config = JSON.parse(await readText('config/production-roadmap-47-gates.json')) as {
       gates: Array<{ id: number; mode: string; handler?: string; hook_env?: string }>;
     };
@@ -73,10 +73,13 @@ describe('production roadmap autopilot contract', () => {
     expect(config.gates[13]).toMatchObject({ id: 14, mode: 'hook', hook_env: 'ROADMAP_GATE_14_COMMAND' });
     expect(config.gates[14]).toMatchObject({ id: 15, mode: 'hook', hook_env: 'ROADMAP_GATE_15_COMMAND' });
     expect(config.gates[17]).toMatchObject({ id: 18, mode: 'hook', hook_env: 'ROADMAP_GATE_18_COMMAND' });
+    expect(config.gates[18]).toMatchObject({ id: 19, mode: 'hook', hook_env: 'ROADMAP_GATE_19_COMMAND' });
     expect(wrapper).toContain('roadmap-gate14-vertex-selection-smoke.mjs');
     expect(wrapper).toContain('roadmap-gate15-vertex-structured-smoke.mjs');
     expect(wrapper).toContain('roadmap-gate18-checkout-routing-smoke.mjs');
+    expect(wrapper).toContain('roadmap-gate19-stripe-webhook-registration-smoke.mjs');
     expect(wrapper).toContain('ROADMAP_GATE_18_COMMAND: sanctionedGate18Command');
+    expect(wrapper).toContain('ROADMAP_GATE_19_COMMAND: sanctionedGate19Command');
   });
 
   it('preserves argument boundaries for Windows shell execution used by remote D1 and bundle checks', async () => {
@@ -174,5 +177,20 @@ describe('production roadmap autopilot contract', () => {
     expect(gate18).toContain("created.status !== 'checkout_created'");
     expect(gate18).toContain("secret_values_recorded: false");
     expect(gate18).not.toMatch(/card|payment_method_data|4242 4242/i);
+  });
+
+  it('runs Gate 19 as a read-only remote Stripe test-mode webhook registration probe', async () => {
+    const gate19 = await readText('scripts/roadmap-gate19-stripe-webhook-registration-smoke.mjs');
+
+    expect(gate19).toContain("const EXPECTED_WEBHOOK_URL = `${WORKER_URL}/api/webhook/stripe`");
+    expect(gate19).toContain("const SIGNING_SECRET_NAME = 'STRIPE_WEBHOOK_SECRET'");
+    expect(gate19).toContain("fetch('https://api.stripe.com/v1/webhook_endpoints?limit=100'");
+    expect(gate19).toContain("endpoint.livemode !== false");
+    expect(gate19).toContain("endpoint.status !== 'enabled'");
+    expect(gate19).toContain("enabledEvents.includes('checkout.session.completed')");
+    expect(gate19).toContain("secretValuesRecorded: false");
+    expect(gate19).toContain("runWrangler(['deploy', '--env', 'acceptance'])");
+    expect(gate19).not.toContain('POST /v1/webhook_endpoints');
+    expect(gate19).not.toMatch(/whsec_[A-Za-z0-9]{8,}/);
   });
 });
