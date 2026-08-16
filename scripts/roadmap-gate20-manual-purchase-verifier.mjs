@@ -120,7 +120,10 @@ async function verifyPurchase(env) {
     if (order.stripeMode !== 'test') continue;
     if (order.offerId !== GHOSTTOWN_30_DAY_PLAN_V1.offerId) continue;
     if (!order.paidAt || !order.stripeCheckoutSessionId || !order.stripeEventId) continue;
-    if (!['awaiting_seeds', 'paid', 'researching', 'generating', 'ready'].includes(order.status)) continue;
+    // Gate 20 proves the human Stripe purchase, not successful downstream fulfillment.
+    // A paid order that later failed in research/generation still satisfies this gate
+    // and must be carried forward to the fulfillment recovery gates without charging again.
+    if (!['awaiting_seeds', 'paid', 'researching', 'generating', 'ready', 'failed'].includes(order.status)) continue;
     candidates.push(order);
   }
 
