@@ -11,11 +11,11 @@ const CONFIG_PATH = join(ROOT, 'config', 'production-roadmap-47-gates.json');
 const WORKER_URL = 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev';
 const PAGES_URL = 'https://ghosttown-acceptance.pages.dev';
 const BRANCH = 'feat/launch-blueprint-spa';
-const ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1';
-const AMENDMENT_VERSION = '2.1.3';
-const AMENDMENT_SHA = '95fc94b75b88143a64896f7f7a030c6d00ae10f4';
+const ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1+cloudflare-spa-templates-v1';
+const AMENDMENT_VERSION = '2.1.4';
+const AMENDMENT_SHA = 'e42d70aacef6f36f2f94f5a17dfe4bb58376799e';
 const BASE_SHA = '616c691e6b4c9cea93615963a07375d13ffba57f';
-const CHANGE_ID = 'GT-BP-2026-08-15-V2.1.3';
+const CHANGE_ID = 'GT-BP-2026-08-15-V2.1.4';
 const PROVIDER_SECRETS = [
   'DATAFORSEO_LOGIN',
   'DATAFORSEO_PASSWORD',
@@ -178,7 +178,9 @@ pass(state, config, 1, {
   canonical_base_blob_sha1: BASE_SHA,
   amendment_version: AMENDMENT_VERSION,
   amendment_blob_sha1: AMENDMENT_SHA,
-  change_id: CHANGE_ID
+  change_id: CHANGE_ID,
+  custom_website_runtime: 'cloudflare_spa',
+  website_templates: ['ghosttown_conversion', 'memories_story_editorial']
 });
 
 const wrangler = readFileSync(join(ROOT, 'wrangler.toml'), 'utf8');
@@ -209,7 +211,7 @@ for (const token of requiredAcceptance) {
 }
 for (const forbidden of ['GEMINI_RESEARCH_MODEL', 'GEMINI_GOOGLE_SEARCH_MODEL', 'AI_MODEL =', 'ACTION_PLAN_AI_MODEL =']) {
   if (acceptanceVars.includes(forbidden) || productionVars.includes(forbidden)) {
-    throw new Error(`Legacy active generative config remains after v2.1.3: ${forbidden}`);
+    throw new Error(`Legacy active generative config remains after v2.1.4: ${forbidden}`);
   }
 }
 if (!productionVars.includes('DISTRIBUTION_FOOTPRINT_ENABLED = "false"')) throw new Error('Production paid research is not explicitly disabled.');
@@ -222,6 +224,8 @@ pass(state, config, 4, {
   gateway_id: 'default',
   vertex_location: 'us',
   custom_website_capability: 'separate_post_blueprint_service',
+  custom_website_runtime: 'cloudflare_spa',
+  website_templates: ['ghosttown_conversion', 'memories_story_editorial'],
   production_auto_deploy: false,
   acceptance_research_disabled: true,
   production_research_disabled: true
@@ -252,10 +256,12 @@ pass(state, config, 8, {
     custom_website: 'gemini-3.5-flash'
   },
   website_capability_separate_from_blueprint: true,
+  website_runtime: 'cloudflare_spa',
+  website_templates: ['ghosttown_conversion', 'memories_story_editorial'],
   required: true,
   secret_names_present: VERTEX_SECRETS,
   secret_values_recorded: false
 });
 
 save(state);
-console.log('Vertex AI Gateway + Custom Website capability preflight PASS: Gates 1, 4, 7, and 8 revalidated without exposing secret values.');
+console.log('Vertex AI Gateway + Custom Website Cloudflare SPA template preflight PASS: Gates 1, 4, 7, and 8 revalidated without exposing secret values.');
