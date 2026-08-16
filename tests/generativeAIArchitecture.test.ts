@@ -65,30 +65,43 @@ describe('GhostTown generative AI architecture', () => {
     expect(templates).toContain("referenceProduct: 'MemoriesMyStory'");
   });
 
-  it('documents and hash-locks the v2.1.2 platform decision plus the v2.1.3 website capability without changing the base canonical blob', async () => {
+  it('documents and hash-locks the full v2.1.2 → v2.1.3 → v2.1.4 amendment chain without changing the base canonical blob', async () => {
     const platformAmendment = await readText('docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_2_VERTEX_AI_PLATFORM_AMENDMENT.md');
     const websiteAmendment = await readText('docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_3_CUSTOM_WEBSITE_CAPABILITY_AMENDMENT.md');
+    const spaAmendment = await readText('docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_4_CLOUDFLARE_SPA_TEMPLATE_AMENDMENT.md');
     const evidence = JSON.parse(await readText('docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1-evidence-chain.json')) as {
       canonical: { version: string; gitBlobSha1: string };
+      platformAmendment: { version: string; gitBlobSha1: string };
       previousAmendment: { version: string; gitBlobSha1: string };
       amendment: { version: string; gitBlobSha1: string };
       changeId: string;
+      previousChangeId: string;
     };
 
     expect(platformAmendment).toContain('Cloudflare remains the application platform; Google Vertex AI becomes GhostTown\'s canonical generative-AI platform.');
     expect(websiteAmendment).toContain('Custom website creation is a separate post-Blueprint `WebsiteCreationService` capability');
+    expect(spaAmendment).toContain('Custom Website output is a React/Vite single-page application deployed on Cloudflare.');
+    expect(spaAmendment).toContain('ghosttown_conversion');
+    expect(spaAmendment).toContain('memories_story_editorial');
+    expect(spaAmendment).toContain('"not_found_handling": "single-page-application"');
+
     expect(evidence.canonical).toEqual(expect.objectContaining({
       version: '2.1.1',
       gitBlobSha1: '616c691e6b4c9cea93615963a07375d13ffba57f'
     }));
-    expect(evidence.previousAmendment).toEqual(expect.objectContaining({
+    expect(evidence.platformAmendment).toEqual(expect.objectContaining({
       version: '2.1.2',
       gitBlobSha1: '5f63aa4cd694120018413c4c91f89df5ed76897e'
     }));
-    expect(evidence.amendment).toEqual(expect.objectContaining({
+    expect(evidence.previousAmendment).toEqual(expect.objectContaining({
       version: '2.1.3',
       gitBlobSha1: '95fc94b75b88143a64896f7f7a030c6d00ae10f4'
     }));
-    expect(evidence.changeId).toBe('GT-BP-2026-08-15-V2.1.3');
+    expect(evidence.amendment).toEqual(expect.objectContaining({
+      version: '2.1.4',
+      gitBlobSha1: 'e42d70aacef6f36f2f94f5a17dfe4bb58376799e'
+    }));
+    expect(evidence.previousChangeId).toBe('GT-BP-2026-08-15-V2.1.3');
+    expect(evidence.changeId).toBe('GT-BP-2026-08-15-V2.1.4');
   });
 });
