@@ -30,6 +30,14 @@ const json = (body: unknown, status = 200, headers: HeadersInit = {}) => new Res
   headers: { 'Content-Type': 'application/json', ...headers }
 });
 
+const ACTIVE_BLUEPRINT_WORKFLOW_STATUSES = new Set([
+  'queued',
+  'running',
+  'paused',
+  'waiting',
+  'waitingForPause'
+]);
+
 function normalizedEmail(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -57,6 +65,17 @@ function executionMetadata(blueprint: GhostTownLaunchBlueprint, progress: Bluepr
     schemaVersion: DAILY_EXECUTION_LOG_SCHEMA_VERSION,
     acsReadiness: deriveAcsReadinessAssessment(progress as unknown as ExecutionProgressSnapshot)
   };
+}
+
+async function workflowStatusForRetry(env: Env, workflowId: string | undefined): Promise<string | null> {
+  if (!workflowId || !env.LAUNCH_BLUEPRINT_WORKFLOW) return null;
+  try {
+    const instance = await env.LAUNCH_BLUEPRINT_WORKFLOW.get(workflowId);
+    return (await instance.status()).status;
+  } catch (error) {
+    console.warn('Launch Blueprint retry could not inspect Workflow status', workflowId, error);
+    return null;
+  }
 }
 
 export async function ownedLaunchBlueprintOrder(request: Request, env: Env, orderId: string, requireReady = true): Promise<{ order: PaidTestOrder; email: string } | Response> {
@@ -215,7 +234,25 @@ export async function handleLaunchBlueprintRetry(request: Request, env: Env, ord
     return json({ error: 'Confirm competitor seeds before starting research', nextAction: 'confirm_competitor_seeds' }, 409);
   }
   if (owned.order.status === 'researching' || owned.order.status === 'generating') {
-    return json({ error: 'A Blueprint Workflow is already running', workflowId: owned.order.fulfillmentWorkflowId }, 409);
+    const workflowStatus = await workflowStatusForRetry(env, owned.order.fulfillmentWorkflowId);
+    if (!workflowStatus || ACTIVE_BLUEPRINT_WORKFLOW_STATUSES.has(workflowStatus) || workflowStatus === 'unknown') {
+      return json({
+        error: 'A Blueprint Workflow is already running',
+        workflowId: owned.order.fulfillmentWorkflowId,
+        workflowStatus: workflowStatus || 'unavailable'
+      }, 409);
+    }
+    if (workflowStatus === 'complete') {
+      return json({
+        error: 'The Blueprint Workflow completed; refresh the Dashboard before retrying',
+        workflowId: owned.order.fulfillmentWorkflowId,
+        workflowStatus
+      }, 409);
+    }
+    // The persisted order can remain researching/generating when an errored or
+    // terminated Workflow exhausts resources before its catch handler updates KV.
+    // Terminal Workflow truth wins here; the Stripe session is still reverified
+    // below before a new, uniquely-idempotent Workflow instance can be queued.
   }
   if (!owned.order.stripeCheckoutSessionId) return json({ error: 'Stripe checkout session is missing' }, 409);
   const lockKey = `launch_blueprint_retry_${orderId}`;
