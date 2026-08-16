@@ -22,5 +22,11 @@ export function paidBlueprintResearchEnabled(env: Env, order: PaidTestOrder): bo
 export function researchEnvForPaidBlueprint(env: Env, order: PaidTestOrder): Env {
   if (!paidBlueprintResearchEnabled(env, order)) return env;
   if (env.DISTRIBUTION_FOOTPRINT_ENABLED === 'true') return env;
-  return { ...env, DISTRIBUTION_FOOTPRINT_ENABLED: 'true' };
+
+  // Inherit from the real Worker env instead of spreading it. Cloudflare
+  // bindings remain available through the prototype while this acceptance-only
+  // view overrides one feature flag for the verified paid Workflow.
+  const researchEnv = Object.create(env) as Env;
+  researchEnv.DISTRIBUTION_FOOTPRINT_ENABLED = 'true';
+  return researchEnv;
 }
