@@ -13,6 +13,7 @@ const GATE11_RETRY_PREP = 'scripts/roadmap-gate11-retry-prep.mjs';
 const GATE14_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate14-vertex-selection-smoke.mjs');
 const GATE15_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate15-vertex-structured-smoke.mjs');
 const GATE18_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate18-checkout-routing-smoke.mjs');
+const GATE19_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate19-stripe-webhook-registration-smoke.mjs');
 const RUNNER = 'scripts/production-roadmap-autopilot.mjs';
 const PREVIOUS_GENERATIVE_ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1';
 const GENERATIVE_ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1+cloudflare-spa-templates-v1';
@@ -28,6 +29,8 @@ const sanctionedGate15Command = process.env.ROADMAP_GATE_15_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(GATE15_ADAPTER)}`;
 const sanctionedGate18Command = process.env.ROADMAP_GATE_18_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(GATE18_ADAPTER)}`;
+const sanctionedGate19Command = process.env.ROADMAP_GATE_19_COMMAND?.trim()
+  || `${quoted(process.execPath)} ${quoted(GATE19_ADAPTER)}`;
 
 function node(script, args = []) {
   return spawnSync(process.execPath, ['--require', COMPAT, script, ...args], {
@@ -39,7 +42,8 @@ function node(script, args = []) {
       ...process.env,
       ROADMAP_GATE_14_COMMAND: sanctionedGate14Command,
       ROADMAP_GATE_15_COMMAND: sanctionedGate15Command,
-      ROADMAP_GATE_18_COMMAND: sanctionedGate18Command
+      ROADMAP_GATE_18_COMMAND: sanctionedGate18Command,
+      ROADMAP_GATE_19_COMMAND: sanctionedGate19Command
     }
   });
 }
