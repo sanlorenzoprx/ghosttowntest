@@ -31,9 +31,23 @@ function runWrangler(args) {
   return `${result.stdout || ''}\n${result.stderr || ''}`;
 }
 
+function parseSecretNames(text) {
+  const names = new Set();
+  const clean = String(text || '').replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
+  for (const match of clean.matchAll(/"name"\s*:\s*"([A-Z][A-Z0-9_]*)"/g)) names.add(match[1]);
+  for (const line of clean.split(/\r?\n/)) {
+    const cell = line.match(/[│|]\s*([A-Z][A-Z0-9_]*)\s*[│|]/);
+    if (cell) names.add(cell[1]);
+    const plain = line.trim().match(/^([A-Z][A-Z0-9_]{2,})$/);
+    if (plain) names.add(plain[1]);
+  }
+  return names;
+}
+
 function assertSigningSecretNameConfigured() {
-  const output = runWrangler(['secret', 'list', '--env', 'acceptance', '--json']);
-  if (!new RegExp(`\\"name\\"\\s*:\\s*\\"${SIGNING_SECRET_NAME}\\"`).test(output)) {
+  const output = runWrangler(['secret', 'list', '--env', 'acceptance']);
+  const names = parseSecretNames(output);
+  if (!names.has(SIGNING_SECRET_NAME)) {
     throw new Error(`Gate 19 acceptance secret inventory does not contain ${SIGNING_SECRET_NAME}`);
   }
 }
