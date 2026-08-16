@@ -80,8 +80,7 @@ async function runStructuredSmoke(env) {
         systemInstruction: 'Return only the requested schema. This is a synthetic acceptance probe; do not add facts.',
         prompt: 'Return {"ok":true,"stage":"' + stage + '"}.',
         responseSchema: RESPONSE_SCHEMA,
-        temperature: 0,
-        maxOutputTokens: 256,
+        maxOutputTokens: 4096,
         timeoutMs: 30000
       });
       if (generated.data?.ok !== true || generated.data?.stage !== stage) {
