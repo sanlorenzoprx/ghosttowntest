@@ -5,6 +5,10 @@ export type WebsiteStylePreset =
   | 'premium_service'
   | 'bold_validation';
 
+export type WebsiteTemplateId =
+  | 'ghosttown_conversion'
+  | 'memories_story_editorial';
+
 export type WebsiteComponentId =
   | 'hero'
   | 'problem'
@@ -35,6 +39,7 @@ export interface WebsiteSectionSpec {
 
 export interface CustomWebsiteSpec {
   schemaVersion: 'custom-website-spec-v1';
+  templateId: WebsiteTemplateId;
   businessName: string;
   metadataTitle: string;
   metadataDescription: string;
@@ -63,6 +68,8 @@ export interface WebsiteBuildFile {
 
 export interface WebsiteBuildResult {
   schemaVersion: 'custom-website-build-v1';
+  runtime: 'cloudflare_spa';
+  templateId: WebsiteTemplateId;
   buildId: string;
   createdAt: string;
   specSha256: string;
@@ -102,6 +109,8 @@ export interface WebsiteCreationReceipt {
   generatedAt: string;
   websiteModel: string;
   generationResponseHash: string;
+  templateId: WebsiteTemplateId;
+  runtime: 'cloudflare_spa';
   buildId: string;
   assetCount: number;
   repairCount: number;
