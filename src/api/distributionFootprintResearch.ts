@@ -588,7 +588,30 @@ function selectionPrompt(order: PaidTestOrder, verdict: EvaluationResult, candid
     'script-07-interview_invitation',
     'script-08-offer_test_invitation'
   ];
-  return `You are structuring the paid GhostTown Media & Distribution Network.\n\nIdea: ${verdict.idea.ideaName}\nDescription: ${verdict.idea.description}\nCustomer: ${order.intake.targetBuyer}\nProblem: ${order.intake.problem}\nGeography: ${order.intake.geography || 'not specified'}\nConfirmed competitor seeds: ${(order.intake.competitorSeeds || []).map(seed => `${seed.name} (${seed.domain})`).join(', ')}\n\nSelect 10-25 high-signal targets only from the immutable candidate IDs below. Prioritize creators, podcasts, newsletters/publications, events, associations, review sites, and complementary partners that can create interviews, reviews, guest content, partnerships, referrals, or qualified customer conversations. Generic communities are secondary. Do not invent a target, URL, metric, rule, contact, or claim. Treat factualSignals and competitorEvidence as the only evidence.\n\nFor each selected target:\n- explain why its audience fits this exact buyer;\n- state a realistic public access path without inventing private contact data;\n- prepare one concrete asset GhostTown can provide, such as an interview outline, review brief, guest article outline, checklist, event talk proposal, or partner referral one-pager;\n- choose one outreachScriptId from ${allowedScripts.join(', ')};\n- use participationRules to state that current submission/contact rules must be checked unless evidence confirms more;\n- keep firstAction immediately executable.\n\nReturn only JSON:\n{"channels":[{"candidateId":"candidate id","targetType":"podcast|youtube_creator|newsletter_or_publication|event|association|review_site|complementary_partner|community","relevance":"audience fit","participationRules":"public rule or cautious instruction","recommendedApproach":"specific relationship-first strategy","usefulTopic":"specific angle","risk":"fit, timing, sponsorship, moderation, or access risk","firstAction":"one concrete action","audienceOwner":"host, creator, editor, organizer, or organization","accessPath":"public contact, submission, guest, review, sponsorship, speaker, partnership, or participation route","preparedAsset":"finished asset to use","outreachScriptId":"allowed script id"}]}\n\nCandidates:\n${JSON.stringify(candidates.map(candidate => ({
+  return `You are structuring the paid GhostTown Media & Distribution Network.
+
+Idea: ${verdict.idea.ideaName}
+Description: ${verdict.idea.description}
+Customer: ${order.intake.targetBuyer}
+Problem: ${order.intake.problem}
+Geography: ${order.intake.geography || 'not specified'}
+Confirmed competitor seeds: ${(order.intake.competitorSeeds || []).map(seed => `${seed.name} (${seed.domain})`).join(', ')}
+
+Select 10-25 high-signal targets only from the immutable candidate IDs below. Prioritize creators, podcasts, newsletters/publications, events, associations, review sites, and complementary partners that can create interviews, reviews, guest content, partnerships, referrals, or qualified customer conversations. Generic communities are secondary. Do not invent a target, URL, metric, rule, contact, or claim. Treat factualSignals and competitorEvidence as the only evidence.
+
+For each selected target:
+- explain why its audience fits this exact buyer;
+- state a realistic public access path without inventing private contact data;
+- prepare one concrete asset GhostTown can provide, such as an interview outline, review brief, guest article outline, checklist, event talk proposal, or partner referral one-pager;
+- choose one outreachScriptId from ${allowedScripts.join(', ')};
+- use participationRules to state that current submission/contact rules must be checked unless evidence confirms more;
+- keep firstAction immediately executable.
+
+Return only JSON:
+{"channels":[{"candidateId":"candidate id","targetType":"podcast|youtube_creator|newsletter_or_publication|event|association|review_site|complementary_partner|community","relevance":"audience fit","participationRules":"public rule or cautious instruction","recommendedApproach":"specific relationship-first strategy","usefulTopic":"specific angle","risk":"fit, timing, sponsorship, moderation, or access risk","firstAction":"one concrete action","audienceOwner":"host, creator, editor, organizer, or organization","accessPath":"public contact, submission, guest, review, sponsorship, speaker, partnership, or participation route","preparedAsset":"finished asset to use","outreachScriptId":"allowed script id"}]}
+
+Candidates:
+${JSON.stringify(candidates.map(candidate => ({
     candidateId: candidate.candidateId,
     provider: candidate.provider,
     targetTypeHint: candidate.targetTypeHint,
