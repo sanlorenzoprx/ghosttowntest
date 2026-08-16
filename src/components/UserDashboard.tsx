@@ -98,6 +98,17 @@ export default function UserDashboard({
     void loadPaidPlans();
   }, []);
 
+  useEffect(() => {
+    const hasWorkingPlan = paidPlans.some(
+      (plan) => plan.status === "researching" || plan.status === "generating",
+    );
+    if (!hasWorkingPlan) return;
+    const timer = window.setInterval(() => {
+      void loadPaidPlans();
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [paidPlans]);
+
   const openResult = async (resultId: string) => {
     setOpeningResultId(resultId);
     setError("");
