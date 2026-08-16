@@ -1,4 +1,5 @@
 import type {
+  WebsiteComponentId,
   WebsiteStylePreset,
   WebsiteTemplateId
 } from '../types/customWebsite';
@@ -10,6 +11,7 @@ export interface WebsiteSpaTemplateDefinition {
   purpose: string;
   designPrinciples: readonly string[];
   preferredStylePresets: readonly WebsiteStylePreset[];
+  componentOrder: readonly WebsiteComponentId[];
   tokens: {
     background: string;
     surface: string;
@@ -39,6 +41,18 @@ export const WEBSITE_SPA_TEMPLATE_REGISTRY: readonly WebsiteSpaTemplateDefinitio
       'Large readable type, mobile-first action hierarchy, and restrained motion-ready surfaces.'
     ],
     preferredStylePresets: ['clean_saas', 'local_trust', 'bold_validation'],
+    componentOrder: [
+      'hero',
+      'problem',
+      'solution',
+      'comparison',
+      'how_it_works',
+      'proof',
+      'pricing',
+      'faq',
+      'lead_capture',
+      'footer'
+    ],
     tokens: {
       background: '#F6F3ED',
       surface: '#FFFFFF',
@@ -66,6 +80,18 @@ export const WEBSITE_SPA_TEMPLATE_REGISTRY: readonly WebsiteSpaTemplateDefinitio
       'Primary conversion remains clear, but urgency is created through meaning and relevance rather than visual pressure.'
     ],
     preferredStylePresets: ['warm_editorial', 'premium_service'],
+    componentOrder: [
+      'hero',
+      'problem',
+      'proof',
+      'solution',
+      'how_it_works',
+      'comparison',
+      'pricing',
+      'faq',
+      'lead_capture',
+      'footer'
+    ],
     tokens: {
       background: '#F7F1E8',
       surface: '#FFFDF8',
