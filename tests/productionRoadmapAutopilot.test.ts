@@ -60,7 +60,7 @@ describe('production roadmap autopilot contract', () => {
     expect(preflight).toContain('secret_values_recorded: false');
   });
 
-  it('has built-in automation through live provider smokes and first-party Vertex gate adapters', async () => {
+  it('has built-in automation through live provider smokes and first-party Vertex and checkout adapters', async () => {
     const config = JSON.parse(await readText('config/production-roadmap-47-gates.json')) as {
       gates: Array<{ id: number; mode: string; handler?: string; hook_env?: string }>;
     };
@@ -72,8 +72,11 @@ describe('production roadmap autopilot contract', () => {
     }
     expect(config.gates[13]).toMatchObject({ id: 14, mode: 'hook', hook_env: 'ROADMAP_GATE_14_COMMAND' });
     expect(config.gates[14]).toMatchObject({ id: 15, mode: 'hook', hook_env: 'ROADMAP_GATE_15_COMMAND' });
+    expect(config.gates[17]).toMatchObject({ id: 18, mode: 'hook', hook_env: 'ROADMAP_GATE_18_COMMAND' });
     expect(wrapper).toContain('roadmap-gate14-vertex-selection-smoke.mjs');
     expect(wrapper).toContain('roadmap-gate15-vertex-structured-smoke.mjs');
+    expect(wrapper).toContain('roadmap-gate18-checkout-routing-smoke.mjs');
+    expect(wrapper).toContain('ROADMAP_GATE_18_COMMAND: sanctionedGate18Command');
   });
 
   it('preserves argument boundaries for Windows shell execution used by remote D1 and bundle checks', async () => {
@@ -158,5 +161,18 @@ describe('production roadmap autopilot contract', () => {
     expect(gate15).toContain("provider !== 'google_vertex_ai'");
     expect(gate15).toContain("gateway !== 'cloudflare_ai_gateway'");
     expect(gate15).toContain("runWrangler(['deploy', '--env', 'acceptance'])");
+  });
+
+  it('runs Gate 18 as a live Stripe test-mode checkout routing probe without paying or using production redirects', async () => {
+    const gate18 = await readText('scripts/roadmap-gate18-checkout-routing-smoke.mjs');
+
+    expect(gate18).toContain("'/api/paid-test/checkout'").or.toContain('`${WORKER_URL}/api/paid-test/checkout`');
+    expect(gate18).toContain("stripeUrl.hostname !== 'checkout.stripe.com'");
+    expect(gate18).toContain("checkout.body.sessionUrl.includes('cs_test_')");
+    expect(gate18).toContain("const PAGES_URL = 'https://ghosttown-acceptance.pages.dev'");
+    expect(gate18).toContain("const PRODUCTION_HOSTS = ['ghosttowntest.com', 'lit-ghosttown.app']");
+    expect(gate18).toContain("created.status !== 'checkout_created'");
+    expect(gate18).toContain("secret_values_recorded: false");
+    expect(gate18).not.toMatch(/card|payment_method_data|4242 4242/i);
   });
 });
