@@ -39,6 +39,36 @@ async function fetchWithTimeout(url, init = {}, timeoutMs = 120000) {
   }
 }
 
+function sleep(ms) {
+  return new Promise(resolvePromise => setTimeout(resolvePromise, ms));
+}
+
+async function postSmokeWithPropagationRetry(token) {
+  const maxAttempts = 8;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const response = await fetchWithTimeout(`${WORKER_URL}${SMOKE_PATH}`, {
+      method: 'POST',
+      headers: { 'X-Roadmap-Acceptance-Token': token, 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    const text = await response.text();
+    let body = null;
+    try {
+      body = JSON.parse(text);
+    } catch {}
+
+    const canonicalWorkerStillServing = response.status === 404
+      && (body?.error === 'Endpoint not found' || !body);
+    if (!canonicalWorkerStillServing || attempt === maxAttempts) {
+      return { response, text, body };
+    }
+
+    console.log(`Gate 15 temporary Worker not propagated yet; retrying ${attempt}/${maxAttempts}...`);
+    await sleep(1500 * attempt);
+  }
+  throw new Error('Gate 15 temporary Worker propagation retry exhausted unexpectedly.');
+}
+
 function temporaryWorkerSource(token) {
   const serializedToken = JSON.stringify(token);
   return `import app from '../src/api/worker.ts';
@@ -143,16 +173,8 @@ try {
   runWrangler(['deploy', '.roadmap-autopilot/gate15-vertex-structured-smoke-entry.ts', '--env', 'acceptance']);
   wrappedDeployed = true;
 
-  const response = await fetchWithTimeout(`${WORKER_URL}${SMOKE_PATH}`, {
-    method: 'POST',
-    headers: { 'X-Roadmap-Acceptance-Token': token, 'Content-Type': 'application/json' },
-    body: '{}'
-  });
-  const text = await response.text();
-  let body;
-  try {
-    body = JSON.parse(text);
-  } catch {
+  const { response, text, body } = await postSmokeWithPropagationRetry(token);
+  if (!body) {
     throw new Error(`Gate 15 smoke endpoint returned non-JSON HTTP ${response.status}`);
   }
   if (!response.ok || body?.ok !== true) {
