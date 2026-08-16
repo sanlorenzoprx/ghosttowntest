@@ -18,11 +18,12 @@ const MIN_PROVIDER_TYPES = 2;
 const MIN_CHANNELS = 10;
 const MAX_CHANNELS = 25;
 const MAX_CANDIDATES_FOR_MODEL = 80;
-// Workers Free allows 50 external subrequests per Workflow instance. Keep
-// independent page verification bounded so provider research plus Vertex
-// selection/generation retains deterministic headroom under that ceiling.
-const MAX_DATAFORSEO_PAGE_VERIFICATIONS_PER_QUERY = 3;
-const MAX_PODCAST_PAGE_VERIFICATIONS_PER_QUERY = 1;
+// Paid Workflows provide enough subrequest headroom to preserve the original
+// research depth. Keep broad direct-source verification quality-first here;
+// the discovery -> shortlist -> finalist verification optimization is tracked
+// separately and must not be used to weaken the evidence standard.
+const MAX_DATAFORSEO_PAGE_VERIFICATIONS_PER_QUERY = 16;
+const MAX_PODCAST_PAGE_VERIFICATIONS_PER_QUERY = 12;
 
 export type DistributionProvider = 'dataforseo_backlinks' | 'podcast_index' | 'youtube_api';
 
