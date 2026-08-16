@@ -166,7 +166,7 @@ describe('production roadmap autopilot contract', () => {
   it('runs Gate 18 as a live Stripe test-mode checkout routing probe without paying or using production redirects', async () => {
     const gate18 = await readText('scripts/roadmap-gate18-checkout-routing-smoke.mjs');
 
-    expect(gate18).toContain("'/api/paid-test/checkout'").or.toContain('`${WORKER_URL}/api/paid-test/checkout`');
+    expect(gate18).toContain('/api/paid-test/checkout');
     expect(gate18).toContain("stripeUrl.hostname !== 'checkout.stripe.com'");
     expect(gate18).toContain("checkout.body.sessionUrl.includes('cs_test_')");
     expect(gate18).toContain("const PAGES_URL = 'https://ghosttown-acceptance.pages.dev'");
