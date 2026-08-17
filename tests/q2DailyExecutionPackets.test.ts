@@ -24,7 +24,26 @@ const verdict = {
 
 const order = { orderId: 'q2-order', email: 'owner@example.test', verdictId: verdict.resultId, status: 'generating', artifactType: 'launch_blueprint_v2', planVersion: '2.0', intake: { verdictId: verdict.resultId, targetBuyer: 'Independent ecommerce stores with active checkout traffic', problem: 'Checkout accessibility friction/support', currentWorkaround: 'Sporadic QA and generic scans', offerHypothesis: 'Fixed-scope checkout accessibility audit', expectedPrice: '$300-$500' }, createdAt: verdict.generatedAt, updatedAt: verdict.generatedAt } as PaidTestOrder;
 
-function blueprint() { return upgradeGhostTownLaunchBlueprintToV21(launchBlueprintFixture(), order, verdict); }
+function blueprint() {
+  const base = launchBlueprintFixture();
+  // The golden must be one coherent paid product, not a Family Game Night base
+  // with an unrelated ecommerce verdict injected afterward.
+  base.executiveDecision.recommendedInitialCustomer = '10 independent ecommerce stores with active checkout traffic';
+  base.executiveDecision.originalIdea = verdict.idea.description;
+  base.offer.offerName = 'Fixed-Scope Checkout Accessibility Audit';
+  base.offer.targetCustomer = '10 independent ecommerce stores with active checkout traffic';
+  base.offer.painfulProblem = 'Checkout accessibility friction/support';
+  base.offer.oneSentencePromise = 'A fixed-scope checkout accessibility audit with a prioritized issue list and 30-minute review.';
+  base.offer.initialTestPrice = '$300-$500';
+  base.positioning.firstTargetCustomer = base.offer.targetCustomer;
+  base.positioning.positioningStatement = `For ${base.offer.targetCustomer}: ${base.offer.oneSentencePromise}`;
+  base.landingPageCopy.headline = 'Find checkout accessibility friction before customers report it.';
+  base.landingPageCopy.offerDescription = base.offer.oneSentencePromise;
+  base.launchSite.offer.offerName = base.offer.offerName;
+  base.launchSite.offer.targetCustomer = base.offer.targetCustomer;
+  base.launchSite.offer.headline = base.landingPageCopy.headline;
+  return upgradeGhostTownLaunchBlueprintToV21(base, order, verdict);
+}
 
 describe('Q2 DailyExecutionPacket and DeliverableAsset', () => {
   it('creates 30 finished, lineage-preserving, alias-compatible customer packets', () => {
@@ -44,6 +63,8 @@ describe('Q2 DailyExecutionPacket and DeliverableAsset', () => {
     expect(day4.assets[0].assetId).toBe('asset-day-04-discovery-sequence-v1');
     expect(day4.successThreshold).toContain('3 qualified replies or 2 interviews');
     expect(day4.failureThreshold).toContain('Zero qualified replies');
+    expect(output.foundingCustomerPilotBrief.problem).toContain('Checkout accessibility');
+    expect(output.landingPageCopy.offerDescription).toContain('checkout accessibility audit');
     for (const dayNumber of [1, 4, 7, 14, 21, 30]) expect(output.dailyCalendar[dayNumber - 1].executionPacket?.assets[0].finishedContent).toBeTruthy();
     const files = buildBlueprintAssetFiles(output, new Uint8Array([37, 80, 68, 70]));
     expect(files).toHaveLength(16);
