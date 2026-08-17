@@ -3,7 +3,7 @@ import ShareCard from './ShareCard';
 import { loadResearchSignals, saveLatestResult } from '../lib/storage';
 import { useEffect } from 'react';
 import { useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 import ActionPlanModal from './ActionPlanModal';
 import PaywallModal from './PaywallModal';
@@ -11,6 +11,7 @@ import type { PaidTestIntake } from '../types/paidTest';
 import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
 import PrePurchaseResearchSignals from './PrePurchaseResearchSignals';
 import type { PrePurchaseResearchSignals as ResearchSignals } from '../types/researchSignals';
+import { buildVerdictDecisionV2 } from '../verdict/verdictDecisionV2';
 
 interface Props {
   result: EvaluationResult;
@@ -30,6 +31,10 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   const [researchSignals, setResearchSignals] = useState<ResearchSignals | null>(() => loadResearchSignals(result.resultId));
   const scores = result.deterministicScores;
   const verdict = result.verdict;
+  const decisionV2 = result.verdictDecisionV2 ?? buildVerdictDecisionV2({
+    idea: result.idea,
+    scores: result.deterministicScores
+  });
 
   // Save result to localStorage
   useEffect(() => {
@@ -109,6 +114,37 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-28 sm:py-10 sm:pb-10">
+      <section data-testid="verdict-decision-v2" className="mb-8 overflow-hidden rounded-sm border border-ghost-rust/30 bg-white shadow-dust">
+        <div className="border-b border-ghost-rust/20 bg-[#fff7f2] p-6 sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Decision</p>
+          <h1 className="mt-2 font-display text-3xl font-bold text-gray-950">{decisionV2.decision.replace(/_/g, ' ')}</h1>
+          <p className="mt-3 text-gray-700">This is a bounded judgment about the next customer commitment test, not a prediction of whole-business success.</p>
+        </div>
+        <div className="space-y-6 p-6 text-sm text-gray-800 sm:p-8">
+          <DecisionSection title="What we are actually predicting"><p>{decisionV2.predictionTarget}</p></DecisionSection>
+          <DecisionSection title="Confidence"><p><span className="font-bold">{decisionV2.confidence.level}.</span> {decisionV2.confidence.rationale}</p></DecisionSection>
+          <DecisionSection title="Why this may work"><DecisionList items={decisionV2.reasonsFor} /></DecisionSection>
+          <DecisionSection title="Why this may fail"><DecisionList items={decisionV2.reasonsAgainst} /></DecisionSection>
+          <DecisionSection title="Biggest unknown"><p className="font-bold">{decisionV2.largestUncertainty.assumption}</p><p className="mt-1">{decisionV2.largestUncertainty.whyItMatters}</p></DecisionSection>
+          <DecisionSection title="Cheapest way to prove us wrong">
+            <p>{decisionV2.cheapestFalsification.test}</p>
+            <dl className="mt-3 grid gap-2 rounded-sm bg-gray-50 p-3 sm:grid-cols-2">
+              <div><dt className="font-bold">Target</dt><dd>{decisionV2.cheapestFalsification.target}</dd></div>
+              <div><dt className="font-bold">Success</dt><dd>{decisionV2.cheapestFalsification.successThreshold}</dd></div>
+              <div><dt className="font-bold">Failure</dt><dd>{decisionV2.cheapestFalsification.failureThreshold}</dd></div>
+              <div><dt className="font-bold">Limit</dt><dd>{decisionV2.cheapestFalsification.maximumTime} · {decisionV2.cheapestFalsification.maximumCash}</dd></div>
+            </dl>
+          </DecisionSection>
+          <DecisionSection title="Do this first"><p className="font-bold">{decisionV2.firstAction.action}</p></DecisionSection>
+          <DecisionSection title="What would change this verdict"><DecisionList items={decisionV2.whatWouldChangeTheVerdict} /></DecisionSection>
+          <DecisionSection title="Evidence labels">
+            <ul className="space-y-2">
+              {decisionV2.evidenceLabels.map((label, index) => <li key={`${label.statement}-${index}`} className="rounded-sm border border-gray-200 p-3"><span className="mr-2 text-xs font-bold uppercase tracking-wide text-gray-500">{label.truthLabel}</span>{label.statement}</li>)}
+            </ul>
+          </DecisionSection>
+        </div>
+      </section>
+
       {/* Main Verdict */}
       <div data-testid="verdict-card" className={`relative overflow-hidden rounded-sm border p-6 shadow-dust sm:p-8 ${verdictColorClass}`}>
         <div className="absolute inset-x-0 top-0 h-1 bg-ghost-rust" />
@@ -308,4 +344,12 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       </div>
     </div>
   );
+}
+
+function DecisionSection({ title, children }: { title: string; children: ReactNode }) {
+  return <section><h2 className="text-xs font-bold uppercase tracking-[0.14em] text-ghost-rust">{title}</h2><div className="mt-2 leading-6">{children}</div></section>;
+}
+
+function DecisionList({ items }: { items: string[] }) {
+  return <ul className="list-disc space-y-1 pl-5">{items.map(item => <li key={item}>{item}</li>)}</ul>;
 }

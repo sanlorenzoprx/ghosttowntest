@@ -137,6 +137,10 @@ export interface EvaluationResult {
     oneSentenceAdvice: string;
   };
 
+  // Canonical customer-facing decision. Older records are hydrated at read time
+  // so existing saved verdicts remain compatible.
+  verdictDecisionV2?: import('../verdict/verdictDecisionV2').VerdictDecisionV2;
+
   // Metadata
   usedAI: boolean;
   generatedAt: string;

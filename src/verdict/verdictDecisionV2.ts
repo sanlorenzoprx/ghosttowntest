@@ -1,0 +1,285 @@
+import type { IdeaIntake } from '../types/lit';
+
+export type VerdictDecision =
+  | 'WORTH_TESTING'
+  | 'REVISE_BEFORE_TESTING'
+  | 'WEAK_EVIDENCE'
+  | 'DO_NOT_PURSUE_YET';
+
+export type VerdictConfidenceLevel = 'LOW' | 'MODERATE' | 'HIGH';
+export type VerdictTruthLabel = 'VERIFIED' | 'INFERRED' | 'UNKNOWN';
+
+/**
+ * The customer-facing Q1 decision. This is deliberately bounded to the next
+ * commitment test; it is not a prediction that a whole business will succeed.
+ */
+export interface VerdictDecisionV2 {
+  decision: VerdictDecision;
+  predictionTarget: string;
+  confidence: { level: VerdictConfidenceLevel; rationale: string };
+  customer: { initialCustomer: string; whyThisCustomer: string; excludedBroadAudiences: string[] };
+  problem: { painfulProblem: string; existingAlternative: string; urgencyEvidence: string[] };
+  offerHypothesis: { offer: string; commitmentRequested: string; priceOrCommitmentRange?: string };
+  reasonsFor: string[];
+  reasonsAgainst: string[];
+  largestUncertainty: { assumption: string; whyItMatters: string };
+  cheapestFalsification: {
+    test: string;
+    target: string;
+    successThreshold: string;
+    failureThreshold: string;
+    maximumTime: string;
+    maximumCash: string;
+  };
+  firstAction: { action: string; preparedAssetRequired: boolean };
+  whatWouldChangeTheVerdict: string[];
+  evidenceLabels: Array<{ statement: string; truthLabel: VerdictTruthLabel; sourceId?: string }>;
+}
+
+export interface VerdictDecisionV2Inputs {
+  idea: Pick<IdeaIntake, 'ideaName' | 'description' | 'targetUser' | 'painfulProblem' | 'currentAlternative'>;
+  scores: {
+    litScore: number;
+    ghostTownRisk: string;
+    insightScore: number;
+    leverageScore: number;
+    timingScore: number;
+    highWallsScore: number;
+  };
+}
+
+export interface VerdictDecisionV2Validation {
+  valid: boolean;
+  errors: string[];
+  value?: VerdictDecisionV2;
+}
+
+const DECISIONS = new Set<VerdictDecision>([
+  'WORTH_TESTING', 'REVISE_BEFORE_TESTING', 'WEAK_EVIDENCE', 'DO_NOT_PURSUE_YET'
+]);
+const CONFIDENCE = new Set<VerdictConfidenceLevel>(['LOW', 'MODERATE', 'HIGH']);
+const TRUTH_LABELS = new Set<VerdictTruthLabel>(['VERIFIED', 'INFERRED', 'UNKNOWN']);
+const UNSUPPORTED_OUTCOME_CLAIMS = [
+  /\b(?:will|can) succeed\b/i,
+  /\b(?:guaranteed|guarantee|certain|definitely)\b/i,
+  /\b(?:product[- ]market fit|profitable business)\b/i
+];
+const BROAD_AUDIENCES = /^(everyone|anyone|all businesses|all founders|people|consumers|small businesses|startups)$/i;
+
+function text(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim() ? value.trim().replace(/\s+/g, ' ') : fallback;
+}
+
+function fragment(value: string): string {
+  return value.replace(/[.!?]+$/g, '');
+}
+
+function narrowCustomer(idea: VerdictDecisionV2Inputs['idea']): string {
+  const target = text(idea.targetUser, 'prospective buyers with the stated problem');
+  const alternative = text(idea.currentAlternative, 'a current workaround');
+  return `10 ${target} who currently rely on ${fragment(alternative)}`;
+}
+
+function decisionFor(score: number): VerdictDecision {
+  if (score >= 3.75) return 'WORTH_TESTING';
+  if (score >= 2.5) return 'REVISE_BEFORE_TESTING';
+  if (score >= 1.5) return 'WEAK_EVIDENCE';
+  return 'DO_NOT_PURSUE_YET';
+}
+
+function confidenceFor(scores: VerdictDecisionV2Inputs['scores']): VerdictConfidenceLevel {
+  const signalCount = [scores.insightScore, scores.leverageScore, scores.timingScore, scores.highWallsScore]
+    .filter(score => Number.isFinite(score) && score >= 3).length;
+  // Input answers can clarify a test, but they never verify market demand. Keep
+  // the externally-facing confidence bounded below HIGH until market evidence exists.
+  return signalCount >= 3 && scores.litScore >= 3 ? 'MODERATE' : 'LOW';
+}
+
+/** Build the same decision for the same supplied intake and deterministic scores. */
+export function buildVerdictDecisionV2({ idea, scores }: VerdictDecisionV2Inputs): VerdictDecisionV2 {
+  const initialCustomer = narrowCustomer(idea);
+  const problem = text(idea.painfulProblem, `the problem described for ${text(idea.ideaName, 'this idea')}`);
+  const alternative = text(idea.currentAlternative, 'their current workaround');
+  const offer = text(idea.description, text(idea.ideaName, 'a manual version of the proposed offer'));
+  const decision = decisionFor(scores.litScore);
+  const confidence = confidenceFor(scores);
+  const uncertainty = scores.insightScore < 3
+    ? 'whether this problem is urgent enough to change current behavior'
+    : scores.leverageScore < 3
+      ? 'whether the founder can reach these buyers repeatedly'
+      : 'whether qualified buyers will make a meaningful commitment before a full product exists';
+
+  return {
+    decision,
+    predictionTarget: `Given this customer, problem, offer, access path, and founder constraints, how plausible is it that ${initialCustomer} will make a meaningful customer commitment during the validation window?`,
+    confidence: {
+      level: confidence,
+      rationale: confidence === 'MODERATE'
+        ? 'The supplied intake describes a customer, problem, and testable offer, but buyer commitment is still unverified.'
+        : 'The supplied intake leaves important buyer, urgency, access, or commitment evidence unverified.'
+    },
+    customer: {
+      initialCustomer,
+      whyThisCustomer: `This cohort is tied to the supplied problem and current alternative, so a direct commitment ask can produce clearer evidence than a broad audience survey.`,
+      excludedBroadAudiences: ['everyone with a similar interest', 'all businesses in the market', 'unqualified followers or survey respondents']
+    },
+    problem: {
+      painfulProblem: problem,
+      existingAlternative: alternative,
+      urgencyEvidence: [
+        `The founder supplied this problem: ${problem}`,
+        `The founder supplied this current alternative: ${alternative}`,
+        'Whether buyers experience the problem recently enough to act is unknown.'
+      ]
+    },
+    offerHypothesis: {
+      offer: `A manual pilot of ${fragment(offer)} for ${initialCustomer}`,
+      commitmentRequested: 'A paid pilot, deposit, signed letter of intent, or a scheduled decision conversation with a defined next step.',
+      priceOrCommitmentRange: 'A meaningful paid pilot or deposit set by the founder before outreach.'
+    },
+    reasonsFor: [
+      `The supplied idea connects ${initialCustomer} to a stated painful problem rather than a broad audience claim.`,
+      `The current alternative (${alternative}) gives the test a concrete behavior to replace or improve.`,
+      'A manual pilot can test commitment before substantial product work.'
+    ],
+    reasonsAgainst: [
+      'The intake is founder-supplied evidence, not verified proof of market demand.',
+      `It is unknown whether ${initialCustomer} will pay or commit before the full product exists.`,
+      'Access to enough qualified buyers must be demonstrated through direct outreach or an existing channel.'
+    ],
+    largestUncertainty: {
+      assumption: uncertainty,
+      whyItMatters: 'A useful problem without a timely commitment does not justify substantial product investment.'
+    },
+    cheapestFalsification: {
+      test: `Send a concise manual-pilot invitation to ${initialCustomer}; ask about the recent problem, name the current alternative, and request a paid pilot or deposit.`,
+      target: initialCustomer,
+      successThreshold: 'At least 3 meaningful commitment signals from 10 qualified buyers within 5 business days.',
+      failureThreshold: 'Zero meaningful commitment signals from 10 qualified buyers within 5 business days.',
+      maximumTime: '5 business days',
+      maximumCash: '$50'
+    },
+    firstAction: {
+      action: `Create a list of 10 ${text(idea.targetUser, 'qualified prospective buyers')} who use ${fragment(alternative)}, then send the manual-pilot invitation today.`,
+      preparedAssetRequired: false
+    },
+    whatWouldChangeTheVerdict: [
+      'Verified recent problem evidence from qualified buyers.',
+      'Paid pilots, deposits, signed commitments, or repeated decision conversations.',
+      'Evidence that a specific access path reaches qualified buyers repeatedly.',
+      'Consistent rejection showing the customer, problem, offer, or commitment ask is wrong.'
+    ],
+    evidenceLabels: [
+      { statement: `The founder supplied an idea named ${text(idea.ideaName, 'this idea')}.`, truthLabel: 'VERIFIED', sourceId: 'intake.ideaName' },
+      { statement: `The initial customer is inferred as ${initialCustomer}.`, truthLabel: 'INFERRED', sourceId: 'intake.targetUser' },
+      { statement: `The stated problem is ${problem}.`, truthLabel: 'INFERRED', sourceId: 'intake.painfulProblem' },
+      { statement: `Whether buyers will make a meaningful commitment is unknown until the falsification test is run.`, truthLabel: 'UNKNOWN' }
+    ]
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length >= 10;
+}
+
+function nonEmptyText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function noUnsupportedOutcomeClaim(value: string): boolean {
+  return !UNSUPPORTED_OUTCOME_CLAIMS.some(pattern => pattern.test(value));
+}
+
+/** Strict structural/usefulness guard for persisted, API, and UI decisions. */
+export function validateVerdictDecisionV2(value: unknown): VerdictDecisionV2Validation {
+  const errors: string[] = [];
+  if (!isRecord(value)) return { valid: false, errors: ['verdict decision must be an object'] };
+  const required = [
+    'decision', 'predictionTarget', 'confidence', 'customer', 'problem', 'offerHypothesis', 'reasonsFor',
+    'reasonsAgainst', 'largestUncertainty', 'cheapestFalsification', 'firstAction', 'whatWouldChangeTheVerdict', 'evidenceLabels'
+  ];
+  for (const field of required) if (!(field in value)) errors.push(`missing required field: ${field}`);
+  if (!DECISIONS.has(value.decision as VerdictDecision)) errors.push('decision is invalid');
+  if (!validText(value.predictionTarget) || !/meaningful customer commitment/i.test(String(value.predictionTarget))) {
+    errors.push('predictionTarget must bound the prediction to a meaningful customer commitment');
+  }
+  if (!isRecord(value.confidence) || !CONFIDENCE.has(value.confidence.level as VerdictConfidenceLevel) || !validText(value.confidence.rationale)) {
+    errors.push('confidence must contain a valid level and rationale');
+  }
+  if (!isRecord(value.customer) || !validText(value.customer.initialCustomer) || !validText(value.customer.whyThisCustomer)
+    || !Array.isArray(value.customer.excludedBroadAudiences) || value.customer.excludedBroadAudiences.length < 1) {
+    errors.push('customer must contain a specific initial customer, rationale, and excluded broad audiences');
+  } else if (BROAD_AUDIENCES.test(value.customer.initialCustomer.trim())) {
+    errors.push('initialCustomer must not be a broad audience');
+  }
+  if (!isRecord(value.problem) || !validText(value.problem.painfulProblem) || !validText(value.problem.existingAlternative)
+    || !Array.isArray(value.problem.urgencyEvidence) || value.problem.urgencyEvidence.length < 1) {
+    errors.push('problem must contain a painful problem, current alternative, and urgency evidence');
+  }
+  if (!isRecord(value.offerHypothesis) || !validText(value.offerHypothesis.offer) || !validText(value.offerHypothesis.commitmentRequested)) {
+    errors.push('offerHypothesis must contain an offer and commitment requested');
+  }
+  for (const field of ['reasonsFor', 'reasonsAgainst', 'whatWouldChangeTheVerdict'] as const) {
+    if (!Array.isArray(value[field]) || value[field].length < 1 || value[field].some(item => !validText(item))) errors.push(`${field} must contain specific text`);
+  }
+  if (!isRecord(value.largestUncertainty) || !validText(value.largestUncertainty.assumption) || !validText(value.largestUncertainty.whyItMatters)) {
+    errors.push('largestUncertainty must be explicit');
+  }
+  const falsification = value.cheapestFalsification;
+  if (!isRecord(falsification) || ['test', 'target', 'successThreshold', 'failureThreshold']
+    .some(field => !validText(falsification[field])) || ['maximumTime', 'maximumCash'].some(field => !nonEmptyText(falsification[field]))) {
+    errors.push('cheapestFalsification must be complete and falsifiable');
+  }
+  if (!isRecord(value.firstAction) || !validText(value.firstAction.action) || typeof value.firstAction.preparedAssetRequired !== 'boolean') {
+    errors.push('firstAction must contain an exact action and prepared-asset flag');
+  } else if (/\b(build|develop|engineer)\b.*\b(product|app|platform|software)\b/i.test(value.firstAction.action)) {
+    errors.push('firstAction must not recommend substantial building before demand evidence');
+  }
+  if (!Array.isArray(value.evidenceLabels) || value.evidenceLabels.length < 1) {
+    errors.push('evidenceLabels are required');
+  } else {
+    for (const label of value.evidenceLabels) {
+      if (!isRecord(label) || !validText(label.statement) || !TRUTH_LABELS.has(label.truthLabel as VerdictTruthLabel)
+        || (label.sourceId !== undefined && !validText(label.sourceId))) errors.push('evidenceLabels contain an invalid label');
+    }
+  }
+  const allText = JSON.stringify(value);
+  if (!noUnsupportedOutcomeClaim(allText)) errors.push('verdict must not make an unsupported whole-business outcome claim');
+  return errors.length ? { valid: false, errors } : { valid: true, errors: [], value: value as unknown as VerdictDecisionV2 };
+}
+
+/** Preserve old cached/API results while making the v2 decision canonical on read. */
+export function hydrateVerdictDecisionV2(
+  value: unknown,
+  inputs: VerdictDecisionV2Inputs
+): VerdictDecisionV2 {
+  const validation = validateVerdictDecisionV2(value);
+  return validation.value || buildVerdictDecisionV2(inputs);
+}
+
+export interface LegacyVerdictProjection {
+  verdict_headline: string;
+  top_reason: string;
+  next_step: string;
+  why_it_might_work: string;
+  why_it_might_fail: string;
+  killer_question: string;
+  mvp_test: string;
+}
+
+/** A compatibility projection for consumers that still render the rich v1 fields. */
+export function projectVerdictDecisionV2ToLegacy(decision: VerdictDecisionV2): LegacyVerdictProjection {
+  return {
+    verdict_headline: `${decision.decision.replace(/_/g, ' ')}: ${decision.reasonsFor[0]}`,
+    top_reason: decision.reasonsFor[0],
+    next_step: decision.firstAction.action,
+    why_it_might_work: decision.reasonsFor.join(' '),
+    why_it_might_fail: decision.reasonsAgainst.join(' '),
+    killer_question: `${decision.largestUncertainty.assumption.replace(/[.!?]+$/g, '')}?`,
+    mvp_test: decision.cheapestFalsification.test
+  };
+}

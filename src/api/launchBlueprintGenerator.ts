@@ -706,7 +706,16 @@ export function createGhostTownLaunchBlueprint(
   const copy = landingPageCopy(offer, positioning);
   const site = launchSiteConfig(offer, positioning, copy, order.email, clean(verdict.idea.ideaName, 'New Business'));
   const days = dailyCalendar(offer, research);
-  const biggestRisk = clean(verdict.deterministicScores.doNotBuildUntil, `Do not scale until qualified ${offer.targetCustomer} take a meaningful action.`);
+  const v2 = verdict.verdictDecisionV2;
+  const biggestRisk = clean(
+    v2 ? `${v2.largestUncertainty.assumption}. ${v2.largestUncertainty.whyItMatters}` : verdict.deterministicScores.doNotBuildUntil,
+    `Do not scale until qualified ${offer.targetCustomer} take a meaningful action.`
+  );
+  const initialCustomer = clean(v2?.customer.initialCustomer, offer.targetCustomer);
+  const validationObjective = clean(
+    v2?.predictionTarget,
+    `Within 30 days, determine whether qualified ${offer.targetCustomer} will engage with, discuss, and make a meaningful commitment to ${offer.offerName}.`
+  );
   const blueprint: GhostTownLaunchBlueprint = {
     schemaVersion: 'ghosttown-launch-blueprint-v2',
     blueprintId: `blueprint_${slug(order.orderId)}`,
@@ -721,8 +730,8 @@ export function createGhostTownLaunchBlueprint(
       verdict: `${asSentence(clean(verdict.deterministicScores.verdictHeadline, 'Test before building'))} ${asSentence(clean(verdict.deterministicScores.verdictExplanation, 'Collect behavioral evidence before increasing investment.'))}`,
       strongestOpportunity: offer.oneSentencePromise,
       biggestRisk,
-      recommendedInitialCustomer: offer.targetCustomer,
-      validationObjective: `Within 30 days, determine whether qualified ${offer.targetCustomer} will engage with, discuss, and make a meaningful commitment to ${offer.offerName}.`,
+      recommendedInitialCustomer: initialCustomer,
+      validationObjective,
       founderTimeRiskHours: 45,
       founderCashRiskMaximum: model === 'physical_product' || model === 'subscription' ? 300 : 150,
       currency: 'USD',

@@ -30,6 +30,7 @@ import { handleShortsFactoryVerdict, isShortsFactoryVerdictRequest } from './sho
 import { saveUserResult } from './resultHistory';
 import { queuePublicVideo } from './publicVideoJobs';
 import { generateAI } from './generativeAIService';
+import { buildVerdictDecisionV2, hydrateVerdictDecisionV2 } from '../verdict/verdictDecisionV2';
 
 async function runTextModel(env: Env, prompt: string, maxTokens: number): Promise<string> {
   const result = await generateAI(env, {
@@ -96,6 +97,10 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       try {
         const cachedResult = JSON.parse(cached);
         const restoredResult = { ...cachedResult, resultId: cachedResult.resultId ?? ideaHash, cacheHit: true } as EvaluationResult;
+        restoredResult.verdictDecisionV2 = hydrateVerdictDecisionV2(restoredResult.verdictDecisionV2, {
+          idea: restoredResult.idea,
+          scores: restoredResult.deterministicScores
+        });
         restoredResult.video = await queuePublicVideo(
           restoredResult,
           typeof payload.locale === 'string' ? payload.locale : 'en-US',
@@ -153,6 +158,7 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       generatedAt: new Date().toISOString(),
       cacheHit: false
     };
+    result.verdictDecisionV2 = buildVerdictDecisionV2({ idea, scores: deterministicResult });
 
     result.video = await queuePublicVideo(
       result,

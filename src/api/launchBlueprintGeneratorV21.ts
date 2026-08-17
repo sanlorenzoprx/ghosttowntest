@@ -123,7 +123,7 @@ function startingStateAudit(
   const signals = order.intake.researchSignals;
   const audienceSignals = [signals?.audience?.value, signals?.ecosystem?.value]
     .filter((value): value is string => Boolean(value));
-  const targetBuyer = clean(order.intake.targetBuyer) || clean(verdict.idea.targetUser) || 'not supplied';
+  const targetBuyer = clean(order.intake.targetBuyer) || clean(verdict.verdictDecisionV2?.customer.initialCustomer) || clean(verdict.idea.targetUser) || 'not supplied';
   const problem = clean(order.intake.problem) || clean(verdict.idea.painfulProblem) || 'not supplied';
   const workaround = clean(order.intake.currentWorkaround) || clean(verdict.idea.currentAlternative) || 'not supplied';
 
@@ -178,7 +178,7 @@ function startingStateAudit(
     inferences: [
       evidence(`GhostTown recommends the initial customer: ${targetBuyer}.`, 'Inferred', 'ghosttown_verdict'),
       evidence(`The recommended execution lane is ${lane.replace(/_/g, ' ')}.`, 'Inferred', 'system_inference'),
-      evidence(clean(verdict.deterministicScores.oneSentenceAdvice), 'Inferred', 'ghosttown_verdict')
+      evidence(clean(verdict.verdictDecisionV2?.confidence.rationale) || clean(verdict.deterministicScores.oneSentenceAdvice), 'Inferred', 'ghosttown_verdict')
     ].filter(item => item.statement),
     criticalTests: [
       { assumptionId: 'critical-test-problem', assumption: 'Qualified buyers experienced the problem recently and consider it meaningful.', failureConsequence: 'Narrow, pivot, or stop the customer/problem pair.', evidenceRequired: 'Recent concrete examples, consequences, and current workarounds from qualified buyers.' },

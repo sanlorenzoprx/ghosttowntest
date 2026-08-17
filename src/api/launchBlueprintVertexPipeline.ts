@@ -622,9 +622,10 @@ export async function runVertexEvidenceNormalizationStage(
       contractVersion: context.draft.contractVersion,
       verdict: {
         headline: context.verdict.deterministicScores.verdictHeadline,
-        explanation: context.verdict.deterministicScores.verdictExplanation,
-        recommendedNextTest: context.verdict.deterministicScores.recommendedNextTest,
-        doNotBuildUntil: context.verdict.deterministicScores.doNotBuildUntil
+        explanation: context.verdict.verdictDecisionV2?.reasonsFor.join(' ') || context.verdict.deterministicScores.verdictExplanation,
+        recommendedNextTest: context.verdict.verdictDecisionV2?.firstAction.action || context.verdict.deterministicScores.recommendedNextTest,
+        doNotBuildUntil: context.verdict.verdictDecisionV2?.largestUncertainty.whyItMatters || context.verdict.deterministicScores.doNotBuildUntil,
+        verdictDecisionV2: context.verdict.verdictDecisionV2
       },
       paidIntake: context.order.intake,
       confirmedSeedDomains: context.research.receipt.seedDomains,
