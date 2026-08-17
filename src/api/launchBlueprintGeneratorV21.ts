@@ -55,12 +55,15 @@ function classifyLane(order: PaidTestOrder, verdict: EvaluationResult): Business
     order.intake.offerHypothesis
   ].map(value => clean(value)).join(' ').toLowerCase();
 
-  if (/creator|media|newsletter|podcast|youtube|sponsor|audience/.test(text)) return 'creator_or_media';
+  // Prefer explicit commercial/product mechanics over media or acquisition descriptors.
+  // A hybrid concept such as "newsletter + backend SaaS" must execute in the SaaS lane;
+  // creator/media remains the fallback only when no more specific business model is present.
   if (/marketplace|directory|match buyers|match customers|connect .* providers/.test(text)) return 'marketplace';
   if (/contractor|repair|installation|local service|home service|clinic|appointment|reservation/.test(text)) return 'local_business';
   if (/software|saas|app|platform|dashboard|automation|workflow tool/.test(text)) return 'saas';
   if (/course|template|guide|download|digital product|playbook|workshop/.test(text)) return 'digital_product';
   if (/physical product|device|kit|shipment|delivery|inventory|subscription box|monthly box/.test(text)) return 'physical_product';
+  if (/creator|media|newsletter|podcast|youtube|sponsor|audience/.test(text)) return 'creator_or_media';
   return 'service_or_consulting';
 }
 
