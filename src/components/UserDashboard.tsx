@@ -142,21 +142,23 @@ export default function UserDashboard({
     return plan.artifactType === "legacy_report_v1" ? "report" : "plan";
   };
 
-  const downloadPlan = async (
-    plan: PaidOrderSummary,
-    format: "pdf" | "json" | "zip",
-  ) => {
-    const downloadId = `${plan.orderId}:${format}`;
+  const safeDownloadName = (value: string) =>
+    value
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 120) || "Tested Verdict";
+
+  const downloadPlan = async (plan: PaidOrderSummary) => {
+    const downloadId = `${plan.orderId}:pdf`;
     setDownloadingPlan(downloadId);
     setPlanError("");
     try {
       const base = artifactBase(plan);
       const path =
-        base === "blueprint" && format === "zip"
-          ? `/api/paid-test/orders/${encodeURIComponent(plan.orderId)}/blueprint-assets.zip`
-          : base === "blueprint"
-          ? `/api/paid-test/orders/${encodeURIComponent(plan.orderId)}/blueprint.${format}`
-          : `/api/paid-test/orders/${encodeURIComponent(plan.orderId)}/${base}${format === "pdf" ? ".pdf" : ""}`;
+        base === "blueprint"
+          ? `/api/paid-test/orders/${encodeURIComponent(plan.orderId)}/blueprint.pdf`
+          : `/api/paid-test/orders/${encodeURIComponent(plan.orderId)}/${base}.pdf`;
       const response = await fetch(apiUrl(path), { headers: authHeaders() });
       if (!response.ok)
         throw new Error("The purchased artifact is not ready yet");
@@ -164,7 +166,8 @@ export default function UserDashboard({
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `ghosttown-${base}-${plan.orderId}${format === "zip" ? "-assets" : ""}.${format}`;
+      const label = base === "blueprint" ? "Blueprint" : base === "report" ? "Report" : "Plan";
+      anchor.download = `${label} - ${safeDownloadName(plan.ideaName)}.pdf`;
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (caught) {
@@ -441,7 +444,7 @@ export default function UserDashboard({
                       )}
                       {plan.status === "ready" && (
                         <button
-                          onClick={() => void downloadPlan(plan, "pdf")}
+                          onClick={() => void downloadPlan(plan)}
                           disabled={Boolean(downloadingPlan)}
                           className="rounded-lg border border-ghost-rust px-4 py-2 text-sm font-black text-ghost-rust disabled:opacity-50"
                         >
