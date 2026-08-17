@@ -131,7 +131,7 @@ function main() {
 
   for (const gate of config.quality_gates) {
     const prior = state.quality_gates[gate.id];
-    if (prior?.status === 'PASS') {
+    if (prior?.status === 'PASS' && prior.head === currentHead()) {
       console.log(`SKIP ${gate.id}: already PASS - ${gate.title}`);
       continue;
     }
