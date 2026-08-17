@@ -83,11 +83,26 @@ function dayContent(day: number, blueprint: GhostTownLaunchBlueprintV21, verdict
   return { content: content[day], sourceIds: source, channel };
 }
 
-function branches(day: number): BranchRule[] {
+/**
+ * This is deliberately a day contract, not a calendar template.  The only
+ * shared code is the serializer; each entry owns its public/internal routing,
+ * evidence requirement, measurable failure, and the asset it actually builds
+ * on.  That makes an accidental "30 copies of one task" detectable.
+ */
+const publicRouteDays = new Set([4, 5, 11, 12, 16, 18, 22, 27]);
+const assetParents: Record<number, number[]> = {
+  6: [5], 7: [3, 4, 5, 6], 8: [5], 9: [7, 8], 10: [9], 11: [9, 10],
+  13: [3, 4, 5, 11], 14: [7, 10, 11, 13], 15: [9, 11, 14], 16: [9, 10, 11],
+  17: [16], 18: [17], 19: [17, 18], 20: [9, 15, 19], 21: [20], 22: [21],
+  23: [13, 17, 21, 22], 24: [23], 25: [20, 21], 26: [24, 25], 27: [26],
+  28: [17, 21, 25, 27], 29: [23, 28], 30: [29]
+};
+
+function branches(day: number, threshold: string, failure: string): BranchRule[] {
   const checkpoint = day === 7 || day === 14 || day === 21 || day === 30;
   const rule: BranchRule = checkpoint
-    ? { branchId: id(day, 'branch'), condition: 'The stated threshold is not met with recorded evidence.', action: 'Do not increase activity volume. Name the strongest constraint and make one evidence-backed revision.', route: day === 30 ? 'pause' : 'revise', targetDay: Math.min(30, day + 1), evidenceRequired: ['Exact responses or outcomes', 'Counts', 'Next owner and due date'] }
-    : { branchId: id(day, 'branch'), condition: 'Required evidence is missing or contradicts the current recommendation.', action: 'Preserve the original recommendation, mark it unsupported, and route the contradiction to the next review.', route: 'revise', targetDay: Math.min(30, day + 1), evidenceRequired: ['Source or prospect', 'Exact response or observed behavior'] };
+    ? { branchId: id(day, 'branch'), condition: `FAIL when ${failure}`, action: `Do not increase activity volume. Compare the recorded result with “${threshold}”, name one constraint, and revise only that constraint.`, route: day === 30 ? 'pause' : 'revise', targetDay: Math.min(30, day + 1), evidenceRequired: ['Dated outcome count', 'Exact buyer or delivery evidence', 'Named owner and next date'] }
+    : { branchId: id(day, 'branch'), condition: `IF ${failure}`, action: `Keep the original asset visible, record the contradiction, and route one bounded revision to Day ${Math.min(30, day + 1)}.`, route: 'revise', targetDay: Math.min(30, day + 1), evidenceRequired: ['Named target or internal record', 'Exact observed outcome', 'Dated next action'] };
   return [rule];
 }
 
@@ -104,6 +119,7 @@ export function synchronizeDailyExecutionPackets(
   const offerTarget: ExecutionTarget = { targetId: 'target-canonical-offer-v1', kind: 'offer', name: blueprint.offer.offerName, identityStatus: 'canonical_internal', selectionOrQualificationRule: 'Use the canonical offer, scope, price boundary, and proof boundary only.', minimumCount: 1, excluded: ['Unapproved discounts', 'Unsupported guarantees'], sourceIds: [] };
   const buyerTarget: ExecutionTarget = { targetId: 'target-qualified-buyer-batch-v1', kind: 'qualified_buyer_batch', name: blueprint.executiveDecision.recommendedInitialCustomer, identityStatus: 'founder_must_select', selectionOrQualificationRule: 'Select 10 people with a recent concrete problem, current alternative, and potential decision authority.', minimumCount: 10, excluded: ['Friends giving hypothetical feedback', 'Broad or anonymous traffic'], sourceIds: [] };
   const evidenceTarget: ExecutionTarget = { targetId: 'target-evidence-ledger-v1', kind: 'evidence_set', name: 'Recorded execution evidence', identityStatus: 'canonical_internal', selectionOrQualificationRule: 'Use only dated ledger entries, exact buyer language, commitments, revenue, hours, and costs.', minimumCount: 1, excluded: ['Hypothetical interest', 'Unrecorded activity'], sourceIds: [] };
+  const launchSiteTarget: ExecutionTarget = { targetId: 'target-launch-site-v1', kind: 'launch_site', name: blueprint.launchSite.offer.headline || blueprint.landingPageCopy.headline, identityStatus: 'canonical_internal', selectionOrQualificationRule: 'Open the founder-owned validation Launch Site and compare only the canonical offer, price, CTA, and recorded claims.', minimumCount: 1, excluded: ['A new public site', 'Unrecorded claims'], sourceIds: [] };
   const objectives = [
     'Use the Q1 first action to create the first commitment evidence.', 'Select only buyers with recent checkout friction and authority.', 'Create a trackable batch of ten qualified prospects.', 'Send a finished discovery sequence to the qualified batch.', 'Learn recent problem behavior without pitching.', 'Rank urgency before making the paid ask.', 'Decide whether access, customer, or opening is the largest Week 1 constraint.', 'Compare named current alternatives and switching friction.', 'Prepare a bounded paid pilot brief before presenting price.', 'Capture price, trust, scope, and timing objections verbatim.',
     'Make a transparent scope-and-price conversation possible.', 'Verify the existing validation site carries the canonical offer and CTA.', 'Make every outreach and conversation observable in the ledger.', 'Choose the one evidence-backed Week 2 offer or fulfillment change.', 'Prove the founder can take a payment through first useful result manually.', 'Ask qualified prospects to buy the bounded pilot.', 'Classify every paid ask outcome without inventing pipeline status.', 'Follow up with a specific useful reason and dated next step.', 'Choose whether to close, continue, refer, or stop each open opportunity.', 'Confirm written scope and buyer responsibilities before delivery.',
@@ -116,26 +132,26 @@ export function synchronizeDailyExecutionPackets(
   ];
   const nextDays = blueprint.dailyCalendar.map((legacy, index) => {
     const day = index + 1;
-    const { content, sourceIds, channel: dayChannel } = dayContent(day, blueprint, verdict);
+    const { content, sourceIds: channelSourceIds, channel: dayChannel } = dayContent(day, blueprint, verdict);
     const assetSlug = assetNames[index].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '');
     const assetId = day === 4 ? 'asset-day-04-discovery-sequence-v1' : `asset-day-${String(day).padStart(2, '0')}-${assetSlug}-v1`;
     const dayBuyerTarget = { ...buyerTarget, targetId: `target-day-${String(day).padStart(2, '0')}-qualified-buyers-v1` };
     const dayOfferTarget = { ...offerTarget, targetId: `target-day-${String(day).padStart(2, '0')}-offer-v1` };
     const dayChannelTarget = dayChannel ? { ...baseTarget, targetId: `target-day-${String(day).padStart(2, '0')}-verified-channel-v1` } : undefined;
-    const internal = [7, 13, 14, 17, 19, 21, 23, 24, 25, 28, 29, 30].includes(day);
+    const internal = !publicRouteDays.has(day);
     const targets: ExecutionTarget[] = internal
-      ? [{ ...evidenceTarget, targetId: `target-day-${String(day).padStart(2, '0')}-evidence-v1` }, ...(day === 21 || day === 25 ? [dayOfferTarget] : [])]
-      : [dayBuyerTarget, dayOfferTarget, ...(dayChannelTarget ? [dayChannelTarget] : [])];
+      ? [{ ...evidenceTarget, targetId: `target-day-${String(day).padStart(2, '0')}-evidence-v1` }, ...(day === 1 || day === 9 || day === 10 || day === 15 || day === 20 || day === 21 || day === 25 || day === 26 ? [dayOfferTarget] : [])]
+      : [dayBuyerTarget, dayOfferTarget, ...(day === 12 ? [{ ...launchSiteTarget, targetId: `target-day-${String(day).padStart(2, '0')}-launch-site-v1` }] : []), ...(dayChannelTarget ? [dayChannelTarget] : [])];
     const targetIds = targets.map(target => target.targetId);
     const fields = [...content.matchAll(/{{([A-Za-z][A-Za-z0-9]*)}}/g)].map(match => match[1]);
     const asset: DeliverableAsset = {
       assetId, dayNumber: day, type: 'finished_execution_asset', title: assetNames[index], finishedContent: content,
       contentType: day === 3 || day === 28 ? 'text/csv' : 'text/markdown',
       personalizationFields: [...new Set(fields)].map(name => ({ name, description: `Founder-supplied ${name.replace(/([A-Z])/g, ' $1').toLowerCase()}.`, required: true })),
-      usageInstructions: 'Open the finished asset, replace only declared fields when present, use it with the named target, and record the specified evidence.',
-      targetChannel: dayChannel?.community, targetIds, capabilities: { copyReady: true, editable: true, downloadable: true, openable: true },
-      evidenceExpected: ['Action completed', 'Source or prospect', 'Exact response or observed behavior', 'Next action'], version: '1.0.0',
-      lineage: { blueprintId: blueprint.blueprintId, blueprintVersion: blueprint.blueprintVersion, sourceVerdictId: blueprint.sourceVerdictId, sourceIds, sourceAssetIds: day > 1 ? [day - 1 === 4 ? 'asset-day-04-discovery-sequence-v1' : `asset-day-${String(day - 1).padStart(2, '0')}-${assetNames[day - 2].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '')}-v1`] : [] }
+       usageInstructions: internal ? 'Open this finished internal operating document, enter only observed evidence, then save the working copy. The canonical Blueprint remains unchanged.' : 'Open the finished asset, replace only declared fields when present, use it with the named public or buyer target, and record the specified evidence.',
+       targetChannel: !internal && dayChannel ? dayChannel.community : undefined, targetIds, capabilities: { copyReady: true, editable: true, downloadable: true, openable: true },
+       evidenceExpected: internal ? ['Dated ledger or delivery record', 'Count or calculated value', 'Exact evidence reference', 'Next owner and date'] : ['Named target', 'Dated action', 'Exact response or observed behavior', 'Next action'], version: '1.0.0',
+       lineage: { blueprintId: blueprint.blueprintId, blueprintVersion: blueprint.blueprintVersion, sourceVerdictId: blueprint.sourceVerdictId, sourceIds: internal ? [] : channelSourceIds, sourceAssetIds: (assetParents[day] || []).map(parent => parent === 4 ? 'asset-day-04-discovery-sequence-v1' : `asset-day-${String(parent).padStart(2, '0')}-${assetNames[parent - 1].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '')}-v1`) }
     };
     const packet: DailyExecutionPacket = {
       dayNumber: day, title: titles[index], objective: objectives[index],
@@ -145,7 +161,7 @@ export function synchronizeDailyExecutionPackets(
       assets: [asset], expectedOutcome: `${asset.title} is used and an evidence record exists.`,
       successThreshold: thresholds[index],
       failureThreshold: day === 1 ? '0 qualified conversations or commitments after the full batch.' : day === 4 ? 'Zero qualified replies after the full batch and follow-up.' : `The stated Day ${day} threshold is not met with dated evidence.`,
-      evidenceToCapture: asset.evidenceExpected, branchRules: branches(day), estimatedMinutes: minutes(day),
+       evidenceToCapture: asset.evidenceExpected, branchRules: branches(day, thresholds[index], day === 1 ? '0 qualified conversations or commitments after the full batch.' : day === 4 ? 'Zero qualified replies after the full batch and follow-up.' : `no dated evidence satisfies ${thresholds[index]}`), estimatedMinutes: minutes(day),
       completionDefinition: `Day ${day} is complete only when “${asset.title}” is used with its named target and the evidence ledger contains the exact outcome, count, source, and next action.`
     };
     return {
@@ -163,6 +179,8 @@ export function validateDailyExecutionPackets(blueprint: GhostTownLaunchBlueprin
   if (blueprint.dailyCalendar.length !== 30) failures.push('Daily Execution Packet requires exactly 30 days.');
   const ids = new Set<string>();
   const assetIds = new Set<string>();
+  const knownSourceIds = new Set(blueprint.sources.map(source => source.sourceId));
+  const knownChannelIds = new Set(blueprint.customerAccessPack.channels.map(channel => channel.channelId));
   for (const [index, day] of blueprint.dailyCalendar.entries()) {
     const packet = day.executionPacket;
     if (!packet || packet.dayNumber !== index + 1) { failures.push(`Day ${index + 1} is missing its canonical Daily Execution Packet.`); continue; }
@@ -170,15 +188,20 @@ export function validateDailyExecutionPackets(blueprint: GhostTownLaunchBlueprin
     if (!packet.assets.length || packet.assets.some(asset => !asset.finishedContent.trim() || asset.finishedContent.trim() === asset.title.trim() || /^(prepared (asset|script|template)|create (a |an )?(asset|script|template))\.?$/i.test(asset.finishedContent.trim()))) failures.push(`Day ${packet.dayNumber} lacks a finished usable asset.`);
     if (!packet.branchRules.length || !packet.actions.length || !packet.targets.length) failures.push(`Day ${packet.dayNumber} lacks targets, actions, or branch rules.`);
     const targetIds = new Set(packet.targets.map(target => target.targetId));
-    for (const action of packet.actions) { if (ids.has(action.actionId)) failures.push(`Duplicate execution action ID: ${action.actionId}`); ids.add(action.actionId); if (action.targetIds.some(value => !targetIds.has(value))) failures.push(`Day ${packet.dayNumber} has an unresolved action target.`); }
+    for (const target of packet.targets) {
+      if (!target.targetId || !target.selectionOrQualificationRule || !target.minimumCount || target.sourceIds.some(sourceId => !knownSourceIds.has(sourceId))) failures.push(`Day ${packet.dayNumber} has an invalid target contract.`);
+      if (target.kind === 'verified_channel' && (!target.channelId || !knownChannelIds.has(target.channelId) || !target.publicUrl)) failures.push(`Day ${packet.dayNumber} has an unresolved public channel.`);
+    }
+    for (const action of packet.actions) { if (ids.has(action.actionId)) failures.push(`Duplicate execution action ID: ${action.actionId}`); ids.add(action.actionId); if (!action.instruction || !action.quantity || !action.evidenceExpected.length || action.targetIds.length === 0 || action.assetIds.length === 0 || action.targetIds.some(value => !targetIds.has(value))) failures.push(`Day ${packet.dayNumber} has an unresolved action target.`); }
     for (const asset of packet.assets) {
       if (assetIds.has(asset.assetId)) failures.push(`Duplicate deliverable asset ID: ${asset.assetId}`); assetIds.add(asset.assetId);
-      if (asset.targetIds.some(value => !targetIds.has(value))) failures.push(`Day ${packet.dayNumber} has an unresolved asset target.`);
+      if (!asset.type || !asset.title || !asset.usageInstructions || !asset.contentType || !asset.version || !asset.evidenceExpected.length || Object.values(asset.capabilities).some(value => typeof value !== 'boolean') || asset.targetIds.some(value => !targetIds.has(value))) failures.push(`Day ${packet.dayNumber} has an unresolved asset target.`);
+      if (asset.targetChannel && !packet.targets.some(target => target.kind === 'verified_channel' && target.name === asset.targetChannel)) failures.push(`Day ${packet.dayNumber} routes an asset to an undeclared public channel.`);
       const fields = [...asset.finishedContent.matchAll(/{{([A-Za-z][A-Za-z0-9]*)}}/g)].map(match => match[1]);
       const declared = new Set(asset.personalizationFields.map(field => field.name));
       if (fields.some(field => !declared.has(field))) failures.push(`Day ${packet.dayNumber} has an undeclared personalization field.`);
       if (asset.personalizationFields.some(field => field.required && !fields.includes(field.name))) failures.push(`Day ${packet.dayNumber} has an unused required personalization field.`);
-      if (asset.lineage.blueprintId !== blueprint.blueprintId || asset.lineage.sourceVerdictId !== blueprint.sourceVerdictId) failures.push(`Day ${packet.dayNumber} has broken asset lineage.`);
+      if (asset.lineage.blueprintId !== blueprint.blueprintId || asset.lineage.blueprintVersion !== blueprint.blueprintVersion || asset.lineage.sourceVerdictId !== blueprint.sourceVerdictId || asset.lineage.sourceIds.some(sourceId => !knownSourceIds.has(sourceId))) failures.push(`Day ${packet.dayNumber} has broken asset lineage.`);
     }
     if (day.primaryObjective !== packet.objective || day.whyItMatters !== packet.whyThisDayExists || day.expectedDeliverable !== packet.expectedOutcome || day.successMeasurement !== packet.successThreshold) failures.push(`Day ${packet.dayNumber} legacy aliases do not match its canonical packet.`);
   }
@@ -186,6 +209,10 @@ export function validateDailyExecutionPackets(blueprint: GhostTownLaunchBlueprin
   if (!dayOne.includes(blueprint.offer.oneSentencePromise)) failures.push('Day 1 packet is inconsistent with the canonical offer.');
   for (const day of blueprint.dailyCalendar) for (const asset of day.executionPacket?.assets || []) {
     if (asset.lineage.sourceAssetIds.some(sourceAssetId => !assetIds.has(sourceAssetId))) failures.push(`Day ${day.dayNumber} has an unresolved lineage asset.`);
+    if (asset.lineage.sourceAssetIds.includes(asset.assetId)) failures.push(`Day ${day.dayNumber} has self-referential lineage.`);
+  }
+  for (const day of blueprint.dailyCalendar) for (const action of day.executionPacket?.actions || []) {
+    if (action.assetIds.some(assetId => !assetIds.has(assetId))) failures.push(`Day ${day.dayNumber} has an unresolved action asset.`);
   }
   return [...new Set(failures)];
 }

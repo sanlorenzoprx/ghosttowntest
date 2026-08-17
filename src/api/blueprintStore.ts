@@ -402,14 +402,14 @@ export function normalizeBlueprintProgress(value: Partial<BlueprintProgress>): B
     ? Object.fromEntries(Object.entries(value.evidenceNotes).slice(0, 100).map(([key, note]) => [key.slice(0, 80), limitedText(note, 4000)]))
     : {};
   const metrics = (value.metrics || {}) as Partial<BlueprintProgress['metrics']>;
-  const assetDrafts = Array.isArray(value.assetDrafts) ? value.assetDrafts.slice(-60).flatMap(draft => {
+  const assetDrafts = Array.isArray(value.assetDrafts) ? value.assetDrafts.flatMap(draft => {
     if (!draft || typeof draft !== 'object') return [];
     const item = draft as Record<string, unknown>;
     const assetId = limitedText(item.assetId, 160); const blueprintId = limitedText(item.blueprintId, 160);
     const blueprintVersion = limitedText(item.blueprintVersion, 32); const sourceAssetVersion = limitedText(item.sourceAssetVersion, 32);
     const content = limitedText(item.content, 20_000);
     return assetId && blueprintId && blueprintVersion && sourceAssetVersion && content ? [{ assetId, blueprintId, blueprintVersion, sourceAssetVersion, content, updatedAt: limitedText(item.updatedAt, 64) || new Date().toISOString() }] : [];
-  }) : [];
+  }).slice(-60) : [];
   return {
     completedDays,
     evidenceNotes,

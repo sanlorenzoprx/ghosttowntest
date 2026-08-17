@@ -120,4 +120,15 @@ describe('Blueprint v2.1 progress evidence contract', () => {
     expect(progress.checkpointReviews.map(item => item.dayNumber)).toEqual([7, 21]);
     expect(progress.checkpointReviews[1].answers.replacement).toContain('Latest review');
   });
+
+  it('persists bounded, version-linked working copies without mutating canonical assets', () => {
+    const drafts = Array.from({ length: 62 }, (_, index) => ({
+      assetId: `asset-${index}`, blueprintId: 'bp-1', blueprintVersion: '2.1', sourceAssetVersion: '1.0.0',
+      content: `${'x'.repeat(20_100)}-${index}`, updatedAt: '2026-08-17T00:00:00.000Z'
+    }));
+    const progress = normalizeBlueprintProgress({ ...emptyBlueprintProgress(), assetDrafts: [...drafts, { assetId: '', blueprintId: 'bp-1', blueprintVersion: '2.1', sourceAssetVersion: '1.0.0', content: 'discard', updatedAt: '' }] });
+    expect(progress.assetDrafts).toHaveLength(60);
+    expect(progress.assetDrafts[0]).toMatchObject({ assetId: 'asset-2', blueprintId: 'bp-1', blueprintVersion: '2.1', sourceAssetVersion: '1.0.0' });
+    expect(progress.assetDrafts[0].content).toHaveLength(20_000);
+  });
 });
