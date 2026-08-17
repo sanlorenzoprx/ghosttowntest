@@ -1,5 +1,6 @@
 import type { Env } from './env';
 import type { EvaluationResult } from '../types/lit';
+import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
 import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
 import type { PaidTestOrder } from '../types/paidTest';
 import { GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
@@ -75,7 +76,7 @@ async function savedVerdict(env: Env, verdictId: string, email: string): Promise
   const raw = await env.KV.get(`verdict_${verdictId}`)
     ?? await env.KV.get(`verdict:${verdictId}`)
     ?? await env.KV.get(`user_result_${normalized}_${verdictId}`);
-  return raw ? JSON.parse(raw) as EvaluationResult : null;
+  return raw ? hydrateEvaluationResultDecisionV2(JSON.parse(raw) as EvaluationResult) : null;
 }
 
 export function isLaunchBlueprintCheckout(session: Record<string, unknown>): boolean {

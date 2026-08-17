@@ -1,4 +1,5 @@
 import type { IdeaIntake } from '../types/lit';
+import type { EvaluationResult } from '../types/lit';
 
 export type VerdictDecision =
   | 'WORTH_TESTING'
@@ -38,6 +39,7 @@ export interface VerdictDecisionV2 {
 
 export interface VerdictDecisionV2Inputs {
   idea: Pick<IdeaIntake, 'ideaName' | 'description' | 'targetUser' | 'painfulProblem' | 'currentAlternative'>;
+  priceOrCommitmentRange?: string;
   scores: {
     litScore: number;
     ghostTownRisk: string;
@@ -64,7 +66,7 @@ const UNSUPPORTED_OUTCOME_CLAIMS = [
   /\b(?:guaranteed|guarantee|certain|definitely)\b/i,
   /\b(?:product[- ]market fit|profitable business)\b/i
 ];
-const BROAD_AUDIENCES = /^(everyone|anyone|all businesses|all founders|people|consumers|small businesses|startups)$/i;
+const BROAD_AUDIENCES = /^(everyone|anyone|all businesses|all founders|people|consumers|small businesses|startups|founders|parents|businesses|companies)$/i;
 
 function text(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim() ? value.trim().replace(/\s+/g, ' ') : fallback;
@@ -74,13 +76,26 @@ function fragment(value: string): string {
   return value.replace(/[.!?]+$/g, '');
 }
 
+function hasSpecificCustomer(value: string | undefined): boolean {
+  const normalized = text(value, '');
+  return normalized.length >= 12 && !BROAD_AUDIENCES.test(normalized);
+}
+
+function hasSpecificProblem(value: string | undefined): boolean {
+  return text(value, '').length >= 15;
+}
+
 function narrowCustomer(idea: VerdictDecisionV2Inputs['idea']): string {
-  const target = text(idea.targetUser, 'prospective buyers with the stated problem');
+  if (!hasSpecificCustomer(idea.targetUser)) return 'an as-yet-unidentified qualified buyer with a recent version of the stated problem';
+  const target = text(idea.targetUser, 'qualified prospective buyers');
   const alternative = text(idea.currentAlternative, 'a current workaround');
   return `10 ${target} who currently rely on ${fragment(alternative)}`;
 }
 
-function decisionFor(score: number): VerdictDecision {
+function decisionFor(score: number, inputs: VerdictDecisionV2Inputs): VerdictDecision {
+  if (!hasSpecificCustomer(inputs.idea.targetUser) || !hasSpecificProblem(inputs.idea.painfulProblem) || !hasSpecificProblem(inputs.idea.currentAlternative)) {
+    return 'DO_NOT_PURSUE_YET';
+  }
   if (score >= 3.75) return 'WORTH_TESTING';
   if (score >= 2.5) return 'REVISE_BEFORE_TESTING';
   if (score >= 1.5) return 'WEAK_EVIDENCE';
@@ -96,13 +111,16 @@ function confidenceFor(scores: VerdictDecisionV2Inputs['scores']): VerdictConfid
 }
 
 /** Build the same decision for the same supplied intake and deterministic scores. */
-export function buildVerdictDecisionV2({ idea, scores }: VerdictDecisionV2Inputs): VerdictDecisionV2 {
+export function buildVerdictDecisionV2(inputs: VerdictDecisionV2Inputs): VerdictDecisionV2 {
+  const { idea, scores } = inputs;
   const initialCustomer = narrowCustomer(idea);
   const problem = text(idea.painfulProblem, `the problem described for ${text(idea.ideaName, 'this idea')}`);
   const alternative = text(idea.currentAlternative, 'their current workaround');
-  const offer = text(idea.description, text(idea.ideaName, 'a manual version of the proposed offer'));
-  const decision = decisionFor(scores.litScore);
-  const confidence = confidenceFor(scores);
+  const offer = text(idea.description, text(idea.ideaName, 'a fixed-scope manual pilot'));
+  const priceOrCommitmentRange = text(inputs.priceOrCommitmentRange, '');
+  const specificIntake = hasSpecificCustomer(idea.targetUser) && hasSpecificProblem(idea.painfulProblem) && hasSpecificProblem(idea.currentAlternative);
+  const decision = decisionFor(scores.litScore, inputs);
+  const confidence = specificIntake ? confidenceFor(scores) : 'LOW';
   const uncertainty = scores.insightScore < 3
     ? 'whether this problem is urgent enough to change current behavior'
     : scores.leverageScore < 3
@@ -111,57 +129,65 @@ export function buildVerdictDecisionV2({ idea, scores }: VerdictDecisionV2Inputs
 
   return {
     decision,
-    predictionTarget: `Given this customer, problem, offer, access path, and founder constraints, how plausible is it that ${initialCustomer} will make a meaningful customer commitment during the validation window?`,
+    predictionTarget: specificIntake
+      ? `Given this customer, problem, offer, access path, and founder constraints, how plausible is it that ${initialCustomer} will make a meaningful customer commitment during the validation window?`
+      : 'Given the incomplete or broad intake, whether a specifically identifiable buyer will make a meaningful customer commitment during the validation window is unknown.',
     confidence: {
       level: confidence,
-      rationale: confidence === 'MODERATE'
+      rationale: !specificIntake
+        ? 'LOW because the supplied intake does not yet identify a specific customer, painful problem, and current alternative. Buyer commitment remains unknown.'
+        : confidence === 'MODERATE'
         ? 'The supplied intake describes a customer, problem, and testable offer, but buyer commitment is still unverified.'
         : 'The supplied intake leaves important buyer, urgency, access, or commitment evidence unverified.'
     },
     customer: {
       initialCustomer,
-      whyThisCustomer: `This cohort is tied to the supplied problem and current alternative, so a direct commitment ask can produce clearer evidence than a broad audience survey.`,
+      whyThisCustomer: specificIntake
+        ? 'This cohort is tied to the supplied problem and current alternative, so a direct commitment ask can produce clearer evidence than a broad audience survey.'
+        : 'No specific first customer is supported by the supplied intake yet; do not infer one from a broad audience label.',
       excludedBroadAudiences: ['everyone with a similar interest', 'all businesses in the market', 'unqualified followers or survey respondents']
     },
     problem: {
       painfulProblem: problem,
       existingAlternative: alternative,
       urgencyEvidence: [
-        `The founder supplied this problem: ${problem}`,
-        `The founder supplied this current alternative: ${alternative}`,
+        hasSpecificProblem(idea.painfulProblem) ? `The founder supplied this problem: ${problem}` : 'A specific painful problem was not supplied.',
+        hasSpecificProblem(idea.currentAlternative) ? `The founder supplied this current alternative: ${alternative}` : 'A specific current alternative was not supplied.',
         'Whether buyers experience the problem recently enough to act is unknown.'
       ]
     },
     offerHypothesis: {
-      offer: `A manual pilot of ${fragment(offer)} for ${initialCustomer}`,
-      commitmentRequested: 'A paid pilot, deposit, signed letter of intent, or a scheduled decision conversation with a defined next step.',
-      priceOrCommitmentRange: 'A meaningful paid pilot or deposit set by the founder before outreach.'
+      offer: `${offer.replace(/^\s*(?:a|an|the)\s+/i, '')} for ${initialCustomer}`,
+      commitmentRequested: 'One paid pilot commitment with a fixed scope and a dated decision.',
+      ...(priceOrCommitmentRange ? { priceOrCommitmentRange } : {})
     },
     reasonsFor: [
-      `The supplied idea connects ${initialCustomer} to a stated painful problem rather than a broad audience claim.`,
-      `The current alternative (${alternative}) gives the test a concrete behavior to replace or improve.`,
+      specificIntake ? `The supplied idea connects ${initialCustomer} to a stated painful problem rather than a broad audience claim.` : 'The supplied intake can be sharpened before any demand claim is made.',
+      hasSpecificProblem(idea.currentAlternative) ? `The current alternative (${alternative}) gives the test a concrete behavior to replace or improve.` : 'A named current alternative must be collected before comparing the offer.',
       'A manual pilot can test commitment before substantial product work.'
     ],
     reasonsAgainst: [
       'The intake is founder-supplied evidence, not verified proof of market demand.',
-      `It is unknown whether ${initialCustomer} will pay or commit before the full product exists.`,
+      `It is unknown whether ${initialCustomer} will make one paid-pilot commitment before the full product exists.`,
       'Access to enough qualified buyers must be demonstrated through direct outreach or an existing channel.'
     ],
     largestUncertainty: {
-      assumption: uncertainty,
+      assumption: specificIntake ? uncertainty : 'who the specific first customer is, what recent problem they experience, and what they use instead today',
       whyItMatters: 'A useful problem without a timely commitment does not justify substantial product investment.'
     },
     cheapestFalsification: {
-      test: `Send a concise manual-pilot invitation to ${initialCustomer}; ask about the recent problem, name the current alternative, and request a paid pilot or deposit.`,
+      test: `Prepare one concise paid-pilot invitation, send it to ${initialCustomer}, ask about the most recent problem and current alternative, then request one paid-pilot commitment with fixed scope${priceOrCommitmentRange ? ` at ${priceOrCommitmentRange}` : ' after setting a founder-owned price or deposit range'}. Classify 3 or more commitments as PASS, zero as FAIL, and 1–2 as INCONCLUSIVE.`,
       target: initialCustomer,
-      successThreshold: 'At least 3 meaningful commitment signals from 10 qualified buyers within 5 business days.',
-      failureThreshold: 'Zero meaningful commitment signals from 10 qualified buyers within 5 business days.',
+      successThreshold: 'PASS: at least 3 paid-pilot commitments from 10 qualified buyers within 5 business days.',
+      failureThreshold: 'FAIL: zero paid-pilot commitments from 10 qualified buyers within 5 business days. INCONCLUSIVE: 1–2 commitments; record objections, revise one constraint, and rerun.',
       maximumTime: '5 business days',
-      maximumCash: '$50'
+      maximumCash: 'No paid spend required; use founder time and existing direct outreach only.'
     },
     firstAction: {
-      action: `Create a list of 10 ${text(idea.targetUser, 'qualified prospective buyers')} who use ${fragment(alternative)}, then send the manual-pilot invitation today.`,
-      preparedAssetRequired: false
+      action: specificIntake
+        ? `Prepare the concise paid-pilot invitation, list 10 ${text(idea.targetUser, 'qualified prospective buyers')} who use ${fragment(alternative)}, and send the invitation today.`
+        : 'Before outreach, write one specific first-customer, recent-problem, and current-alternative hypothesis; then prepare the concise paid-pilot invitation.',
+      preparedAssetRequired: true
     },
     whatWouldChangeTheVerdict: [
       'Verified recent problem evidence from qualified buyers.',
@@ -171,8 +197,8 @@ export function buildVerdictDecisionV2({ idea, scores }: VerdictDecisionV2Inputs
     ],
     evidenceLabels: [
       { statement: `The founder supplied an idea named ${text(idea.ideaName, 'this idea')}.`, truthLabel: 'VERIFIED', sourceId: 'intake.ideaName' },
-      { statement: `The initial customer is inferred as ${initialCustomer}.`, truthLabel: 'INFERRED', sourceId: 'intake.targetUser' },
-      { statement: `The stated problem is ${problem}.`, truthLabel: 'INFERRED', sourceId: 'intake.painfulProblem' },
+      { statement: specificIntake ? `The initial customer is inferred as ${initialCustomer}.` : 'A specific initial customer is unknown because the intake is broad or incomplete.', truthLabel: specificIntake ? 'INFERRED' : 'UNKNOWN', ...(specificIntake ? { sourceId: 'intake.targetUser' } : {}) },
+      { statement: hasSpecificProblem(idea.painfulProblem) ? `The stated problem is ${problem}.` : 'A specific painful problem is unknown because it was not supplied.', truthLabel: hasSpecificProblem(idea.painfulProblem) ? 'INFERRED' : 'UNKNOWN', ...(hasSpecificProblem(idea.painfulProblem) ? { sourceId: 'intake.painfulProblem' } : {}) },
       { statement: `Whether buyers will make a meaningful commitment is unknown until the falsification test is run.`, truthLabel: 'UNKNOWN' }
     ]
   };
@@ -261,6 +287,15 @@ export function hydrateVerdictDecisionV2(
   return validation.value || buildVerdictDecisionV2(inputs);
 }
 
+/** Use at every result persistence boundary so legacy records acquire the same canonical decision. */
+export function hydrateEvaluationResultDecisionV2<T extends EvaluationResult>(result: T): T {
+  result.verdictDecisionV2 = hydrateVerdictDecisionV2(result.verdictDecisionV2, {
+    idea: result.idea,
+    scores: result.deterministicScores
+  });
+  return result;
+}
+
 export interface LegacyVerdictProjection {
   verdict_headline: string;
   top_reason: string;
@@ -274,7 +309,7 @@ export interface LegacyVerdictProjection {
 /** A compatibility projection for consumers that still render the rich v1 fields. */
 export function projectVerdictDecisionV2ToLegacy(decision: VerdictDecisionV2): LegacyVerdictProjection {
   return {
-    verdict_headline: `${decision.decision.replace(/_/g, ' ')}: ${decision.reasonsFor[0]}`,
+    verdict_headline: decision.decision.replace(/_/g, ' '),
     top_reason: decision.reasonsFor[0],
     next_step: decision.firstAction.action,
     why_it_might_work: decision.reasonsFor.join(' '),

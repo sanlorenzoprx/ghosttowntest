@@ -1,6 +1,7 @@
 import { authenticateRequest } from './auth';
 import type { Env } from './env';
 import type { EvaluationResult } from '../types/lit';
+import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
 
 export interface ResultSummary {
   resultId: string;
@@ -14,11 +15,12 @@ const historyKey = (email: string) => `user_results_${email}`;
 const userResultKey = (email: string, resultId: string) => `user_result_${email}_${resultId}`;
 
 export async function saveUserResult(email: string, result: EvaluationResult, env: Env): Promise<void> {
+  const canonical = hydrateEvaluationResultDecisionV2(result);
   const normalizedEmail = email.trim().toLowerCase();
   const summary: ResultSummary = {
     resultId: result.resultId,
     ideaName: result.idea.ideaName,
-    verdictHeadline: result.verdict?.verdict_headline ?? result.deterministicScores.verdictHeadline,
+    verdictHeadline: canonical.verdictDecisionV2!.decision.replace(/_/g, ' '),
     litScore: result.deterministicScores.litScore,
     generatedAt: result.generatedAt
   };
@@ -46,7 +48,7 @@ export async function handleSaveCurrentResult(request: Request, env: Env): Promi
   if (!result?.resultId || !result.idea?.ideaName || !result.deterministicScores || !result.generatedAt) {
     return json({ error: 'A completed assessment is required' }, 400);
   }
-  await saveUserResult(auth.email, result, env);
+  await saveUserResult(auth.email, hydrateEvaluationResultDecisionV2(result), env);
   return json({ saved: true });
 }
 
@@ -55,7 +57,7 @@ export async function handleSavedResult(request: Request, env: Env, resultId: st
   if (!auth) return json({ error: 'Authentication required' }, 401);
   const raw = await env.KV.get(userResultKey(auth.email, resultId));
   if (!raw) return json({ error: 'Assessment not found' }, 404);
-  return json({ result: JSON.parse(raw) as EvaluationResult });
+  return json({ result: hydrateEvaluationResultDecisionV2(JSON.parse(raw) as EvaluationResult) });
 }
 
 function json(body: unknown, status = 200): Response {

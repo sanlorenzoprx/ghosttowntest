@@ -50,10 +50,10 @@ const themes: Record<FinalVerdict, CardTheme> = {
 export function createVerdictCardSvg(result: EvaluationResult, options: CardOptions): string {
   const { width, height } = dimensions[options.format];
   const scores = result.deterministicScores;
-  const verdict = result.verdict?.verdict ?? scores.finalVerdict;
+  const verdict = result.verdictDecisionV2 ? 'test_first' : (result.verdict?.verdict ?? scores.finalVerdict);
   const theme = themes[verdict];
-  const headline = result.verdict?.verdict_headline ?? scores.verdictHeadline;
-  const advice = result.verdict?.one_sentence_advice ?? scores.oneSentenceAdvice;
+  const headline = result.verdictDecisionV2?.decision.replace(/_/g, ' ') ?? result.verdict?.verdict_headline ?? scores.verdictHeadline;
+  const advice = result.verdictDecisionV2?.firstAction.action ?? result.verdict?.one_sentence_advice ?? scores.oneSentenceAdvice;
   const ideaName = options.includeIdeaName ? result.idea.ideaName : 'Idea name kept private';
   const host = BRAND_HOST;
 
@@ -63,7 +63,7 @@ export function createVerdictCardSvg(result: EvaluationResult, options: CardOpti
 }
 
 export function getVerdictCardAlt(result: EvaluationResult): string {
-  const verdict = result.verdict?.verdict_headline ?? result.deterministicScores.verdictHeadline;
+  const verdict = result.verdictDecisionV2?.decision.replace(/_/g, ' ') ?? result.verdict?.verdict_headline ?? result.deterministicScores.verdictHeadline;
   return `Shareable LIT Ghost Town verdict card: ${verdict}`;
 }
 

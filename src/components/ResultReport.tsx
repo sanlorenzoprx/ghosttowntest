@@ -30,7 +30,6 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   const [video, setVideo] = useState<PublicVideoResult | undefined>(result.video);
   const [researchSignals, setResearchSignals] = useState<ResearchSignals | null>(() => loadResearchSignals(result.resultId));
   const scores = result.deterministicScores;
-  const verdict = result.verdict;
   const decisionV2 = result.verdictDecisionV2 ?? buildVerdictDecisionV2({
     idea: result.idea,
     scores: result.deterministicScores
@@ -74,24 +73,22 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
     };
   }, [video?.job_id, video?.status, video?.status_url]);
 
-  const getVerdictColor = (verdict: string) => {
-    switch (verdict) {
-      case 'build_now':
-        return 'text-green-900 bg-green-50 border-green-200';
-      case 'test_first':
+  const getDecisionColor = (decision: string) => {
+    switch (decision) {
+      case 'WORTH_TESTING':
         return 'text-blue-900 bg-blue-50 border-blue-200';
-      case 'niche_down':
+      case 'REVISE_BEFORE_TESTING':
         return 'text-yellow-900 bg-yellow-50 border-yellow-200';
-      case 'change_business_dna':
+      case 'WEAK_EVIDENCE':
         return 'text-orange-900 bg-orange-50 border-orange-200';
-      case 'kill_it_before_it_kills_years':
+      case 'DO_NOT_PURSUE_YET':
         return 'text-red-900 bg-red-50 border-red-200';
       default:
         return 'text-gray-900 bg-gray-50 border-gray-200';
     }
   };
 
-  const verdictColorClass = getVerdictColor(scores.finalVerdict);
+  const verdictColorClass = getDecisionColor(decisionV2.decision);
   const litPercent = Math.round(scores.litScore * 20);
   const scoreTone = litPercent >= 75 ? 'text-ghost-sage' : litPercent >= 50 ? 'text-amber-700' : 'text-red-700';
   const displayPrice = import.meta.env.VITE_30_DAY_PLAN_DISPLAY_PRICE?.trim() || DEFAULT_30_DAY_PLAN_DISPLAY_PRICE;
@@ -121,7 +118,15 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           <p className="mt-3 text-gray-700">This is a bounded judgment about the next customer commitment test, not a prediction of whole-business success.</p>
         </div>
         <div className="space-y-6 p-6 text-sm text-gray-800 sm:p-8">
-          <DecisionSection title="What we are actually predicting"><p>{decisionV2.predictionTarget}</p></DecisionSection>
+          <DecisionSection title="What we are actually predicting">
+            <p>{decisionV2.predictionTarget}</p>
+            <dl className="mt-3 grid gap-2 rounded-sm bg-gray-50 p-3 sm:grid-cols-2">
+              <div><dt className="font-bold">Customer</dt><dd>{decisionV2.customer.initialCustomer}</dd></div>
+              <div><dt className="font-bold">Problem</dt><dd>{decisionV2.problem.painfulProblem}</dd></div>
+              <div><dt className="font-bold">Offer</dt><dd>{decisionV2.offerHypothesis.offer}</dd></div>
+              <div><dt className="font-bold">Commitment</dt><dd>{decisionV2.offerHypothesis.commitmentRequested}{decisionV2.offerHypothesis.priceOrCommitmentRange ? ` (${decisionV2.offerHypothesis.priceOrCommitmentRange})` : ''}</dd></div>
+            </dl>
+          </DecisionSection>
           <DecisionSection title="Confidence"><p><span className="font-bold">{decisionV2.confidence.level}.</span> {decisionV2.confidence.rationale}</p></DecisionSection>
           <DecisionSection title="Why this may work"><DecisionList items={decisionV2.reasonsFor} /></DecisionSection>
           <DecisionSection title="Why this may fail"><DecisionList items={decisionV2.reasonsAgainst} /></DecisionSection>
@@ -157,8 +162,8 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
             </div>
           </div>
           <div>
-            <h1 className="font-display text-4xl font-bold text-gray-950">{verdict?.verdict_headline ?? scores.verdictHeadline}</h1>
-            <p className="mt-3 text-lg text-gray-700">{verdict?.one_sentence_advice ?? scores.oneSentenceAdvice}</p>
+            <h2 className="font-display text-4xl font-bold text-gray-950">{decisionV2.decision.replace(/_/g, ' ')}</h2>
+            <p className="mt-3 text-lg text-gray-700">{decisionV2.confidence.rationale}</p>
           </div>
         </div>
       </div>
@@ -240,25 +245,17 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         </div>
       </div>
 
-      {/* Do Not Build Until */}
+      {/* Canonical V2 guardrail */}
       <div className="bg-red-50 border border-red-200 p-6 rounded-lg mb-8">
-        <h3 className="font-bold text-red-900 mb-2">Do Not Build Until</h3>
-        <p className="text-red-800">{verdict?.do_not_build_until ?? scores.doNotBuildUntil}</p>
+        <h3 className="font-bold text-red-900 mb-2">Do Not Increase Product Work Until</h3>
+        <p className="text-red-800">{decisionV2.largestUncertainty.whyItMatters}</p>
       </div>
 
-      {/* Recommended Next Test */}
+      {/* Canonical V2 falsification */}
       <div data-testid="next-step" className="bg-green-50 border border-green-200 p-6 rounded-lg mb-8">
         <h3 className="font-bold text-green-900 mb-2">Recommended Next Test</h3>
-        <p className="text-green-800">{verdict?.recommended_next_test ?? scores.recommendedNextTest}</p>
+        <p className="text-green-800">{decisionV2.cheapestFalsification.test}</p>
       </div>
-
-      {/* Biggest Trap */}
-      {verdict?.biggest_trap && (
-        <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-lg mb-8">
-          <h3 className="font-bold text-yellow-900 mb-2">Biggest Trap</h3>
-          <p className="text-yellow-800">{verdict.biggest_trap}</p>
-        </div>
-      )}
 
       {/* Share Card */}
       <ShareCard

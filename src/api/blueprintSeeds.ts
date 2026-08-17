@@ -1,6 +1,7 @@
 import { authenticateRequest } from './auth';
 import type { Env } from './env';
 import type { EvaluationResult } from '../types/lit';
+import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
 import type {
   CompetitorSeed,
   CompetitorSeedRelationship,
@@ -138,7 +139,7 @@ async function ownedPaidOrder(request: Request, env: Env, orderId: string): Prom
     ?? await env.KV.get(`verdict:${order.verdictId}`)
     ?? await env.KV.get(`user_result_${order.email.trim().toLowerCase()}_${order.verdictId}`);
   if (!verdictRaw) return json({ error: 'Source verdict not found' }, 404);
-  return { order, verdict: JSON.parse(verdictRaw) as EvaluationResult };
+  return { order, verdict: hydrateEvaluationResultDecisionV2(JSON.parse(verdictRaw) as EvaluationResult) };
 }
 
 function suggestionPrompt(order: PaidTestOrder, verdict: EvaluationResult): string {

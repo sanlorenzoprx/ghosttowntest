@@ -1,4 +1,5 @@
 import type { EvaluationResult } from '../types/lit';
+import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
 import type { PaidTestOrder } from '../types/paidTest';
 import type {
   BlueprintDailyAction,
@@ -698,6 +699,7 @@ export function createGhostTownLaunchBlueprint(
   research: CustomerAccessResearchInput,
   generatedAt = order.paidAt || order.updatedAt || order.createdAt
 ): GhostTownLaunchBlueprint {
+  hydrateEvaluationResultDecisionV2(verdict);
   const model = classifyBusinessModel(verdict);
   const offer = offerFor(model, order, verdict);
   const positioning = positioningFor(model, order, verdict, offer);

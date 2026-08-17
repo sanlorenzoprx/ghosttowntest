@@ -1,4 +1,5 @@
 import { EvaluationAnswers, EvaluationResult, IdeaIntake } from '../types/lit';
+import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
 import type { PrePurchaseResearchSignals } from '../types/researchSignals';
 
 const LATEST_RESULT_KEY = 'lit_latest_result_v1';
@@ -17,7 +18,7 @@ export interface EvaluationDraft {
 // ============ RESULT STORAGE ============
 export function saveLatestResult(result: EvaluationResult): void {
   try {
-    localStorage.setItem(LATEST_RESULT_KEY, JSON.stringify(result));
+    localStorage.setItem(LATEST_RESULT_KEY, JSON.stringify(hydrateEvaluationResultDecisionV2(result)));
   } catch (error) {
     console.error('Failed to save result:', error);
   }
@@ -26,7 +27,7 @@ export function saveLatestResult(result: EvaluationResult): void {
 export function loadLatestResult(): EvaluationResult | null {
   try {
     const data = localStorage.getItem(LATEST_RESULT_KEY);
-    return data ? JSON.parse(data) : null;
+    return data ? hydrateEvaluationResultDecisionV2(JSON.parse(data) as EvaluationResult) : null;
   } catch (error) {
     console.error('Failed to load result:', error);
     return null;

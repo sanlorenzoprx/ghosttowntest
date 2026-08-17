@@ -1,4 +1,5 @@
 import type { EvaluationResult } from '../types/lit';
+import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
 import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
 import type { PaidTestOrder, TruthLabel } from '../types/paidTest';
 import type {
@@ -391,6 +392,7 @@ export function createGhostTownLaunchBlueprintV21(
   research: CustomerAccessResearchInput,
   generatedAt = order.paidAt || order.updatedAt || order.createdAt
 ): GhostTownLaunchBlueprintV21 {
+  hydrateEvaluationResultDecisionV2(verdict);
   return upgradeGhostTownLaunchBlueprintToV21(
     createGhostTownLaunchBlueprint(order, verdict, research, generatedAt),
     order,

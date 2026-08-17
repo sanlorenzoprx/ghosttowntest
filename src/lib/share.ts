@@ -6,12 +6,13 @@ export function createShareSummary(
   includeIdeaName = true
 ): string {
   const scores = result.deterministicScores;
-  const verdict = result.verdict || {
-    verdict_headline: scores.verdictHeadline,
-    one_sentence_advice: scores.oneSentenceAdvice
-  };
-
-  return `I ran my idea through the LIT Ghost Town Test.
+  const decision = result.verdictDecisionV2;
+  if (!decision) {
+    const verdict = result.verdict || {
+      verdict_headline: scores.verdictHeadline,
+      one_sentence_advice: scores.oneSentenceAdvice
+    };
+    return `I ran my idea through the LIT Ghost Town Test.
 
 **Idea:** ${includeIdeaName ? result.idea.ideaName : 'Kept private'}
 
@@ -24,6 +25,24 @@ export function createShareSummary(
 **Advice:** ${verdict.one_sentence_advice}
 
 **Next Test:** ${scores.recommendedNextTest}
+
+Test your idea: ${shareUrl}`;
+  }
+
+  return `I ran my idea through the LIT Ghost Town Test.
+
+**Idea:** ${includeIdeaName ? result.idea.ideaName : 'Kept private'}
+
+**Decision:** ${decision.decision.replace(/_/g, ' ')}
+**What is being tested:** ${decision.predictionTarget}
+
+**Ghost Town Risk:** ${scores.ghostTownScore}/5
+**LIT Score:** ${scores.litScore}/5
+**Business DNA:** ${scores.businessDnaType}
+
+**First action:** ${decision.firstAction.action}
+
+**Commitment ask:** ${decision.offerHypothesis.commitmentRequested}
 
 Test your idea: ${shareUrl}`;
 }
