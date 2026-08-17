@@ -11,9 +11,9 @@ import {
 } from './blueprintStoreV21';
 import {
   assertBlueprintReleaseQualityGateV21,
-  evaluateBlueprintReleaseQualityGateV21,
-  verifyBlueprintDeliveryStateV21
+  evaluateBlueprintReleaseQualityGateV21
 } from './blueprintReleaseQualityGateV21';
+import { verifyBlueprintDeliveryStateExactV21 } from './blueprintDeliveryVerifierV21';
 
 const orderKey = (id: string) => `paid_test_order_${id}`;
 const userOrdersKey = (email: string) => `paid_test_orders_${email.trim().toLowerCase()}`;
@@ -182,7 +182,7 @@ export async function completeLaunchBlueprintOrderV21(
 
   const pdf = renderLaunchBlueprintPdfV21(blueprint);
   const exactReceipt = await saveBlueprintRecordV21(env, blueprint, result.receipt, pdf);
-  const delivery = await verifyBlueprintDeliveryStateV21(env, blueprint, exactReceipt);
+  const delivery = await verifyBlueprintDeliveryStateExactV21(env, blueprint, exactReceipt);
   assertBlueprintReleaseQualityGateV21(evaluateBlueprintReleaseQualityGateV21({ blueprint, research: result, delivery }));
 
   order.status = 'ready';
