@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 const root = resolve(process.cwd());
 const readJson = (path: string) =>
   JSON.parse(readFileSync(resolve(root, path), "utf8"));
+const readText = (path: string) => readFileSync(resolve(root, path), "utf8");
 
 describe("Commercial Quality roadmap integration", () => {
   it("preserves the 47 production gate IDs and manual Gate 36", () => {
@@ -42,11 +43,15 @@ describe("Commercial Quality roadmap integration", () => {
     );
   });
 
-  it("wires the public roadmap commands to the master orchestrator", () => {
+  it("preserves the stable roadmap wrapper while delegating into the master orchestrator", () => {
     const pkg = readJson("package.json");
-    expect(pkg.scripts["roadmap:autopilot"]).toContain("roadmap-master-autopilot.mjs");
+    const wrapper = readText("scripts/roadmap-autopilot-wrapper.mjs");
+    expect(pkg.scripts["roadmap:autopilot"]).toBe("node scripts/roadmap-autopilot-wrapper.mjs");
     expect(pkg.scripts["roadmap:status"]).toContain("roadmap-master-autopilot.mjs --status");
     expect(pkg.scripts["roadmap:reset"]).toContain("roadmap-master-autopilot.mjs --reset");
+    expect(pkg.scripts["roadmap:status"]).toContain("roadmap-windows-spawn-compat.cjs");
+    expect(pkg.scripts["roadmap:reset"]).toContain("roadmap-windows-spawn-compat.cjs");
+    expect(wrapper).toContain("const RUNNER = 'scripts/roadmap-master-autopilot.mjs'");
   });
 
   it("prints the intended master plan without touching remote services", () => {
