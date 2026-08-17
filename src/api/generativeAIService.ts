@@ -276,7 +276,9 @@ function parseJson<T>(value: string): T {
  * 30-day calendar plus several nested asset collections. The exact 30-day
  * requirement remains enforced deterministically by validateAssets(); removing
  * only the transport-level 30/30 array bound reduces schema grammar complexity
- * without weakening the Blueprint contract.
+ * without weakening the Blueprint contract. The same transport adaptation makes
+ * the already-required prepared-asset invariant explicit to Vertex so Stage 3
+ * cannot erase a canonical day's prepared assets with an empty array.
  */
 export function responseSchemaForVertexRequest(
   task: GenerativeAITask,
@@ -287,12 +289,34 @@ export function responseSchemaForVertexRequest(
   if (!dailyActions || dailyActions.type !== 'ARRAY' || dailyActions.minItems !== 30 || dailyActions.maxItems !== 30) {
     return schema;
   }
+
+  const dailyItem = dailyActions.items;
+  let transportItem = dailyItem;
+  if (dailyItem?.type === 'OBJECT' && dailyItem.properties) {
+    const preparedAssets = dailyItem.properties.preparedAssets;
+    if (preparedAssets?.type === 'ARRAY' && (preparedAssets.minItems ?? 0) < 1) {
+      transportItem = {
+        ...dailyItem,
+        properties: {
+          ...dailyItem.properties,
+          preparedAssets: {
+            ...preparedAssets,
+            minItems: 1
+          }
+        }
+      };
+    }
+  }
+
   const { minItems: _minItems, maxItems: _maxItems, ...relaxedDailyActions } = dailyActions;
   return {
     ...schema,
     properties: {
       ...schema.properties,
-      dailyActions: relaxedDailyActions
+      dailyActions: {
+        ...relaxedDailyActions,
+        ...(transportItem ? { items: transportItem } : {})
+      }
     }
   };
 }
