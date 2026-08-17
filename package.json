@@ -20,9 +20,12 @@
     "worker:check:acceptance": "wrangler deploy --dry-run --env acceptance",
     "acceptance:check": "npm run type-check && npm run test && npm run build && npm run worker:check && npm run worker:check:acceptance",
     "check": "npm run type-check && npm test && npm run build && npm run worker:check",
-    "roadmap:autopilot": "node scripts/roadmap-autopilot-wrapper.mjs",
-    "roadmap:status": "node --require ./scripts/roadmap-windows-spawn-compat.cjs scripts/production-roadmap-autopilot.mjs --status",
-    "roadmap:reset": "node --require ./scripts/roadmap-windows-spawn-compat.cjs scripts/production-roadmap-autopilot.mjs --reset"
+    "roadmap:autopilot": "node scripts/roadmap-master-autopilot.mjs",
+    "roadmap:status": "node scripts/roadmap-master-autopilot.mjs --status",
+    "roadmap:reset": "node scripts/roadmap-master-autopilot.mjs --reset",
+    "roadmap:production": "node scripts/roadmap-autopilot-wrapper.mjs",
+    "roadmap:quality": "node scripts/commercial-quality-roadmap-autopilot.mjs",
+    "roadmap:freeze": "node scripts/roadmap-infrastructure-freeze.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",
