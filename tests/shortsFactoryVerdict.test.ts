@@ -152,15 +152,17 @@ describe('Shorts Factory verdict API contract', () => {
       warnings: [],
       evaluation_mode: 'vertex_ai'
     });
-    expect(body.verdict_headline).toBe(validAiJudgment.verdict_headline);
+    expect(body.verdict_headline).toBe('REVISE BEFORE TESTING');
     expect(body.lit_score).toEqual(expect.any(Number));
     expect(body.risk_level).toEqual(expect.any(String));
     expect(body.top_reason).toEqual(expect.any(String));
     expect(body.next_step).toEqual(expect.any(String));
-    expect(body.killer_question).toBe(validAiJudgment.killer_question);
-    expect(body.mvp_test).toBe(validAiJudgment.mvp_test);
-    expect(body.why_it_might_work).toBe(validAiJudgment.why_it_might_work);
-    expect(body.why_it_might_fail).toBe(validAiJudgment.why_it_might_fail);
+    const decision = body.verdict_decision_v2 as { firstAction: { action: string }; cheapestFalsification: { test: string }; largestUncertainty: { assumption: string } };
+    expect(body.killer_question).toBe(`${decision.largestUncertainty.assumption}?`);
+    expect(body.mvp_test).toBe(decision.cheapestFalsification.test);
+    expect(body.next_step).toBe(decision.firstAction.action);
+    expect(body.why_it_might_work).toContain('manual pilot');
+    expect(body.why_it_might_fail).toContain('founder-supplied evidence');
     expect(body.provenance).toMatchObject({
       source: 'ai_verdict_engine',
       provider: 'google_vertex_ai_via_cloudflare_ai_gateway',

@@ -1,5 +1,5 @@
 import type { EvaluationResult } from '../types/lit';
-import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
+import { hydrateEvaluationResultDecisionV2, projectVerdictDecisionV2ToLegacy } from '../verdict/verdictDecisionV2';
 import type { PaidTestOrder } from '../types/paidTest';
 import type {
   BlueprintDailyAction,
@@ -275,11 +275,13 @@ function offerFor(model: BusinessModel, order: PaidTestOrder, verdict: Evaluatio
   const ideaName = clean(verdict.idea.ideaName, 'New Business');
   const prices = priceRange(template, order.intake.expectedPrice);
   const suppliedOffer = order.intake.offerHypothesis?.trim();
+  const decision = verdict.verdictDecisionV2;
+  const legacy = decision ? projectVerdictDecisionV2ToLegacy(decision) : null;
   return {
     offerName: `${ideaName} ${template.suffix}`,
     targetCustomer: buyer,
     painfulProblem: problem,
-    desiredOutcome: clean(verdict.deterministicScores.oneSentenceAdvice, `Make meaningful progress on ${problem}`),
+    desiredOutcome: clean(legacy?.recommended_next_test, `Make meaningful progress on ${problem}`),
     oneSentencePromise: suppliedOffer ? `${asSentence(suppliedOffer)} The first test remains fixed-scope and evidence-seeking.` : template.promise(buyer, problem),
     deliverables: template.deliverables,
     deliveryMethod: template.deliveryMethod,
@@ -729,7 +731,9 @@ export function createGhostTownLaunchBlueprint(
     createdAt: generatedAt,
     executiveDecision: {
       originalIdea: `${clean(verdict.idea.ideaName, 'Untitled idea')}: ${clean(verdict.idea.description, 'No description supplied')}`,
-      verdict: `${asSentence(clean(verdict.deterministicScores.verdictHeadline, 'Test before building'))} ${asSentence(clean(verdict.deterministicScores.verdictExplanation, 'Collect behavioral evidence before increasing investment.'))}`,
+      verdict: v2
+        ? `${asSentence(v2.decision.replace(/_/g, ' '))} ${asSentence(v2.reasonsFor.join(' '))}`
+        : `${asSentence(clean(verdict.deterministicScores.verdictHeadline, 'Test before building'))} ${asSentence(clean(verdict.deterministicScores.verdictExplanation, 'Collect behavioral evidence before increasing investment.'))}`,
       strongestOpportunity: offer.oneSentencePromise,
       biggestRisk,
       recommendedInitialCustomer: initialCustomer,

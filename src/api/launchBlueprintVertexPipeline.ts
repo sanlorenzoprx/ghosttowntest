@@ -1,5 +1,6 @@
 import type { Env } from './env';
 import type { EvaluationResult } from '../types/lit';
+import { hydrateEvaluationResultDecisionV2, projectVerdictDecisionV2ToVertexInput } from '../verdict/verdictDecisionV2';
 import type { PaidTestOrder } from '../types/paidTest';
 import type {
   BlueprintDecision,
@@ -609,6 +610,8 @@ export async function runVertexEvidenceNormalizationStage(
   env: Env,
   context: LaunchBlueprintVertexContext
 ): Promise<VertexStructuredStageResult<VertexEvidenceNormalization>> {
+  const canonicalVerdict = hydrateEvaluationResultDecisionV2(context.verdict).verdictDecisionV2!;
+  const vertexVerdict = projectVerdictDecisionV2ToVertexInput(canonicalVerdict);
   const result = await runVertexStructuredStage<VertexEvidenceNormalization>(env, {
     stage: 'evidence_normalization',
     systemInstruction: [
@@ -620,13 +623,7 @@ export async function runVertexEvidenceNormalizationStage(
     ].join(' '),
     prompt: JSON.stringify({
       contractVersion: context.draft.contractVersion,
-      verdict: {
-        headline: context.verdict.deterministicScores.verdictHeadline,
-        explanation: context.verdict.verdictDecisionV2?.reasonsFor.join(' ') || context.verdict.deterministicScores.verdictExplanation,
-        recommendedNextTest: context.verdict.verdictDecisionV2?.firstAction.action || context.verdict.deterministicScores.recommendedNextTest,
-        doNotBuildUntil: context.verdict.verdictDecisionV2?.largestUncertainty.whyItMatters || context.verdict.deterministicScores.doNotBuildUntil,
-        verdictDecisionV2: context.verdict.verdictDecisionV2
-      },
+      verdict: vertexVerdict,
       paidIntake: context.order.intake,
       confirmedSeedDomains: context.research.receipt.seedDomains,
       evidenceCatalog: context.evidenceCatalog

@@ -4,9 +4,10 @@ import { DeterministicVerdictProvider } from '../verdict/deterministicVerdictPro
 import { generateValidatedVerdict } from '../verdict/verdictEngine';
 import { VertexVerdictProvider } from '../verdict/vertexVerdictProvider';
 import { buildVerdictDecisionV2, projectVerdictDecisionV2ToLegacy } from '../verdict/verdictDecisionV2';
+import type { RichVerdict } from '../verdict/verdictSchema';
 import type { Env } from './env';
 
-interface ShortsFactoryIdea {
+export interface ShortsFactoryIdea {
   name: string;
   description: string;
   target_user: string;
@@ -134,17 +135,33 @@ async function createShortsFactoryVerdict(
     );
   }
 
-  return jsonResponse({
-    idea: ideaResult.idea,
+  return jsonResponse(createShortsFactoryVerdictResponse(
+    ideaResult.idea,
+    verdict,
+    verdictDecisionV2,
+    evaluationMode,
+    normalizedScores
+  ));
+}
+
+/** The external v1 fields are projections of canonical V2; V2 remains additive. */
+export function createShortsFactoryVerdictResponse(
+  idea: ShortsFactoryIdea,
+  verdict: RichVerdict,
+  decision: ReturnType<typeof buildVerdictDecisionV2>,
+  evaluationMode: 'vertex_ai' | 'deterministic_fallback',
+  deterministicScores: Record<string, number>
+) {
+  const legacy = projectVerdictDecisionV2ToLegacy(decision);
+  return {
+    idea,
     ...verdict,
-    // Existing Shorts Factory fields remain unchanged. The projection is
-    // intentionally computed here so legacy consumers and the v2 contract use
-    // the same deterministic first action when a caller opts into v2.
-    verdict_decision_v2: verdictDecisionV2,
-    legacy_decision_projection: projectVerdictDecisionV2ToLegacy(verdictDecisionV2),
+    ...legacy,
+    verdict_decision_v2: decision,
+    legacy_decision_projection: legacy,
     evaluation_mode: evaluationMode,
-    deterministic_scores: normalizedScores
-  });
+    deterministic_scores: deterministicScores
+  };
 }
 
 function normalizeIdea(value: unknown): { ok: true; idea: ShortsFactoryIdea } | { ok: false } {

@@ -16,7 +16,11 @@ const requiredFiles = [
   'src/api/paidTest.ts',
   'src/api/blueprintFulfillment.ts',
   'src/api/blueprintSeeds.ts',
+  'src/api/launchBlueprintGenerator.ts',
+  'src/api/launchBlueprintVertexPipeline.ts',
   'src/lib/storage.ts',
+  'src/lib/share.ts',
+  'src/lib/verdictCardImage.ts',
   'tests/fixtures/verdictDecisionV2.ts',
   'tests/verdictDecisionV2.test.ts',
   'tests/resultReportVerdictDecisionV2.test.tsx',
@@ -86,6 +90,13 @@ const adverse = goldenArtifact.outputs.find(output => output.fixture_id === 'bro
 if (!adverse || adverse.decision !== 'DO_NOT_PURSUE_YET' || adverse.confidence !== 'LOW' || !adverse.evidence_labels?.includes('UNKNOWN')) {
   throw new Error('Q1 adverse golden does not lower broad/missing intake to LOW-confidence unknown evidence.');
 }
+const genericOffer = goldenArtifact.outputs.find(output => output.fixture_id === 'generic-offer');
+if (!genericOffer || genericOffer.decision === 'WORTH_TESTING' || genericOffer.confidence !== 'LOW' || !genericOffer.semantic_checks.generic_offer_not_claimed_testable) {
+  throw new Error('Q1 generic-offer adverse golden did not fail closed.');
+}
+if (!goldenArtifact.blueprint?.canonical_no_build_before_commitment) {
+  throw new Error('Q1 Blueprint golden still contains build-before-commitment language.');
+}
 const sourceVerification = run(process.execPath, ['scripts/verify-blueprint-source.mjs']);
 const typecheck = run(process.execPath, [join(nodeModules, 'typescript', 'bin', 'tsc'), '--noEmit']);
 const build = `${sourceVerification}\n${run(process.execPath, [join(nodeModules, 'vite', 'bin', 'vite.js'), 'build'])}`;
@@ -106,10 +117,17 @@ const receipt = {
     fixture_ids: allOutputs.map(output => output.fixture_id),
     decision_hashes: Object.fromEntries(allOutputs.map(output => [output.fixture_id, output.decision_sha256])),
     rendered_report_hashes: Object.fromEntries(allOutputs.map(output => [output.fixture_id, output.rendered_report_sha256])),
+    share_summary_hashes: Object.fromEntries(allOutputs.map(output => [output.fixture_id, output.share_summary_sha256])),
+    verdict_card_hashes: Object.fromEntries(allOutputs.map(output => [output.fixture_id, output.verdict_card_svg_sha256])),
+    shorts_top_level_hashes: Object.fromEntries(allOutputs.map(output => [output.fixture_id, output.shorts_top_level_sha256])),
+    vertex_input_hashes: Object.fromEntries(allOutputs.map(output => [output.fixture_id, output.vertex_input_sha256])),
+    blueprint: goldenArtifact.blueprint,
     baseline_comparison: {
       baseline: 'legacy-verdict-fields',
       canonical_v2_present_for_every_fixture: allOutputs.every(output => Boolean(output.decision_sha256)),
-      rendered_canonical_customer_offer_commitment: allOutputs.every(output => output.semantic_checks.rendered_canonical_customer_offer_commitment)
+      rendered_canonical_customer_offer_commitment: allOutputs.every(output => output.semantic_checks.rendered_canonical_customer_offer_commitment),
+      share_card_shorts_vertex_parity: allOutputs.every(output => output.semantic_checks.share_card_short_vertex_parity),
+      blueprint_no_build_before_commitment: goldenArtifact.blueprint.canonical_no_build_before_commitment === true
     }
   },
   checks: {
@@ -123,10 +141,10 @@ const receipt = {
     truth_labels: allOutputs.every(output => output.evidence_labels.includes('UNKNOWN')),
     customer_specificity: allOutputs.some(output => output.fixture_id === 'specific-paid-pilot' && /^10 /.test(output.customer)),
     no_unsupported_whole_business_success_prediction: allOutputs.every(output => output.semantic_checks.no_whole_business_claim),
-    cross_surface_customer_offer_consistency: allOutputs.every(output => output.semantic_checks.rendered_canonical_customer_offer_commitment),
+    cross_surface_customer_offer_consistency: allOutputs.every(output => output.semantic_checks.rendered_canonical_customer_offer_commitment && output.semantic_checks.share_card_short_vertex_parity) && goldenArtifact.blueprint.canonical_no_build_before_commitment === true,
     legacy_hydration_and_projection: decisionSource.includes('hydrateEvaluationResultDecisionV2') && persistedResultSources.every(source => source.includes('hydrateEvaluationResultDecisionV2')) && shortsSource.includes('projectVerdictDecisionV2ToLegacy'),
     shorts_factory_compatibility: shortsSource.includes('verdict_decision_v2') && shortsSource.includes('legacy_decision_projection') && shortsSource.includes('projectVerdictDecisionV2ToLegacy'),
-    golden_fixture_comparison: allOutputs.length >= 2 && adverse.decision === 'DO_NOT_PURSUE_YET',
+    golden_fixture_comparison: allOutputs.length >= 3 && adverse.decision === 'DO_NOT_PURSUE_YET' && genericOffer.decision === 'DO_NOT_PURSUE_YET',
     tests_pass: true,
     typecheck_pass: true,
     acceptance_build_pass: true
