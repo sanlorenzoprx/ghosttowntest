@@ -9,7 +9,6 @@ const PROD_STATE_PATH = join(ROOT, '.roadmap-autopilot', 'state.json');
 const QUALITY_CONFIG_PATH = join(ROOT, 'config', 'commercial-quality-roadmap-v1.json');
 const QUALITY_STATE_PATH = join(ROOT, '.roadmap-autopilot', 'commercial-quality-state.json');
 const QUALITY_REPORT_PATH = join(ROOT, '.roadmap-autopilot', 'commercial-quality-latest-report.json');
-const PROD_WRAPPER = join(ROOT, 'scripts', 'roadmap-autopilot-wrapper.mjs');
 const PROD_RUNNER = join(ROOT, 'scripts', 'production-roadmap-autopilot.mjs');
 const QUALITY_RUNNER = join(ROOT, 'scripts', 'commercial-quality-roadmap-autopilot.mjs');
 const FREEZE = join(ROOT, 'scripts', 'roadmap-infrastructure-freeze.mjs');
@@ -29,6 +28,15 @@ function runNode(script, scriptArgs = [], env = process.env, inherit = true) {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: inherit ? 'inherit' : 'pipe',
+    shell: false,
+    env
+  });
+}
+function runProduction(scriptArgs = [], env = process.env) {
+  return spawnSync(process.execPath, ['--require', COMPAT, PROD_RUNNER, ...scriptArgs], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    stdio: 'inherit',
     shell: false,
     env
   });
@@ -101,9 +109,7 @@ function main() {
   if (reset) {
     rmSync(QUALITY_STATE_PATH, { force: true });
     rmSync(QUALITY_REPORT_PATH, { force: true });
-    const result = spawnSync(process.execPath, ['--require', COMPAT, PROD_RUNNER, '--reset'], {
-      cwd: ROOT, encoding: 'utf8', stdio: 'inherit', shell: false, env: process.env
-    });
+    const result = runProduction(['--reset']);
     process.exitCode = result.status ?? 0;
     return;
   }
@@ -113,7 +119,7 @@ function main() {
     // Before Commercial Quality passes, force Gate 26 to remain an adapter boundary
     // even if the operator shell happens to contain later-gate hook variables.
     const preQualityEnv = { ...process.env, ROADMAP_GATE_26_COMMAND: '' };
-    const result = runNode(PROD_WRAPPER, [], preQualityEnv);
+    const result = runProduction([], preQualityEnv);
     prodState = readJson(PROD_STATE_PATH, { gates: {} });
     if (!productionPass(prodState, 1, 25)) {
       process.exitCode = result.status ?? 1;
@@ -139,7 +145,7 @@ function main() {
     console.log('\nCommercial Quality Q1-Q5 are PASS. Resuming Production Roadmap at Gate 26.');
   }
 
-  const result = runNode(PROD_WRAPPER);
+  const result = runProduction();
   process.exitCode = result.status ?? 0;
 }
 
