@@ -27,6 +27,7 @@ import {
   runVertexRedTeamReviewStage,
   runVertexStrategySynthesisStage
 } from './launchBlueprintVertexPipeline';
+import { assertVertexDailyAssetCompleteness } from './launchBlueprintVertexAssetGuard';
 import {
   assertVertexEvidenceClassification,
   synchronizeVertexBlueprintSurfaces
@@ -113,7 +114,11 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         const assets = await step.do(
           'vertex stage 3 asset generation',
           { retries: { limit: 2, delay: '20 seconds', backoff: 'exponential' } },
-          async () => runVertexAssetGenerationStage(this.env, vertexContext, strategy.data)
+          async () => {
+            const generated = await runVertexAssetGenerationStage(this.env, vertexContext, strategy.data);
+            assertVertexDailyAssetCompleteness(generated.data);
+            return generated;
+          }
         );
 
         const candidate = synchronizeVertexBlueprintSurfaces(
