@@ -24,7 +24,11 @@ const goldens = [
       scores: { litScore: 3.4, ghostTownRisk: 'medium', insightScore: 3.2, leverageScore: 3, timingScore: 3.5, highWallsScore: 2.4 },
       priceOrCommitmentRange: '$300–$500 paid audit pilot'
     },
-    expected: { decision: 'REVISE_BEFORE_TESTING', confidence: 'MODERATE' }
+    expected: {
+      decision: 'REVISE_BEFORE_TESTING', confidence: 'MODERATE',
+      fieldLabels: { customer: 'INFERRED', problem: 'INFERRED', alternative: 'INFERRED', offer: 'INFERRED' },
+      repairAction: 'Prepare the concise paid-pilot invitation', card: { label: 'REVISE BEFORE TESTING', hook: 'SHARPEN THE TEST.', color: '#422006' }
+    }
   },
   {
     id: 'broad-missing-intake',
@@ -32,7 +36,11 @@ const goldens = [
       idea: { ideaName: 'General productivity app', description: 'An app for everyone.', targetUser: '', painfulProblem: '', currentAlternative: '' },
       scores: { litScore: 4.8, ghostTownRisk: 'low', insightScore: 4.8, leverageScore: 4.8, timingScore: 4.8, highWallsScore: 4.8 }
     },
-    expected: { decision: 'DO_NOT_PURSUE_YET', confidence: 'LOW' }
+    expected: {
+      decision: 'DO_NOT_PURSUE_YET', confidence: 'LOW',
+      fieldLabels: { customer: 'UNKNOWN', problem: 'UNKNOWN', alternative: 'UNKNOWN', offer: 'UNKNOWN' },
+      repairAction: 'specific customer, recent painful problem, current alternative, and fixed-scope offer', card: { label: 'DO NOT PURSUE YET', hook: 'DEFINE BEFORE OUTREACH.', color: '#450a0a' }
+    }
   },
   {
     id: 'generic-offer',
@@ -43,7 +51,27 @@ const goldens = [
       },
       scores: { litScore: 4.8, ghostTownRisk: 'low', insightScore: 4.8, leverageScore: 4.8, timingScore: 4.8, highWallsScore: 4.8 }
     },
-    expected: { decision: 'DO_NOT_PURSUE_YET', confidence: 'LOW' }
+    expected: {
+      decision: 'DO_NOT_PURSUE_YET', confidence: 'LOW',
+      fieldLabels: { customer: 'INFERRED', problem: 'INFERRED', alternative: 'INFERRED', offer: 'UNKNOWN' },
+      repairAction: 'fixed-scope offer', card: { label: 'DO NOT PURSUE YET', hook: 'DEFINE BEFORE OUTREACH.', color: '#450a0a' }
+    }
+  },
+  {
+    id: 'partial-missing-alternative',
+    input: {
+      idea: {
+        ideaName: 'Checkout accessibility audit', description: 'A fixed-scope accessibility audit for independent ecommerce stores.',
+        targetUser: 'independent ecommerce stores with active checkout traffic',
+        painfulProblem: 'Checkout accessibility issues create customer friction and support work.', currentAlternative: ''
+      },
+      scores: { litScore: 4.8, ghostTownRisk: 'low', insightScore: 4.8, leverageScore: 4.8, timingScore: 4.8, highWallsScore: 4.8 }
+    },
+    expected: {
+      decision: 'DO_NOT_PURSUE_YET', confidence: 'LOW',
+      fieldLabels: { customer: 'INFERRED', problem: 'INFERRED', alternative: 'UNKNOWN', offer: 'INFERRED' },
+      repairAction: 'current alternative', card: { label: 'DO NOT PURSUE YET', hook: 'DEFINE BEFORE OUTREACH.', color: '#450a0a' }
+    }
   }
 ] as const;
 
@@ -86,9 +114,15 @@ describe('Q1 golden decision receipt', () => {
       const card = createVerdictCardSvg(result, { format: 'landscape', includeIdeaName: false });
       const shorts = createShortsFactoryVerdictResponse({ name: result.idea.ideaName, description: result.idea.description, target_user: result.idea.targetUser, market: '' }, richFixture(), decision, 'deterministic_fallback', { clarity: 10, pain: 10, reachability: 10, willingness_to_pay: 10, advantage: 10 });
       const vertex = projectVerdictDecisionV2ToVertexInput(decision);
+      const fieldLabels = Object.fromEntries([
+        ['customer', 'intake.targetUser'], ['problem', 'intake.painfulProblem'],
+        ['alternative', 'intake.currentAlternative'], ['offer', 'intake.description']
+      ].map(([field, sourceId]) => [field, decision.evidenceLabels.find(label => label.sourceId === sourceId)?.truthLabel]));
       expect(validateVerdictDecisionV2(decision).valid).toBe(true);
       expect(decision.decision).toBe(golden.expected.decision);
       expect(decision.confidence.level).toBe(golden.expected.confidence);
+      expect(fieldLabels).toEqual(golden.expected.fieldLabels);
+      expect(decision.firstAction.action).toContain(golden.expected.repairAction);
       expect(projection.next_step).toBe(decision.firstAction.action);
       expect(shorts.verdict_headline).toBe(projection.verdict_headline);
       expect(shorts.recommended_next_test).toBe(projection.recommended_next_test);
@@ -98,6 +132,12 @@ describe('Q1 golden decision receipt', () => {
       expect(html).not.toContain('Start building now.');
       expect(share).not.toContain('Build an MVP');
       expect(card).not.toContain('Start building now.');
+      expect(card).toContain(golden.expected.card.label);
+      expect(card).toContain(golden.expected.card.hook);
+      expect(card).toContain(golden.expected.card.color);
+      if (decision.decision === 'DO_NOT_PURSUE_YET') {
+        expect(card).not.toMatch(/TEST FIRST|GOOD IDEA|MY IDEA SURVIVED/i);
+      }
       return {
         fixture_id: golden.id,
         input_sha256: digest(golden.input),
@@ -114,6 +154,9 @@ describe('Q1 golden decision receipt', () => {
         offer: decision.offerHypothesis.offer,
         commitment: decision.offerHypothesis.commitmentRequested,
         rationale: decision.confidence.rationale,
+        input_field_truth_labels: fieldLabels,
+        expected_repair_action: golden.expected.repairAction,
+        card_semantics: golden.expected.card,
         first_action: decision.firstAction.action,
         falsification: decision.cheapestFalsification,
         evidence_labels: decision.evidenceLabels.map(label => label.truthLabel),
@@ -123,9 +166,11 @@ describe('Q1 golden decision receipt', () => {
           no_build_before_demand: !/build.*(?:product|app|platform|software)/i.test(decision.firstAction.action),
           rendered_canonical_customer_offer_commitment: html.includes(decision.customer.initialCustomer) && html.includes(decision.offerHypothesis.commitmentRequested),
           share_card_short_vertex_parity: share.includes(decision.firstAction.action) && card.includes(decision.decision.replace(/_/g, ' ')) && shorts.next_step === decision.firstAction.action && vertex.recommendedNextTest === decision.cheapestFalsification.test,
+          truthful_card_semantics: card.includes(golden.expected.card.label) && card.includes(golden.expected.card.hook) && card.includes(golden.expected.card.color) && (decision.decision !== 'DO_NOT_PURSUE_YET' || !/TEST FIRST|GOOD IDEA|MY IDEA SURVIVED/i.test(card)),
+          exact_field_labels_and_repair_action: JSON.stringify(fieldLabels) === JSON.stringify(golden.expected.fieldLabels) && decision.firstAction.action.includes(golden.expected.repairAction),
           adverse_unknown_intake: !['broad-missing-intake', 'generic-offer'].includes(golden.id) || decision.evidenceLabels.some(label => label.truthLabel === 'UNKNOWN'),
           generic_offer_not_claimed_testable: golden.id !== 'generic-offer' || !/testable offer/i.test(decision.confidence.rationale),
-          incomplete_intake_definition_before_outreach: !['broad-missing-intake', 'generic-offer'].includes(golden.id) || /one-page evidence brief/i.test(decision.firstAction.action)
+          incomplete_intake_definition_before_outreach: golden.expected.decision !== 'DO_NOT_PURSUE_YET' || (/one-page evidence brief/i.test(decision.firstAction.action) && !/paid-pilot invitation/i.test(decision.firstAction.action))
         }
       };
     });

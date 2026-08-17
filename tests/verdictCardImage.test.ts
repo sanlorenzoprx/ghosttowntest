@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { EvaluationResult } from '../src/types/lit';
 import { createVerdictCardSvg } from '../src/lib/verdictCardImage';
 import { createShareSummary } from '../src/lib/share';
+import { buildVerdictDecisionV2 } from '../src/verdict/verdictDecisionV2';
 
 const result: EvaluationResult = {
   resultId: 'social-card-result',
@@ -83,6 +84,34 @@ describe('verdict social card rendering', () => {
     expect(svg).toContain('GOOD IDEA. DANGEROUS');
     expect(svg).toContain('ASSUMPTION.');
     expect(svg).not.toContain('>GOOD IDEA. DANGEROUS ASSUMPTION.</text>');
+  });
+
+  it('uses the canonical V2 decision for every card label, hook, and color rather than legacy score copy', () => {
+    const completeIdea = {
+      ideaName: 'Accessibility audits', description: 'A fixed-scope accessibility audit for independent ecommerce stores.',
+      targetUser: 'independent ecommerce stores with active checkout traffic',
+      painfulProblem: 'Checkout accessibility issues create customer friction and support work.',
+      currentAlternative: 'sporadic internal QA and generic automated scans'
+    };
+    const cases = [
+      { score: 4, decision: 'WORTH_TESTING', label: 'WORTH TESTING', hook: 'TEST THE COMMITMENT.', color: '#052e2b' },
+      { score: 3, decision: 'REVISE_BEFORE_TESTING', label: 'REVISE BEFORE TESTING', hook: 'SHARPEN THE TEST.', color: '#422006' },
+      { score: 2, decision: 'WEAK_EVIDENCE', label: 'WEAK EVIDENCE', hook: 'EVIDENCE IS TOO THIN.', color: '#431407' },
+      { score: 4, decision: 'DO_NOT_PURSUE_YET', label: 'DO NOT PURSUE YET', hook: 'DEFINE BEFORE OUTREACH.', color: '#450a0a', idea: { ...completeIdea, currentAlternative: '' } }
+    ] as const;
+
+    for (const item of cases) {
+      const verdictDecisionV2 = buildVerdictDecisionV2({
+        idea: item.idea || completeIdea,
+        scores: { litScore: item.score, ghostTownRisk: 'medium', insightScore: 3, leverageScore: 3, timingScore: 3, highWallsScore: 3 }
+      });
+      const svg = createVerdictCardSvg({ ...result, verdictDecisionV2 }, { format: 'landscape', includeIdeaName: false });
+      expect(verdictDecisionV2.decision).toBe(item.decision);
+      expect(svg).toContain(item.label);
+      expect(svg).toContain(item.hook);
+      expect(svg).toContain(item.color);
+      if (item.decision === 'DO_NOT_PURSUE_YET') expect(svg).not.toMatch(/TEST FIRST|GOOD IDEA|MY IDEA SURVIVED/i);
+    }
   });
 
   it('keeps the idea name out of share text when privacy is enabled', () => {

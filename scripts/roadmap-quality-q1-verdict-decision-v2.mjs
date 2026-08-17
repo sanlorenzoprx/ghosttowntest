@@ -24,7 +24,8 @@ const requiredFiles = [
   'tests/fixtures/verdictDecisionV2.ts',
   'tests/verdictDecisionV2.test.ts',
   'tests/resultReportVerdictDecisionV2.test.tsx',
-  'tests/q1GoldenReceipt.test.tsx'
+  'tests/q1GoldenReceipt.test.tsx',
+  'tests/verdictCardImage.test.ts'
 ];
 
 function sha256(value) {
@@ -74,7 +75,7 @@ const GOLDEN_ARTIFACT_PATH = join(STATE_DIR, 'q1-verdict-decision-v2-golden-outp
 mkdirSync(STATE_DIR, { recursive: true });
 const focusedTests = run(
   process.execPath,
-  [join(nodeModules, 'vitest', 'vitest.mjs'), 'run', 'tests/verdictDecisionV2.test.ts', 'tests/resultReportVerdictDecisionV2.test.tsx', 'tests/q1GoldenReceipt.test.tsx', 'tests/shortsFactoryVerdict.test.ts'],
+  [join(nodeModules, 'vitest', 'vitest.mjs'), 'run', 'tests/verdictDecisionV2.test.ts', 'tests/resultReportVerdictDecisionV2.test.tsx', 'tests/q1GoldenReceipt.test.tsx', 'tests/shortsFactoryVerdict.test.ts', 'tests/verdictCardImage.test.ts'],
   { ...process.env, ROADMAP_Q1_GOLDEN_ARTIFACT_PATH: GOLDEN_ARTIFACT_PATH }
 );
 if (!existsSync(GOLDEN_ARTIFACT_PATH)) throw new Error('Q1 golden-output test did not produce a representative artifact.');
@@ -93,6 +94,12 @@ if (!adverse || adverse.decision !== 'DO_NOT_PURSUE_YET' || adverse.confidence !
 const genericOffer = goldenArtifact.outputs.find(output => output.fixture_id === 'generic-offer');
 if (!genericOffer || genericOffer.decision === 'WORTH_TESTING' || genericOffer.confidence !== 'LOW' || !genericOffer.semantic_checks.generic_offer_not_claimed_testable) {
   throw new Error('Q1 generic-offer adverse golden did not fail closed.');
+}
+const partialAlternative = goldenArtifact.outputs.find(output => output.fixture_id === 'partial-missing-alternative');
+if (!partialAlternative || partialAlternative.decision !== 'DO_NOT_PURSUE_YET'
+  || JSON.stringify(partialAlternative.input_field_truth_labels) !== JSON.stringify({ customer: 'INFERRED', problem: 'INFERRED', alternative: 'UNKNOWN', offer: 'INFERRED' })
+  || partialAlternative.expected_repair_action !== 'current alternative') {
+  throw new Error('Q1 partial-intake golden did not preserve known fields and target only the missing alternative.');
 }
 if (!goldenArtifact.blueprint?.canonical_no_build_before_commitment) {
   throw new Error('Q1 Blueprint golden still contains build-before-commitment language.');
@@ -127,6 +134,8 @@ const receipt = {
       canonical_v2_present_for_every_fixture: allOutputs.every(output => Boolean(output.decision_sha256)),
       rendered_canonical_customer_offer_commitment: allOutputs.every(output => output.semantic_checks.rendered_canonical_customer_offer_commitment),
       share_card_shorts_vertex_parity: allOutputs.every(output => output.semantic_checks.share_card_short_vertex_parity),
+      truthful_card_semantics: allOutputs.every(output => output.semantic_checks.truthful_card_semantics),
+      exact_field_labels_and_repair_action: allOutputs.every(output => output.semantic_checks.exact_field_labels_and_repair_action),
       blueprint_no_build_before_commitment: goldenArtifact.blueprint.canonical_no_build_before_commitment === true
     }
   },
@@ -141,10 +150,10 @@ const receipt = {
     truth_labels: allOutputs.every(output => output.evidence_labels.includes('UNKNOWN')),
     customer_specificity: allOutputs.some(output => output.fixture_id === 'specific-paid-pilot' && /^10 /.test(output.customer)),
     no_unsupported_whole_business_success_prediction: allOutputs.every(output => output.semantic_checks.no_whole_business_claim),
-    cross_surface_customer_offer_consistency: allOutputs.every(output => output.semantic_checks.rendered_canonical_customer_offer_commitment && output.semantic_checks.share_card_short_vertex_parity) && goldenArtifact.blueprint.canonical_no_build_before_commitment === true,
+    cross_surface_customer_offer_consistency: allOutputs.every(output => output.semantic_checks.rendered_canonical_customer_offer_commitment && output.semantic_checks.share_card_short_vertex_parity && output.semantic_checks.truthful_card_semantics && output.semantic_checks.exact_field_labels_and_repair_action) && goldenArtifact.blueprint.canonical_no_build_before_commitment === true,
     legacy_hydration_and_projection: decisionSource.includes('hydrateEvaluationResultDecisionV2') && persistedResultSources.every(source => source.includes('hydrateEvaluationResultDecisionV2')) && shortsSource.includes('projectVerdictDecisionV2ToLegacy'),
     shorts_factory_compatibility: shortsSource.includes('verdict_decision_v2') && shortsSource.includes('legacy_decision_projection') && shortsSource.includes('projectVerdictDecisionV2ToLegacy'),
-    golden_fixture_comparison: allOutputs.length >= 3 && adverse.decision === 'DO_NOT_PURSUE_YET' && genericOffer.decision === 'DO_NOT_PURSUE_YET',
+    golden_fixture_comparison: allOutputs.length >= 4 && adverse.decision === 'DO_NOT_PURSUE_YET' && genericOffer.decision === 'DO_NOT_PURSUE_YET' && partialAlternative.decision === 'DO_NOT_PURSUE_YET',
     tests_pass: true,
     typecheck_pass: true,
     acceptance_build_pass: true

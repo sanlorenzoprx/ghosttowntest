@@ -1,4 +1,5 @@
 import type { BusinessDnaType, EvaluationResult, FinalVerdict } from '../types/lit';
+import type { VerdictDecision } from '../verdict/verdictDecisionV2';
 
 export type VerdictCardFormat = 'landscape' | 'square';
 
@@ -47,11 +48,36 @@ const themes: Record<FinalVerdict, CardTheme> = {
   }
 };
 
+/** V2 decisions own card copy and color so old score labels cannot contradict them. */
+const decisionThemes: Record<VerdictDecision, CardTheme> = {
+  WORTH_TESTING: {
+    start: '#052e2b', end: '#047857', accent: '#6ee7b7', soft: '#d1fae5',
+    label: 'WORTH TESTING', hook: 'TEST THE COMMITMENT.'
+  },
+  REVISE_BEFORE_TESTING: {
+    start: '#422006', end: '#a16207', accent: '#fde047', soft: '#fef9c3',
+    label: 'REVISE BEFORE TESTING', hook: 'SHARPEN THE TEST.'
+  },
+  WEAK_EVIDENCE: {
+    start: '#431407', end: '#c2410c', accent: '#fdba74', soft: '#ffedd5',
+    label: 'WEAK EVIDENCE', hook: 'EVIDENCE IS TOO THIN.'
+  },
+  DO_NOT_PURSUE_YET: {
+    start: '#450a0a', end: '#b91c1c', accent: '#fca5a5', soft: '#fee2e2',
+    label: 'DO NOT PURSUE YET', hook: 'DEFINE BEFORE OUTREACH.'
+  }
+};
+
+export function getVerdictCardTheme(result: EvaluationResult): CardTheme {
+  const decision = result.verdictDecisionV2?.decision;
+  if (decision) return decisionThemes[decision];
+  return themes[result.verdict?.verdict ?? result.deterministicScores.finalVerdict];
+}
+
 export function createVerdictCardSvg(result: EvaluationResult, options: CardOptions): string {
   const { width, height } = dimensions[options.format];
   const scores = result.deterministicScores;
-  const verdict = result.verdictDecisionV2 ? 'test_first' : (result.verdict?.verdict ?? scores.finalVerdict);
-  const theme = themes[verdict];
+  const theme = getVerdictCardTheme(result);
   const headline = result.verdictDecisionV2?.decision.replace(/_/g, ' ') ?? result.verdict?.verdict_headline ?? scores.verdictHeadline;
   const advice = result.verdictDecisionV2?.firstAction.action ?? result.verdict?.one_sentence_advice ?? scores.oneSentenceAdvice;
   const ideaName = options.includeIdeaName ? result.idea.ideaName : 'Idea name kept private';

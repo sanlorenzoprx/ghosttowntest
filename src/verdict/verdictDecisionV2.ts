@@ -91,6 +91,37 @@ function hasSpecificOffer(value: string | undefined): boolean {
   return normalized.length >= 24 && !GENERIC_OFFER.test(normalized);
 }
 
+type IntakeSpecificity = {
+  customer: boolean;
+  problem: boolean;
+  alternative: boolean;
+  offer: boolean;
+};
+
+function intakeSpecificity(idea: VerdictDecisionV2Inputs['idea']): IntakeSpecificity {
+  return {
+    customer: hasSpecificCustomer(idea.targetUser),
+    problem: hasSpecificProblem(idea.painfulProblem),
+    alternative: hasSpecificProblem(idea.currentAlternative),
+    offer: hasSpecificOffer(idea.description)
+  };
+}
+
+function missingIntakeFields(specificity: IntakeSpecificity): string[] {
+  return [
+    !specificity.customer && 'specific customer',
+    !specificity.problem && 'recent painful problem',
+    !specificity.alternative && 'current alternative',
+    !specificity.offer && 'fixed-scope offer'
+  ].filter((field): field is string => Boolean(field));
+}
+
+function joinFields(fields: string[]): string {
+  if (fields.length < 2) return fields[0] || 'specific customer, problem, alternative, and offer';
+  if (fields.length === 2) return `${fields[0]} and ${fields[1]}`;
+  return `${fields.slice(0, -1).join(', ')}, and ${fields.at(-1)}`;
+}
+
 function normalizedOffer(value: string): string {
   const normalized = fragment(value).replace(/^\s*(?:a|an|the)\s+/i, '');
   return normalized ? `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}` : 'A specific offer is not yet defined';
@@ -104,7 +135,8 @@ function narrowCustomer(idea: VerdictDecisionV2Inputs['idea']): string {
 }
 
 function decisionFor(score: number, inputs: VerdictDecisionV2Inputs): VerdictDecision {
-  if (!hasSpecificCustomer(inputs.idea.targetUser) || !hasSpecificProblem(inputs.idea.painfulProblem) || !hasSpecificProblem(inputs.idea.currentAlternative) || !hasSpecificOffer(inputs.idea.description)) {
+  const specificity = intakeSpecificity(inputs.idea);
+  if (!specificity.customer || !specificity.problem || !specificity.alternative || !specificity.offer) {
     return 'DO_NOT_PURSUE_YET';
   }
   if (score >= 3.75) return 'WORTH_TESTING';
@@ -129,9 +161,12 @@ export function buildVerdictDecisionV2(inputs: VerdictDecisionV2Inputs): Verdict
   const alternative = text(idea.currentAlternative, 'their current workaround');
   const offer = text(idea.description, text(idea.ideaName, 'a fixed-scope manual pilot'));
   const priceOrCommitmentRange = text(inputs.priceOrCommitmentRange, '');
-  const specificIntake = hasSpecificCustomer(idea.targetUser) && hasSpecificProblem(idea.painfulProblem) && hasSpecificProblem(idea.currentAlternative) && hasSpecificOffer(idea.description);
+  const specificity = intakeSpecificity(idea);
+  const missingFields = missingIntakeFields(specificity);
+  const completeIntake = missingFields.length === 0;
+  const missingFieldList = joinFields(missingFields);
   const decision = decisionFor(scores.litScore, inputs);
-  const confidence = specificIntake ? confidenceFor(scores) : 'LOW';
+  const confidence = completeIntake ? confidenceFor(scores) : 'LOW';
   const uncertainty = scores.insightScore < 3
     ? 'whether this problem is urgent enough to change current behavior'
     : scores.leverageScore < 3
@@ -140,20 +175,20 @@ export function buildVerdictDecisionV2(inputs: VerdictDecisionV2Inputs): Verdict
 
   return {
     decision,
-    predictionTarget: specificIntake
+    predictionTarget: completeIntake
       ? `Given this customer, problem, offer, access path, and founder constraints, how plausible is it that ${initialCustomer} will make a meaningful customer commitment during the validation window?`
       : 'Given the incomplete or broad intake, whether a specifically identifiable buyer will make a meaningful customer commitment during the validation window is unknown.',
     confidence: {
       level: confidence,
-      rationale: !specificIntake
-        ? 'LOW because the supplied intake does not yet identify a specific customer, painful problem, current alternative, and concrete offer. Buyer commitment remains unknown.'
+      rationale: !completeIntake
+        ? `LOW because the supplied intake still needs a ${missingFieldList}. Buyer commitment remains unknown.`
         : confidence === 'MODERATE'
         ? 'The supplied intake describes a customer, problem, and testable offer, but buyer commitment is still unverified.'
         : 'The supplied intake leaves important buyer, urgency, access, or commitment evidence unverified.'
     },
     customer: {
       initialCustomer,
-      whyThisCustomer: specificIntake
+      whyThisCustomer: specificity.customer
         ? 'This cohort is tied to the supplied problem and current alternative, so a direct commitment ask can produce clearer evidence than a broad audience survey.'
         : 'No specific first customer is supported by the supplied intake yet; do not infer one from a broad audience label.',
       excludedBroadAudiences: ['everyone with a similar interest', 'all businesses in the market', 'unqualified followers or survey respondents']
@@ -162,19 +197,19 @@ export function buildVerdictDecisionV2(inputs: VerdictDecisionV2Inputs): Verdict
       painfulProblem: problem,
       existingAlternative: alternative,
       urgencyEvidence: [
-        hasSpecificProblem(idea.painfulProblem) ? `The founder supplied this problem: ${problem}` : 'A specific painful problem was not supplied.',
-        hasSpecificProblem(idea.currentAlternative) ? `The founder supplied this current alternative: ${alternative}` : 'A specific current alternative was not supplied.',
+        specificity.problem ? `The founder supplied this problem: ${problem}` : 'A specific painful problem was not supplied.',
+        specificity.alternative ? `The founder supplied this current alternative: ${alternative}` : 'A specific current alternative was not supplied.',
         'Whether buyers experience the problem recently enough to act is unknown.'
       ]
     },
     offerHypothesis: {
-      offer: specificIntake ? normalizedOffer(offer) : 'A concrete offer is unknown until the founder defines a fixed-scope outcome and delivery method.',
-      commitmentRequested: specificIntake ? 'One paid pilot commitment with a fixed scope and a dated decision.' : 'No paid-pilot commitment request until the customer, problem, alternative, and offer definition is complete.',
+      offer: specificity.offer ? normalizedOffer(offer) : 'A concrete offer is unknown until the founder defines a fixed-scope outcome and delivery method.',
+      commitmentRequested: completeIntake ? 'One paid pilot commitment with a fixed scope and a dated decision.' : `No paid-pilot commitment request until the ${missingFieldList} is specifically defined.`,
       ...(priceOrCommitmentRange ? { priceOrCommitmentRange } : {})
     },
     reasonsFor: [
-      specificIntake ? `The supplied offer (${normalizedOffer(offer)}) connects ${initialCustomer} to a stated painful problem rather than a broad audience claim.` : 'The supplied intake must be sharpened before any offer or demand claim is made.',
-      hasSpecificProblem(idea.currentAlternative) ? `The current alternative (${alternative}) gives the test a concrete behavior to replace or improve.` : 'A named current alternative must be collected before comparing the offer.',
+      specificity.offer && specificity.customer && specificity.problem ? `The supplied offer (${normalizedOffer(offer)}) connects ${initialCustomer} to a stated painful problem rather than a broad audience claim.` : `Before any demand claim, define the missing ${missingFieldList}.`,
+      specificity.alternative ? `The current alternative (${alternative}) gives the test a concrete behavior to replace or improve.` : 'A named current alternative must be collected before comparing the offer.',
       'A manual pilot can test commitment before substantial product work.'
     ],
     reasonsAgainst: [
@@ -183,23 +218,23 @@ export function buildVerdictDecisionV2(inputs: VerdictDecisionV2Inputs): Verdict
       'Access to enough qualified buyers must be demonstrated through direct outreach or an existing channel.'
     ],
     largestUncertainty: {
-      assumption: specificIntake ? uncertainty : 'who the specific first customer is, what recent problem they experience, what they use instead today, and what fixed-scope offer they would evaluate',
+      assumption: completeIntake ? uncertainty : `the missing ${missingFieldList} before a commitment ask is meaningful`,
       whyItMatters: 'A useful problem without a timely commitment does not justify substantial product investment.'
     },
     cheapestFalsification: {
-      test: specificIntake
+      test: completeIntake
         ? `Prepare one concise paid-pilot invitation, send it to ${initialCustomer}, ask about the most recent problem and current alternative, then request one paid-pilot commitment with fixed scope${priceOrCommitmentRange ? ` at ${priceOrCommitmentRange}` : ' after setting a founder-owned price or deposit range'}. Classify 3 or more commitments as PASS, zero as FAIL, and 1–2 as INCONCLUSIVE.`
-        : 'Do not run paid-pilot outreach yet. Complete a one-page definition naming one specific customer, recent painful problem, current alternative, fixed-scope offer, and founder-owned price or deposit range; then rerun this verdict.',
-      target: specificIntake ? initialCustomer : 'The founder’s one-page customer/problem/alternative/offer definition',
-      successThreshold: specificIntake ? 'PASS: at least 3 paid-pilot commitments from 10 qualified buyers within 5 business days.' : 'PASS: one complete definition with all five fields and no broad audience or generic offer.',
-      failureThreshold: specificIntake ? 'FAIL: zero paid-pilot commitments from 10 qualified buyers within 5 business days. INCONCLUSIVE: 1–2 commitments; record objections, revise one constraint, and rerun.' : 'FAIL: any required field remains missing or generic. INCONCLUSIVE: a field is plausible but not specific enough; tighten it before outreach.',
+        : `Do not run paid-pilot outreach yet. Complete a one-page definition for the missing ${missingFieldList}; then rerun this verdict.`,
+      target: completeIntake ? initialCustomer : `The founder’s ${missingFieldList} definition`,
+      successThreshold: completeIntake ? 'PASS: at least 3 paid-pilot commitments from 10 qualified buyers within 5 business days.' : `PASS: the missing ${missingFieldList} is specific rather than broad or generic.`,
+      failureThreshold: completeIntake ? 'FAIL: zero paid-pilot commitments from 10 qualified buyers within 5 business days. INCONCLUSIVE: 1–2 commitments; record objections, revise one constraint, and rerun.' : `FAIL: the ${missingFieldList} remains missing or generic. INCONCLUSIVE: it is plausible but not specific enough; tighten it before outreach.`,
       maximumTime: '5 business days',
       maximumCash: 'No paid spend required; use founder time and existing direct outreach only.'
     },
     firstAction: {
-      action: specificIntake
+      action: completeIntake
         ? `Prepare the concise paid-pilot invitation, list 10 ${text(idea.targetUser, 'qualified prospective buyers')} who use ${fragment(alternative)}, and send the invitation today.`
-        : 'Create a one-page evidence brief that defines one specific first customer, recent painful problem, current alternative, fixed-scope offer, and founder-owned price or deposit range. Do not prepare or send paid-pilot outreach yet.',
+        : `Create a one-page evidence brief defining the missing ${missingFieldList}. Do not prepare or send paid-pilot outreach yet.`,
       preparedAssetRequired: true
     },
     whatWouldChangeTheVerdict: [
@@ -210,9 +245,10 @@ export function buildVerdictDecisionV2(inputs: VerdictDecisionV2Inputs): Verdict
     ],
     evidenceLabels: [
       { statement: `The founder supplied an idea named ${text(idea.ideaName, 'this idea')}.`, truthLabel: 'VERIFIED', sourceId: 'intake.ideaName' },
-      { statement: specificIntake ? `The initial customer is inferred as ${initialCustomer}.` : 'A specific initial customer is unknown because the intake is broad or incomplete.', truthLabel: specificIntake ? 'INFERRED' : 'UNKNOWN', ...(specificIntake ? { sourceId: 'intake.targetUser' } : {}) },
-      { statement: hasSpecificProblem(idea.painfulProblem) ? `The stated problem is ${problem}.` : 'A specific painful problem is unknown because it was not supplied.', truthLabel: hasSpecificProblem(idea.painfulProblem) ? 'INFERRED' : 'UNKNOWN', ...(hasSpecificProblem(idea.painfulProblem) ? { sourceId: 'intake.painfulProblem' } : {}) },
-      { statement: hasSpecificOffer(idea.description) ? `The supplied offer is ${normalizedOffer(offer)}.` : 'A concrete offer is unknown because the description is missing or generic.', truthLabel: hasSpecificOffer(idea.description) ? 'INFERRED' : 'UNKNOWN', ...(hasSpecificOffer(idea.description) ? { sourceId: 'intake.description' } : {}) },
+      { statement: specificity.customer ? `The initial customer is inferred as ${initialCustomer}.` : 'A specific initial customer is unknown because it was not supplied or is broad.', truthLabel: specificity.customer ? 'INFERRED' : 'UNKNOWN', sourceId: 'intake.targetUser' },
+      { statement: specificity.problem ? `The stated problem is ${problem}.` : 'A specific painful problem is unknown because it was not supplied or is broad.', truthLabel: specificity.problem ? 'INFERRED' : 'UNKNOWN', sourceId: 'intake.painfulProblem' },
+      { statement: specificity.alternative ? `The stated current alternative is ${alternative}.` : 'A specific current alternative is unknown because it was not supplied or is broad.', truthLabel: specificity.alternative ? 'INFERRED' : 'UNKNOWN', sourceId: 'intake.currentAlternative' },
+      { statement: specificity.offer ? `The supplied offer is ${normalizedOffer(offer)}.` : 'A concrete offer is unknown because the description is missing or generic.', truthLabel: specificity.offer ? 'INFERRED' : 'UNKNOWN', sourceId: 'intake.description' },
       { statement: `Whether buyers will make a meaningful commitment is unknown until the falsification test is run.`, truthLabel: 'UNKNOWN' }
     ]
   };
