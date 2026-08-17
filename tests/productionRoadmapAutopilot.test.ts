@@ -80,10 +80,12 @@ describe('production roadmap autopilot contract', () => {
     expect(wrapper).toContain('roadmap-gate19-stripe-webhook-registration-smoke.mjs');
     expect(wrapper).toContain('roadmap-gate21-stripe-order-idempotency.mjs');
     expect(wrapper).toContain('roadmap-gate22-seed-confirmation-workflow.mjs');
+    expect(wrapper).toContain('roadmap-gate23-paid-provider-research.mjs');
     expect(wrapper).toContain('ROADMAP_GATE_18_COMMAND: sanctionedGate18Command');
     expect(wrapper).toContain('ROADMAP_GATE_19_COMMAND: sanctionedGate19Command');
     expect(wrapper).toContain('ROADMAP_GATE_21_COMMAND: sanctionedGate21Command');
     expect(wrapper).toContain('ROADMAP_GATE_22_COMMAND: sanctionedGate22Command');
+    expect(wrapper).toContain('ROADMAP_GATE_23_COMMAND: sanctionedGate23Command');
   });
 
   it('preserves argument boundaries for Windows shell execution used by remote D1 and bundle checks', async () => {

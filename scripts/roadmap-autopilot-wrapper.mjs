@@ -18,6 +18,7 @@ const GATE19_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate19-stripe-webhook-regi
 const GATE20_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate20-manual-purchase-verifier.mjs');
 const GATE21_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate21-stripe-order-idempotency.mjs');
 const GATE22_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate22-seed-confirmation-workflow.mjs');
+const GATE23_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate23-paid-provider-research.mjs');
 const RUNNER = 'scripts/roadmap-master-autopilot.mjs';
 const PREVIOUS_GENERATIVE_ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1';
 const GENERATIVE_ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1+cloudflare-spa-templates-v1';
@@ -39,6 +40,8 @@ const sanctionedGate21Command = process.env.ROADMAP_GATE_21_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(GATE21_ADAPTER)}`;
 const sanctionedGate22Command = process.env.ROADMAP_GATE_22_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(GATE22_ADAPTER)}`;
+const sanctionedGate23Command = process.env.ROADMAP_GATE_23_COMMAND?.trim()
+  || `${quoted(process.execPath)} ${quoted(GATE23_ADAPTER)}`;
 
 function childEnv() {
   return {
@@ -48,7 +51,8 @@ function childEnv() {
     ROADMAP_GATE_18_COMMAND: sanctionedGate18Command,
     ROADMAP_GATE_19_COMMAND: sanctionedGate19Command,
     ROADMAP_GATE_21_COMMAND: sanctionedGate21Command,
-    ROADMAP_GATE_22_COMMAND: sanctionedGate22Command
+    ROADMAP_GATE_22_COMMAND: sanctionedGate22Command,
+    ROADMAP_GATE_23_COMMAND: sanctionedGate23Command
   };
 }
 
