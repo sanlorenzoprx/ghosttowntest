@@ -5,7 +5,8 @@ import {
   generateAI,
   generateAIJson,
   resolveGenerativeModel,
-  responseSchemaForVertexRequest
+  responseSchemaForVertexRequest,
+  type GenerativeAIResponseSchema
 } from '../src/api/generativeAIService';
 
 function fakeKv(): KVNamespace {
@@ -86,14 +87,14 @@ describe('GenerativeAIService', () => {
   });
 
   it('relaxes only the exact 30-day Vertex transport bound for the oversized Blueprint asset schema', () => {
-    const schema = {
+    const schema: GenerativeAIResponseSchema = {
       type: 'OBJECT',
       properties: {
         helpfulPosts: { type: 'ARRAY', items: { type: 'STRING' }, minItems: 1, maxItems: 3 },
         dailyActions: { type: 'ARRAY', items: { type: 'STRING' }, minItems: 30, maxItems: 30 }
       },
       required: ['helpfulPosts', 'dailyActions']
-    } as const;
+    };
 
     const relaxed = responseSchemaForVertexRequest('blueprint', schema);
     expect(relaxed).not.toBe(schema);
