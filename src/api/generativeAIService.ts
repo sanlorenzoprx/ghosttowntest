@@ -270,6 +270,33 @@ function parseJson<T>(value: string): T {
   return JSON.parse(source.slice(start, end + 1)) as T;
 }
 
+/**
+ * Vertex can reject otherwise-valid structured-output schemas when their grammar
+ * becomes too complex. Stage 3 is uniquely large because it returns a full
+ * 30-day calendar plus several nested asset collections. The exact 30-day
+ * requirement remains enforced deterministically by validateAssets(); removing
+ * only the transport-level 30/30 array bound reduces schema grammar complexity
+ * without weakening the Blueprint contract.
+ */
+export function responseSchemaForVertexRequest(
+  task: GenerativeAITask,
+  schema: GenerativeAIResponseSchema
+): GenerativeAIResponseSchema {
+  if (task !== 'blueprint' || schema.type !== 'OBJECT' || !schema.properties) return schema;
+  const dailyActions = schema.properties.dailyActions;
+  if (!dailyActions || dailyActions.type !== 'ARRAY' || dailyActions.minItems !== 30 || dailyActions.maxItems !== 30) {
+    return schema;
+  }
+  const { minItems: _minItems, maxItems: _maxItems, ...relaxedDailyActions } = dailyActions;
+  return {
+    ...schema,
+    properties: {
+      ...schema.properties,
+      dailyActions: relaxedDailyActions
+    }
+  };
+}
+
 export async function aiGatewayVertexUrl(env: Env, task: GenerativeAITask): Promise<string> {
   const config = serviceAccountConfig(env);
   const gatewayId = text(env.AI_GATEWAY_ID) || DEFAULT_GATEWAY_ID;
@@ -295,7 +322,7 @@ export async function generateAI(env: Env, options: GenerateOptions): Promise<Ge
   };
   if (options.responseSchema) {
     generationConfig.responseMimeType = 'application/json';
-    generationConfig.responseSchema = options.responseSchema;
+    generationConfig.responseSchema = responseSchemaForVertexRequest(options.task, options.responseSchema);
   }
   const requestBody: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: options.prompt }] }],
@@ -330,7 +357,9 @@ export async function generateAI(env: Env, options: GenerateOptions): Promise<Ge
   }
 
   const body = await response.json() as VertexGenerateContentResponse;
-  if (!response.ok) throw new Error(body.error?.message || `Vertex ${options.task} returned HTTP ${response.status}`);
+  if (!response.ok) {
+    throw new Error(`Vertex ${options.task} returned HTTP ${response.status}: ${body.error?.message || 'request failed'}`);
+  }
   const candidate = body.candidates?.[0];
   const output = candidate?.content?.parts?.map(part => part.text || '').join('\n').trim() || '';
   if (!output) throw new Error(body.promptFeedback?.blockReason || candidate?.finishReason || `Vertex ${options.task} returned no content`);
