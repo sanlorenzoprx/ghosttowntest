@@ -1,0 +1,26 @@
+{
+  "schema_version": "ghosttown-commercial-quality-source-lock-v1",
+  "locked_sources": [
+    {
+      "path": "docs/GHOSTTOWN_COMMERCIAL_QUALITY_AUTOPILOT_DEVELOPMENT_CONTRACT_V1.md",
+      "git_blob_sha1": "24c50493e229eaad7ebb77f83bcc4da6b6f7fdc3"
+    },
+    {
+      "path": "docs/STORY_STUDIO_BASELINE_001_OPERATING_CONTRACT.md",
+      "git_blob_sha1": "e569f2928600322d59276c1026a2453d70a7f843"
+    },
+    {
+      "path": "config/infrastructure-freeze-policy-v1.json",
+      "git_blob_sha1": "5d1d2d61c308446768fbb06044823d1a7805acdc"
+    },
+    {
+      "path": "config/commercial-quality-roadmap-v1.json",
+      "git_blob_sha1": "0b5b264f94d7fe4f52ed70fbb9b89fe2139b60f7"
+    },
+    {
+      "path": "config/production-roadmap-47-gates.json",
+      "git_blob_sha1": "4bc3d682d6bbe7b520db92db473718c0cd2454eb"
+    }
+  ],
+  "change_rule": "Any intentional source change requires a versioned source amendment, explicit change record, regenerated hashes, and updated acceptance evidence."
+}
