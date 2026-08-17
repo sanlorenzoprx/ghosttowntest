@@ -4,7 +4,8 @@ import {
   aiGatewayVertexUrl,
   generateAI,
   generateAIJson,
-  resolveGenerativeModel
+  resolveGenerativeModel,
+  responseSchemaForVertexRequest
 } from '../src/api/generativeAIService';
 
 function fakeKv(): KVNamespace {
@@ -82,6 +83,25 @@ describe('GenerativeAIService', () => {
     expect(resolveGenerativeModel(configured, 'grounded_research')).toBe('research-model');
     expect(resolveGenerativeModel(configured, 'blueprint')).toBe('blueprint-model');
     expect(resolveGenerativeModel(configured, 'custom_website')).toBe('website-model');
+  });
+
+  it('relaxes only the exact 30-day Vertex transport bound for the oversized Blueprint asset schema', () => {
+    const schema = {
+      type: 'OBJECT',
+      properties: {
+        helpfulPosts: { type: 'ARRAY', items: { type: 'STRING' }, minItems: 1, maxItems: 3 },
+        dailyActions: { type: 'ARRAY', items: { type: 'STRING' }, minItems: 30, maxItems: 30 }
+      },
+      required: ['helpfulPosts', 'dailyActions']
+    } as const;
+
+    const relaxed = responseSchemaForVertexRequest('blueprint', schema);
+    expect(relaxed).not.toBe(schema);
+    expect(relaxed.properties?.dailyActions.minItems).toBeUndefined();
+    expect(relaxed.properties?.dailyActions.maxItems).toBeUndefined();
+    expect(relaxed.properties?.helpfulPosts.minItems).toBe(1);
+    expect(relaxed.properties?.helpfulPosts.maxItems).toBe(3);
+    expect(responseSchemaForVertexRequest('custom_website', schema)).toBe(schema);
   });
 
   it('builds the provider-native Cloudflare AI Gateway URL for Vertex', async () => {
