@@ -86,12 +86,24 @@ describe('GenerativeAIService', () => {
     expect(resolveGenerativeModel(configured, 'custom_website')).toBe('website-model');
   });
 
-  it('relaxes only the exact 30-day Vertex transport bound for the oversized Blueprint asset schema', () => {
+  it('relaxes only the 30-day transport bound while requiring a prepared asset for every Blueprint day', () => {
     const schema: GenerativeAIResponseSchema = {
       type: 'OBJECT',
       properties: {
         helpfulPosts: { type: 'ARRAY', items: { type: 'STRING' }, minItems: 1, maxItems: 3 },
-        dailyActions: { type: 'ARRAY', items: { type: 'STRING' }, minItems: 30, maxItems: 30 }
+        dailyActions: {
+          type: 'ARRAY',
+          minItems: 30,
+          maxItems: 30,
+          items: {
+            type: 'OBJECT',
+            properties: {
+              dayNumber: { type: 'INTEGER' },
+              preparedAssets: { type: 'ARRAY', items: { type: 'STRING' }, minItems: 0, maxItems: 4 }
+            },
+            required: ['dayNumber', 'preparedAssets']
+          }
+        }
       },
       required: ['helpfulPosts', 'dailyActions']
     };
@@ -100,6 +112,8 @@ describe('GenerativeAIService', () => {
     expect(relaxed).not.toBe(schema);
     expect(relaxed.properties?.dailyActions.minItems).toBeUndefined();
     expect(relaxed.properties?.dailyActions.maxItems).toBeUndefined();
+    expect(relaxed.properties?.dailyActions.items?.properties?.preparedAssets.minItems).toBe(1);
+    expect(relaxed.properties?.dailyActions.items?.properties?.preparedAssets.maxItems).toBe(4);
     expect(relaxed.properties?.helpfulPosts.minItems).toBe(1);
     expect(relaxed.properties?.helpfulPosts.maxItems).toBe(3);
     expect(responseSchemaForVertexRequest('custom_website', schema)).toBe(schema);
