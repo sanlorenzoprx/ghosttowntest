@@ -440,33 +440,15 @@ export default function UserDashboard({
                         </button>
                       )}
                       {plan.status === "ready" && (
-                        <>
-                          <button
-                            onClick={() => void downloadPlan(plan, "pdf")}
-                            disabled={Boolean(downloadingPlan)}
-                            className="rounded-lg border border-ghost-rust px-4 py-2 text-sm font-black text-ghost-rust disabled:opacity-50"
-                          >
-                            {downloadingPlan === `${plan.orderId}:pdf`
-                              ? "Preparing…"
-                              : "PDF"}
-                          </button>
-                          <button
-                            onClick={() => void downloadPlan(plan, "json")}
-                            disabled={Boolean(downloadingPlan)}
-                            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-black disabled:opacity-50"
-                          >
-                            {downloadingPlan === `${plan.orderId}:json`
-                              ? "Preparing…"
-                              : "JSON"}
-                          </button>
-                          {isBlueprint && <button
-                            onClick={() => void downloadPlan(plan, "zip")}
-                            disabled={Boolean(downloadingPlan)}
-                            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-black disabled:opacity-50"
-                          >
-                            {downloadingPlan === `${plan.orderId}:zip` ? "Preparing…" : "ZIP"}
-                          </button>}
-                        </>
+                        <button
+                          onClick={() => void downloadPlan(plan, "pdf")}
+                          disabled={Boolean(downloadingPlan)}
+                          className="rounded-lg border border-ghost-rust px-4 py-2 text-sm font-black text-ghost-rust disabled:opacity-50"
+                        >
+                          {downloadingPlan === `${plan.orderId}:pdf`
+                            ? "Preparing…"
+                            : "PDF"}
+                        </button>
                       )}
                       {isBlueprint && (plan.status === "failed" || working) && (
                         <button
