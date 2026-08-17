@@ -23,6 +23,7 @@ import {
   validateGhostTownLaunchBlueprint,
   type CustomerAccessResearchInput
 } from './launchBlueprintGenerator';
+import { synchronizeDailyExecutionPackets, validateDailyExecutionPackets } from './launchBlueprintDailyExecution';
 
 export const CANONICAL_BLUEPRINT_V21_GIT_BLOB_SHA1 = '616c691e6b4c9cea93615963a07375d13ffba57f' as const;
 
@@ -320,6 +321,7 @@ export function validateGhostTownLaunchBlueprintV21(
   if (blueprint.adaptiveCheckpoints.map(item => item.dayNumber).join(',') !== '7,14,21,30') failures.push('Adaptive checkpoints must exist at Days 7, 14, 21, and 30.');
   if (blueprint.adaptiveCheckpoints.some(item => !item.questions.length || !item.branches.length || !item.evidenceRequired.length)) failures.push('Every adaptive checkpoint must include questions, evidence, and branches.');
   if (blueprint.dailyCalendar.some(day => !day.whyItMatters || day.estimatedMinutes <= 0 || !day.ifThenBranches.length)) failures.push('Every v2.1 daily action must include why it matters, time, and an if-then branch.');
+  failures.push(...validateDailyExecutionPackets(blueprint));
   if (!blueprint.customerInterviewGuide.lastOccurrenceQuestions.length || !blueprint.offerConversationGuide.commitmentRequest) failures.push('Interview or offer-conversation guide is incomplete.');
   if (!blueprint.foundingCustomerPilotBrief.deliverables.length || !blueprint.foundingCustomerPilotBrief.proofBoundary) failures.push('Founding Customer Pilot Brief is incomplete.');
   if (blueprint.startingStateAudit.founderConstraints.hoursPerWeek.source === 'missing_input') warnings.push('Founder hours per week remain unconfirmed.');
@@ -380,10 +382,10 @@ export function upgradeGhostTownLaunchBlueprintToV21(
     },
     qualityGate: { passed: false, failures: [], warnings: [] }
   } as GhostTownLaunchBlueprintV21;
-
-  upgraded.qualityGate = validateGhostTownLaunchBlueprintV21(upgraded);
-  upgraded.status = upgraded.qualityGate.passed ? 'ready' : 'failed_quality_gate';
-  return upgraded;
+  const synchronized = synchronizeDailyExecutionPackets(upgraded, verdict);
+  synchronized.qualityGate = validateGhostTownLaunchBlueprintV21(synchronized);
+  synchronized.status = synchronized.qualityGate.passed ? 'ready' : 'failed_quality_gate';
+  return synchronized;
 }
 
 export function createGhostTownLaunchBlueprintV21(

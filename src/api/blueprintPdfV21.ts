@@ -474,6 +474,12 @@ class V21PdfBuilder {
       { label: 'Success measure', value: day.successMeasurement },
       { label: 'Evidence to record', value: day.evidenceToRecord.join('; ') },
       { label: 'If-then branches', value: day.ifThenBranches.map(branch => `IF ${branch.condition} THEN ${branch.action}`).join('; ') }
+      , ...(day.executionPacket ? [
+        { label: 'Failure threshold', value: day.executionPacket.failureThreshold },
+        { label: 'Complete when', value: day.executionPacket.completionDefinition },
+        { label: 'Finished asset', value: day.executionPacket.assets.map(asset => `${asset.title}: ${asset.finishedContent}`).join('\n') },
+        { label: 'Asset lineage', value: day.executionPacket.assets.map(asset => `${asset.assetId} ← ${asset.lineage.sourceVerdictId}`).join('; ') }
+      ] : [])
     ], day.dayNumber % 7 === 0 || day.dayNumber === 30 ? COLORS.rust : COLORS.gold));
   }
 

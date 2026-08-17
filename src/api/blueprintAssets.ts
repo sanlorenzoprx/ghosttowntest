@@ -295,9 +295,16 @@ export function buildBlueprintAssetFiles(
             "measurement",
             "evidence",
             "if_then_branches",
+            "packet_action_ids",
+            "asset_ids",
+            "failure_threshold",
+            "completion_definition",
+            "asset_lineage",
+            "finished_asset_content",
           ],
           ...blueprint.dailyCalendar.map((day) => {
             const dayV21 = day as Partial<BlueprintDailyActionV21>;
+            const packet = dayV21.executionPacket;
             return [
               day.dayNumber,
               day.title,
@@ -313,6 +320,12 @@ export function buildBlueprintAssetFiles(
               (dayV21.ifThenBranches || [])
                 .map((branch) => `IF ${branch.condition} THEN ${branch.action}`)
                 .join("; "),
+              packet?.actions.map(action => action.actionId).join("; ") || "",
+              packet?.assets.map(asset => asset.assetId).join("; ") || "",
+              packet?.failureThreshold || "",
+              packet?.completionDefinition || "",
+              packet?.assets.map(asset => `${asset.lineage.blueprintId}:${asset.lineage.sourceVerdictId}`).join("; ") || "",
+              packet?.assets.map(asset => asset.finishedContent).join("\n\n---\n\n") || "",
             ];
           }),
         ]),

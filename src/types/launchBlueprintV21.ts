@@ -164,6 +164,85 @@ export interface BlueprintDailyActionV21 extends BlueprintDailyAction {
     condition: string;
     action: string;
   }>;
+  /** Q2 keeps legacy calendar fields as deterministic projections of this packet. */
+  executionPacket?: DailyExecutionPacket;
+}
+
+export type ExecutionTargetKind = 'verified_channel' | 'qualified_buyer_batch' | 'existing_contact' | 'launch_site' | 'offer' | 'evidence_set' | 'fulfillment_run';
+export interface ExecutionTarget {
+  targetId: string;
+  kind: ExecutionTargetKind;
+  name: string;
+  identityStatus: 'verified_public' | 'founder_supplied' | 'founder_must_select' | 'canonical_internal';
+  selectionOrQualificationRule: string;
+  minimumCount: number;
+  excluded: string[];
+  channelId?: string;
+  publicUrl?: string;
+  sourceIds: string[];
+}
+
+export interface AssetLineage {
+  blueprintId: string;
+  blueprintVersion: string;
+  sourceVerdictId: string;
+  sourceIds: string[];
+  sourceAssetIds: string[];
+  parentAssetId?: string;
+}
+
+export interface DeliverableAsset {
+  assetId: string;
+  dayNumber: number;
+  type: string;
+  title: string;
+  finishedContent: string;
+  contentType: 'text/markdown' | 'text/plain' | 'text/csv';
+  personalizationFields: Array<{ name: string; description: string; required: boolean }>;
+  usageInstructions: string;
+  targetChannel?: string;
+  targetIds: string[];
+  capabilities: { copyReady: boolean; editable: boolean; downloadable: boolean; openable: boolean };
+  evidenceExpected: string[];
+  version: string;
+  lineage: AssetLineage;
+}
+
+export interface ExecutionAction {
+  actionId: string;
+  sequence: number;
+  instruction: string;
+  quantity: string;
+  targetIds: string[];
+  assetIds: string[];
+  evidenceExpected: string[];
+}
+
+export interface BranchRule {
+  branchId: string;
+  condition: string;
+  action: string;
+  route: 'continue' | 'revise' | 'pivot' | 'pause' | 'stop';
+  targetDay?: number;
+  evidenceRequired: string[];
+}
+
+export interface DailyExecutionPacket {
+  dayNumber: number;
+  title: string;
+  objective: string;
+  whyThisDayExists: string;
+  targets: ExecutionTarget[];
+  actions: ExecutionAction[];
+  assets: DeliverableAsset[];
+  expectedOutcome: string;
+  successThreshold: string;
+  failureThreshold: string;
+  evidenceToCapture: string[];
+  branchRules: BranchRule[];
+  estimatedMinutes: number;
+  completionDefinition: string;
+  nonAssetJustification?: string;
 }
 
 export interface CanonicalContractReceipt {
@@ -284,6 +363,7 @@ export type GhostTownLaunchBlueprintV21 = Omit<
   customerInterviewGuide: CustomerInterviewGuide;
   offerConversationGuide: OfferConversationGuide;
   foundingCustomerPilotBrief: FoundingCustomerPilotBrief;
+  dailyExecutionContractVersion?: 'daily-execution-packet-v1';
   dailyCalendar: BlueprintDailyActionV21[];
   generationReceipt: BlueprintGenerationReceiptV21;
   qualityGate: BlueprintQualityGate;

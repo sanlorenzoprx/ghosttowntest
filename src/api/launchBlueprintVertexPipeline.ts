@@ -23,6 +23,7 @@ import {
   type VertexStructuredStageResult
 } from './vertexStructuredGeneration';
 import { validateGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
+import { synchronizeDailyExecutionPackets } from './launchBlueprintDailyExecution';
 
 export const VERTEX_BLUEPRINT_PIPELINE_VERSION = 'vertex-blueprint-staged-v1' as const;
 
@@ -958,7 +959,9 @@ export function applyVertexPipelineDraft(
     nextStep: next.landingPageCopy.primaryCallToAction
   };
 
-  return next;
+  // Vertex may improve canonical offer, scripts, guides, and daily aliases. Rebuild
+  // the additive Q2 packet projection after those changes so no surface drifts.
+  return synchronizeDailyExecutionPackets(next, context.verdict);
 }
 
 function validateRedTeam(data: VertexRedTeamReview): VertexRedTeamReview {
