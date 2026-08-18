@@ -31,11 +31,16 @@ function envWithKv(kv: MemoryKv): Env {
 }
 
 describe('commercial metrics', () => {
-  it('turns funnel events and Stripe webhook purchases into conversion metrics', async () => {
+  it('turns attributed funnel events and Stripe webhook purchases into conversion metrics', async () => {
     const kv = new MemoryKv();
     const env = envWithKv(kv);
     const now = new Date('2026-08-09T13:00:00.000Z');
     const createdAt = '2026-08-09T12:00:00.000Z';
+    const lineage = {
+      attributionToken: 'gta-1',
+      visitorId: 'gtv-1',
+      ghosttownSessionId: 'gts-1'
+    };
 
     const events = [
       ['landing_viewed', 'youtube'],
@@ -46,12 +51,22 @@ describe('commercial metrics', () => {
     ];
     for (let index = 0; index < events.length; index += 1) {
       const [eventName, source] = events[index];
-      await kv.put(`analytics_event_${index}`, JSON.stringify({ eventName, source, createdAt }));
+      await kv.put(`analytics_event_${index}`, JSON.stringify({ eventName, source, createdAt, ...lineage }));
     }
 
     await recordVerifiedPurchase(env, 'evt_paid_1', {
       amount_total: 9700,
-      currency: 'USD'
+      currency: 'USD',
+      metadata: {
+        attribution_token: 'gta-1',
+        source_verdict_id: 'verdict-source-1',
+        creative_id: 'creative-1',
+        publication_id: 'publication-1',
+        platform: 'youtube',
+        source: 'youtube',
+        visitor_id: 'gtv-1',
+        ghosttown_session_id: 'gts-1'
+      }
     }, {
       orderId: 'order-1',
       artifactType: 'launch_blueprint_v2'
@@ -81,6 +96,20 @@ describe('commercial metrics', () => {
       count: 1,
       revenueMinorUnitsByCurrency: { usd: 9700 },
       authority: 'stripe_webhook'
+    });
+    expect(metrics.attributionCoverage).toEqual({
+      uniqueVisitors: 1,
+      uniqueSessions: 1,
+      attributedEvents: 5,
+      totalEvents: 5,
+      attributedVerifiedPurchases: 1,
+      verifiedPurchases: 1
+    });
+    expect(metrics.publicationRevenue[0]).toMatchObject({
+      publicationId: 'publication-1',
+      purchases: 1,
+      revenueMinor: 9700,
+      currency: 'usd'
     });
     expect(metrics.topSources[0]).toEqual({ source: 'youtube', eventCount: 5 });
   });
