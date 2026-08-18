@@ -71,10 +71,21 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
   };
 
   const captureClick = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target instanceof Element ? event.target.closest('button') : null;
+    if (target?.textContent?.trim() === 'Today') {
+      recordRenderedDailyPacket(event.currentTarget);
+      return;
+    }
+    // Reminder/deep-link buttons can also move the child view into Today.
     recordRenderedDailyPacket(event.currentTarget);
   };
 
   const captureChange = (event: ChangeEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (target instanceof HTMLSelectElement && target.value === 'today') {
+      recordRenderedDailyPacket(event.currentTarget);
+      return;
+    }
     recordRenderedDailyPacket(event.currentTarget);
   };
 
