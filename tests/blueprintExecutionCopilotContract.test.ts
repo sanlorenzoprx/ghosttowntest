@@ -7,7 +7,7 @@ const service = readFileSync(new URL('../src/api/executionAIService.ts', import.
 const router = readFileSync(new URL('../src/components/LaunchBlueprintRouter.tsx', import.meta.url), 'utf8');
 const copilot = readFileSync(new URL('../src/components/LaunchBlueprintCopilotV21.tsx', import.meta.url), 'utf8');
 
- describe('Blueprint Execution Copilot contract', () => {
+describe('Blueprint Execution Copilot contract', () => {
   it('exposes an authenticated owner-scoped paid Blueprint endpoint', () => {
     expect(worker).toContain('/blueprint\\/copilot');
     expect(worker).toContain('handleBlueprintExecutionCopilot');
@@ -24,8 +24,10 @@ const copilot = readFileSync(new URL('../src/components/LaunchBlueprintCopilotV2
     expect(service).toContain('formal branch controls which variables may change');
   });
 
-  it('supports fast, strategy, critic and grounded-research capability paths using the existing first-party AI service', () => {
+  it('supports fast, strategy, direct-critic and grounded-research capability paths using the existing first-party AI service', () => {
     expect(service).toContain("capability === 'fast_assistant'");
+    expect(service).toContain("capability === 'critic'");
+    expect(service).toContain('Act as a skeptical evidence critic');
     expect(service).toContain("capability === 'grounded_research'");
     expect(service).toContain("return 'blueprint'");
     expect(service).toContain("googleSearch: capability === 'grounded_research'");
