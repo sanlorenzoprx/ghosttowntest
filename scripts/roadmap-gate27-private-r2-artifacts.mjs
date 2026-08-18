@@ -113,9 +113,9 @@ function assertPrerequisites() {
     'handleLaunchBlueprintAssets',
     'Cache-Control',
     'private, no-store',
-    'blueprint.json',
-    'blueprint.pdf',
-    'blueprint-assets.zip'
+    'blueprintJsonMatch',
+    'blueprintPdfMatch',
+    'blueprintAssetsMatch'
   ];
   const combined = `${storeSource}\n${apiSource}\n${routeSource}`;
   if (requiredSourceTokens.some(token => !combined.includes(token))) {
