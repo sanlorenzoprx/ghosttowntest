@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent, type MouseEvent } from "react";
 import { apiUrl, authHeaders } from "../lib/api";
 import type { GhostTownLaunchBlueprint } from "../types/launchBlueprint";
 import type { GhostTownLaunchBlueprintV21 } from "../types/launchBlueprintV21";
 import LaunchBlueprintView from "./LaunchBlueprintView";
 import LaunchBlueprintViewV21, { type BlueprintV21Payload } from "./LaunchBlueprintViewV21";
+import { recordCommercialEvent } from "../lib/commercialAttribution";
 
 export function isBlueprintV21(blueprint: { blueprintVersion?: string }): boolean {
   return blueprint.blueprintVersion === "2.1";
@@ -45,13 +46,51 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
     return () => { active = false; };
   }, [orderId]);
 
+  useEffect(() => {
+    if (!payload) return;
+    void recordCommercialEvent('blueprint_opened', {
+      orderId,
+      verdictId: payload.blueprint.sourceVerdictId,
+      dedupeKey: `blueprint_opened:${orderId}`
+    });
+  }, [orderId, payload]);
+
+  const currentPacketDay = () => {
+    if (!payload) return 1;
+    const completed = new Set(payload.progress.completedDays || []);
+    return payload.blueprint.dailyCalendar.find(day => !completed.has(day.dayNumber))?.dayNumber || 30;
+  };
+
+  const recordDailyPacketOpen = () => {
+    if (!payload) return;
+    const dayNumber = currentPacketDay();
+    void recordCommercialEvent('daily_packet_opened', {
+      orderId,
+      verdictId: payload.blueprint.sourceVerdictId,
+      content: `day:${dayNumber}`,
+      dedupeKey: `daily_packet_opened:${orderId}:${dayNumber}`
+    });
+  };
+
+  const captureClick = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target instanceof Element ? event.target.closest('button') : null;
+    if (target?.textContent?.trim() === 'Today') recordDailyPacketOpen();
+  };
+
+  const captureChange = (event: ChangeEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (target instanceof HTMLSelectElement && target.id === 'blueprint-mobile-nav' && target.value === 'today') {
+      recordDailyPacketOpen();
+    }
+  };
+
   if (loading) {
     return <div className="mx-auto max-w-4xl p-8 text-center"><div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-ghost-rust/20 border-b-ghost-rust" /><p className="mt-4 text-gray-600">Opening your Launch Blueprint...</p></div>;
   }
   if (error) {
     return <div className="mx-auto max-w-xl p-8 text-center"><p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</p><button onClick={onBack} className="mt-5 font-bold text-ghost-rust">Return to Dashboard</button></div>;
   }
-  if (payload) return <LaunchBlueprintViewV21 orderId={orderId} onBack={onBack} initialPayload={payload} />;
+  if (payload) return <div onClickCapture={captureClick} onChangeCapture={captureChange}><LaunchBlueprintViewV21 orderId={orderId} onBack={onBack} initialPayload={payload} /></div>;
   if (legacy) return <LaunchBlueprintView orderId={orderId} onBack={onBack} />;
   return null;
 }
