@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -9,7 +9,6 @@ const STATE_DIR = join(ROOT, '.roadmap-autopilot');
 const STATE_PATH = join(STATE_DIR, 'state.json');
 const GATE20_RECEIPT_PATH = join(STATE_DIR, 'gate20-purchase.json');
 const RECEIPT_PATH = join(STATE_DIR, 'gate26-canonical-d1-artifacts-receipt.json');
-const TEMP_SQL = join(STATE_DIR, 'gate26-canonical-d1-artifacts.sql');
 const D1_NAME = 'ghosttowntest-blueprints-acceptance';
 const D1_ID = '9863d883-3c31-4268-9a98-8392fa3b9f8f';
 const CANONICAL_BLOB_SHA1 = '616c691e6b4c9cea93615963a07375d13ffba57f';
@@ -177,37 +176,31 @@ function inspectionSql(orderId) {
 }
 
 function runReadOnlyD1(sql, orderId) {
-  mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(TEMP_SQL, `${sql}\n`, 'utf8');
-  try {
-    const result = spawnSync(process.execPath, [
-      WRANGLER_CLI, 'd1', 'execute', D1_NAME,
-      '--remote', '--env', 'acceptance', '--file', TEMP_SQL, '--json'
-    ], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      shell: false,
-      maxBuffer: 32 * 1024 * 1024
-    });
-    if (result.error) throw result.error;
-    if ((result.status ?? 1) !== 0) {
-      const safe = String(result.stderr || result.stdout || '')
-        .replaceAll(orderId, '[ORDER_ID_REDACTED]')
-        .replace(/\b(sk_(?:live|test)_[A-Za-z0-9_-]+|whsec_[A-Za-z0-9_-]+)\b/g, '[SECRET_REDACTED]');
-      throw new Error(`Gate 26 read-only acceptance D1 inspection failed (${result.status ?? 1}).\n${safe}`.trim());
-    }
-    const stdout = String(result.stdout || '');
-    const stderr = String(result.stderr || '');
-    const parsed = parseLooseJson(stdout) || parseLooseJson(`${stdout}\n${stderr}`);
-    if (!parsed) {
-      throw new Error(`Gate 26 could not parse Wrangler D1 JSON output (stdout_bytes=${Buffer.byteLength(stdout, 'utf8')}, stderr_bytes=${Buffer.byteLength(stderr, 'utf8')}).`);
-    }
-    const row = findInspectionRow(parsed);
-    if (!row) throw new Error('Gate 26 D1 inspection returned no canonical inspection row.');
-    return row;
-  } finally {
-    rmSync(TEMP_SQL, { force: true });
+  const result = spawnSync(process.execPath, [
+    WRANGLER_CLI, 'd1', 'execute', D1_NAME,
+    '--remote', '--env', 'acceptance', '--command', sql, '--json'
+  ], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    shell: false,
+    maxBuffer: 32 * 1024 * 1024
+  });
+  if (result.error) throw result.error;
+  if ((result.status ?? 1) !== 0) {
+    const safe = String(result.stderr || result.stdout || '')
+      .replaceAll(orderId, '[ORDER_ID_REDACTED]')
+      .replace(/\b(sk_(?:live|test)_[A-Za-z0-9_-]+|whsec_[A-Za-z0-9_-]+)\b/g, '[SECRET_REDACTED]');
+    throw new Error(`Gate 26 read-only acceptance D1 inspection failed (${result.status ?? 1}).\n${safe}`.trim());
   }
+  const stdout = String(result.stdout || '');
+  const stderr = String(result.stderr || '');
+  const parsed = parseLooseJson(stdout) || parseLooseJson(`${stdout}\n${stderr}`);
+  if (!parsed) {
+    throw new Error(`Gate 26 could not parse Wrangler D1 JSON output (stdout_bytes=${Buffer.byteLength(stdout, 'utf8')}, stderr_bytes=${Buffer.byteLength(stderr, 'utf8')}).`);
+  }
+  const row = findInspectionRow(parsed);
+  if (!row) throw new Error('Gate 26 D1 inspection returned no canonical inspection row.');
+  return row;
 }
 
 function sortedUniqueDays(value) {
