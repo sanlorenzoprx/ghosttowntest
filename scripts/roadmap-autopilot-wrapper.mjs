@@ -25,6 +25,7 @@ const QUALITY_Q1_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q1-verdict-dec
 const QUALITY_Q2_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q2-daily-execution-assets.mjs');
 const QUALITY_Q3_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q3-blueprint-document.mjs');
 const QUALITY_Q4_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q4-launch-site.mjs');
+const QUALITY_Q5_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q5-commercial-measurement.mjs');
 const RUNNER = 'scripts/roadmap-master-autopilot.mjs';
 const PREVIOUS_GENERATIVE_ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1';
 const GENERATIVE_ARCHITECTURE = 'vertex-ai-gateway-v1+custom-website-v1+cloudflare-spa-templates-v1';
@@ -60,6 +61,8 @@ const sanctionedQualityQ3Command = process.env.ROADMAP_QUALITY_Q3_COMMAND?.trim(
   || `${quoted(process.execPath)} ${quoted(QUALITY_Q3_ADAPTER)}`;
 const sanctionedQualityQ4Command = process.env.ROADMAP_QUALITY_Q4_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(QUALITY_Q4_ADAPTER)}`;
+const sanctionedQualityQ5Command = process.env.ROADMAP_QUALITY_Q5_COMMAND?.trim()
+  || `${quoted(process.execPath)} ${quoted(QUALITY_Q5_ADAPTER)}`;
 
 function childEnv() {
   return {
@@ -75,8 +78,9 @@ function childEnv() {
     ROADMAP_GATE_25_COMMAND: sanctionedGate25Command,
     ROADMAP_QUALITY_Q1_COMMAND: sanctionedQualityQ1Command,
     ROADMAP_QUALITY_Q2_COMMAND: sanctionedQualityQ2Command,
-    ROADMAP_QUALITY_Q3_COMMAND: sanctionedQualityQ3Command
-    ,ROADMAP_QUALITY_Q4_COMMAND: sanctionedQualityQ4Command
+    ROADMAP_QUALITY_Q3_COMMAND: sanctionedQualityQ3Command,
+    ROADMAP_QUALITY_Q4_COMMAND: sanctionedQualityQ4Command,
+    ROADMAP_QUALITY_Q5_COMMAND: sanctionedQualityQ5Command
   };
 }
 
