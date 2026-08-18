@@ -8,6 +8,7 @@ import { loadBlueprintProgress } from './blueprintStore';
 import { commercialEventAttribution } from './commercialAttribution';
 import { recordCommercialFunnelEvent, type CommercialFunnelEventInput } from './analytics';
 import type { CommercialEventName } from '../types/commercialAttribution';
+import type { PaidTestOrder } from '../types/paidTest';
 
 interface ProgressEvidenceEntry {
   entryId?: string;
@@ -45,6 +46,10 @@ function evidenceIds(progress: ProgressShape | null | undefined): Set<string> {
     .filter(Boolean));
 }
 
+function orderAttribution(order: PaidTestOrder) {
+  return commercialEventAttribution(order.commercialAttribution || order.intake.attribution);
+}
+
 export async function handleLaunchBlueprintProgress(
   request: Request,
   env: Env,
@@ -70,12 +75,11 @@ export async function handleLaunchBlueprintProgress(
   const newlyCompleted = [...completedDays(after)].filter(day => !beforeDays.has(day)).sort((a, b) => a - b);
   const beforeEvidence = evidenceIds(before);
   const newEvidence = (after.evidenceLedger || []).filter(entry => entry.entryId && !beforeEvidence.has(entry.entryId));
-  const attribution = commercialEventAttribution(owned.order.intake.attribution);
   const common: CommercialFunnelEventInput = {
     ownerId: owned.email,
     orderId,
     verdictId: owned.order.verdictId,
-    ...attribution
+    ...orderAttribution(owned.order)
   };
 
   for (const day of newlyCompleted) {
@@ -105,7 +109,7 @@ export async function handleLaunchBlueprintRetry(
       orderId,
       verdictId: owned.order.verdictId,
       content: 'retry_queued',
-      ...commercialEventAttribution(owned.order.intake.attribution)
+      ...orderAttribution(owned.order)
     });
   }
   return response;
