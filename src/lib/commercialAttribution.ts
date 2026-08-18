@@ -133,12 +133,15 @@ export function linkCommercialVerdict(verdictId: string): CommercialAttributionE
 
 export function commercialAttributionForCheckout(verdictId: string): CommercialAttributionEnvelope {
   const current = linkCommercialVerdict(verdictId);
-  return {
+  const next: CommercialAttributionEnvelope = {
     ...current,
     // When there is no upstream Story Studio/source verdict, the current
     // GhostTown verdict becomes the terminal source-verdict lineage key.
-    sourceVerdictId: current.sourceVerdictId || clean(verdictId)
+    sourceVerdictId: current.sourceVerdictId || clean(verdictId),
+    lastTouchAt: new Date().toISOString()
   };
+  safeLocalSet(ATTRIBUTION_KEY, JSON.stringify(next));
+  return next;
 }
 
 export async function recordCommercialEvent(
