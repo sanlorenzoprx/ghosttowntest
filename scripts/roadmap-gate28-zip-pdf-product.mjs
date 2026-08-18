@@ -33,18 +33,36 @@ const EXPECTED_FILES = [
   'sources.csv',
 ];
 
-const PDF_SECTIONS = [
-  'Executive Launch Decision',
-  'Offer and Pricing Strategy',
-  'Target Customer and Positioning',
-  'Customer Access Pack',
-  'Relationship-Specific Outreach Scripts',
-  'Complete Landing-Page Copy',
-  'Weekly Milestones',
-  'Daily execution calendar',
-  'Final Decision Rules',
-  'Public research sources',
-  'Generation receipt',
+// Gate 28 verifies the actual v2.1 premium-document contract already certified
+// by Q3. The older v2.0 renderer used different customer-facing headings; those
+// strings are not the acceptance contract for a v2.1 paid artifact.
+const PDF_PRIORITY_SECTIONS = [
+  '48-Hour Launch Card',
+  'First Customer',
+  'First Offer',
+  'First Revenue Path',
+  'Customer Access Network',
+  'Today: Day 1',
+];
+
+const PDF_SUPPORTING_SECTIONS = [
+  'Starting-State and Evidence Audit',
+  'Manual Fulfillment and Economics',
+  'Prepared Content and Conversations',
+  'Launch Site',
+  'Full 30-Day Plan',
+  'Behavioral Evidence Hierarchy',
+  'Adaptive Checkpoint Reviews',
+  'Sources and Receipt',
+];
+
+const PDF_DECISION_BLOCKS = [
+  'DECISION',
+  'WHY',
+  'EVIDENCE',
+  'READY-TO-USE ASSETS',
+  'MEASUREMENT',
+  'ADAPTATION RULE',
 ];
 
 const WRANGLER_PACKAGE_DIR = join(ROOT, 'node_modules', 'wrangler');
@@ -88,7 +106,8 @@ function assertPrerequisites() {
   const executionHome = readFileSync(join(ROOT, 'src', 'components', 'LaunchBlueprintExecutionHomeV21.tsx'), 'utf8');
   const offer = readFileSync(join(ROOT, 'src', 'lib', 'ghosttownOffer.ts'), 'utf8');
   const assetSource = readFileSync(join(ROOT, 'src', 'api', 'blueprintAssets.ts'), 'utf8');
-  const pdfSource = readFileSync(join(ROOT, 'src', 'api', 'blueprintPdf.ts'), 'utf8');
+  const pdfSource = readFileSync(join(ROOT, 'src', 'api', 'blueprintPdfV21.ts'), 'utf8');
+  const documentModelSource = readFileSync(join(ROOT, 'src', 'api', 'blueprintDocumentModel.ts'), 'utf8');
   for (const token of [
     'The 30-Day Calendar is the primary execution interface',
     'The PDF and asset bundle remain durable exports and recovery artifacts.',
@@ -101,8 +120,14 @@ function assertPrerequisites() {
     if (!`${amendment}\n${executionHome}\n${offer}`.includes(token)) throw new Error(`Gate 28 v2.1.5 execution-home source contract is missing: ${token}`);
   }
   for (const filename of EXPECTED_FILES) if (!assetSource.includes(`"${filename}"`) && !assetSource.includes(`'${filename}'`)) throw new Error(`Gate 28 source asset manifest is missing ${filename}.`);
-  for (const token of ['private ensure(', 'function wrap(', 'private card(', 'this.calendar();', 'this.decisionAndSources();']) {
-    if (!pdfSource.includes(token)) throw new Error(`Gate 28 PDF layout source guard is missing ${token}.`);
+  for (const token of ['renderLaunchBlueprintPdfV21', 'composeBlueprintDocumentModel', 'renderBlueprintDocumentModelPdf']) {
+    if (!pdfSource.includes(token)) throw new Error(`Gate 28 v2.1 PDF renderer source guard is missing ${token}.`);
+  }
+  for (const token of [
+    "'48_hour_launch_card'", "'first_customer'", "'first_offer'", "'first_revenue'", "'customer_access_network'", "'today'",
+    "title: 'Full 30-Day Plan'", "title: 'Sources and Receipt'", 'validateBlueprintDocumentAgainstCanonical'
+  ]) {
+    if (!documentModelSource.includes(token)) throw new Error(`Gate 28 v2.1 document-model source guard is missing ${token}.`);
   }
 }
 
@@ -240,30 +265,43 @@ function normalizedPdfText(bytes) {
     .replace(/\\\\/g, '\\');
 }
 
-function hasRequiredPdfSection(text, section) {
-  const normalized = text.toLowerCase();
-  if (normalized.includes(section.toLowerCase())) return true;
-  if (section === 'Target Customer and Positioning') {
-    return ['positioning', 'first target customer', 'positioning statement', 'differentiator']
-      .every(token => normalized.includes(token));
-  }
-  return false;
-}
-
 function assertPdf(pdfBytes, blueprint) {
   const text = normalizedPdfText(pdfBytes);
   if (!text.startsWith('%PDF-1.4')) throw new Error('Gate 28 PDF signature/version is invalid.');
-  for (const section of PDF_SECTIONS) if (!hasRequiredPdfSection(text, section)) throw new Error(`Gate 28 PDF is missing required section: ${section}`);
+  for (const section of [...PDF_PRIORITY_SECTIONS, ...PDF_SUPPORTING_SECTIONS]) {
+    if (!text.includes(section)) throw new Error(`Gate 28 v2.1 PDF is missing required section: ${section}`);
+  }
+  for (const block of PDF_DECISION_BLOCKS) {
+    if (!text.includes(block)) throw new Error(`Gate 28 v2.1 PDF is missing required decision block: ${block}`);
+  }
   for (let day = 1; day <= 30; day += 1) if (!text.includes(`Day ${day}:`)) throw new Error(`Gate 28 PDF is missing daily action Day ${day}.`);
-  if (!/researched\s+20\d{2}-\d{2}-\d{2}/i.test(text)) throw new Error('Gate 28 PDF does not expose research dates in the customer-access evidence.');
+
+  const researchDates = [...new Set((blueprint?.customerAccessPack?.channels || [])
+    .map(channel => String(channel?.researchDate || '').trim())
+    .filter(value => /^20\d{2}-\d{2}-\d{2}$/.test(value)))];
+  if (!researchDates.length || !researchDates.some(value => text.includes(value))) {
+    throw new Error('Gate 28 PDF does not expose any canonical customer-access research date.');
+  }
+
   if (!Array.isArray(blueprint?.sources) || blueprint.sources.length < 1) throw new Error('Gate 28 canonical Blueprint contains no research sources.');
-  if (!text.includes('Public source') || !text.includes('URL')) throw new Error('Gate 28 PDF does not expose source-link context.');
+  const sourceUrls = blueprint.sources.map(source => String(source?.url || '').trim()).filter(Boolean);
+  if (!sourceUrls.length || !sourceUrls.some(value => text.includes(value))) {
+    throw new Error('Gate 28 PDF does not expose any canonical public research source URL.');
+  }
 
   const pageCount = text.match(/\/Type \/Page\b/g)?.length || 0;
   const streams = [...text.matchAll(/stream\n([\s\S]*?)\nendstream/g)].map(match => match[1]);
   if (pageCount < 10 || streams.length !== pageCount) throw new Error(`Gate 28 PDF page/content-stream structure is inconsistent (${pageCount} pages, ${streams.length} streams).`);
   if (streams.some(stream => !/\)\s*Tj\b/.test(stream))) throw new Error('Gate 28 PDF contains a blank page/content stream.');
-  return { page_count: pageCount, content_streams: streams.length };
+  return {
+    page_count: pageCount,
+    content_streams: streams.length,
+    priority_sections: PDF_PRIORITY_SECTIONS.length,
+    supporting_sections: PDF_SUPPORTING_SECTIONS.length,
+    decision_blocks: PDF_DECISION_BLOCKS.length,
+    canonical_research_date_matches: researchDates.filter(value => text.includes(value)).length,
+    canonical_source_url_matches: sourceUrls.filter(value => text.includes(value)).length,
+  };
 }
 
 assertPrerequisites();
@@ -338,7 +376,8 @@ try {
     },
     pdf: {
       sha256: sha256(pdfBytes),
-      required_sections_verified: PDF_SECTIONS.length,
+      required_sections_verified: PDF_PRIORITY_SECTIONS.length + PDF_SUPPORTING_SECTIONS.length,
+      decision_blocks_verified: PDF_DECISION_BLOCKS.length,
       daily_actions_verified: 30,
       research_date_context_verified: true,
       source_link_context_verified: true,
