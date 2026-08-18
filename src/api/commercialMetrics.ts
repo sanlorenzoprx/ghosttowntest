@@ -8,7 +8,12 @@ const FUNNEL_EVENTS = [
   'verdict_completed',
   'paid_plan_viewed',
   'checkout_started',
-  'download_clicked'
+  'download_clicked',
+  'blueprint_opened',
+  'daily_packet_opened',
+  'day_completed',
+  'evidence_recorded',
+  'blueprint_retry_requested'
 ] as const;
 
 type FunnelEventName = typeof FUNNEL_EVENTS[number];
@@ -24,6 +29,8 @@ type AcquisitionAttribution = {
   campaign?: string;
   source?: string;
   shareType?: 'factory' | 'customer' | 'earned';
+  visitorId?: string;
+  ghosttownSessionId?: string;
 };
 
 interface StoredFunnelEvent extends AcquisitionAttribution {
@@ -111,7 +118,9 @@ function attributionFromMetadata(metadata: Record<string, unknown>): Acquisition
     source: clean(metadata.source),
     shareType: shareType === 'factory' || shareType === 'customer' || shareType === 'earned'
       ? shareType
-      : undefined
+      : undefined,
+    visitorId: clean(metadata.visitor_id),
+    ghosttownSessionId: clean(metadata.ghosttown_session_id)
   };
 }
 
@@ -179,22 +188,32 @@ export async function buildCommercialMetrics(
   const counts = Object.fromEntries(FUNNEL_EVENTS.map(name => [name, 0])) as Record<FunnelEventName, number>;
   const sources = new Map<string, number>();
   const publications = new Map<string, { purchases: number; revenueMinor: number; currency?: string }>();
+  const visitors = new Set<string>();
+  const sessions = new Set<string>();
+  let acceptedEvents = 0;
+  let attributedEvents = 0;
   for (const event of events) {
     const createdAt = validDate(event.createdAt);
     if (!createdAt || createdAt < cutoff || createdAt > now) continue;
+    acceptedEvents += 1;
     if (FUNNEL_EVENTS.includes(event.eventName as FunnelEventName)) {
       counts[event.eventName as FunnelEventName] += 1;
     }
     const source = event.source?.trim().slice(0, 120);
     if (source) sources.set(source, (sources.get(source) || 0) + 1);
+    if (event.visitorId) visitors.add(event.visitorId);
+    if (event.ghosttownSessionId) sessions.add(event.ghosttownSessionId);
+    if (event.attributionToken && event.visitorId && event.ghosttownSessionId) attributedEvents += 1;
   }
 
   const revenueByCurrency: Record<string, number> = {};
   let verifiedPurchases = 0;
+  let attributedVerifiedPurchases = 0;
   for (const purchase of purchases) {
     const createdAt = validDate(purchase.createdAt);
     if (!createdAt || createdAt < cutoff || createdAt > now) continue;
     verifiedPurchases += 1;
+    if (purchase.attributionToken && purchase.visitorId && purchase.ghosttownSessionId) attributedVerifiedPurchases += 1;
     if (typeof purchase.amountTotal === 'number' && purchase.currency) {
       revenueByCurrency[purchase.currency] = (revenueByCurrency[purchase.currency] || 0) + purchase.amountTotal;
     }
@@ -226,6 +245,14 @@ export async function buildCommercialMetrics(
       count: verifiedPurchases,
       revenueMinorUnitsByCurrency: revenueByCurrency,
       authority: 'stripe_webhook'
+    },
+    attributionCoverage: {
+      uniqueVisitors: visitors.size,
+      uniqueSessions: sessions.size,
+      attributedEvents,
+      totalEvents: acceptedEvents,
+      attributedVerifiedPurchases,
+      verifiedPurchases
     },
     publicationRevenue: Array.from(publications.entries())
       .map(([publicationId, value]) => ({ publicationId, ...value }))
