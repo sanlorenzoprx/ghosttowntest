@@ -54,6 +54,12 @@ function findObjectWithKey(value, key) {
   return null;
 }
 
+function requireSourceTokens(source, label, tokens) {
+  for (const token of tokens) {
+    if (!source.includes(token)) throw new Error(`Gate 27 ${label} source contract is missing ${token}.`);
+  }
+}
+
 function assertPrerequisites() {
   if (!existsSync(STATE_PATH)) throw new Error('Gate 27 requires roadmap state.');
   const state = JSON.parse(readFileSync(STATE_PATH, 'utf8'));
@@ -62,14 +68,40 @@ function assertPrerequisites() {
   const gate26 = JSON.parse(readFileSync(GATE26_RECEIPT_PATH, 'utf8'));
   if (gate26?.schema_version !== 'roadmap-gate26-canonical-d1-artifacts-receipt-v1' || gate26?.decision !== 'PASS') throw new Error('Gate 27 found an invalid Gate 26 receipt.');
 
-  const store = readFileSync(join(ROOT, 'src', 'api', 'blueprintStoreV21.ts'), 'utf8');
+  const keyStore = readFileSync(join(ROOT, 'src', 'api', 'blueprintStore.ts'), 'utf8');
+  const storeV21 = readFileSync(join(ROOT, 'src', 'api', 'blueprintStoreV21.ts'), 'utf8');
   const api = readFileSync(join(ROOT, 'src', 'api', 'blueprintApi.ts'), 'utf8');
   const route = readFileSync(join(ROOT, 'src', 'api', 'index.ts'), 'utf8');
   const bridge = readFileSync(join(ROOT, 'scripts', 'roadmap-r2-binding-bridge.mjs'), 'utf8');
-  const combined = `${store}\n${api}\n${route}\n${bridge}`;
-  for (const token of ['ghosttown-launch-blueprint-v2.pdf','ghosttown-launch-blueprint-v2.json','ghosttown-launch-blueprint-v2-assets.zip','handleLaunchBlueprintJson','handleLaunchBlueprintPdf','handleLaunchBlueprintAssets','private, no-store','customMetadata','remote = true','withAcceptanceDataBindings']) {
-    if (!combined.includes(token)) throw new Error(`Gate 27 source contract is missing ${token}.`);
-  }
+
+  requireSourceTokens(keyStore, 'artifact key', [
+    'ghosttown-launch-blueprint-v2.pdf',
+    'ghosttown-launch-blueprint-v2.json',
+    'ghosttown-launch-blueprint-v2-assets.zip',
+    'blueprintPdfKey',
+    'blueprintJsonKey',
+    'blueprintAssetsKey'
+  ]);
+  requireSourceTokens(storeV21, 'v2.1 persistence', [
+    "from './blueprintStore'",
+    'blueprintPdfKey(order.orderId)',
+    'blueprintJsonKey(order.orderId)',
+    'blueprintAssetsKey(order.orderId)',
+    'customMetadata',
+    'env.BLUEPRINTS.put'
+  ]);
+  requireSourceTokens(`${api}\n${route}`, 'delivery route', [
+    'handleLaunchBlueprintJson',
+    'handleLaunchBlueprintPdf',
+    'handleLaunchBlueprintAssets',
+    'private, no-store'
+  ]);
+  requireSourceTokens(bridge, 'remote binding', [
+    'remote = true',
+    'withAcceptanceDataBindings',
+    'withAcceptanceR2Binding'
+  ]);
+
   const gate27Source = readFileSync(new URL(import.meta.url), 'utf8');
   const forbiddenDirectD1Invocation = ["'d1'", "'execute'"].join(',');
   if (gate27Source.includes(forbiddenDirectD1Invocation)) throw new Error('Gate 27 must not use direct Wrangler D1 execute for canonical acceptance evidence.');
