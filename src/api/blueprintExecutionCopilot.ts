@@ -129,7 +129,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
         assets: context.experiment.assets.map(asset => ({ assetId: asset.assetId, title: asset.title }))
       },
       refs: internalRefs,
-      groundedWebSources: groundingSources(primary.receipt.task === 'grounded_research' ? (primary as unknown as { groundingMetadata?: unknown }).groundingMetadata : undefined),
+      groundedWebSources: groundingSources(primary.groundingMetadata),
       receipts: {
         primary: primary.receipt,
         critic: critic?.receipt || null
