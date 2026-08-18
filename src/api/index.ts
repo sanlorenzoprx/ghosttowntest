@@ -6,15 +6,15 @@ import { handleStripeWebhook } from './webhook';
 import { handleReferralClaim, handleReferralCreate } from './referral';
 import { handleShareReward } from './shareReward';
 import verdictHandler from './verdict';
-import { handlePaidTestCheckout, handlePaidTestOrders, handlePaidTestPdf, handlePaidTestPlan, handlePaidTestPlanPdf, handlePaidTestReport } from './paidTest';
+import { handlePaidTestOrders, handlePaidTestPdf, handlePaidTestPlan, handlePaidTestPlanPdf, handlePaidTestReport } from './paidTest';
+import { handlePaidTestCheckout } from './paidTestCheckout';
 import {
   handleLaunchBlueprint,
   handleLaunchBlueprintJson,
   handleLaunchBlueprintPdf,
-  handleLaunchBlueprintAssets,
-  handleLaunchBlueprintProgress,
-  handleLaunchBlueprintRetry
+  handleLaunchBlueprintAssets
 } from './blueprintApi';
+import { handleLaunchBlueprintProgress, handleLaunchBlueprintRetry } from './blueprintApiMeasurement';
 import { handleBlueprintSeeds, handleBlueprintSeedSuggestions } from './blueprintSeeds';
 import { handleInternalGoogleSearch } from './internalGoogleSearch';
 import { handleResearchPreviewSuggestions } from './researchPreview';
