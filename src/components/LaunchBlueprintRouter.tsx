@@ -64,6 +64,14 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
       verdictId: payload.blueprint.sourceVerdictId,
       dedupeKey: `blueprint_opened:${orderId}`
     });
+    const completed = new Set(payload.progress.completedDays || []);
+    const currentDay = payload.blueprint.dailyCalendar.find(day => !completed.has(day.dayNumber))?.dayNumber || 30;
+    void recordCommercialEvent('daily_packet_opened', {
+      orderId,
+      verdictId: payload.blueprint.sourceVerdictId,
+      content: `day:${currentDay}`,
+      dedupeKey: `daily_packet_opened:${orderId}:${currentDay}`
+    });
   }, [orderId, payload]);
 
   const recordRenderedDailyPacket = (container: HTMLDivElement) => {
