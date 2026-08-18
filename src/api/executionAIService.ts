@@ -1,5 +1,11 @@
 import type { Env } from './env';
-import { generateAIJson, type GenerativeAITask, type GenerativeAIResponseSchema, type GenerativeAIReceipt } from './generativeAIService';
+import {
+  generateAIJson,
+  type GenerativeAITask,
+  type GenerativeAIResponseSchema,
+  type GenerativeAIReceipt,
+  type GroundingMetadata
+} from './generativeAIService';
 import type { ExecutionCapability, ExecutionCopilotMode, ExecutionRagContext } from '../lib/blueprintExecutionIntelligence';
 
 export interface ExecutionCopilotModelOutput {
@@ -83,7 +89,7 @@ export async function runExecutionCopilot(
   context: ExecutionRagContext,
   question: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }>
-): Promise<{ output: ExecutionCopilotModelOutput; receipt: GenerativeAIReceipt }> {
+): Promise<{ output: ExecutionCopilotModelOutput; receipt: GenerativeAIReceipt; groundingMetadata?: GroundingMetadata }> {
   const task = generativeTaskForExecutionCapability(capability);
   const generated = await generateAIJson<ExecutionCopilotModelOutput>(env, {
     task,
@@ -95,7 +101,11 @@ export async function runExecutionCopilot(
     timeoutMs: 35_000,
     googleSearch: capability === 'grounded_research'
   });
-  return { output: generated.data, receipt: generated.result.receipt };
+  return {
+    output: generated.data,
+    receipt: generated.result.receipt,
+    groundingMetadata: generated.result.groundingMetadata
+  };
 }
 
 export async function runExecutionCritic(
