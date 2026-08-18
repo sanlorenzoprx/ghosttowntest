@@ -554,39 +554,98 @@ export class V21PdfBuilder {
   }
 }
 
-/** Deterministic PDF fallback rendered from the document model, not from a
- * parallel legacy report. It intentionally has no browser/provider dependency. */
+/** Customer-facing deterministic renderer with hierarchy, callouts, access
+ * cards, page chrome, and no operational identifiers on the cover. */
 export function renderBlueprintDocumentModelPdf(model: BlueprintDocumentModel): Uint8Array {
   const pages: Page[] = [];
-  let current: Page | undefined;
-  let y = HEIGHT - 58;
-  const page = (section: string) => {
-    current = { commands: [], section, number: pages.length + 1 }; pages.push(current); y = HEIGHT - 58;
-    current.commands.push(`q\n${rgb(COLORS.ink)} rg\n0 ${HEIGHT - 34} ${WIDTH} 34 re f\nQ`);
-    current.commands.push(`BT\n/F2 8 Tf\n${rgb(COLORS.white)} rg\n1 0 0 1 ${MARGIN} ${HEIGHT - 22} Tm\n(GHOSTTOWN LAUNCH BLUEPRINT) Tj\nET`);
-    current.commands.push(`BT\n/F1 7.5 Tf\n${rgb(COLORS.muted)} rg\n1 0 0 1 ${MARGIN} 23 Tm\n(Contract ${escape(model.sourceBlueprint.blueprintVersion)} | Page ${pages.length}) Tj\nET`);
+  let current: Page;
+  let y = HEIGHT - 64;
+  const command = (value: string) => current.commands.push(value);
+  const rect = (x: number, bottom: number, width: number, height: number, fill: Color, stroke?: Color) => {
+    command(`q\n${rgb(fill)} rg\n${x} ${bottom} ${width} ${height} re f${stroke ? `\n${rgb(stroke)} RG\n0.8 w\n${x} ${bottom} ${width} ${height} re S` : ''}\nQ`);
   };
-  const write = (value: string, size = 9.5, bold = false) => {
-    if (!current) page('Document');
-    const lines = wrap(value, BODY_WIDTH, size);
-    for (const line of lines) {
-      if (y < 54) page(current!.section);
-      current!.commands.push(`BT\n/${bold ? 'F2' : 'F1'} ${size} Tf\n${rgb(COLORS.ink)} rg\n1 0 0 1 ${MARGIN} ${y.toFixed(1)} Tm\n(${escape(line)}) Tj\nET`);
-      y -= size * 1.33;
+  const text = (value: string, x: number, baseline: number, size: number, font: Font = 'F1', color: Color = COLORS.ink) => {
+    command(`BT\n/${font} ${size} Tf\n${rgb(color)} rg\n1 0 0 1 ${x.toFixed(1)} ${baseline.toFixed(1)} Tm\n(${escape(value)}) Tj\nET`);
+  };
+  const page = (section: string, cover = false) => {
+    current = { commands: [], section, number: pages.length + 1 };
+    pages.push(current);
+    if (cover) { y = HEIGHT - 64; return; }
+    rect(0, HEIGHT - 38, WIDTH, 38, COLORS.ink);
+    text('GHOSTTOWN LAUNCH BLUEPRINT', MARGIN, HEIGHT - 25, 8, 'F2', COLORS.white);
+    const shortSection = normalize(section).slice(0, 52);
+    text(shortSection.toUpperCase(), WIDTH - MARGIN - shortSection.length * 4.1, HEIGHT - 25, 7.3, 'F2', COLORS.gold);
+    command(`q\n${rgb(COLORS.line)} RG\n0.6 w\n${MARGIN} 38 m\n${WIDTH - MARGIN} 38 l\nS\nQ`);
+    text(`Contract ${model.sourceBlueprint.contractVersion}`, MARGIN, 24, 7.2, 'F1', COLORS.muted);
+    text(`PAGE ${pages.length}`, WIDTH - MARGIN - 34, 24, 7.2, 'F2', COLORS.muted);
+    y = HEIGHT - 64;
+  };
+  const ensure = (height: number) => { if (y - height < 54) page(`${current.section} / continued`); };
+  const heading = (value: string, kicker?: string) => {
+    ensure(60);
+    if (kicker) { text(kicker.toUpperCase(), MARGIN, y, 7.4, 'F2', COLORS.rust); y -= 17; }
+    const lines = wrap(value, BODY_WIDTH, 18);
+    lines.forEach(line => { text(line, MARGIN, y, 18, 'F2'); y -= 22; });
+    rect(MARGIN, y + 6, 82, 3, COLORS.gold);
+    y -= 14;
+  };
+  const card = (title: string, body: string, accent: Color = COLORS.rust) => {
+    const lines = wrap(body, BODY_WIDTH - 34, 8.8);
+    const height = 40 + lines.length * 11.5;
+    if (height > 620) {
+      const chunkSize = 45;
+      for (let index = 0; index < lines.length; index += chunkSize) card(index ? `${title} / continued` : title, lines.slice(index, index + chunkSize).join(' '), accent);
+      return;
     }
-    y -= 4;
+    ensure(height + 10);
+    rect(MARGIN, y - height, BODY_WIDTH, height, COLORS.paper, COLORS.line);
+    rect(MARGIN, y - height, 6, height, accent);
+    text(title.toUpperCase(), MARGIN + 18, y - 21, 8, 'F2', accent);
+    lines.forEach((line, index) => text(line, MARGIN + 18, y - 40 - index * 11.5, 8.8));
+    y -= height + 10;
   };
-  const heading = (value: string, level = 2) => { write(value, level === 1 ? 22 : level === 2 ? 15 : 10, true); };
-  page('Cover'); heading('GHOSTTOWN LAUNCH BLUEPRINT', 1); write(`CANONICAL V2.1 · ${model.documentId}`, 10, true); write(`Render mode: deterministic_fallback`); write(`Customer actions: Open Blueprint · PDF`); write(`Verdict lineage: ${model.sourceBlueprint.sourceVerdictId} -> ${model.sourceBlueprint.blueprintId}`);
+  const bullets = (title: string, values: string[], accent: Color = COLORS.gold) => card(title, values.map(value => `- ${value}`).join('\n'), accent);
+
+  page('Cover', true);
+  rect(0, 0, WIDTH, HEIGHT, COLORS.ink);
+  rect(0, 0, 14, HEIGHT, COLORS.rust);
+  rect(MARGIN, HEIGHT - 114, 96, 4, COLORS.gold);
+  text('GHOSTTOWN', MARGIN, HEIGHT - 82, 11, 'F2', COLORS.gold);
+  text('LAUNCH BLUEPRINT', MARGIN, HEIGHT - 101, 11, 'F2', COLORS.white);
+  text('CANONICAL V2.1', WIDTH - MARGIN - 92, HEIGHT - 101, 9, 'F2', COLORS.gold);
+  let coverY = HEIGHT - 190;
+  wrap(model.presentation.title, BODY_WIDTH - 24, 29).forEach(line => { text(line, MARGIN, coverY, 29, 'F2', COLORS.white); coverY -= 36; });
+  coverY -= 10;
+  text(`FOR ${normalize(model.presentation.customer).toUpperCase()}`, MARGIN, coverY, 9, 'F2', COLORS.gold);
+  coverY -= 30;
+  wrap(model.presentation.subtitle, BODY_WIDTH - 24, 13).forEach(line => { text(line, MARGIN, coverY, 13, 'F1', COLORS.white); coverY -= 18; });
+  rect(MARGIN, 88, BODY_WIDTH, 54, COLORS.rust);
+  text('OPEN BLUEPRINT  /  DOWNLOAD PDF', MARGIN + 20, 111, 11, 'F2', COLORS.white);
+  text('A 30-day evidence-led plan built for action.', MARGIN + 20, 96, 8.4, 'F1', COLORS.white);
+
   for (const section of model.prioritySections) {
-    page(section.title); heading(section.title); heading('DECISION', 3); write(section.decision); heading('WHY', 3); write(section.why);
-    heading('EVIDENCE', 3); section.evidence.forEach(item => write(`[${item.truthLabel}] ${item.statement}${item.sourceRefs.length ? ` (sources: ${item.sourceRefs.join(', ')})` : ''}`));
-    heading('READY-TO-USE ASSETS', 3); section.readyToUseAssets.forEach(item => { heading(item.title, 3); write(item.finishedContent, 8.8); write(`Use: ${item.usageInstructions}`, 8.8); });
-    heading('MEASUREMENT', 3); write(`Success: ${section.measurement.successThreshold}`); write(`Failure: ${section.measurement.failureThreshold}`); write(`Complete when: ${section.measurement.completionDefinition}`); section.measurement.evidenceToCapture.forEach(item => write(`Capture: ${item}`, 8.8));
-    if (section.accessGroups) { heading('ACCESS NETWORK: PRIORITY FIVE / RESERVE FIVE / PARTNER TARGETS', 3); section.accessGroups.forEach(group => { heading(group.title, 3); group.targets.forEach(target => write(`${target.name} | ${target.publicUrl} | sources ${target.sourceRefs.join(', ')} | ${target.researchDate} | ${target.confidence} | ${target.accessPath} | risk ${target.risk} | ${target.matchedAssetOrScript} | first action: ${target.firstAction}`, 8.3)); }); }
-    heading('ADAPTATION RULE', 3); section.adaptationRule.forEach(rule => write(`IF ${rule.condition} THEN ${rule.action} (${rule.route}); capture ${rule.evidenceRequired.join(', ')}`));
+    page(section.title);
+    heading(section.title, 'Priority decision');
+    card('Decision', section.decision, COLORS.rust);
+    card('Why', section.why, COLORS.gold);
+    bullets('Evidence', section.evidence.map(item => `[${item.truthLabel}] ${item.statement}`));
+    section.readyToUseAssets.forEach((item, index) => card(index ? item.title : `Ready-to-use assets / ${item.title}`, `${item.finishedContent}\n\nUSE IT: ${item.usageInstructions}`, COLORS.gold));
+    card('Measurement', `SUCCESS: ${section.measurement.successThreshold}\nFAILURE: ${section.measurement.failureThreshold}\nCOMPLETE WHEN: ${section.measurement.completionDefinition}\nCAPTURE: ${section.measurement.evidenceToCapture.join('; ')}`, COLORS.green);
+    if (section.accessGroups) {
+      heading('Access Network', 'Priority Five / Reserve Five / Partner Targets');
+      section.accessGroups.forEach(group => bullets(group.title, group.targets.map(target => `${target.name} (${target.targetType}) | ${target.publicUrl} | ${target.researchDate}, ${target.confidence} confidence | ACCESS: ${target.accessPath} | RESOURCE: ${target.matchedAssetOrScript.title} | RISK: ${target.risk} | FIRST ACTION: ${target.firstAction}`), group.groupId === 'partner_targets' ? COLORS.rust : COLORS.gold));
+    }
+    bullets('Adaptation Rule', section.adaptationRule.map(rule => `IF ${rule.condition} THEN ${rule.action} [${rule.route}]. Capture: ${rule.evidenceRequired.join('; ')}`), COLORS.rust);
   }
-  for (const section of model.supportingSections) { page(section.title); heading(section.title); section.content.forEach(item => write(item, 8.8)); }
+  for (const section of model.supportingSections) {
+    page(section.title);
+    heading(section.title, 'Supporting detail');
+    if (section.sectionId === 'evidence_checkpoints') {
+      card('Behavioral Evidence Hierarchy', 'Rank observed behavior above stated interest when deciding what to do next.', COLORS.gold);
+      card('Adaptive Checkpoint Reviews', 'Adaptive Checkpoint Reviews use the recorded evidence at each checkpoint and follow the declared branch.', COLORS.rust);
+    }
+    section.content.forEach((item, index) => card(`${section.title} / ${index + 1}`, item, index % 2 ? COLORS.gold : COLORS.rust));
+  }
   return encodePdf(pages);
 }
 
