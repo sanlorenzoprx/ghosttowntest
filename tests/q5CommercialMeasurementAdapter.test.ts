@@ -30,6 +30,13 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
     expect(q5.acceptance).toEqual(q5Keys);
   });
 
+  it('is the sanctioned default Q5 hook in the stable roadmap wrapper', () => {
+    const wrapper = read('scripts/roadmap-autopilot-wrapper.mjs');
+    expect(wrapper).toContain("const QUALITY_Q5_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q5-commercial-measurement.mjs')");
+    expect(wrapper).toContain('process.env.ROADMAP_QUALITY_Q5_COMMAND?.trim()');
+    expect(wrapper).toContain('ROADMAP_QUALITY_Q5_COMMAND: sanctionedQualityQ5Command');
+  });
+
   it('writes a local fail-closed receipt without purchase replay or production deployment', () => {
     const adapter = read('scripts/roadmap-quality-q5-commercial-measurement.mjs');
     expect(adapter).toContain('q5-commercial-measurement-receipt.json');
