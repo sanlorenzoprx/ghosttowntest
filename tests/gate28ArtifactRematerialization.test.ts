@@ -14,11 +14,16 @@ describe('Gate 28 acceptance artifact rematerialization', () => {
     expect(fulfillment).toContain('saveBlueprintRecordV21');
   });
 
-  it('renders PDF and ZIP only from exact canonical JSON', () => {
+  it('renders PDF, ZIP, and document receipt only from exact canonical JSON', () => {
     expect(helper).toContain('renderLaunchBlueprintPdfV21');
     expect(helper).toContain('buildBlueprintAssetZipFromCanonicalBytesV21');
+    expect(helper).toContain('composeBlueprintDocumentModel');
+    expect(helper).toContain('renderBlueprintDocumentHtml');
     expect(helper).toContain('canonicalJsonBytes');
     expect(helper).toContain("expect(JSON.stringify(blueprint)).toBe(before)");
+    expect(helper).toContain('modelSha256');
+    expect(helper).toContain('htmlSha256');
+    expect(helper).toContain('cssSha256');
   });
 
   it('refuses to change the canonical Blueprint and preserves pre-repair evidence', () => {
@@ -27,15 +32,27 @@ describe('Gate 28 acceptance artifact rematerialization', () => {
     expect(repair).toContain('pre-rematerialization-blueprint.pdf');
     expect(repair).toContain('pre-rematerialization-assets.zip');
     expect(repair).toContain('pre-rematerialization-gate27-receipt.json');
+    expect(repair).toContain('pre-rematerialization-research-receipt.json');
+    expect(repair).toContain('pre-rematerialization-integrity-kv.json');
+    expect(repair).toContain('pre-rematerialization-pointer-kv.json');
   });
 
-  it('updates acceptance integrity authorities and requires Gates 27 and 28 to reverify', () => {
+  it('updates all acceptance integrity authorities and requires Gates 27 and 28 to reverify', () => {
     expect(repair).toContain("'ghosttowntest-blueprints-acceptance'");
     expect(repair).toContain("'ghosttowntest-private-blueprints-acceptance'");
     expect(repair).toContain('paid_test_blueprint_integrity_');
     expect(repair).toContain('paid_test_blueprint_pointer_');
+    expect(repair).toContain('generationReceiptEvidence.document = documentReceipt');
     expect(repair).toContain("for (const id of ['27', '28'])");
     expect(repair).toContain("status: 'PENDING'");
+  });
+
+  it('rolls every acceptance authority back if any mutation or verification step fails', () => {
+    expect(repair).toContain('rollback-research-receipt.sql');
+    expect(repair).toContain('rollback-integrity-receipt.json');
+    expect(repair).toContain('rollback-blueprint-pointer.json');
+    expect(repair).toContain('putPresentationArtifacts(orderId, oldPdfPath, oldZipPath)');
+    expect(repair).toContain('rollback_on_partial_failure: true');
   });
 
   it('does not replay purchase, research, Vertex generation, or touch production', () => {
