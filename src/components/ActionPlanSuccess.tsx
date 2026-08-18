@@ -43,7 +43,7 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
           setReady(true);
           setNeedsSeeds(false);
           setStage(
-            "Your Media & Distribution Network, sourced Launch Blueprint, professional PDF, finished assets, and executable dashboard are ready.",
+            "Your evidence-led Launch Blueprint and professional PDF are ready.",
           );
           setError("");
           return;
@@ -87,13 +87,11 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
     };
   }, [orderId, pollVersion]);
 
-  const download = async (format: "pdf" | "zip") => {
-    setDownloading(format);
+  const download = async () => {
+    setDownloading("pdf");
     setError("");
     try {
-      const path = format === "zip"
-        ? `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint-assets.zip`
-        : `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint.pdf`;
+      const path = `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint.pdf`;
       const response = await fetch(apiUrl(path), { headers: authHeaders() });
       if (!response.ok)
         throw new Error("Your Launch Blueprint is not ready yet");
@@ -101,7 +99,7 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `ghosttown-launch-blueprint-${orderId}${format === "zip" ? "-assets" : ""}.${format}`;
+      anchor.download = `ghosttown-launch-blueprint-${orderId}.pdf`;
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (caught) {
@@ -159,25 +157,15 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
         )}
         {ready && (
           <>
-            <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            <div className="mt-7 grid gap-3">
               <button
-                onClick={() => void download("pdf")}
+                onClick={() => void download()}
                 disabled={Boolean(downloading)}
                 className="rounded-lg bg-ghost-rust px-5 py-3 font-bold text-white disabled:opacity-50"
               >
-                {downloading === "pdf" ? "Preparing..." : "Download readable PDF"}
-              </button>
-              <button
-                onClick={() => void download("zip")}
-                disabled={Boolean(downloading)}
-                className="rounded-lg border border-ghost-rust px-5 py-3 font-bold text-ghost-rust disabled:opacity-50"
-              >
-                {downloading === "zip" ? "Preparing..." : "Download all finished assets"}
+                {downloading === "pdf" ? "Preparing..." : "PDF"}
               </button>
             </div>
-            <p className="mt-3 text-xs leading-5 text-gray-600">
-              The asset ZIP includes your machine-readable Blueprint JSON for backup, regeneration, and future automation.
-            </p>
           </>
         )}
         <button

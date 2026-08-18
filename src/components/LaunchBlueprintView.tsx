@@ -214,21 +214,18 @@ export default function LaunchBlueprintView({ orderId, onBack }: Props) {
     window.setTimeout(() => setCopied(""), 1400);
   };
 
-  const download = async (kind: "pdf" | "json" | "zip") => {
+  const download = async () => {
     setError("");
     try {
-      const path =
-        kind === "zip"
-          ? `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint-assets.zip`
-          : `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint.${kind}`;
+      const path = `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint.pdf`;
       const response = await fetch(apiUrl(path), { headers: authHeaders() });
       if (!response.ok)
-        throw new Error(`Blueprint ${kind.toUpperCase()} is not available`);
+        throw new Error('Blueprint PDF is not available');
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `ghosttown-launch-blueprint-${orderId}${kind === "zip" ? "-assets" : ""}.${kind}`;
+      anchor.download = `ghosttown-launch-blueprint-${orderId}.pdf`;
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (caught) {
@@ -288,22 +285,10 @@ export default function LaunchBlueprintView({ orderId, onBack }: Props) {
               </div>
             </div>
             <button
-              onClick={() => void download("pdf")}
+              onClick={() => void download()}
               className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-black text-white"
             >
-              Download PDF
-            </button>
-            <button
-              onClick={() => void download("json")}
-              className="rounded-lg border border-ghost-gold px-4 py-2 text-sm font-black text-ghost-gold"
-            >
-              Download JSON
-            </button>
-            <button
-              onClick={() => void download("zip")}
-              className="rounded-lg border border-white/40 px-4 py-2 text-sm font-black text-white"
-            >
-              Asset ZIP
+              PDF
             </button>
           </div>
         </div>

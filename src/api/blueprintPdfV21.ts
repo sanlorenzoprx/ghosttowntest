@@ -1,4 +1,6 @@
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
+import { composeBlueprintDocumentModel, validateBlueprintDocumentModel } from './blueprintDocumentModel';
+import { renderBlueprintDocumentHtml } from './blueprintDocumentHtml';
 
 const WIDTH = 612;
 const HEIGHT = 792;
@@ -585,5 +587,13 @@ function encodePdf(pages: Page[]): Uint8Array {
 }
 
 export function renderLaunchBlueprintPdfV21(blueprint: GhostTownLaunchBlueprintV21): Uint8Array {
+  // Compose and validate the premium-document projection before using the
+  // established deterministic PDF fallback. This keeps the existing R2/hash
+  // pipeline byte-compatible while making the document model the fail-closed
+  // presentation contract.
+  const model = composeBlueprintDocumentModel(blueprint);
+  const failures = validateBlueprintDocumentModel(model);
+  if (failures.length) throw new Error(`Blueprint document model failed: ${failures.join(', ')}`);
+  renderBlueprintDocumentHtml(model);
   return new V21PdfBuilder(blueprint).render();
 }

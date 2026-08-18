@@ -280,7 +280,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         <ul className="mt-4 space-y-2 text-sm text-gray-800">
           <li>Thirty daily actions with time budgets, cash limits, evidence, and pass/fail thresholds</li>
           <li>Buyer interviews, alternatives, offer, pricing, landing-page, outreach, and paid-pilot tests</li>
-          <li>Truth-labeled canonical JSON, readable PDF, and account history for repeat download</li>
+          <li>Truth-labeled executable Blueprint, readable PDF, and account history for repeat access</li>
         </ul>
         <p className="mt-4 text-sm text-gray-700">A validation experiment—not a promise of product-market fit, revenue, or certainty.</p>
         {paidError && <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{paidError}</p>}
