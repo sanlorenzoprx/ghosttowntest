@@ -4,10 +4,12 @@ import {
   handleLaunchBlueprintRetry as handleCoreRetry,
   ownedLaunchBlueprintOrder
 } from './blueprintApi';
-import { loadBlueprintProgress } from './blueprintStore';
+import { loadBlueprintProgress, loadBlueprintRecord } from './blueprintStore';
 import { commercialEventAttribution } from './commercialAttribution';
 import { recordCommercialFunnelEvent, type CommercialFunnelEventInput } from './analytics';
+import { completionTransitionFailures, type ExecutionCompletionProgress } from '../lib/blueprintExecutionCompletion';
 import type { CommercialEventName } from '../types/commercialAttribution';
+import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import type { PaidTestOrder } from '../types/paidTest';
 
 interface ProgressEvidenceEntry {
@@ -16,7 +18,7 @@ interface ProgressEvidenceEntry {
   checkpointId?: string;
 }
 
-interface ProgressShape {
+interface ProgressShape extends ExecutionCompletionProgress {
   completedDays?: number[];
   evidenceLedger?: ProgressEvidenceEntry[];
 }
@@ -50,6 +52,10 @@ function orderAttribution(order: PaidTestOrder) {
   return commercialEventAttribution(order.commercialAttribution || order.intake.attribution);
 }
 
+function isV21Blueprint(value: unknown): value is GhostTownLaunchBlueprintV21 {
+  return Boolean(value && typeof value === 'object' && (value as { blueprintVersion?: unknown }).blueprintVersion === '2.1');
+}
+
 export async function handleLaunchBlueprintProgress(
   request: Request,
   env: Env,
@@ -60,6 +66,36 @@ export async function handleLaunchBlueprintProgress(
   const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
   const before = await loadBlueprintProgress(env, orderId, owned.email) as unknown as ProgressShape;
+  const record = await loadBlueprintRecord(env, orderId);
+  if (!record) {
+    return new Response(JSON.stringify({ error: 'Canonical Launch Blueprint record not found' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' }
+    });
+  }
+
+  if (isV21Blueprint(record.blueprint)) {
+    let requested: ExecutionCompletionProgress;
+    try {
+      requested = await request.clone().json<ExecutionCompletionProgress>();
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid execution progress JSON' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' }
+      });
+    }
+    const failures = completionTransitionFailures(record.blueprint, before, requested);
+    if (failures.length) {
+      return new Response(JSON.stringify({
+        error: 'Execution day completion requirements are not satisfied',
+        completionFailures: failures
+      }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' }
+      });
+    }
+  }
+
   const response = await handleCoreProgress(request, env, orderId);
   if (!response.ok) return response;
 
