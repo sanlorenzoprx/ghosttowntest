@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 /* First-party Q5 acceptance for GhostTown commercial measurement.
- * The adapter is local/read-only with respect to customer systems: it inspects
- * repository sources, runs deterministic tests/build checks, and writes a local
- * acceptance receipt. It never creates a Stripe purchase or deploys production. */
+ * Local/read-only: no Stripe purchase replay and no production deployment. */
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -19,16 +17,15 @@ const requiredSources = [
   'config/commercial-quality-roadmap-v1.json',
   'config/infrastructure-freeze-policy-v1.json',
   'src/types/commercialAttribution.ts',
+  'src/types/paidTest.ts',
   'src/lib/commercialAttribution.ts',
   'src/api/commercialAttribution.ts',
   'src/api/analytics.ts',
   'src/api/commercialMetrics.ts',
   'src/api/paidTest.ts',
-  'src/api/paidTestCore.ts',
   'src/api/paidTestCheckout.ts',
   'src/api/webhook.ts',
   'src/api/blueprintApi.ts',
-  'src/api/blueprintApiCore.ts',
   'src/api/blueprintApiMeasurement.ts',
   'src/api/index.ts',
   'src/app/App.tsx',
@@ -89,11 +86,7 @@ function command(commandName, args) {
     maxBuffer: 64 * 1024 * 1024,
     env: process.env
   });
-  return {
-    ok: result.status === 0,
-    status: result.status ?? -1,
-    output: `${result.stdout || ''}${result.stderr || ''}`
-  };
+  return { ok: result.status === 0, status: result.status ?? -1, output: `${result.stdout || ''}${result.stderr || ''}` };
 }
 
 function eventNamesFromAnalytics(source) {
@@ -101,19 +94,14 @@ function eventNamesFromAnalytics(source) {
   return [...block.matchAll(/['"]([^'"]+)['"]/g)].map(match => match[1]);
 }
 
-function occurrences(text, value) {
-  return text.split(value).length - 1;
-}
-
+function occurrences(text, value) { return text.split(value).length - 1; }
 function writeReceipt(receipt) {
   mkdirSync(STATE, { recursive: true });
   writeFileSync(RECEIPT, `${JSON.stringify(receipt, null, 2)}\n`, 'utf8');
 }
 
 for (const relative of requiredSources) {
-  if (!existsSync(join(ROOT, relative))) {
-    throw new Error(`Q5 acceptance failed: missing required source ${relative}`);
-  }
+  if (!existsSync(join(ROOT, relative))) throw new Error(`Q5 acceptance failed: missing required source ${relative}`);
 }
 if (!existsSync(Q4_RECEIPT)) throw new Error('Q5 acceptance failed: missing Q4 acceptance receipt');
 
@@ -121,18 +109,13 @@ const head = currentHead();
 const roadmap = readJson(CONFIG);
 const q5 = roadmap.quality_gates?.find(gate => gate.id === 'Q5');
 if (!q5) throw new Error('Q5 acceptance failed: Q5 is missing from the governing quality roadmap');
-if (JSON.stringify(q5.acceptance) !== JSON.stringify(acceptanceKeys)) {
-  throw new Error(`Q5 acceptance failed: governing acceptance keys drifted: ${JSON.stringify(q5.acceptance)}`);
-}
-if (q5.purpose !== 'measurement' || q5.requires?.join(',') !== 'Q4') {
-  throw new Error('Q5 acceptance failed: measurement purpose or Q4 prerequisite drifted');
-}
+if (JSON.stringify(q5.acceptance) !== JSON.stringify(acceptanceKeys)) throw new Error(`Q5 acceptance failed: governing acceptance keys drifted: ${JSON.stringify(q5.acceptance)}`);
+if (q5.purpose !== 'measurement' || q5.requires?.join(',') !== 'Q4') throw new Error('Q5 acceptance failed: measurement purpose or Q4 prerequisite drifted');
 
 const q4 = readJson(Q4_RECEIPT);
 if (q4.decision !== 'PASS' || q4.git_sha !== head || q4.secret_values_recorded !== false || q4.production_deployed !== false) {
   throw new Error('Q5 acceptance failed: Q4 must be a safe PASS at the exact current HEAD');
 }
-
 const freeze = readJson(FREEZE);
 if (!freeze.policy?.allowed_purposes?.includes('measurement') || freeze.invariants?.production_auto_deploy !== false || freeze.invariants?.gate_36_remains_manual !== true) {
   throw new Error('Q5 acceptance failed: Infrastructure Freeze does not authorize bounded measurement work or manual-release invariants changed');
@@ -142,26 +125,25 @@ const clientAttribution = read('src/lib/commercialAttribution.ts');
 const serverAttribution = read('src/api/commercialAttribution.ts');
 const analytics = read('src/api/analytics.ts');
 const metrics = read('src/api/commercialMetrics.ts');
-const paidCheckout = read('src/api/paidTestCheckout.ts');
 const paidTest = read('src/api/paidTest.ts');
+const paidCheckout = read('src/api/paidTestCheckout.ts');
 const webhook = read('src/api/webhook.ts');
-const blueprintMeasurement = read('src/api/blueprintApiMeasurement.ts');
 const blueprintApi = read('src/api/blueprintApi.ts');
+const blueprintMeasurement = read('src/api/blueprintApiMeasurement.ts');
 const index = read('src/api/index.ts');
-const app = read('src/app/App.tsx');
 const questionFlow = read('src/components/QuestionFlow.tsx');
 const actionPlanModal = read('src/components/ActionPlanModal.tsx');
 const blueprintRouter = read('src/components/LaunchBlueprintRouter.tsx');
 const dashboard = read('src/components/UserDashboard.tsx');
-const emitterSources = [app, questionFlow, paidCheckout, blueprintRouter, blueprintMeasurement].join('\n');
+const emitterSources = [questionFlow, paidCheckout, blueprintRouter, blueprintMeasurement].join('\n');
 
 const allowedEvents = eventNamesFromAnalytics(analytics);
 const supportedAndEmitted = eventName => allowedEvents.includes(eventName) && occurrences(emitterSources, eventName) > 0;
-
 const attributionFields = [
   'attributionToken', 'experimentId', 'sourceVerdictId', 'creativeId', 'publicationId',
   'platform', 'accountId', 'campaign', 'source', 'visitorId', 'ghosttownSessionId'
 ];
+
 const clientAttributionContract = has(clientAttribution, 'ghosttown_commercial_attribution_v1')
   && has(clientAttribution, 'ghosttown_commercial_session_v1')
   && has(clientAttribution, 'localStorage')
@@ -170,62 +152,50 @@ const clientAttributionContract = has(clientAttribution, 'ghosttown_commercial_a
   && attributionFields.every(field => has(clientAttribution, field));
 const analyticsAttributionContract = attributionFields.every(field => has(analytics, field));
 const metricAttributionContract = attributionFields.every(field => has(metrics, field))
-  && has(metrics, 'attributionCoverage')
-  && has(metrics, 'uniqueVisitors')
-  && has(metrics, 'uniqueSessions')
-  && has(metrics, 'attributedVerifiedPurchases');
+  && has(metrics, 'attributionCoverage') && has(metrics, 'uniqueVisitors')
+  && has(metrics, 'uniqueSessions') && has(metrics, 'attributedVerifiedPurchases');
 const checkoutAttributionMetadata = has(actionPlanModal, 'commercialAttributionForCheckout')
   && has(paidCheckout, 'sanitizeCommercialAttribution')
   && has(paidCheckout, 'appendStripeAttributionMetadata')
+  && has(paidCheckout, 'commercialAttribution: attribution')
+  && has(paidCheckout, 'attribution: undefined')
   && [
-    'metadata[attribution_token]',
-    'metadata[experiment_id]',
-    'metadata[source_verdict_id]',
-    'metadata[creative_id]',
-    'metadata[publication_id]',
-    'metadata[platform]',
-    'metadata[distribution_account_id]',
-    'metadata[campaign]',
-    'metadata[source]',
-    'metadata[visitor_id]',
-    'metadata[ghosttown_session_id]'
+    'metadata[attribution_token]', 'metadata[experiment_id]', 'metadata[source_verdict_id]',
+    'metadata[creative_id]', 'metadata[publication_id]', 'metadata[platform]',
+    'metadata[distribution_account_id]', 'metadata[campaign]', 'metadata[source]',
+    'metadata[visitor_id]', 'metadata[ghosttown_session_id]'
   ].every(field => has(serverAttribution, field));
 const purchaseAttributionRecovered = has(webhook, 'recordVerifiedPurchase')
   && has(metrics, 'attributionFromMetadata')
-  && has(metrics, 'metadata.attribution_token')
-  && has(metrics, 'metadata.publication_id')
-  && has(metrics, 'metadata.source')
-  && has(metrics, 'metadata.visitor_id')
-  && has(metrics, 'metadata.ghosttown_session_id');
-const checkoutAuthoritative = has(paidTest, "export { handlePaidTestCheckout } from './paidTestCheckout'")
+  && ['metadata.attribution_token', 'metadata.publication_id', 'metadata.source', 'metadata.visitor_id', 'metadata.ghosttown_session_id'].every(value => has(metrics, value));
+const checkoutAuthoritative = has(index, "handlePaidTestCheckout } from './paidTestCheckout'")
   && has(paidCheckout, "recordCommercialFunnelEvent(env, 'checkout_started'")
-  && paidCheckout.indexOf("response.ok") < paidCheckout.indexOf("recordCommercialFunnelEvent(env, 'checkout_started'");
-
+  && paidCheckout.indexOf('if (!response.ok)') < paidCheckout.indexOf("recordCommercialFunnelEvent(env, 'checkout_started'");
 const purchaseAuthority = has(webhook, 'recordVerifiedPurchase')
   && has(webhook, "event.type === 'checkout.session.completed'")
   && has(metrics, "authority: 'stripe_webhook'")
   && has(metrics, 'revenueMinorUnitsByCurrency')
   && has(metrics, 'checkout_to_verified_purchase');
-
 const blueprintOpenSurface = has(blueprintRouter, "recordCommercialEvent('blueprint_opened'")
-  && has(blueprintRouter, 'LaunchBlueprintViewV21')
-  && has(blueprintRouter, 'setPayload(body)');
+  && has(blueprintRouter, 'LaunchBlueprintViewV21') && has(blueprintRouter, 'setPayload(body)');
 const dailyPacketSurface = has(blueprintRouter, "recordCommercialEvent('daily_packet_opened'")
   && has(blueprintRouter, "target?.textContent?.trim() === 'Today'")
-  && has(blueprintRouter, "target.value === 'today'");
-const progressAuthoritative = has(blueprintApi, "export * from './blueprintApiCore'")
+  && has(blueprintRouter, "target.value === 'today'")
+  && has(blueprintRouter, 'Today · Day');
+const progressAuthoritative = has(index, "handleLaunchBlueprintProgress, handleLaunchBlueprintRetry } from './blueprintApiMeasurement'")
+  && has(blueprintMeasurement, "from './blueprintApi'")
   && has(blueprintApi, 'handleLaunchBlueprintProgress')
   && has(blueprintMeasurement, 'handleCoreProgress')
-  && has(blueprintMeasurement, 'response.ok')
+  && has(blueprintMeasurement, 'if (!response.ok) return response')
   && has(blueprintMeasurement, "safeRecord(env, 'day_completed'")
   && has(blueprintMeasurement, "safeRecord(env, 'evidence_recorded'");
 const repairRoute = has(dashboard, '/blueprint/retry')
   && has(index, 'blueprintRetryMatch')
   && has(index, 'handleLaunchBlueprintRetry')
-  && has(blueprintApi, 'handleLaunchBlueprintRetry')
   && has(blueprintMeasurement, 'handleCoreRetry')
   && has(blueprintMeasurement, 'response.status === 202')
   && has(blueprintMeasurement, "safeRecord(env, 'blueprint_retry_requested'");
+const establishedImplementationsIntact = !has(paidTest, 'paidTestCore') && !has(blueprintApi, 'blueprintApiCore');
 
 const focused = command(process.execPath, [
   join(ROOT, 'node_modules/vitest/vitest.mjs'), 'run',
@@ -240,7 +210,7 @@ const typecheck = command(process.execPath, [join(ROOT, 'node_modules/typescript
 const build = command(process.execPath, [join(ROOT, 'node_modules/vite/bin/vite.js'), 'build']);
 
 const checks = {
-  source_to_session_attribution: clientAttributionContract && analyticsAttributionContract && metricAttributionContract && checkoutAttributionMetadata && purchaseAttributionRecovered,
+  source_to_session_attribution: establishedImplementationsIntact && clientAttributionContract && analyticsAttributionContract && metricAttributionContract && checkoutAttributionMetadata && purchaseAttributionRecovered,
   test_started: supportedAndEmitted(measuredEvents.test_started),
   verdict_completed: supportedAndEmitted(measuredEvents.verdict_completed),
   checkout_started: checkoutAuthoritative && supportedAndEmitted(measuredEvents.checkout_started),
@@ -252,10 +222,7 @@ const checks = {
   repair_routing_supported: repairRoute && supportedAndEmitted(measuredEvents.repair_routing_supported),
   tests_pass: focused.ok && sourceLock.ok && typecheck.ok && build.ok
 };
-
-if (Object.keys(checks).join(',') !== acceptanceKeys.join(',')) {
-  throw new Error(`Q5 acceptance failed: adapter check order drifted: ${Object.keys(checks).join(',')}`);
-}
+if (Object.keys(checks).join(',') !== acceptanceKeys.join(',')) throw new Error(`Q5 acceptance failed: adapter check order drifted: ${Object.keys(checks).join(',')}`);
 
 const failedChecks = Object.entries(checks).filter(([, value]) => value !== true).map(([key]) => key);
 const receipt = {
@@ -285,22 +252,17 @@ const receipt = {
       repair_route: repairRoute
     },
     stripe_purchase_authority: purchaseAuthority,
+    established_implementations_intact: establishedImplementationsIntact,
     runtime_receipt: '.roadmap-autopilot/q5-commercial-measurement-receipt.json'
   },
   hashes: Object.fromEntries(requiredSources.map(relative => [relative, fileHash(join(ROOT, relative))])),
   command_output_sha256: {
-    focused: hash(focused.output),
-    source_lock: hash(sourceLock.output),
-    typecheck: hash(typecheck.output),
-    build: hash(build.output)
+    focused: hash(focused.output), source_lock: hash(sourceLock.output),
+    typecheck: hash(typecheck.output), build: hash(build.output)
   },
   infrastructure_freeze: {
-    purpose: 'measurement',
-    new_architecture: false,
-    new_provider: false,
-    new_binding: false,
-    new_container: false,
-    production_auto_deploy: false,
+    purpose: 'measurement', new_architecture: false, new_provider: false,
+    new_binding: false, new_container: false, production_auto_deploy: false,
     gate_36_remains_manual: true
   },
   production_deployed: false,
@@ -311,24 +273,7 @@ const receipt = {
 writeReceipt(receipt);
 
 if (failedChecks.length) {
-  console.error(JSON.stringify({
-    ok: false,
-    receipt: '.roadmap-autopilot/q5-commercial-measurement-receipt.json',
-    decision: 'FAIL',
-    failed_checks: failedChecks,
-    production_deployed: false,
-    purchase_replayed: false,
-    secret_values_recorded: false
-  }));
+  console.error(JSON.stringify({ ok: false, receipt: '.roadmap-autopilot/q5-commercial-measurement-receipt.json', decision: 'FAIL', failed_checks: failedChecks, production_deployed: false, purchase_replayed: false, secret_values_recorded: false }));
   process.exit(1);
 }
-
-console.log(JSON.stringify({
-  ok: true,
-  receipt: '.roadmap-autopilot/q5-commercial-measurement-receipt.json',
-  decision: 'PASS',
-  checks,
-  production_deployed: false,
-  purchase_replayed: false,
-  secret_values_recorded: false
-}));
+console.log(JSON.stringify({ ok: true, receipt: '.roadmap-autopilot/q5-commercial-measurement-receipt.json', decision: 'PASS', checks, production_deployed: false, purchase_replayed: false, secret_values_recorded: false }));
