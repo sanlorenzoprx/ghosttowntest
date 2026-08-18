@@ -24,6 +24,7 @@ import {
 import { apiUrl } from '../lib/api';
 import type { PublicUserData } from '../types/auth';
 import { getFeaturedExampleBySlug, toIdeaIntake } from '../lib/exampleIdeas';
+import { captureCommercialAttribution, recordCommercialEvent } from '../lib/commercialAttribution';
 
 type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | LegalPageKind;
 
@@ -52,6 +53,11 @@ export default function App() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [user, setUser] = useState<PublicUserData | null>(null);
+
+  useEffect(() => {
+    captureCommercialAttribution();
+    void recordCommercialEvent('landing_viewed', { dedupeKey: 'landing_viewed' });
+  }, []);
 
   useEffect(() => {
     const token = loadAuthToken();
