@@ -4,6 +4,7 @@ import type { GhostTownLaunchBlueprint } from "../types/launchBlueprint";
 import type { GhostTownLaunchBlueprintV21 } from "../types/launchBlueprintV21";
 import LaunchBlueprintView from "./LaunchBlueprintView";
 import LaunchBlueprintExecutionHomeV21 from "./LaunchBlueprintExecutionHomeV21";
+import LaunchBlueprintCopilotV21 from "./LaunchBlueprintCopilotV21";
 import LaunchBlueprintViewV21, { type BlueprintV21Payload } from "./LaunchBlueprintViewV21";
 import { recordCommercialEvent } from "../lib/commercialAttribution";
 
@@ -26,6 +27,7 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
   const [legacy, setLegacy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [activeDay, setActiveDay] = useState(1);
 
   useEffect(() => {
     let active = true;
@@ -43,6 +45,8 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
       .then(body => {
         if (!active) return;
         if (isBlueprintV21(body.blueprint as GhostTownLaunchBlueprint | GhostTownLaunchBlueprintV21)) {
+          const completed = new Set(body.progress.completedDays || []);
+          setActiveDay(body.blueprint.dailyCalendar.find(day => !completed.has(day.dayNumber))?.dayNumber || 30);
           setPayload(body);
         } else {
           setLegacy(true);
@@ -66,6 +70,7 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
     });
     const completed = new Set(payload.progress.completedDays || []);
     const currentDay = payload.blueprint.dailyCalendar.find(day => !completed.has(day.dayNumber))?.dayNumber || 30;
+    setActiveDay(currentDay);
     void recordCommercialEvent('daily_packet_opened', {
       orderId,
       verdictId: payload.blueprint.sourceVerdictId,
@@ -80,6 +85,7 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
       const match = container.textContent?.match(/Today · Day\s+(\d{1,2})/);
       const dayNumber = match ? Number(match[1]) : 0;
       if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 30) return;
+      setActiveDay(dayNumber);
       void recordCommercialEvent('daily_packet_opened', {
         orderId,
         verdictId: payload.blueprint.sourceVerdictId,
@@ -90,20 +96,10 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
   };
 
   const captureClick = (event: MouseEvent<HTMLDivElement>) => {
-    const target = event.target instanceof Element ? event.target.closest('button') : null;
-    if (target?.textContent?.trim() === 'Today') {
-      recordRenderedDailyPacket(event.currentTarget);
-      return;
-    }
     recordRenderedDailyPacket(event.currentTarget);
   };
 
   const captureChange = (event: ChangeEvent<HTMLDivElement>) => {
-    const target = event.target;
-    if (target instanceof HTMLSelectElement && target.value === 'today') {
-      recordRenderedDailyPacket(event.currentTarget);
-      return;
-    }
     recordRenderedDailyPacket(event.currentTarget);
   };
 
@@ -113,7 +109,7 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
   if (error) {
     return <div className="mx-auto max-w-xl p-8 text-center"><p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</p><button onClick={onBack} className="mt-5 font-bold text-ghost-rust">Return to Dashboard</button></div>;
   }
-  if (payload) return <div onClickCapture={captureClick} onChangeCapture={captureChange}><RoutedBlueprintV21 orderId={orderId} onBack={onBack} payload={payload} /></div>;
+  if (payload) return <div onClickCapture={captureClick} onChangeCapture={captureChange}><RoutedBlueprintV21 orderId={orderId} onBack={onBack} payload={payload} /><LaunchBlueprintCopilotV21 orderId={orderId} dayNumber={activeDay} lane={payload.blueprint.businessModelLane.lane} /></div>;
   if (legacy) return <LaunchBlueprintView orderId={orderId} onBack={onBack} />;
   return null;
 }
