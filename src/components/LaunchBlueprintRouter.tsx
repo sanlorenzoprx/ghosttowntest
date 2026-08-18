@@ -10,6 +10,10 @@ export function isBlueprintV21(blueprint: { blueprintVersion?: string }): boolea
   return blueprint.blueprintVersion === "2.1";
 }
 
+function RoutedBlueprintV21({ orderId, onBack, payload }: { orderId: string; onBack: () => void; payload: BlueprintV21Payload }) {
+  return <LaunchBlueprintViewV21 orderId={orderId} onBack={onBack} initialPayload={payload} />;
+}
+
 export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: string; onBack: () => void }) {
   const [payload, setPayload] = useState<BlueprintV21Payload | null>(null);
   const [legacy, setLegacy] = useState(false);
@@ -76,7 +80,6 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
       recordRenderedDailyPacket(event.currentTarget);
       return;
     }
-    // Reminder/deep-link buttons can also move the child view into Today.
     recordRenderedDailyPacket(event.currentTarget);
   };
 
@@ -95,7 +98,7 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
   if (error) {
     return <div className="mx-auto max-w-xl p-8 text-center"><p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</p><button onClick={onBack} className="mt-5 font-bold text-ghost-rust">Return to Dashboard</button></div>;
   }
-  if (payload) return <div onClickCapture={captureClick} onChangeCapture={captureChange}><LaunchBlueprintViewV21 orderId={orderId} onBack={onBack} initialPayload={payload} /></div>;
+  if (payload) return <div onClickCapture={captureClick} onChangeCapture={captureChange}><RoutedBlueprintV21 orderId={orderId} onBack={onBack} payload={payload} /></div>;
   if (legacy) return <LaunchBlueprintView orderId={orderId} onBack={onBack} />;
   return null;
 }
