@@ -17,6 +17,30 @@ export interface LaunchSiteRecord {
   updatedAt: string;
 }
 
+export type LaunchSiteTruthLabel = "VERIFIED" | "INFERRED" | "VALIDATION_STAGE";
+
+export interface LaunchSitePresentationBlock {
+  job: "hero" | "specific_promise" | "customer_qualifier" | "pain_cost" | "mechanism" | "offer" | "inclusions" | "how_it_works" | "evidence_proof" | "risk_scope_boundary" | "primary_cta" | "objections" | "faq_final_cta";
+  eyebrow: string;
+  heading: string;
+  body: string;
+  truthLabel: LaunchSiteTruthLabel;
+  items: string[];
+}
+
+/** A deterministic, canonical-only projection for the validation Launch Site.
+ * It deliberately has no generated-site dependency. */
+export interface LaunchSitePresentationModel {
+  schemaVersion: "ghosttown-launch-site-presentation-v1";
+  title: string;
+  description: string;
+  businessName: string;
+  blocks: LaunchSitePresentationBlock[];
+  primaryCta: string;
+  secondaryCta: string;
+  formConsent: string;
+}
+
 interface SiteRow {
   site_id: string;
   order_id: string;
@@ -93,6 +117,42 @@ function escapeHtml(value: unknown): string {
 
 function validEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 254;
+}
+
+const genericCopy = /unlock your potential|revolutionize your workflow|game.?changer|best-in-class|next.?level/i;
+
+export function composeLaunchSitePresentation(blueprint: GhostTownLaunchBlueprint): LaunchSitePresentationModel {
+  const site = blueprint.launchSite;
+  const copy = blueprint.landingPageCopy;
+  const validation = "Validation-stage: this is a bounded offer, not a promised business, compliance, conversion, or revenue outcome.";
+  const blocks: LaunchSitePresentationBlock[] = [
+    { job: "hero", eyebrow: site.site.businessName, heading: site.offer.headline, body: site.offer.subheadline, truthLabel: "INFERRED", items: [] },
+    { job: "specific_promise", eyebrow: "The specific promise", heading: site.offer.offerName, body: copy.offerDescription, truthLabel: "INFERRED", items: [] },
+    { job: "customer_qualifier", eyebrow: "Built for", heading: site.offer.targetCustomer, body: `This is for ${site.positioning.idealFor.join(", ")}. It is not for ${site.positioning.notFor.join(", ")}.`, truthLabel: "INFERRED", items: site.positioning.idealFor },
+    { job: "pain_cost", eyebrow: "The cost of waiting", heading: "The problem this tests", body: site.problem.summary, truthLabel: "INFERRED", items: site.problem.painPoints },
+    { job: "mechanism", eyebrow: "Why this approach", heading: site.positioning.differentiator, body: copy.currentAlternativeSection, truthLabel: "INFERRED", items: [] },
+    { job: "offer", eyebrow: "The bounded offer", heading: `${site.offer.price} — ${site.offer.priceExplanation}`, body: site.solution.summary, truthLabel: "INFERRED", items: [] },
+    { job: "inclusions", eyebrow: "What you receive", heading: "Included in this scope", body: "The listed deliverables define the work before either party proceeds.", truthLabel: "VERIFIED", items: site.solution.deliverables },
+    { job: "how_it_works", eyebrow: "How it works", heading: "A clear, manual path", body: site.offer.deliveryMethod, truthLabel: "INFERRED", items: copy.howItWorks.map(step => `${step.step}: ${step.description}`) },
+    { job: "evidence_proof", eyebrow: "Evidence, honestly labeled", heading: "What is known and what is still being tested", body: validation, truthLabel: "VALIDATION_STAGE", items: [...site.proof.claimsAllowed, ...site.proof.proofPlaceholders] },
+    { job: "risk_scope_boundary", eyebrow: "Risk and scope", heading: "What this does not claim", body: `${site.riskReversal.text} ${validation}`, truthLabel: "VALIDATION_STAGE", items: site.positioning.notFor },
+    { job: "primary_cta", eyebrow: "Check fit before you commit", heading: site.offer.callToAction, body: "Share the relevant context. A request is not an acceptance or a charge.", truthLabel: "VERIFIED", items: [] },
+    { job: "objections", eyebrow: "Common questions before a request", heading: "Start with the boundary", body: "We confirm fit, scope, exclusions, and the price boundary before work begins.", truthLabel: "INFERRED", items: ["This complements the current alternative; it does not pretend to replace it."] },
+    { job: "faq_final_cta", eyebrow: "Still deciding?", heading: site.offer.secondaryCallToAction, body: copy.thankYouPageCopy, truthLabel: "INFERRED", items: site.faq.map(item => `${item.question} — ${item.answer}`) }
+  ];
+  return { schemaVersion: "ghosttown-launch-site-presentation-v1", title: copy.metadataTitle, description: copy.metadataDescription, businessName: site.site.businessName, blocks, primaryCta: site.leadCapture.buttonLabel, secondaryCta: site.offer.secondaryCallToAction, formConsent: "I agree that this business may contact me about this offer." };
+}
+
+export function validateLaunchSitePresentation(model: LaunchSitePresentationModel, blueprint: GhostTownLaunchBlueprint): string[] {
+  const failures: string[] = [];
+  const jobs = ["hero", "specific_promise", "customer_qualifier", "pain_cost", "mechanism", "offer", "inclusions", "how_it_works", "evidence_proof", "risk_scope_boundary", "primary_cta", "objections", "faq_final_cta"];
+  if (model.blocks.map(block => block.job).join(",") !== jobs.join(",")) failures.push("The canonical 13 conversion jobs are incomplete or unordered.");
+  const rendered = JSON.stringify(model);
+  for (const value of [blueprint.launchSite.offer.headline, blueprint.launchSite.offer.targetCustomer, blueprint.launchSite.offer.price, blueprint.launchSite.offer.callToAction]) if (!value.trim() || !rendered.includes(value)) failures.push("Customer, offer, price, or CTA no longer matches the canonical Blueprint.");
+  if (genericCopy.test(rendered)) failures.push("Generic conversion copy is not allowed on the validation Launch Site.");
+  if (!model.blocks.every(block => block.heading.trim() && block.body.trim() && ["VERIFIED", "INFERRED", "VALIDATION_STAGE"].includes(block.truthLabel))) failures.push("Every conversion block needs copy and an honest truth label.");
+  if (!rendered.includes("Validation-stage")) failures.push("Validation-stage truth boundary is missing.");
+  return failures;
 }
 
 export function launchSitePublishFailures(
@@ -374,9 +434,17 @@ export function renderLaunchSite(
   slug: string,
 ): string {
   const config = blueprint.launchSite;
+  const presentation = composeLaunchSitePresentation(blueprint);
+  const presentationFailures = validateLaunchSitePresentation(presentation, blueprint);
+  if (presentationFailures.length) {
+    throw new Error(`Launch Site presentation is not safe to render: ${presentationFailures.join(" ")}`);
+  }
   const list = (values: string[]) =>
     values.map((value) => `<li>${escapeHtml(value)}</li>`).join("");
-  const positioning = `<div><h2>Why this approach</h2><p>${escapeHtml(config.positioning.differentiator)}</p><h3>Ideal for</h3><ul>${list(config.positioning.idealFor)}</ul><h3>Not for</h3><ul>${list(config.positioning.notFor)}</ul></div>`;
+  const positioning = presentation.blocks
+    .slice(1)
+    .map((block) => `<section class="conversion-job conversion-${escapeHtml(block.job)}" data-conversion-job="${escapeHtml(block.job)}"><p><small>${escapeHtml(block.truthLabel.replace(/_/g, " "))}</small></p><h2>${escapeHtml(block.heading)}</h2><p>${escapeHtml(block.body)}</p>${block.items.length ? `<ul>${list(block.items)}</ul>` : ""}</section>`)
+    .join("");
   const faq = positioning + config.faq
     .map(
       (item) =>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { handlePublicLaunchLead, handlePublicLaunchSite, launchSitePublishFailures, renderLaunchSite } from '../src/api/launchSite';
+import { composeLaunchSitePresentation, handlePublicLaunchLead, handlePublicLaunchSite, launchSitePublishFailures, renderLaunchSite, validateLaunchSitePresentation } from '../src/api/launchSite';
 import type { Env } from '../src/api/env';
 import { launchBlueprintFixture } from './fixtures/launchBlueprint';
 
@@ -13,6 +13,24 @@ describe('Launch Site canonical rendering and publish gates', () => {
     expect(html).toContain('/api/launch-sites/family-game-night/leads');
     expect(html).toContain('Validation-stage offer');
     expect(html).not.toContain(blueprint.ownerId);
+  });
+
+  it('composes the canonical ordered conversion system with honest truth labels', () => {
+    const blueprint = launchBlueprintFixture();
+    const model = composeLaunchSitePresentation(blueprint);
+    expect(model.blocks.map(block => block.job)).toEqual([
+      'hero', 'specific_promise', 'customer_qualifier', 'pain_cost', 'mechanism', 'offer', 'inclusions',
+      'how_it_works', 'evidence_proof', 'risk_scope_boundary', 'primary_cta', 'objections', 'faq_final_cta'
+    ]);
+    expect(model.blocks.map(block => block.truthLabel)).toContain('VALIDATION_STAGE');
+    expect(validateLaunchSitePresentation(model, blueprint)).toEqual([]);
+  });
+
+  it('fails closed when a generic claim enters the presentation model', () => {
+    const blueprint = launchBlueprintFixture();
+    const model = composeLaunchSitePresentation(blueprint);
+    model.blocks[1].body = 'Unlock your potential with a game-changing workflow.';
+    expect(validateLaunchSitePresentation(model, blueprint)).toContain('Generic conversion copy is not allowed on the validation Launch Site.');
   });
 
   it('fails closed when canonical quality, proof, or legal requirements are missing', () => {
