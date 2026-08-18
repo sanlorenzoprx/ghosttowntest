@@ -3,6 +3,7 @@ import { apiUrl, authHeaders } from "../lib/api";
 import type { GhostTownLaunchBlueprint } from "../types/launchBlueprint";
 import type { GhostTownLaunchBlueprintV21 } from "../types/launchBlueprintV21";
 import LaunchBlueprintView from "./LaunchBlueprintView";
+import LaunchBlueprintExecutionHomeV21 from "./LaunchBlueprintExecutionHomeV21";
 import LaunchBlueprintViewV21, { type BlueprintV21Payload } from "./LaunchBlueprintViewV21";
 import { recordCommercialEvent } from "../lib/commercialAttribution";
 
@@ -10,8 +11,14 @@ export function isBlueprintV21(blueprint: { blueprintVersion?: string }): boolea
   return blueprint.blueprintVersion === "2.1";
 }
 
-function RoutedBlueprintV21({ orderId, onBack, payload }: { orderId: string; onBack: () => void; payload: BlueprintV21Payload }) {
+// Preserve the canonical v2.1 workspace as a directly renderable compatibility
+// surface while the paid customer route now opens through the guided execution home.
+export function BlueprintV21WorkspaceCompatibility({ orderId, onBack, payload }: { orderId: string; onBack: () => void; payload: BlueprintV21Payload }) {
   return <LaunchBlueprintViewV21 orderId={orderId} onBack={onBack} initialPayload={payload} />;
+}
+
+function RoutedBlueprintV21({ orderId, onBack, payload }: { orderId: string; onBack: () => void; payload: BlueprintV21Payload }) {
+  return <LaunchBlueprintExecutionHomeV21 orderId={orderId} onBack={onBack} initialPayload={payload} />;
 }
 
 export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: string; onBack: () => void }) {
