@@ -442,7 +442,6 @@ export function renderLaunchSite(
   const list = (values: string[]) =>
     values.map((value) => `<li>${escapeHtml(value)}</li>`).join("");
   const positioning = presentation.blocks
-    .slice(1)
     .map((block) => `<section class="conversion-job conversion-${escapeHtml(block.job)}" data-conversion-job="${escapeHtml(block.job)}"><p><small>${escapeHtml(block.truthLabel.replace(/_/g, " "))}</small></p><h2>${escapeHtml(block.heading)}</h2><p>${escapeHtml(block.body)}</p>${block.items.length ? `<ul>${list(block.items)}</ul>` : ""}</section>`)
     .join("");
   const faq = positioning + config.faq
