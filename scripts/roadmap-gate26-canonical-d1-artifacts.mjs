@@ -47,6 +47,31 @@ function parseJson(value, label) {
   }
 }
 
+function stripAnsi(value) {
+  return String(value ?? '').replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
+}
+
+function parseLooseJson(text) {
+  const clean = stripAnsi(text).trim();
+  if (!clean) return null;
+  try {
+    return JSON.parse(clean);
+  } catch {}
+  const starts = [clean.indexOf('['), clean.indexOf('{')]
+    .filter(index => index >= 0)
+    .sort((a, b) => a - b);
+  for (const start of starts) {
+    for (let end = clean.length; end > start; end -= 1) {
+      const last = clean[end - 1];
+      if (last !== ']' && last !== '}') continue;
+      try {
+        return JSON.parse(clean.slice(start, end));
+      } catch {}
+    }
+  }
+  return null;
+}
+
 function findInspectionRow(value) {
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -171,9 +196,12 @@ function runReadOnlyD1(sql, orderId) {
         .replace(/\b(sk_(?:live|test)_[A-Za-z0-9_-]+|whsec_[A-Za-z0-9_-]+)\b/g, '[SECRET_REDACTED]');
       throw new Error(`Gate 26 read-only acceptance D1 inspection failed (${result.status ?? 1}).\n${safe}`.trim());
     }
-    let parsed;
-    try { parsed = JSON.parse(String(result.stdout || '').trim()); }
-    catch { throw new Error('Gate 26 could not parse Wrangler D1 JSON output.'); }
+    const stdout = String(result.stdout || '');
+    const stderr = String(result.stderr || '');
+    const parsed = parseLooseJson(stdout) || parseLooseJson(`${stdout}\n${stderr}`);
+    if (!parsed) {
+      throw new Error(`Gate 26 could not parse Wrangler D1 JSON output (stdout_bytes=${Buffer.byteLength(stdout, 'utf8')}, stderr_bytes=${Buffer.byteLength(stderr, 'utf8')}).`);
+    }
     const row = findInspectionRow(parsed);
     if (!row) throw new Error('Gate 26 D1 inspection returned no canonical inspection row.');
     return row;
