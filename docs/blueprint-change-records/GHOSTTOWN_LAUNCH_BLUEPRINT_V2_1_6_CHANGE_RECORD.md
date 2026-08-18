@@ -246,3 +246,5 @@ Existing guardrails relied upon:
 ## Release rule
 
 This amendment is implementation-enabling, not a production release authorization. The branch remains draft/unmerged. Existing Production Roadmap acceptance continues in order. Gate 36 remains the explicit human release decision.
+
+**Weakening approved outcomes remains prohibited.**
