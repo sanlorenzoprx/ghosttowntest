@@ -56,7 +56,7 @@ export default function App() {
 
   useEffect(() => {
     captureCommercialAttribution();
-    void recordCommercialEvent('landing_viewed', { dedupeKey: 'landing_viewed' });
+    if (window.location.pathname === '/') void recordCommercialEvent('landing_viewed', { dedupeKey: 'landing_viewed' });
   }, []);
 
   useEffect(() => {
@@ -105,10 +105,7 @@ export default function App() {
   };
 
   const handleStartTest = () => {
-    if (!hasAvailableTest()) {
-      setShowPaywall(true);
-      return;
-    }
+    if (!hasAvailableTest()) { setShowPaywall(true); return; }
     clearEvaluationDraft();
     setResumeDraft(null);
     updateExampleParam(null);
@@ -118,10 +115,7 @@ export default function App() {
   };
 
   const handleSelectExample = (slug: string) => {
-    if (!hasAvailableTest()) {
-      setShowPaywall(true);
-      return;
-    }
+    if (!hasAvailableTest()) { setShowPaywall(true); return; }
     const example = getFeaturedExampleBySlug(slug);
     if (!example) return;
     clearEvaluationDraft();
@@ -134,10 +128,7 @@ export default function App() {
 
   const handleResume = () => {
     if (!resumeDraft) return;
-    if (!hasAvailableTest()) {
-      setShowPaywall(true);
-      return;
-    }
+    if (!hasAvailableTest()) { setShowPaywall(true); return; }
     updatePath('/');
     updateExampleParam(null);
     setIdea(resumeDraft.idea);
@@ -145,10 +136,7 @@ export default function App() {
   };
 
   const handleIdeaSubmit = (ideaData: IdeaIntakeType) => {
-    if (!hasAvailableTest()) {
-      setShowPaywall(true);
-      return;
-    }
+    if (!hasAvailableTest()) { setShowPaywall(true); return; }
     updatePath('/');
     updateExampleParam(null);
     const draft = saveEvaluationDraft(ideaData, {}, 0);
