@@ -60,6 +60,8 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
     expect(client).toContain('commercialAttributionForCheckout');
     expect(checkout).toContain('sanitizeCommercialAttribution');
     expect(checkout).toContain('appendStripeAttributionMetadata');
+    expect(checkout).toContain('commercialAttribution: attribution');
+    expect(checkout).toContain('attribution: undefined');
     for (const metadata of [
       'metadata[attribution_token]',
       'metadata[experiment_id]',
@@ -89,6 +91,8 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
     expect(router).toContain("recordCommercialEvent('blueprint_opened'");
     expect(router).toContain("recordCommercialEvent('daily_packet_opened'");
     expect(router).toContain("target?.textContent?.trim() === 'Today'");
+    expect(router).toContain("target.value === 'today'");
+    expect(router).toContain('Today · Day');
     expect(measurement).toContain("safeRecord(env, 'day_completed'");
     expect(measurement).toContain("safeRecord(env, 'evidence_recorded'");
     expect(dashboard).toContain('/blueprint/retry');
@@ -96,14 +100,17 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
     expect(measurement).toContain("safeRecord(env, 'blueprint_retry_requested'");
   });
 
-  it('preserves the established paid and Blueprint cores while overriding only measured boundaries', () => {
+  it('keeps established paid and Blueprint implementations intact and routes only measured handlers', () => {
     const paid = read('src/api/paidTest.ts');
     const blueprint = read('src/api/blueprintApi.ts');
-    expect(paid).toContain("export * from './paidTestCore'");
-    expect(paid).toContain("export { handlePaidTestCheckout } from './paidTestCheckout'");
-    expect(blueprint).toContain("export * from './blueprintApiCore'");
-    expect(blueprint).toContain('handleLaunchBlueprintProgress');
-    expect(blueprint).toContain('handleLaunchBlueprintRetry');
+    const measurement = read('src/api/blueprintApiMeasurement.ts');
+    const index = read('src/api/index.ts');
+
+    expect(paid).not.toContain('paidTestCore');
+    expect(blueprint).not.toContain('blueprintApiCore');
+    expect(index).toContain("handlePaidTestCheckout } from './paidTestCheckout'");
+    expect(index).toContain("handleLaunchBlueprintProgress, handleLaunchBlueprintRetry } from './blueprintApiMeasurement'");
+    expect(measurement).toContain("from './blueprintApi'");
   });
 
   it('preserves Stripe webhook revenue authority and the manual production-release boundary', () => {
