@@ -3,6 +3,7 @@ import type { IdeaIntake } from '../types/lit';
 import type { PaidTestIntake } from '../types/paidTest';
 import type { PrePurchaseResearchSignals } from '../types/researchSignals';
 import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
+import { commercialAttributionForCheckout } from '../lib/commercialAttribution';
 
 interface Props {
   idea: IdeaIntake;
@@ -37,7 +38,8 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
         ...researchSignals,
         targetCustomer: targetBuyer.trim(),
         updatedAt: new Date().toISOString()
-      } : undefined
+      } : undefined,
+      attribution: commercialAttributionForCheckout(verdictId)
     });
   };
 
