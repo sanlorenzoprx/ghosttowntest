@@ -10,6 +10,9 @@ export interface ExecutionCompletionEvidenceEntry {
   customerLanguage?: string;
   commitmentOffered?: string;
   commitmentReceived?: string;
+  revenueCents?: number;
+  founderMinutes?: number;
+  variableCostCents?: number;
   sourceNote?: string;
 }
 
@@ -21,11 +24,24 @@ export interface ExecutionCompletionCheckpointReview {
   nextAction?: string;
 }
 
+export interface ExecutionCompletionMetrics {
+  outreachSent?: number;
+  replies?: number;
+  interviews?: number;
+  qualifiedConversations?: number;
+  commitments?: number;
+  revenueCents?: number;
+  founderMinutes?: number;
+  variableCostCents?: number;
+  leads?: number;
+}
+
 export interface ExecutionCompletionProgress {
   completedDays?: number[];
   evidenceNotes?: Record<string, string>;
   evidenceLedger?: ExecutionCompletionEvidenceEntry[];
   checkpointReviews?: ExecutionCompletionCheckpointReview[];
+  metrics?: ExecutionCompletionMetrics;
 }
 
 export interface DayCompletionReadiness {
@@ -42,6 +58,13 @@ export interface DayCompletionReadiness {
   reasons: string[];
 }
 
+export interface ObservedExecutionMetrics {
+  commitments: number;
+  revenueCents: number;
+  founderMinutes: number;
+  variableCostCents: number;
+}
+
 const EXTERNAL_EVIDENCE_TARGETS = new Set([
   'verified_channel',
   'qualified_buyer_batch',
@@ -51,6 +74,11 @@ const EXTERNAL_EVIDENCE_TARGETS = new Set([
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function nonNegativeInteger(value: unknown): number {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? Math.floor(number) : 0;
 }
 
 function meaningfulEvidence(entry: ExecutionCompletionEvidenceEntry): boolean {
@@ -63,6 +91,22 @@ function meaningfulEvidence(entry: ExecutionCompletionEvidenceEntry): boolean {
     || text(entry.commitmentReceived)
     || text(entry.sourceNote)
   );
+}
+
+function positiveCommitment(entry: ExecutionCompletionEvidenceEntry): boolean {
+  if (nonNegativeInteger(entry.revenueCents) > 0) return true;
+  const commitment = text(entry.commitmentReceived);
+  if (!commitment) return false;
+  return !/^(?:no|none|no commitment|declined|rejected|not yet|n\/?a|no response)$/i.test(commitment);
+}
+
+export function deriveObservedExecutionMetrics(entries: ExecutionCompletionEvidenceEntry[] = []): ObservedExecutionMetrics {
+  return entries.reduce<ObservedExecutionMetrics>((totals, entry) => ({
+    commitments: totals.commitments + (positiveCommitment(entry) ? 1 : 0),
+    revenueCents: totals.revenueCents + nonNegativeInteger(entry.revenueCents),
+    founderMinutes: totals.founderMinutes + nonNegativeInteger(entry.founderMinutes),
+    variableCostCents: totals.variableCostCents + nonNegativeInteger(entry.variableCostCents),
+  }), { commitments: 0, revenueCents: 0, founderMinutes: 0, variableCostCents: 0 });
 }
 
 function checkpointComplete(review: ExecutionCompletionCheckpointReview | undefined): boolean {
@@ -168,6 +212,7 @@ function candidateProgress(
       : before.evidenceNotes || {},
     evidenceLedger: requested.evidenceLedger ?? before.evidenceLedger ?? [],
     checkpointReviews: requested.checkpointReviews ?? before.checkpointReviews ?? [],
+    metrics: { ...(before.metrics || {}), ...(requested.metrics || {}) },
   };
 }
 
@@ -186,4 +231,21 @@ export function completionTransitionFailures(
     const readiness = dayCompletionReadiness(blueprint, after, dayNumber);
     return readiness.ready ? [] : [{ dayNumber, reasons: readiness.reasons }];
   });
+}
+
+export function executionProgressWithObservedMetrics(
+  before: ExecutionCompletionProgress,
+  requested: ExecutionCompletionProgress,
+): ExecutionCompletionProgress {
+  const candidate = candidateProgress(before, requested);
+  const ledger = candidate.evidenceLedger || [];
+  if (!ledger.length) return candidate;
+  const observed = deriveObservedExecutionMetrics(ledger);
+  return {
+    ...candidate,
+    metrics: {
+      ...(candidate.metrics || {}),
+      ...observed,
+    },
+  };
 }
