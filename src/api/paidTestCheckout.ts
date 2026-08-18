@@ -135,22 +135,6 @@ async function savePaidOrderSummary(env: Env, order: PaidTestOrder, ideaName: st
   await env.KV.put(key, JSON.stringify(orders));
 }
 
-async function recordCheckoutStarted(env: Env, order: PaidTestOrder): Promise<void> {
-  try {
-    await recordCommercialFunnelEvent(env, 'checkout_started', {
-      ownerId: order.email,
-      orderId: order.orderId,
-      verdictId: order.verdictId,
-      content: DEFAULT_30_DAY_PLAN_DISPLAY_PRICE,
-      ...commercialEventAttribution(order.commercialAttribution)
-    });
-  } catch (error) {
-    // A telemetry KV write must never hide a successfully created Stripe session
-    // from the customer. Q5 acceptance verifies measurement independently.
-    console.warn('Commercial checkout_started event could not be recorded', error);
-  }
-}
-
 export async function handlePaidTestCheckout(request: Request, env: Env): Promise<Response> {
   const auth = await authenticateRequest(request, env);
   if (!auth) {
@@ -252,6 +236,18 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
   order.updatedAt = new Date().toISOString();
   await env.KV.put(orderKey(order.orderId), JSON.stringify(order));
   await savePaidOrderSummary(env, order, verdict.idea.ideaName);
-  await recordCheckoutStarted(env, order);
+  try {
+    await recordCommercialFunnelEvent(env, 'checkout_started', {
+      ownerId: order.email,
+      orderId: order.orderId,
+      verdictId: order.verdictId,
+      content: DEFAULT_30_DAY_PLAN_DISPLAY_PRICE,
+      ...commercialEventAttribution(order.commercialAttribution)
+    });
+  } catch (error) {
+    // A telemetry KV write must never hide a successfully created Stripe session
+    // from the customer. Q5 acceptance verifies measurement independently.
+    console.warn('Commercial checkout_started event could not be recorded', error);
+  }
   return json({ sessionUrl: session.url, orderId: order.orderId, offerId: order.offerId });
 }
