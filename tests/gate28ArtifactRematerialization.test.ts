@@ -25,6 +25,12 @@ describe('Gate 27/28 authoritative acceptance artifact path', () => {
     expect(bridgeWorker).toContain('customMetadata');
   });
 
+  it('pins the bridge to the repository stable compatibility baseline instead of the wall-clock date', () => {
+    expect(bridge).toContain("BRIDGE_COMPATIBILITY_DATE = '2024-01-01'");
+    expect(bridge).toContain('compatibility_date = "${BRIDGE_COMPATIBILITY_DATE}"');
+    expect(bridge).not.toContain('compatibility_date = "2026-08-18"');
+  });
+
   it('never allows the repair bridge to rewrite canonical JSON', () => {
     expect(bridgeWorker).toContain('Canonical JSON is read-only through this bridge');
     expect(repair).toContain('canonical_blueprint_unchanged: true');
