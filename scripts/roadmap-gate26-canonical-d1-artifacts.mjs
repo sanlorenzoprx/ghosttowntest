@@ -14,6 +14,7 @@ const D1_ID = '9863d883-3c31-4268-9a98-8392fa3b9f8f';
 const CANONICAL_BLOB_SHA1 = '616c691e6b4c9cea93615963a07375d13ffba57f';
 const EXPECTED_SCHEMA = 'ghosttown-launch-blueprint-v2';
 const EXPECTED_BLUEPRINT_VERSION = '2.1';
+const DETACHED_HASH_RULE = 'detached:exact-byte-integrity-receipt';
 
 const WRANGLER_PACKAGE_DIR = join(ROOT, 'node_modules', 'wrangler');
 const wranglerPackage = JSON.parse(readFileSync(join(WRANGLER_PACKAGE_DIR, 'package.json'), 'utf8'));
@@ -115,6 +116,7 @@ function assertPrerequisites() {
   const migration4 = readFileSync(join(ROOT, 'migrations', '0004_blueprint_execution_log.sql'), 'utf8');
   const executionStore = readFileSync(join(ROOT, 'src', 'api', 'blueprintExecutionStore.ts'), 'utf8');
   const blueprintApi = readFileSync(join(ROOT, 'src', 'api', 'blueprintApi.ts'), 'utf8');
+  const blueprintStoreV21 = readFileSync(join(ROOT, 'src', 'api', 'blueprintStoreV21.ts'), 'utf8');
   const required = [
     'CREATE TABLE IF NOT EXISTS launch_blueprints',
     'CREATE TABLE IF NOT EXISTS launch_blueprint_progress',
@@ -132,9 +134,10 @@ function assertPrerequisites() {
     'INSERT OR IGNORE INTO journal_evidence',
     'INSERT OR IGNORE INTO checkpoint_reviews',
     'saveBlueprintProgress',
-    'attachCanonicalExecutionReferences'
+    'attachCanonicalExecutionReferences',
+    DETACHED_HASH_RULE
   ];
-  const combined = `${migration2}\n${migration4}\n${executionStore}\n${blueprintApi}`;
+  const combined = `${migration2}\n${migration4}\n${executionStore}\n${blueprintApi}\n${blueprintStoreV21}`;
   if (required.some(token => !combined.includes(token))) {
     throw new Error('Gate 26 source contract no longer proves canonical D1 Blueprint/progress/evidence/checkpoint persistence.');
   }
@@ -225,6 +228,7 @@ const researchReceipt = parseJson(row.research_receipt_json, 'research receipt')
 const owner = normalizedEmail(row.owner_id);
 const canonicalHash = sha256(row.blueprint_json);
 const receiptHash = researchReceipt?.generationReceiptEvidence?.hashes?.canonicalBlueprintSha256;
+const embeddedCanonicalHash = blueprint?.generationReceipt?.hashes?.canonicalBlueprintSha256;
 const generationEvidence = researchReceipt?.generationReceiptEvidence;
 
 if (!owner || normalizedEmail(blueprint?.ownerId) !== owner) throw new Error('Gate 26 canonical D1 owner does not match the Blueprint owner.');
@@ -234,6 +238,9 @@ if (blueprint?.schemaVersion !== EXPECTED_SCHEMA || blueprint?.blueprintVersion 
 }
 if (!researchReceipt?.provider || !researchReceipt?.completedAt || !generationEvidence || !/^[a-f0-9]{64}$/i.test(String(receiptHash || ''))) {
   throw new Error('Gate 26 D1 research/generation receipt is incomplete.');
+}
+if (embeddedCanonicalHash !== DETACHED_HASH_RULE) {
+  throw new Error('Gate 26 canonical Blueprint does not preserve detached exact-byte integrity-receipt semantics.');
 }
 if (canonicalHash !== receiptHash) throw new Error('Gate 26 D1 canonical Blueprint bytes do not match the persisted generation-receipt SHA-256.');
 
@@ -261,8 +268,8 @@ if (progressCount === 0) {
     || row.normalized_blueprint_id !== blueprint.blueprintId
     || row.normalized_blueprint_version !== blueprint.blueprintVersion
     || row.normalized_canonical_source_hash !== CANONICAL_BLOB_SHA1
-    || row.normalized_canonical_blueprint_sha256 !== receiptHash) {
-    throw new Error('Gate 26 normalized Blueprint identity/hash does not match the canonical paid Blueprint.');
+    || row.normalized_canonical_blueprint_sha256 !== embeddedCanonicalHash) {
+    throw new Error('Gate 26 normalized Blueprint identity/source/detached-hash semantics do not match the canonical paid Blueprint.');
   }
   if (number(row.action_count) !== 30 || number(row.action_identity_mismatch_count) !== 0) {
     throw new Error('Gate 26 normalized Blueprint action architecture is not exactly 30 canonical day actions.');
@@ -321,6 +328,7 @@ const evidence = {
     status: blueprint.status,
     quality_gate_passed: blueprint.qualityGate?.passed === true,
     canonical_blueprint_sha256: canonicalHash,
+    embedded_hash_rule: DETACHED_HASH_RULE,
     research_receipt_sha256: sha256(row.research_receipt_json),
     research_receipt_present: true
   },
