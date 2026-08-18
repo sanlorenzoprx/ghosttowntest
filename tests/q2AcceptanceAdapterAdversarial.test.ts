@@ -27,5 +27,9 @@ describe('Q2 acceptance adapter adverse mutations', () => {
     rejects(value => { value.days[6].packet.assets[0].targetChannel = 'Independent ecommerce checkout community 1'; });
     rejects(value => { value.days[11].packet.targets = value.days[11].packet.targets.filter((target: any) => target.kind !== 'launch_site'); });
     rejects(value => { value.days[0].legacy.objective = 'different legacy projection'; });
+    rejects(value => { value.semantic_checks.coherent_ecommerce_fixture = false; });
+    rejects(value => { value.days[28].packet.assets[0].finishedContent += '\nFamily Game Night $297'; });
+    rejects(value => { value.days[14].packet.assets[0].lineage.sourceAssetIds[0] = value.days[7].packet.assets[0].assetId; });
+    rejects(value => { value.canonical.channels[0].sourceIds = ['unknown-source']; });
   }, 30_000);
 });
