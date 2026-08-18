@@ -24,6 +24,7 @@ const GATE25_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate25-workflow-ready-rece
 const GATE26_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate26-canonical-d1-artifacts.mjs');
 const GATE27_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate27-private-r2-artifacts.mjs');
 const GATE28_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate28-zip-pdf-product.mjs');
+const GATE29_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate29-launch-site-lead.mjs');
 const QUALITY_Q1_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q1-verdict-decision-v2.mjs');
 const QUALITY_Q2_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q2-daily-execution-assets.mjs');
 const QUALITY_Q3_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q3-blueprint-document.mjs');
@@ -62,6 +63,8 @@ const sanctionedGate27Command = process.env.ROADMAP_GATE_27_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(GATE27_ADAPTER)}`;
 const sanctionedGate28Command = process.env.ROADMAP_GATE_28_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(GATE28_ADAPTER)}`;
+const sanctionedGate29Command = process.env.ROADMAP_GATE_29_COMMAND?.trim()
+  || `${quoted(process.execPath)} ${quoted(GATE29_ADAPTER)}`;
 const sanctionedQualityQ1Command = process.env.ROADMAP_QUALITY_Q1_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(QUALITY_Q1_ADAPTER)}`;
 const sanctionedQualityQ2Command = process.env.ROADMAP_QUALITY_Q2_COMMAND?.trim()
@@ -88,6 +91,7 @@ function childEnv() {
     ROADMAP_GATE_26_COMMAND: sanctionedGate26Command,
     ROADMAP_GATE_27_COMMAND: sanctionedGate27Command,
     ROADMAP_GATE_28_COMMAND: sanctionedGate28Command,
+    ROADMAP_GATE_29_COMMAND: sanctionedGate29Command,
     ROADMAP_QUALITY_Q1_COMMAND: sanctionedQualityQ1Command,
     ROADMAP_QUALITY_Q2_COMMAND: sanctionedQualityQ2Command,
     ROADMAP_QUALITY_Q3_COMMAND: sanctionedQualityQ3Command,
