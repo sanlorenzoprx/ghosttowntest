@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { withAcceptanceR2Binding, acceptanceR2BucketName as R2_BUCKET } from './roadmap-r2-binding-bridge.mjs';
+import { withAcceptanceDataBindings, withAcceptanceR2Binding, acceptanceR2BucketName as R2_BUCKET } from './roadmap-r2-binding-bridge.mjs';
 
 const ROOT = resolve(process.cwd());
 const STATE_DIR = join(ROOT, '.roadmap-autopilot');
@@ -11,7 +11,6 @@ const STATE_PATH = join(STATE_DIR, 'state.json');
 const GATE20_RECEIPT_PATH = join(STATE_DIR, 'gate20-purchase.json');
 const GATE26_RECEIPT_PATH = join(STATE_DIR, 'gate26-canonical-d1-artifacts-receipt.json');
 const RECEIPT_PATH = join(STATE_DIR, 'gate27-private-r2-artifacts-receipt.json');
-const D1_NAME = 'ghosttowntest-blueprints-acceptance';
 const WORKER_URL = 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev';
 const EXPECTED_SCHEMA = 'ghosttown-launch-blueprint-v2';
 
@@ -22,7 +21,6 @@ if (!wranglerBin) throw new Error('Gate 27 could not resolve the installed Wrang
 const WRANGLER_CLI = resolve(WRANGLER_PACKAGE_DIR, wranglerBin);
 
 function sha256(value) { return createHash('sha256').update(value).digest('hex'); }
-function sqlLiteral(value) { return `'${String(value).replace(/'/g, "''")}'`; }
 function stripAnsi(value) { return String(value ?? '').replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, ''); }
 function redact(value, orderId = '') {
   let text = String(value ?? '');
@@ -69,9 +67,10 @@ function assertPrerequisites() {
   const route = readFileSync(join(ROOT, 'src', 'api', 'index.ts'), 'utf8');
   const bridge = readFileSync(join(ROOT, 'scripts', 'roadmap-r2-binding-bridge.mjs'), 'utf8');
   const combined = `${store}\n${api}\n${route}\n${bridge}`;
-  for (const token of ['ghosttown-launch-blueprint-v2.pdf','ghosttown-launch-blueprint-v2.json','ghosttown-launch-blueprint-v2-assets.zip','handleLaunchBlueprintJson','handleLaunchBlueprintPdf','handleLaunchBlueprintAssets','private, no-store','customMetadata','remote = true']) {
+  for (const token of ['ghosttown-launch-blueprint-v2.pdf','ghosttown-launch-blueprint-v2.json','ghosttown-launch-blueprint-v2-assets.zip','handleLaunchBlueprintJson','handleLaunchBlueprintPdf','handleLaunchBlueprintAssets','private, no-store','customMetadata','remote = true','withAcceptanceDataBindings']) {
     if (!combined.includes(token)) throw new Error(`Gate 27 source contract is missing ${token}.`);
   }
+  if (readFileSync(new URL(import.meta.url), 'utf8').includes("'d1','execute'")) throw new Error('Gate 27 must not use direct Wrangler D1 execute for canonical acceptance evidence.');
 }
 
 function purchaseReceipt() {
@@ -82,15 +81,13 @@ function purchaseReceipt() {
   return receipt;
 }
 
-function canonicalD1(orderId) {
-  const output = runWrangler(['d1','execute',D1_NAME,'--remote','--env','acceptance','--json','--command',`SELECT blueprint_json, research_receipt_json FROM launch_blueprints WHERE order_id = ${sqlLiteral(orderId)} LIMIT 1;`], orderId);
-  const row = findObjectWithKey(parseLooseJson(output), 'blueprint_json');
-  if (!row || typeof row.blueprint_json !== 'string' || typeof row.research_receipt_json !== 'string') throw new Error('Gate 27 could not read canonical D1 Blueprint/integrity receipt.');
-  const blueprint = JSON.parse(row.blueprint_json);
-  const researchReceipt = JSON.parse(row.research_receipt_json);
-  const evidence = researchReceipt?.generationReceiptEvidence;
+async function canonicalD1(orderId) {
+  const snapshot = await withAcceptanceDataBindings(client => client.snapshot(orderId));
+  if (!snapshot?.blueprintJson || !snapshot?.evidence) throw new Error('Gate 27 could not read canonical D1 Blueprint/integrity receipt through the remote binding.');
+  const blueprint = JSON.parse(snapshot.blueprintJson);
+  const evidence = snapshot.evidence;
   if (!evidence?.artifactKeys || !evidence?.hashes) throw new Error('Gate 27 D1 generation integrity receipt is incomplete.');
-  return { row, blueprint, evidence };
+  return { row: { blueprint_json: snapshot.blueprintJson }, blueprint, evidence };
 }
 
 function expectedArtifacts(orderId, evidence) {
@@ -168,7 +165,7 @@ async function assertUnauthenticatedRoutesDenied(orderId) {
 
 assertPrerequisites();
 const purchase = purchaseReceipt();
-const { row, blueprint, evidence } = canonicalD1(purchase.order_id);
+const { row, blueprint, evidence } = await canonicalD1(purchase.order_id);
 if (blueprint?.orderId !== purchase.order_id || blueprint?.schemaVersion !== EXPECTED_SCHEMA || blueprint?.status !== 'ready') throw new Error('Gate 27 canonical D1 Blueprint is not the ready paid v2.1 artifact.');
 const artifacts = expectedArtifacts(purchase.order_id, evidence);
 assertDevUrlDisabled(runWrangler(['r2','bucket','dev-url','get',R2_BUCKET,'--env','acceptance'], purchase.order_id));
@@ -207,6 +204,7 @@ const receipt = {
     pdf: { key_sha256: sha256(Buffer.from(artifacts.pdf.key)), sha256: results.pdf.sha256, bytes: results.pdf.size, repeat_read_verified: true },
     zip: { key_sha256: sha256(Buffer.from(artifacts.zip.key)), sha256: results.zip.sha256, bytes: results.zip.size, repeat_read_verified: true }
   },
+  d1_read_path: 'workers_remote_binding',
   r2_read_path: 'workers_remote_binding',
   customer_delivery_storage_path_verified: true,
   exact_byte_integrity_receipt_verified: true,
@@ -220,4 +218,4 @@ const receipt = {
 };
 mkdirSync(STATE_DIR, { recursive: true });
 writeFileSync(RECEIPT_PATH, `${JSON.stringify(receipt, null, 2)}\n`, 'utf8');
-console.log(JSON.stringify({ ok:true, decision:'PASS', bucket_private:true, r2_read_path:'workers_remote_binding', unauthenticated_routes_denied:unauthenticatedStatuses.length, json_sha256:results.json.sha256, pdf_sha256:results.pdf.sha256, zip_sha256:results.zip.sha256, receipt:'.roadmap-autopilot/gate27-private-r2-artifacts-receipt.json', production_deployed:false, secret_values_recorded:false }));
+console.log(JSON.stringify({ ok:true, decision:'PASS', bucket_private:true, d1_read_path:'workers_remote_binding', r2_read_path:'workers_remote_binding', unauthenticated_routes_denied:unauthenticatedStatuses.length, json_sha256:results.json.sha256, pdf_sha256:results.pdf.sha256, zip_sha256:results.zip.sha256, receipt:'.roadmap-autopilot/gate27-private-r2-artifacts-receipt.json', production_deployed:false, secret_values_recorded:false }));
