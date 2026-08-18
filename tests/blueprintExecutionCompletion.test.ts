@@ -73,6 +73,21 @@ describe('30-day execution completion integrity', () => {
     expect(dayCompletionReadiness(blueprint, withReview, 7).ready).toBe(true);
   });
 
+  it('allows an explicit no-evidence checkpoint conclusion when the founder records the implication and next action', () => {
+    const blueprint = checkoutAccessibilityBlueprintFixture();
+    const withNoEvidenceConclusion = progress({
+      evidenceLedger: [dayEvidence(7)],
+      checkpointReviews: [{
+        dayNumber: 7,
+        completedAt: '2026-08-18T14:00:00.000Z',
+        strongestEvidence: 'none',
+        evidenceSummary: 'No reliable buyer signal was produced by the completed batch; do not manufacture a positive interpretation.',
+        nextAction: 'Pause volume and revise the access path before the next bounded test.',
+      }],
+    });
+    expect(dayCompletionReadiness(blueprint, withNoEvidenceConclusion, 7).ready).toBe(true);
+  });
+
   it('rejects a newly completed day transition when its execution contract is not satisfied', () => {
     const blueprint = checkoutAccessibilityBlueprintFixture();
     const failures = completionTransitionFailures(blueprint, progress(), { completedDays: [1] });
