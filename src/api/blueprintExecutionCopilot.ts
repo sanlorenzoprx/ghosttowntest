@@ -18,9 +18,11 @@ interface CopilotRequestBody {
   history?: Array<{ role?: string; content?: string }>;
 }
 
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+const COPILOT_REQUESTS_PER_HOUR = 60;
+
+const json = (body: unknown, status = 200, headers: HeadersInit = {}) => new Response(JSON.stringify(body), {
   status,
-  headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' }
+  headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', ...headers }
 });
 
 function isV21(value: unknown): value is GhostTownLaunchBlueprintV21 {
@@ -51,6 +53,25 @@ function groundingSources(metadata: unknown): Array<{ title: string; url: string
     seen.add(url);
     return [{ title: cleanText(chunk?.web?.title, 300) || 'Grounded web source', url }];
   }).slice(0, 8);
+}
+
+function secondsUntilNextUtcHour(now = new Date()): number {
+  const next = new Date(now);
+  next.setUTCMinutes(60, 0, 0);
+  return Math.max(1, Math.ceil((next.getTime() - now.getTime()) / 1000));
+}
+
+async function consumeCopilotRequestBudget(env: Env, orderId: string, now = new Date()): Promise<{ allowed: boolean; used: number; retryAfter: number }> {
+  const hour = now.toISOString().slice(0, 13);
+  // orderId is already owner-scoped by ownedLaunchBlueprintOrder. Avoid putting
+  // email/PII into the rate key. KV is intentionally a soft cost guard rather
+  // than an exact billing counter; concurrent requests can race by one or two.
+  const key = `execution_copilot_rate:${orderId}:${hour}`;
+  const used = Math.max(0, Number(await env.KV.get(key)) || 0);
+  const retryAfter = secondsUntilNextUtcHour(now);
+  if (used >= COPILOT_REQUESTS_PER_HOUR) return { allowed: false, used, retryAfter };
+  await env.KV.put(key, String(used + 1), { expirationTtl: 7200 });
+  return { allowed: true, used: used + 1, retryAfter };
 }
 
 export async function handleBlueprintExecutionCopilot(request: Request, env: Env, orderId: string): Promise<Response> {
@@ -86,6 +107,15 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
         branch: context.branch
       }
     }, 503);
+  }
+
+  const budget = await consumeCopilotRequestBudget(env, orderId);
+  if (!budget.allowed) {
+    return json({
+      error: 'Execution Copilot hourly request limit reached. Your Blueprint, evidence, and progress are unchanged.',
+      limit: COPILOT_REQUESTS_PER_HOUR,
+      retryAfterSeconds: budget.retryAfter
+    }, 429, { 'Retry-After': String(budget.retryAfter) });
   }
 
   try {
@@ -130,6 +160,10 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
       },
       refs: internalRefs,
       groundedWebSources: groundingSources(primary.groundingMetadata),
+      usage: {
+        hourlyLimit: COPILOT_REQUESTS_PER_HOUR,
+        requestNumberThisHour: budget.used
+      },
       receipts: {
         primary: primary.receipt,
         critic: critic?.receipt || null
