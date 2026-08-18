@@ -1,0 +1,148 @@
+{
+  "schemaVersion": "ghosttown-blueprint-amendment-evidence-v1",
+  "amendmentVersion": "2.1.6",
+  "changeId": "GT-BP-2026-08-18-V2.1.6",
+  "recordedAt": "2026-08-18T16:30:00.000Z",
+  "repository": "sanlorenzoprx/ghosttowntest",
+  "branch": "feat/launch-blueprint-spa",
+  "pullRequest": 7,
+  "canonical": {
+    "baseVersion": "2.1.1",
+    "sourcePath": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md",
+    "gitBlobSha1": "616c691e6b4c9cea93615963a07375d13ffba57f",
+    "sourceModified": false
+  },
+  "decision": {
+    "summary": "Extend the paid 30-Day Launch Blueprint with deterministic execution-context retrieval, lane-specific commercial semantics, formal one-variable checkpoint routing, and an interactive Execution Copilot whose AI outputs remain subordinate to deterministic evidence and state rules.",
+    "customerOutcome": "GhostTown knows what kind of business I am testing, tells me exactly what to do today, gives me the asset to do it, knows what result I need to record, prevents me from pretending an incomplete test is complete, recognizes when the evidence contradicts the plan, changes only the part the evidence justifies changing, and tells me what experiment to run next."
+  },
+  "canonicalRequirements": [
+    {
+      "requirement": "Thirty personalized daily actions with exact actions, assets, success measures, evidence, branches, and completion state.",
+      "canonicalSection": "Part 10 — 30-Day Execution Calendar",
+      "implementation": [
+        "src/api/launchBlueprintDailyExecution.ts",
+        "src/components/LaunchBlueprintExecutionHomeV21.tsx",
+        "src/lib/blueprintExecutionCompletion.ts"
+      ]
+    },
+    {
+      "requirement": "Dashboard is the primary operating surface with evidence ledger and Day 7/14/21/30 reviews.",
+      "canonicalSection": "Part 11 — Evidence Ledger and Checkpoint Reviews",
+      "implementation": [
+        "src/components/LaunchBlueprintExecutionHomeV21.tsx",
+        "src/components/LaunchBlueprintViewV21.tsx",
+        "src/api/blueprintExecutionStore.ts"
+      ]
+    },
+    {
+      "requirement": "Checkpoint decisions use evidence and preserve prior Blueprint recommendations/assets/evidence rather than silently overwriting them.",
+      "canonicalSection": "Part 11 — Version rule",
+      "implementation": [
+        "src/lib/blueprintExecutionIntelligence.ts",
+        "src/api/blueprintExecutionStore.ts"
+      ]
+    },
+    {
+      "requirement": "Interview notes, transcripts, objections, email replies, surveys, and call summaries may be synthesized while separating direct statements from inference.",
+      "canonicalSection": "Part 12 — Interview and Evidence Synthesis",
+      "implementation": [
+        "src/lib/blueprintExecutionIntelligence.ts",
+        "src/api/executionAIService.ts",
+        "src/api/blueprintExecutionCopilot.ts"
+      ]
+    },
+    {
+      "requirement": "Personalize execution by business model: service, SaaS, digital product, physical product, marketplace, local business, creator/media.",
+      "canonicalSection": "Section 4 — Personalization contract / Business model",
+      "implementation": [
+        "src/lib/blueprintExecutionIntelligence.ts",
+        "src/components/LaunchBlueprintCopilotV21.tsx"
+      ]
+    }
+  ],
+  "implementationEvidence": [
+    {
+      "capability": "lane_specific_execution_semantics",
+      "status": "IMPLEMENTED",
+      "evidence": "Seven deterministic lane profiles define commitment mechanism, first commercial proof, fulfillment proof, economics focus, scale question, and preferred terminology.",
+      "paths": ["src/lib/blueprintExecutionIntelligence.ts"]
+    },
+    {
+      "capability": "formal_checkpoint_branch",
+      "status": "IMPLEMENTED",
+      "evidence": "Latest completed checkpoint is mapped to a deterministic route with one mayChange variable and all other experiment variables frozen; missing evidence routes to pause rather than an invented change.",
+      "paths": ["src/lib/blueprintExecutionIntelligence.ts", "tests/blueprintExecutionIntelligence.test.ts"]
+    },
+    {
+      "capability": "day30_evidence_specific_revision",
+      "status": "IMPLEMENTED",
+      "evidence": "continue_with_revision/revise uses the named Day-30 constraint instead of defaulting to offer revision; absent constraint pauses for missing evidence.",
+      "paths": ["src/lib/blueprintExecutionIntelligence.ts", "tests/blueprintExecutionIntelligence.test.ts"]
+    },
+    {
+      "capability": "deterministic_rag_context",
+      "status": "IMPLEMENTED",
+      "evidence": "Copilot context is assembled from exact Blueprint/day/action/asset identities, current-day evidence, bounded relevant prior evidence, latest checkpoint, lane semantics, objective metrics, and existing Blueprint sources before any model is called.",
+      "paths": ["src/lib/blueprintExecutionIntelligence.ts", "tests/blueprintExecutionIntelligence.test.ts"]
+    },
+    {
+      "capability": "execution_ai_capability_router",
+      "status": "IMPLEMENTED",
+      "evidence": "Stable fast_assistant, strategy_reasoner, critic, and grounded_research capability slots reuse the existing GenerativeAIService/Cloudflare AI Gateway/Vertex path; high-impact strategy questions can receive a critic pass.",
+      "paths": ["src/api/executionAIService.ts", "src/api/generativeAIService.ts", "tests/blueprintExecutionIntelligence.test.ts"]
+    },
+    {
+      "capability": "owner_scoped_copilot_api",
+      "status": "IMPLEMENTED",
+      "evidence": "POST /api/paid-test/orders/:orderId/blueprint/copilot authenticates paid-order ownership, loads canonical Blueprint/progress, builds context, routes capability, and returns advisory output plus deterministic guardrails and safe receipts.",
+      "paths": ["src/api/blueprintExecutionCopilot.ts", "src/api/worker.ts", "tests/blueprintExecutionCopilotContract.test.ts"]
+    },
+    {
+      "capability": "interactive_daily_copilot",
+      "status": "IMPLEMENTED",
+      "evidence": "Paid v2.1 route exposes Ask GhostTown for the active day with Current Experiment and Strategy Room modes, bounded chat history, recommended action, branch permissions, critic output, evidence prompts, and grounded sources.",
+      "paths": ["src/components/LaunchBlueprintCopilotV21.tsx", "src/components/LaunchBlueprintRouter.tsx", "tests/blueprintExecutionCopilotContract.test.ts"]
+    },
+    {
+      "capability": "deterministic_completion_authority",
+      "status": "PRESERVED",
+      "evidence": "AI does not own completion. Existing v2.1.5 completion engine and API wrapper enforce sequence, evidence quantity, checkpoints, persistence, and objective metrics.",
+      "paths": ["src/lib/blueprintExecutionCompletion.ts", "src/api/blueprintApiMeasurement.ts"]
+    }
+  ],
+  "modelBoundary": {
+    "currentProviderPath": "Cloudflare AI Gateway -> Google Vertex AI",
+    "newProviderAdded": false,
+    "vectorDatabaseAdded": false,
+    "capabilitySlots": ["fast_assistant", "strategy_reasoner", "critic", "grounded_research"],
+    "replaceableModelPolicy": true,
+    "modelMayMutateBlueprint": false,
+    "modelMayMarkDayComplete": false,
+    "modelMayCreateEvidence": false,
+    "modelMayAlterPayments": false,
+    "modelMayOverrideBranchPermissions": false
+  },
+  "preservedAcceptance": {
+    "priceChanged": false,
+    "acceptedPurchaseRegenerated": false,
+    "acceptedD1R2ArtifactsMutated": false,
+    "gate28Weakened": false,
+    "productionDeploymentEnabled": false,
+    "gate36HumanReleasePreserved": true
+  },
+  "knownBoundary": {
+    "laneProfilesLiveNow": true,
+    "allThirtyCanonicalAssetBodiesFullyRewrittenPerLane": false,
+    "explanation": "The accepted DailyExecutionPacket remains the common evidence spine. v2.1.6 makes lane semantics active in retrieval and Copilot reasoning without silently rewriting accepted artifact bytes. Deeper per-lane day/asset vocabulary specialization requires a bounded generator change and regression evidence."
+  },
+  "validation": {
+    "sourceTestsAdded": [
+      "tests/blueprintExecutionIntelligence.test.ts",
+      "tests/blueprintExecutionCopilotContract.test.ts"
+    ],
+    "localAssistantRuntimeTestsExecuted": false,
+    "reason": "Assistant container could not resolve github.com for an isolated clone; repository CI/local user runtime remains authoritative for executable test certification.",
+    "certificationStatus": "IMPLEMENTED_NOT_YET_RUNTIME_CERTIFIED"
+  }
+}
