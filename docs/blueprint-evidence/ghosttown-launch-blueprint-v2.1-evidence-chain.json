@@ -1,11 +1,16 @@
 {
-  "schemaVersion": "ghosttown-blueprint-evidence-chain-v4",
+  "schemaVersion": "ghosttown-blueprint-evidence-chain-v6",
   "changeId": "GT-BP-2026-08-15-V2.1.4",
-  "generatedAt": "2026-08-16T00:20:00Z",
+  "generatedAt": "2026-08-18T16:26:00Z",
   "repository": "sanlorenzoprx/ghosttowntest",
   "branch": "feat/launch-blueprint-spa",
   "pullRequest": 7,
   "previousChangeId": "GT-BP-2026-08-15-V2.1.3",
+  "chainTip": {
+    "changeId": "GT-BP-2026-08-18-V2.1.6",
+    "previousChangeId": "GT-BP-2026-08-18-V2.1.5",
+    "version": "2.1.6"
+  },
   "source": {
     "name": "GhostTown Launch Blueprint 9-4-26(2).md",
     "sha256": "08b35e571897c4360aae102100f8b3b9fa8f3c57735de384f455dc76ebdf6580"
@@ -44,12 +49,41 @@
     "path": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_4_CLOUDFLARE_SPA_TEMPLATE_AMENDMENT.md",
     "version": "2.1.4",
     "gitBlobSha1": "e42d70aacef6f36f2f94f5a17dfe4bb58376799e",
+    "changeId": "GT-BP-2026-08-15-V2.1.4",
     "decision": "Custom Website output is a React/Vite single-page application deployed on Cloudflare. GhostTown and MemoriesMyStory are the first two governed template reference models."
   },
   "changeRecord": {
     "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_4_CHANGE_RECORD.md",
     "version": "2.1.4",
     "gitBlobSha1": "09c746f74d141b50112fe2c888a4e36fa1ba3f1f"
+  },
+  "calendarAmendment": {
+    "path": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_5_CALENDAR_PRIMARY_EXECUTION_AMENDMENT.md",
+    "version": "2.1.5",
+    "gitBlobSha1": "a7f039e3a9ed0ea5277087c088884d79816ebd45",
+    "changeId": "GT-BP-2026-08-18-V2.1.5",
+    "decision": "The 30-Day Calendar is the primary execution interface for the paid GhostTown Launch Blueprint."
+  },
+  "calendarChangeRecord": {
+    "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_5_CHANGE_RECORD.md",
+    "version": "2.1.5",
+    "gitBlobSha1": "d5401c2266a9ba1bbf533a8b60c1eb9482026294"
+  },
+  "executionIntelligenceAmendment": {
+    "path": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_6_EXECUTION_INTELLIGENCE_AMENDMENT.md",
+    "version": "2.1.6",
+    "gitBlobSha1": "17156e1d63549e8abb5af8f6d79063e8d082796d",
+    "changeId": "GT-BP-2026-08-18-V2.1.6",
+    "decision": "GhostTown's paid 30-Day Launch Blueprint is an evidence-aware execution system, not a generic business chatbot and not a static calendar."
+  },
+  "executionIntelligenceChangeRecord": {
+    "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_6_CHANGE_RECORD.md",
+    "version": "2.1.6",
+    "gitBlobSha1": "7a4c597340604050a0ba5ea6d2680f5f1676fb7b"
+  },
+  "executionIntelligenceEvidence": {
+    "path": "docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.6-execution-intelligence-evidence.json",
+    "version": "2.1.6"
   },
   "outcomeProtection": {
     "weakeningAllowed": false,
