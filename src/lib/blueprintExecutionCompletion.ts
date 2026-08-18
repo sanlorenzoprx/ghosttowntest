@@ -1,6 +1,7 @@
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 
 export interface ExecutionCompletionEvidenceEntry {
+  entryId?: string;
   actionId?: string;
   contactOrChannel?: string;
   date?: string;
@@ -31,10 +32,13 @@ export interface DayCompletionReadiness {
   dayNumber: number;
   ready: boolean;
   requiresStructuredEvidence: boolean;
+  requiredEvidenceCount: number;
+  structuredEvidenceCount: number;
   hasExecutionNote: boolean;
   hasStructuredEvidence: boolean;
   checkpointRequired: boolean;
   checkpointComplete: boolean;
+  missingPriorDays: number[];
   reasons: string[];
 }
 
@@ -71,6 +75,11 @@ function checkpointComplete(review: ExecutionCompletionCheckpointReview | undefi
   );
 }
 
+function evidenceQuantity(quantity: string | undefined): number {
+  const match = text(quantity).match(/\b([1-9]\d?)\b/);
+  return match ? Math.max(1, Number(match[1])) : 1;
+}
+
 export function dayCompletionReadiness(
   blueprint: GhostTownLaunchBlueprintV21,
   progress: ExecutionCompletionProgress,
@@ -82,10 +91,13 @@ export function dayCompletionReadiness(
       dayNumber,
       ready: false,
       requiresStructuredEvidence: true,
+      requiredEvidenceCount: 1,
+      structuredEvidenceCount: 0,
       hasExecutionNote: false,
       hasStructuredEvidence: false,
       checkpointRequired: false,
       checkpointComplete: false,
+      missingPriorDays: [],
       reasons: [`Day ${dayNumber} is not part of the canonical 30-day Blueprint.`],
     };
   }
@@ -95,11 +107,19 @@ export function dayCompletionReadiness(
     `day-${dayNumber}`,
     ...(packet?.actions || []).map(action => action.actionId),
   ]);
-  const hasExecutionNote = Boolean(text(progress.evidenceNotes?.[day.completionKey]));
-  const hasStructuredEvidence = (progress.evidenceLedger || []).some(entry =>
+  const matchingEvidence = (progress.evidenceLedger || []).filter(entry =>
     Boolean(entry.actionId && actionIds.has(entry.actionId) && meaningfulEvidence(entry))
   );
   const requiresStructuredEvidence = Boolean(packet?.targets.some(target => EXTERNAL_EVIDENCE_TARGETS.has(target.kind)));
+  const requiredEvidenceCount = requiresStructuredEvidence
+    ? Math.max(1, ...(packet?.actions || []).map(action => evidenceQuantity(action.quantity)))
+    : 1;
+  const structuredEvidenceCount = matchingEvidence.length;
+  const hasStructuredEvidence = structuredEvidenceCount >= requiredEvidenceCount;
+  const hasExecutionNote = Boolean(text(progress.evidenceNotes?.[day.completionKey]));
+  const completed = new Set(progress.completedDays || []);
+  const missingPriorDays = Array.from({ length: Math.max(0, dayNumber - 1) }, (_, index) => index + 1)
+    .filter(priorDay => !completed.has(priorDay));
   const checkpoint = blueprint.adaptiveCheckpoints.find(item => item.dayNumber === dayNumber);
   const review = checkpoint
     ? (progress.checkpointReviews || []).find(item => item.dayNumber === dayNumber)
@@ -107,9 +127,14 @@ export function dayCompletionReadiness(
   const isCheckpointComplete = checkpoint ? checkpointComplete(review) : true;
   const reasons: string[] = [];
 
+  if (missingPriorDays.length) {
+    const preview = missingPriorDays.slice(0, 4).join(', ');
+    reasons.push(`Complete the earlier execution sequence first (missing Day${missingPriorDays.length === 1 ? '' : 's'} ${preview}${missingPriorDays.length > 4 ? ', …' : ''}).`);
+  }
+
   if (requiresStructuredEvidence && !hasStructuredEvidence) {
-    reasons.push('Record at least one structured result for this day before completing it.');
-  } else if (!requiresStructuredEvidence && !hasStructuredEvidence && !hasExecutionNote) {
+    reasons.push(`Record ${requiredEvidenceCount} meaningful structured result${requiredEvidenceCount === 1 ? '' : 's'} for this day's declared action before completing it (${structuredEvidenceCount}/${requiredEvidenceCount} recorded).`);
+  } else if (!requiresStructuredEvidence && structuredEvidenceCount === 0 && !hasExecutionNote) {
     reasons.push('Record the day outcome in the execution note or structured evidence log before completing it.');
   }
 
@@ -121,10 +146,13 @@ export function dayCompletionReadiness(
     dayNumber,
     ready: reasons.length === 0,
     requiresStructuredEvidence,
+    requiredEvidenceCount,
+    structuredEvidenceCount,
     hasExecutionNote,
     hasStructuredEvidence,
     checkpointRequired: Boolean(checkpoint),
     checkpointComplete: isCheckpointComplete,
+    missingPriorDays,
     reasons,
   };
 }
