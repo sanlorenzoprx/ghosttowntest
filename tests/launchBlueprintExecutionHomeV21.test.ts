@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const executionSource = readFileSync(new URL('../src/components/LaunchBlueprintExecutionHomeV21.tsx', import.meta.url), 'utf8');
+const progressApiSource = readFileSync(new URL('../src/api/blueprintApiMeasurement.ts', import.meta.url), 'utf8');
 const routerSource = readFileSync(new URL('../src/components/LaunchBlueprintRouter.tsx', import.meta.url), 'utf8');
 const offerSource = readFileSync(new URL('../src/lib/ghosttownOffer.ts', import.meta.url), 'utf8');
 const landingSource = readFileSync(new URL('../src/components/LandingCommercial.tsx', import.meta.url), 'utf8');
@@ -20,7 +21,7 @@ describe('Blueprint v2.1.5 guided daily execution amendment', () => {
     expect(executionSource).toContain('Every day is a doorway into the work.');
     expect(executionSource).toContain('Open the day. Use the prepared assets. Record what happened. Keep moving.');
     expect(executionSource).toContain('blueprint.dailyCalendar.find(day => !completed.has(day.dayNumber))');
-    expect(executionSource).toContain("setSelectedDay(dayNumber)");
+    expect(executionSource).toContain('setSelectedDay(dayNumber)');
   });
 
   it('surfaces daily assets, evidence inputs, and decision context in the selected day', () => {
@@ -40,15 +41,37 @@ describe('Blueprint v2.1.5 guided daily execution amendment', () => {
     expect(executionSource).toContain('evidence checkpoint');
     expect(executionSource).toContain('Questions to answer');
     expect(executionSource).toContain('Decision branches');
+    expect(executionSource).toContain('Review required');
+    expect(executionSource).toContain('Evidence route from Day');
     expect(executionSource).toContain('Asset Library');
     expect(executionSource).toContain('Independent asset access');
     expect(executionSource).toContain('Export all assets');
     expect(executionSource).toContain('Download Blueprint PDF');
   });
 
-  it('preserves commercial measurement for daily engagement and progression', () => {
+  it('fails closed on completion without required evidence or checkpoint review', () => {
+    expect(executionSource).toContain('dayCompletionReadiness');
+    expect(executionSource).toContain('Before Day {activeDay.dayNumber} can be completed:');
+    expect(executionSource).toContain("disabled={!completed.has(activeDay.dayNumber) && !activeCompletion.ready}");
+    expect(progressApiSource).toContain('completionTransitionFailures');
+    expect(progressApiSource).toContain('Execution day completion requirements are not satisfied');
+    expect(progressApiSource).toContain('status: 409');
+  });
+
+  it('preserves unsynced calendar work and refreshes progress after the structured workspace', () => {
+    expect(executionSource).toContain('ghosttown-blueprint-progress-pending:');
+    expect(executionSource).toContain('Unsynced execution changes were restored on this device');
+    expect(executionSource).toContain('returnFromWorkspace');
+    expect(executionSource).toContain("method: 'POST'");
+    expect(executionSource).toContain("headers: authHeaders()");
+    expect(executionSource).toContain('Latest execution progress could not be loaded');
+  });
+
+  it('preserves commercial measurement without emitting completion before persistence succeeds', () => {
     expect(executionSource).toContain("recordCommercialEvent('daily_packet_opened'");
     expect(executionSource).toContain("recordCommercialEvent('day_completed'");
+    expect(executionSource).toContain('const saved = await persist(nextProgress)');
+    expect(executionSource).toContain('if (saved && !wasComplete)');
     expect(executionSource).toContain('/blueprint/progress');
   });
 
