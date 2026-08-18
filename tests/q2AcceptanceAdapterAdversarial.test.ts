@@ -31,5 +31,8 @@ describe('Q2 acceptance adapter adverse mutations', () => {
     rejects(value => { value.days[28].packet.assets[0].finishedContent += '\nFamily Game Night $297'; });
     rejects(value => { value.days[14].packet.assets[0].lineage.sourceAssetIds[0] = value.days[7].packet.assets[0].assetId; });
     rejects(value => { value.canonical.channels[0].sourceIds = ['unknown-source']; });
+    rejects(value => { value.regression_cases = []; });
+    rejects(value => { value.regression_cases[0].days[28].packet.assets[0].finishedContent += '\nCheckout accessibility audit for ecommerce stores at $300-$500'; });
+    rejects(value => { value.regression_cases[0].canonical.offer = 'Unrelated restaurant reservation service'; });
   }, 30_000);
 });

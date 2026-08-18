@@ -39,7 +39,7 @@ function validateGolden(golden) {
   const canonical = golden.canonical;
   if (!canonical || !text(canonical.blueprintId) || !text(canonical.blueprintVersion) || !text(canonical.sourceVerdictId) || !text(canonical.customer) || !text(canonical.problem) || !text(canonical.offer) || !text(canonical.price) || !Array.isArray(canonical.sourceIds) || !Array.isArray(canonical.channels)) fail('canonical cross-surface ledger is incomplete');
   if (!golden.semantic_checks || !Object.values(golden.semantic_checks).every(value => value === true)) fail('golden semantic checks must all be explicitly true');
-  const artifactText = JSON.stringify(golden);
+  const artifactText = JSON.stringify({ canonical, days: golden.days });
   if (/family game|families with children|choosing games|\$297/i.test(artifactText)) fail('unrelated fixture contamination detected anywhere in the artifact');
   const sourceIds = new Set(canonical.sourceIds);
   const channels = new Map(canonical.channels.map(channel => [channel.channelId, channel]));
@@ -96,6 +96,31 @@ function validateGolden(golden) {
   if (!text(canonical.offerPromise) || !day1.includes(canonical.customer) || !day1.includes(canonical.problem) || !day1.includes(canonical.offerPromise) || !day1.includes(canonical.price)) fail('day 1 is inconsistent with Q1/canonical customer offer problem price');
   return { packets: 30, assets: assetIds.size, actions: actionIds.size, semantic: { semantic_checks: true, canonical_cross_surface: true, action_specificity: actionInstructions.size === 30, evidence_specificity: evidenceContracts.size === 30, truthful_routing: true, exact_parent_graph: true } };
 }
+function validateRegressionCases(golden) {
+  if (!Array.isArray(golden.regression_cases) || golden.regression_cases.length !== 1) fail('one non-ecommerce regression case is required');
+  const regression = golden.regression_cases[0];
+  if (regression?.fixture_id !== 'family-game-non-ecommerce' || !regression.canonical) fail('non-ecommerce regression identity is invalid');
+  const terms = [regression.canonical.customer, regression.canonical.problem, regression.canonical.offer, regression.canonical.price];
+  if (terms.some(value => !text(value))) fail('non-ecommerce canonical ledger is incomplete');
+  if (!Array.isArray(regression.days) || regression.days.length !== 30 || regression.days.map(item => item?.day).join(',') !== Array.from({ length: 30 }, (_, index) => index + 1).join(',')) fail('non-ecommerce regression must contain days 1 through 30');
+  const assetByDay = new Map(regression.days.map(item => [item.day, item.packet?.assets?.[0]?.assetId]));
+  const actions = new Set(); const evidence = new Set();
+  for (const item of regression.days) {
+    const day = item.day; const packet = item.packet; const serialized = JSON.stringify(packet);
+    if (!packet || packet.dayNumber !== day || !Array.isArray(packet.actions) || packet.actions.length !== 1 || !Array.isArray(packet.assets) || packet.assets.length !== 1) fail(`non-ecommerce day ${day} packet is incomplete`);
+    if (terms.some(term => !serialized.includes(term))) fail(`non-ecommerce day ${day} does not project its canonical ledger`);
+    if (/checkout|ecommerce|accessibility|\baudit\b|\$300-\$500/i.test(serialized)) fail(`non-ecommerce day ${day} contains unrelated ecommerce fixture content`);
+    if (!sameIds(packet.targets?.map(target => target.kind), expectedTargetKinds[day])) fail(`non-ecommerce day ${day} routing is not canonical`);
+    if (actions.has(packet.actions[0].instruction)) fail(`non-ecommerce day ${day} action is a duplicate`);
+    actions.add(packet.actions[0].instruction);
+    const evidenceKey = packet.evidenceToCapture?.join('|');
+    if (!text(evidenceKey) || evidence.has(evidenceKey)) fail(`non-ecommerce day ${day} evidence is incomplete or duplicated`);
+    evidence.add(evidenceKey);
+    const expectedParents = (expectedParentDays[day] || []).map(parentDay => assetByDay.get(parentDay));
+    if (!sameIds(packet.assets[0].lineage?.sourceAssetIds, expectedParents)) fail(`non-ecommerce day ${day} parent graph is not canonical`);
+  }
+  return { packets: regression.days.length, actions: actions.size, evidence: evidence.size };
+}
 for (const path of required) if (!existsSync(join(ROOT, path))) fail(`required source is missing: ${path}`);
 if (!existsSync(BASELINE)) fail('Quality Baseline 001 receipt is missing');
 const baseline = JSON.parse(readFileSync(BASELINE, 'utf8'));
@@ -104,13 +129,13 @@ mkdirSync(STATE, { recursive: true });
 const nodeModules = join(ROOT, 'node_modules');
 const focused = validationOnly ? 'validation-only artifact check' : run(process.execPath, [join(nodeModules, 'vitest', 'vitest.mjs'), 'run', 'tests/q2DailyExecutionPackets.test.ts', 'tests/launchBlueprintGeneratorV21.test.ts', 'tests/launchBlueprintVertexPipeline.test.ts', 'tests/blueprintAssetsV21.test.ts', 'tests/launchBlueprintViewV21.test.ts', 'tests/blueprintProgressV21.test.ts'], { ...process.env, ROADMAP_Q2_GOLDEN_ARTIFACT_PATH: GOLDEN });
 if (!existsSync(GOLDEN)) fail('golden output was not produced');
-const golden = JSON.parse(readFileSync(GOLDEN, 'utf8')); const counts = validateGolden(golden);
+const golden = JSON.parse(readFileSync(GOLDEN, 'utf8')); const counts = validateGolden(golden); const regression = validateRegressionCases(golden);
 const sourceVerification = validationOnly ? 'validation-only source check skipped' : run(process.execPath, ['scripts/verify-blueprint-source.mjs']);
 const typecheck = validationOnly ? 'validation-only typecheck skipped' : run(process.execPath, [join(nodeModules, 'typescript', 'bin', 'tsc'), '--noEmit']);
 const build = validationOnly ? 'validation-only build skipped' : run(process.execPath, [join(nodeModules, 'vite', 'bin', 'vite.js'), 'build']);
 const ui = readFileSync(join(ROOT, 'src/components/LaunchBlueprintViewV21.tsx'), 'utf8');
 if (!/asset\.capabilities\.copyReady/.test(ui) || !/asset\.capabilities\.editable/.test(ui) || !/asset\.capabilities\.downloadable/.test(ui) || !/asset\.capabilities\.openable/.test(ui) || /scrollIntoView\(\{ behavior: "smooth", block: "start" \}\);\s*};\s*const renderPacketAssets/.test(ui)) fail('UI must conditionally render capability controls and open a meaningful asset view');
-const checks = { '30_of_30_daily_packets': counts.packets === 30, usable_primary_asset_or_justified_non_asset_action_each_day: counts.assets >= 30, no_asset_description_when_finished_asset_can_be_generated: true, success_threshold_each_day: true, failure_threshold_each_day: true, measurable_completion_definition_each_day: true, evidence_requirement_each_day: counts.semantic.evidence_specificity, branch_logic_where_required: true, target_identity_where_required: counts.semantic.truthful_routing, asset_lineage: counts.semantic.exact_parent_graph, copy_open_edit_download_actions_where_applicable: true, golden_fixture_comparison: counts.semantic.semantic_checks && counts.semantic.canonical_cross_surface, all_refs_resolve: true, q1_consistency: counts.semantic.canonical_cross_surface, commercial_sequence: counts.semantic.action_specificity && counts.semantic.evidence_specificity, legacy_compat: true, quality_baseline_linked: true, tests_pass: !validationOnly, typecheck_pass: !validationOnly, acceptance_build_pass: !validationOnly };
-const receipt = { schema_version: 'ghosttown-quality-q2-daily-execution-assets-receipt-v2', contract_version: 'ghosttown-commercial-quality-autopilot-development-contract-v1', verified_at: new Date().toISOString(), git_sha: run('git', ['rev-parse', 'HEAD']).trim(), source_hashes: Object.fromEntries(required.map(path => [path, hash(readFileSync(join(ROOT, path)))])), representative_golden_output: { artifact: '.roadmap-autopilot/q2-daily-execution-assets-golden-output.json', sha256: hash(JSON.stringify(golden)), all_days: golden.days.map(item => ({ day: item.day, packet_sha256: hash(JSON.stringify(item.packet)) })), representative_days: representative }, quality_baseline_001: { receipt: '.roadmap-autopilot/gate25-workflow-ready-receipt.json', receipt_sha256: hash(readFileSync(BASELINE, 'utf8')), workflow_id_sha256: baseline.workflow_id_sha256, blueprint_sha256: baseline.blueprint_sha256, remote_or_purchase_replayed: false }, checks, command_output_sha256: { focused_tests: hash(focused), source_verification: hash(sourceVerification), typecheck: hash(typecheck), build: hash(build) }, secret_values_recorded: false };
+const checks = { '30_of_30_daily_packets': counts.packets === 30, usable_primary_asset_or_justified_non_asset_action_each_day: counts.assets >= 30, no_asset_description_when_finished_asset_can_be_generated: true, success_threshold_each_day: true, failure_threshold_each_day: true, measurable_completion_definition_each_day: true, evidence_requirement_each_day: counts.semantic.evidence_specificity, branch_logic_where_required: true, target_identity_where_required: counts.semantic.truthful_routing, asset_lineage: counts.semantic.exact_parent_graph, copy_open_edit_download_actions_where_applicable: true, golden_fixture_comparison: counts.semantic.semantic_checks && counts.semantic.canonical_cross_surface && regression.packets === 30 && regression.actions === 30 && regression.evidence === 30, all_refs_resolve: true, q1_consistency: counts.semantic.canonical_cross_surface, commercial_sequence: counts.semantic.action_specificity && counts.semantic.evidence_specificity, legacy_compat: true, quality_baseline_linked: true, tests_pass: !validationOnly, typecheck_pass: !validationOnly, acceptance_build_pass: !validationOnly };
+const receipt = { schema_version: 'ghosttown-quality-q2-daily-execution-assets-receipt-v2', contract_version: 'ghosttown-commercial-quality-autopilot-development-contract-v1', verified_at: new Date().toISOString(), git_sha: run('git', ['rev-parse', 'HEAD']).trim(), source_hashes: Object.fromEntries(required.map(path => [path, hash(readFileSync(join(ROOT, path)))])), representative_golden_output: { artifact: '.roadmap-autopilot/q2-daily-execution-assets-golden-output.json', sha256: hash(JSON.stringify(golden)), all_days: golden.days.map(item => ({ day: item.day, packet_sha256: hash(JSON.stringify(item.packet)) })), representative_days: representative, regression_cases: golden.regression_cases.map(item => ({ fixture_id: item.fixture_id, all_days_sha256: hash(JSON.stringify(item.days)) })) }, quality_baseline_001: { receipt: '.roadmap-autopilot/gate25-workflow-ready-receipt.json', receipt_sha256: hash(readFileSync(BASELINE, 'utf8')), workflow_id_sha256: baseline.workflow_id_sha256, blueprint_sha256: baseline.blueprint_sha256, remote_or_purchase_replayed: false }, checks, command_output_sha256: { focused_tests: hash(focused), source_verification: hash(sourceVerification), typecheck: hash(typecheck), build: hash(build) }, secret_values_recorded: false };
 writeFileSync(RECEIPT, `${JSON.stringify(receipt, null, 2)}\n`, 'utf8');
 console.log(JSON.stringify({ ok: true, receipt: '.roadmap-autopilot/q2-daily-execution-assets-receipt.json', checks, secret_values_recorded: false }));

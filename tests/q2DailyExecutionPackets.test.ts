@@ -197,6 +197,46 @@ function blueprint() {
   return synchronizeDailyExecutionPackets(output, verdict);
 }
 
+function nonEcommerceBlueprint() {
+  const familyVerdict = {
+    ...verdict,
+    resultId: 'q2-family-game-pilot',
+    idea: {
+      ideaName: 'Family Game Night', description: 'A manually curated family game-night plan.',
+      targetUser: 'Families with children choosing a game for mixed ages', painfulProblem: 'Choosing a suitable family game is difficult and purchased games often go unused.',
+      currentAlternative: 'Buying a broadly reviewed game without matching the household constraints.', motivation: 'Avoid another unused purchase.'
+    },
+    deterministicScores: {
+      ...verdict.deterministicScores, verdictHeadline: 'Test one curated family game-night plan',
+      verdictExplanation: 'The buyer, problem, and manually fulfilled offer are specific but commitment remains unproven.',
+      recommendedNextTest: 'Ask ten qualified families for a paid curated-plan conversation.',
+      doNotBuildUntil: 'Do not buy inventory or build matching software before paid commitment evidence.',
+      oneSentenceAdvice: 'Sell one manually curated plan before building or stocking.'
+    },
+    verdictDecisionV2: {
+      ...verdict.verdictDecisionV2!,
+      predictionTarget: 'Whether ten qualified families will discuss or buy one manually curated family game-night plan.',
+      customer: { initialCustomer: 'Families with children choosing a game for mixed ages', whyThisCustomer: 'They recently experienced the selection problem.', excludedBroadAudiences: ['All parents'] },
+      problem: { painfulProblem: 'Choosing a suitable family game is difficult and purchased games often go unused.', existingAlternative: 'Buying a broadly reviewed game without matching household constraints.', urgencyEvidence: ['A recent unsuitable or unused game purchase'] },
+      offerHypothesis: { offer: 'One manually curated family game-night plan', commitmentRequested: 'Paid pilot at $49', priceOrCommitmentRange: '$49' },
+      largestUncertainty: { assumption: 'Qualified families will pay $49 for one curated plan.', whyItMatters: 'A paid commitment is stronger than hypothetical interest.' },
+      cheapestFalsification: { test: 'Send the family-game discovery message to ten qualified families.', target: 'Ten qualified families', successThreshold: 'At least three qualified conversations or commitments within five business days.', failureThreshold: 'Zero qualified conversations after the full batch.', maximumTime: 'Five business days', maximumCash: '$0' },
+      firstAction: { action: 'Send the exact family-game discovery message to ten qualified families.', preparedAssetRequired: true },
+      whatWouldChangeTheVerdict: ['Three paid curated-plan commitments']
+    }
+  } as EvaluationResult;
+  const familyOrder = {
+    ...order, orderId: 'q2-family-order', verdictId: familyVerdict.resultId,
+    intake: {
+      verdictId: familyVerdict.resultId, targetBuyer: 'Families with children choosing a game for mixed ages',
+      problem: 'Choosing a suitable family game is difficult and purchased games often go unused.',
+      currentWorkaround: 'Buying a broadly reviewed game without matching household constraints.',
+      offerHypothesis: 'One manually curated family game-night plan', expectedPrice: '$49'
+    }
+  } as PaidTestOrder;
+  return upgradeGhostTownLaunchBlueprintToV21(launchBlueprintFixture(), familyOrder, familyVerdict);
+}
+
 describe('Q2 DailyExecutionPacket and DeliverableAsset', () => {
   it('creates 30 finished, lineage-preserving, alias-compatible customer packets', () => {
     const output = blueprint();
@@ -216,7 +256,7 @@ describe('Q2 DailyExecutionPacket and DeliverableAsset', () => {
     expect(day4.successThreshold).toContain('3 qualified replies or 2 interviews');
     expect(day4.failureThreshold).toContain('Zero qualified replies');
     expect(day1.targets.some(target => target.kind === 'qualified_buyer_batch' && target.minimumCount === 10)).toBe(true);
-    expect(day1.actions[0].quantity).toContain('10 qualified independent ecommerce stores');
+    expect(day1.actions[0].quantity).toContain('10 qualified targets matching');
     expect(output.dailyCalendar[1].executionPacket?.targets.some(target => target.kind === 'qualified_buyer_batch')).toBe(true);
     expect(output.dailyCalendar[9].executionPacket?.actions[0].quantity).toContain('3 qualified buyer price conversations');
     expect(output.dailyCalendar[11].executionPacket?.evidenceToCapture).toContain('Validation-site URL');
@@ -236,6 +276,20 @@ describe('Q2 DailyExecutionPacket and DeliverableAsset', () => {
     const files = buildBlueprintAssetFiles(output, new Uint8Array([37, 80, 68, 70]));
     expect(files).toHaveLength(16);
     expect(new TextDecoder().decode(files.find(file => file.name.endsWith('thirty-day-calendar.csv'))!.data)).toContain('finished_asset_content');
+  });
+
+  it('projects a non-ecommerce Blueprint through all 30 packets without ecommerce fixture literals', () => {
+    const output = nonEcommerceBlueprint();
+    const canonicalTerms = [output.offer.targetCustomer, output.offer.painfulProblem, output.offer.offerName, output.firstRevenuePath.firstPrice];
+    expect(output.dailyCalendar).toHaveLength(30);
+    expect(validateDailyExecutionPackets(output)).toEqual([]);
+    for (const day of output.dailyCalendar) {
+      const packet = JSON.stringify(day.executionPacket);
+      for (const term of canonicalTerms) expect(packet).toContain(term);
+      expect(packet).not.toMatch(/checkout|ecommerce|accessibility|\baudit\b|\$300-\$500/i);
+    }
+    expect(output.dailyCalendar[15].executionPacket?.assets[0].finishedContent).toContain(output.offer.offerName);
+    expect(output.dailyCalendar[15].executionPacket?.assets[0].finishedContent).toContain(output.firstRevenuePath.firstPrice);
   });
 
   it('fails closed on description-only content, unresolved references, and undeclared fields', () => {
@@ -259,6 +313,8 @@ describe('Q2 DailyExecutionPacket and DeliverableAsset', () => {
     const destination = process.env.ROADMAP_Q2_GOLDEN_ARTIFACT_PATH;
     if (destination) {
       const canonicalTerms = [output.offer.targetCustomer, output.offer.painfulProblem, output.offer.offerName, output.firstRevenuePath.firstPrice];
+      const nonEcommerce = nonEcommerceBlueprint();
+      const nonEcommerceTerms = [nonEcommerce.offer.targetCustomer, nonEcommerce.offer.painfulProblem, nonEcommerce.offer.offerName, nonEcommerce.firstRevenuePath.firstPrice];
       const serializedOutput = JSON.stringify({
         dailyCalendar: output.dailyCalendar, executiveDecision: output.executiveDecision, offer: output.offer,
         positioning: output.positioning, firstRevenuePath: output.firstRevenuePath, launchCard48Hour: output.launchCard48Hour,
@@ -266,7 +322,27 @@ describe('Q2 DailyExecutionPacket and DeliverableAsset', () => {
         landingPageCopy: output.landingPageCopy, launchSite: output.launchSite, customerAccessPack: output.customerAccessPack,
         startingStateAudit: output.startingStateAudit, manualFulfillmentPlan: output.manualFulfillmentPlan
       });
-      writeFileSync(destination, JSON.stringify({ schema_version: 'ghosttown-q2-daily-execution-golden-output-v1', fixture_id: 'specific-paid-pilot', canonical: { blueprintId: output.blueprintId, blueprintVersion: output.blueprintVersion, sourceVerdictId: output.sourceVerdictId, customer: output.offer.targetCustomer, problem: output.offer.painfulProblem, offer: output.offer.offerName, offerPromise: output.offer.oneSentencePromise, price: output.firstRevenuePath.firstPrice, launchSiteHeadline: output.launchSite.offer.headline, sourceIds: output.sources.map(source => source.sourceId), channels: output.customerAccessPack.channels.map(channel => ({ channelId: channel.channelId, community: channel.community, publicUrl: channel.publicUrl, sourceIds: channel.sourceIds })) }, days: output.dailyCalendar.map(day => ({ day: day.dayNumber, packet: day.executionPacket, legacy: { objective: day.primaryObjective, why: day.whyItMatters, deliverable: day.expectedDeliverable, success: day.successMeasurement } })), representative_days: [1, 4, 7, 14, 21, 30], semantic_checks: { all_30_packets: output.dailyCalendar.length === 30, q1_day1_action: output.dailyCalendar[0].executionPacket?.actions[0].quantity.includes('10 qualified independent ecommerce stores') === true, all_finished_assets: validateDailyExecutionPackets(output).length === 0, aliases_match: output.dailyCalendar.every(day => day.executionPacket && day.primaryObjective === day.executionPacket.objective), canonical_terms_on_all_packets: output.dailyCalendar.every(day => canonicalTerms.every(term => JSON.stringify(day.executionPacket).includes(term))), no_legacy_concept_or_price: !/Family Game Night|Families with children|Choosing games|\$297/i.test(serializedOutput), coherent_ecommerce_fixture: output.customerAccessPack.channels.every(channel => channel.community.includes('ecommerce')) && output.landingPageCopy.problemSection.includes('Checkout accessibility') && output.landingPageCopy.pricePresentation.includes('$300-$500') } }, null, 2));
+      writeFileSync(destination, JSON.stringify({
+        schema_version: 'ghosttown-q2-daily-execution-golden-output-v1', fixture_id: 'specific-paid-pilot',
+        canonical: { blueprintId: output.blueprintId, blueprintVersion: output.blueprintVersion, sourceVerdictId: output.sourceVerdictId, customer: output.offer.targetCustomer, problem: output.offer.painfulProblem, offer: output.offer.offerName, offerPromise: output.offer.oneSentencePromise, price: output.firstRevenuePath.firstPrice, launchSiteHeadline: output.launchSite.offer.headline, sourceIds: output.sources.map(source => source.sourceId), channels: output.customerAccessPack.channels.map(channel => ({ channelId: channel.channelId, community: channel.community, publicUrl: channel.publicUrl, sourceIds: channel.sourceIds })) },
+        days: output.dailyCalendar.map(day => ({ day: day.dayNumber, packet: day.executionPacket, legacy: { objective: day.primaryObjective, why: day.whyItMatters, deliverable: day.expectedDeliverable, success: day.successMeasurement } })),
+        representative_days: [1, 4, 7, 14, 21, 30],
+        regression_cases: [{
+          fixture_id: 'family-game-non-ecommerce',
+          canonical: { customer: nonEcommerce.offer.targetCustomer, problem: nonEcommerce.offer.painfulProblem, offer: nonEcommerce.offer.offerName, price: nonEcommerce.firstRevenuePath.firstPrice },
+          days: nonEcommerce.dailyCalendar.map(day => ({ day: day.dayNumber, packet: day.executionPacket }))
+        }],
+        semantic_checks: {
+          all_30_packets: output.dailyCalendar.length === 30,
+          q1_day1_action: output.dailyCalendar[0].executionPacket?.actions[0].quantity.includes('10 qualified targets matching') === true,
+          all_finished_assets: validateDailyExecutionPackets(output).length === 0,
+          aliases_match: output.dailyCalendar.every(day => day.executionPacket && day.primaryObjective === day.executionPacket.objective),
+          canonical_terms_on_all_packets: output.dailyCalendar.every(day => canonicalTerms.every(term => JSON.stringify(day.executionPacket).includes(term))),
+          no_legacy_concept_or_price: !/Family Game Night|Families with children|Choosing games|\$297/i.test(serializedOutput),
+          coherent_ecommerce_fixture: output.customerAccessPack.channels.every(channel => channel.community.includes('ecommerce')) && output.landingPageCopy.problemSection.includes('Checkout accessibility') && output.landingPageCopy.pricePresentation.includes('$300-$500'),
+          non_ecommerce_regression: nonEcommerce.dailyCalendar.length === 30 && validateDailyExecutionPackets(nonEcommerce).length === 0 && nonEcommerce.dailyCalendar.every(day => nonEcommerceTerms.every(term => JSON.stringify(day.executionPacket).includes(term)) && !/checkout|ecommerce|accessibility|\baudit\b|\$300-\$500/i.test(JSON.stringify(day.executionPacket)))
+        }
+      }, null, 2));
     }
     expect(output.dailyCalendar[29].executionPacket?.completionDefinition).toContain('evidence ledger');
   });
