@@ -79,7 +79,7 @@
   "executionIntelligenceChangeRecord": {
     "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_6_CHANGE_RECORD.md",
     "version": "2.1.6",
-    "gitBlobSha1": "7a4c597340604050a0ba5ea6d2680f5f1676fb7b"
+    "gitBlobSha1": "bef01aaf538d4c54b156a2ac68456e22e9928081"
   },
   "executionIntelligenceEvidence": {
     "path": "docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.6-execution-intelligence-evidence.json",
