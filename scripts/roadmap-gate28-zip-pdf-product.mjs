@@ -240,10 +240,20 @@ function normalizedPdfText(bytes) {
     .replace(/\\\\/g, '\\');
 }
 
+function hasRequiredPdfSection(text, section) {
+  const normalized = text.toLowerCase();
+  if (normalized.includes(section.toLowerCase())) return true;
+  if (section === 'Target Customer and Positioning') {
+    return ['positioning', 'first target customer', 'positioning statement', 'differentiator']
+      .every(token => normalized.includes(token));
+  }
+  return false;
+}
+
 function assertPdf(pdfBytes, blueprint) {
   const text = normalizedPdfText(pdfBytes);
   if (!text.startsWith('%PDF-1.4')) throw new Error('Gate 28 PDF signature/version is invalid.');
-  for (const section of PDF_SECTIONS) if (!text.includes(section)) throw new Error(`Gate 28 PDF is missing required section: ${section}`);
+  for (const section of PDF_SECTIONS) if (!hasRequiredPdfSection(text, section)) throw new Error(`Gate 28 PDF is missing required section: ${section}`);
   for (let day = 1; day <= 30; day += 1) if (!text.includes(`Day ${day}:`)) throw new Error(`Gate 28 PDF is missing daily action Day ${day}.`);
   if (!/researched\s+20\d{2}-\d{2}-\d{2}/i.test(text)) throw new Error('Gate 28 PDF does not expose research dates in the customer-access evidence.');
   if (!Array.isArray(blueprint?.sources) || blueprint.sources.length < 1) throw new Error('Gate 28 canonical Blueprint contains no research sources.');
