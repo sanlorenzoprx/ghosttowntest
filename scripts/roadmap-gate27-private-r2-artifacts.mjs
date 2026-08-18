@@ -70,7 +70,9 @@ function assertPrerequisites() {
   for (const token of ['ghosttown-launch-blueprint-v2.pdf','ghosttown-launch-blueprint-v2.json','ghosttown-launch-blueprint-v2-assets.zip','handleLaunchBlueprintJson','handleLaunchBlueprintPdf','handleLaunchBlueprintAssets','private, no-store','customMetadata','remote = true','withAcceptanceDataBindings']) {
     if (!combined.includes(token)) throw new Error(`Gate 27 source contract is missing ${token}.`);
   }
-  if (readFileSync(new URL(import.meta.url), 'utf8').includes("'d1','execute'")) throw new Error('Gate 27 must not use direct Wrangler D1 execute for canonical acceptance evidence.');
+  const gate27Source = readFileSync(new URL(import.meta.url), 'utf8');
+  const forbiddenDirectD1Invocation = ["'d1'", "'execute'"].join(',');
+  if (gate27Source.includes(forbiddenDirectD1Invocation)) throw new Error('Gate 27 must not use direct Wrangler D1 execute for canonical acceptance evidence.');
 }
 
 function purchaseReceipt() {
