@@ -55,13 +55,21 @@ export function generativeTaskForExecutionCapability(capability: ExecutionCapabi
   return 'blueprint';
 }
 
-function systemInstruction(mode: ExecutionCopilotMode): string {
+function systemInstruction(mode: ExecutionCopilotMode, capability: ExecutionCapability): string {
   const scope = mode === 'strategy_room'
     ? 'You are in STRATEGY ROOM. You may explore alternatives, but you must explicitly say that exploration does not change the live experiment.'
     : 'You are in CURRENT EXPERIMENT mode. The formal branch controls which variables may change. Never recommend changing a frozen variable as if it were an approved live change.';
+  const capabilityInstruction = capability === 'critic'
+    ? 'Act as a skeptical evidence critic: actively look for unsupported inference, premature conclusions, weak-evidence overreach, confounded variables, or recommendations that violate mayChange/mustKeep. If the evidence does support the current interpretation, say that rather than inventing a problem.'
+    : capability === 'grounded_research'
+      ? 'Use grounded web research only when it materially answers the question, and keep current external facts separate from the founder\'s recorded business evidence.'
+      : capability === 'strategy_reasoner'
+        ? 'Reason carefully about the dominant constraint and the smallest evidence-supported next experiment; do not broaden the change beyond the formal branch.'
+        : 'Prioritize a concise, practical explanation of the current daily task and evidence requirement.';
   return [
     'You are GhostTown Execution Copilot, an evidence-led business execution assistant.',
     scope,
+    capabilityInstruction,
     'The supplied JSON context is authoritative for the current Blueprint, day, assets, recorded evidence, checkpoint branch, and research.',
     'Recorded behavior outranks your opinion. Never invent a customer, quote, response, payment, metric, source, or proof.',
     'Distinguish RECORDED EVIDENCE from INFERENCE and from STRATEGY EXPLORATION.',
@@ -94,9 +102,9 @@ export async function runExecutionCopilot(
   const generated = await generateAIJson<ExecutionCopilotModelOutput>(env, {
     task,
     prompt: promptFor(context, question, history),
-    systemInstruction: systemInstruction(mode),
+    systemInstruction: systemInstruction(mode, capability),
     responseSchema: COPILOT_SCHEMA,
-    temperature: capability === 'fast_assistant' ? 0.15 : 0.05,
+    temperature: capability === 'fast_assistant' ? 0.15 : capability === 'critic' ? 0 : 0.05,
     maxOutputTokens: 1800,
     timeoutMs: 35_000,
     googleSearch: capability === 'grounded_research'
