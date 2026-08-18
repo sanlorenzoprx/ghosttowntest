@@ -49,8 +49,17 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
     for (const key of q5Keys) expect(adapter).toContain(key);
   });
 
-  it('requires source-to-Stripe lineage and all post-purchase behavioral events', () => {
-    const adapter = read('scripts/roadmap-quality-q5-commercial-measurement.mjs');
+  it('requires one persisted visitor/session envelope through sanitized Stripe metadata', () => {
+    const client = read('src/lib/commercialAttribution.ts');
+    const server = read('src/api/commercialAttribution.ts');
+    const checkout = read('src/api/paidTestCheckout.ts');
+    const metrics = read('src/api/commercialMetrics.ts');
+
+    expect(client).toContain('ghosttown_commercial_attribution_v1');
+    expect(client).toContain('ghosttown_commercial_session_v1');
+    expect(client).toContain('commercialAttributionForCheckout');
+    expect(checkout).toContain('sanitizeCommercialAttribution');
+    expect(checkout).toContain('appendStripeAttributionMetadata');
     for (const metadata of [
       'metadata[attribution_token]',
       'metadata[experiment_id]',
@@ -61,17 +70,40 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
       'metadata[source]',
       'metadata[visitor_id]',
       'metadata[ghosttown_session_id]'
-    ]) expect(adapter).toContain(metadata);
-    for (const event of [
-      'verdict_started',
-      'verdict_completed',
-      'checkout_started',
-      'blueprint_opened',
-      'daily_packet_opened',
-      'day_completed',
-      'evidence_recorded',
-      'blueprint_retry_requested'
-    ]) expect(adapter).toContain(event);
+    ]) expect(server).toContain(metadata);
+    expect(metrics).toContain('metadata.visitor_id');
+    expect(metrics).toContain('metadata.ghosttown_session_id');
+    expect(metrics).toContain('attributedVerifiedPurchases');
+  });
+
+  it('instruments the real verdict, checkout, Blueprint, daily packet, evidence and retry surfaces', () => {
+    const questionFlow = read('src/components/QuestionFlow.tsx');
+    const checkout = read('src/api/paidTestCheckout.ts');
+    const router = read('src/components/LaunchBlueprintRouter.tsx');
+    const measurement = read('src/api/blueprintApiMeasurement.ts');
+    const dashboard = read('src/components/UserDashboard.tsx');
+
+    expect(questionFlow).toContain("recordCommercialEvent('verdict_started'");
+    expect(questionFlow).toContain("recordCommercialEvent('verdict_completed'");
+    expect(checkout).toContain("recordCommercialFunnelEvent(env, 'checkout_started'");
+    expect(router).toContain("recordCommercialEvent('blueprint_opened'");
+    expect(router).toContain("recordCommercialEvent('daily_packet_opened'");
+    expect(router).toContain("target?.textContent?.trim() === 'Today'");
+    expect(measurement).toContain("safeRecord(env, 'day_completed'");
+    expect(measurement).toContain("safeRecord(env, 'evidence_recorded'");
+    expect(dashboard).toContain('/blueprint/retry');
+    expect(measurement).toContain('response.status === 202');
+    expect(measurement).toContain("safeRecord(env, 'blueprint_retry_requested'");
+  });
+
+  it('preserves the established paid and Blueprint cores while overriding only measured boundaries', () => {
+    const paid = read('src/api/paidTest.ts');
+    const blueprint = read('src/api/blueprintApi.ts');
+    expect(paid).toContain("export * from './paidTestCore'");
+    expect(paid).toContain("export { handlePaidTestCheckout } from './paidTestCheckout'");
+    expect(blueprint).toContain("export * from './blueprintApiCore'");
+    expect(blueprint).toContain('handleLaunchBlueprintProgress');
+    expect(blueprint).toContain('handleLaunchBlueprintRetry');
   });
 
   it('preserves Stripe webhook revenue authority and the manual production-release boundary', () => {
