@@ -18,18 +18,26 @@ const CONFIG = join(ROOT, 'config/commercial-quality-roadmap-v1.json');
 const requiredSources = [
   'config/commercial-quality-roadmap-v1.json',
   'config/infrastructure-freeze-policy-v1.json',
+  'src/types/commercialAttribution.ts',
+  'src/lib/commercialAttribution.ts',
+  'src/api/commercialAttribution.ts',
   'src/api/analytics.ts',
   'src/api/commercialMetrics.ts',
   'src/api/paidTest.ts',
+  'src/api/paidTestCore.ts',
+  'src/api/paidTestCheckout.ts',
   'src/api/webhook.ts',
   'src/api/blueprintApi.ts',
+  'src/api/blueprintApiCore.ts',
+  'src/api/blueprintApiMeasurement.ts',
   'src/api/index.ts',
   'src/app/App.tsx',
   'src/components/QuestionFlow.tsx',
-  'src/components/ResultReport.tsx',
-  'src/components/PaywallModal.tsx',
-  'src/components/ActionPlanSuccess.tsx',
+  'src/components/ActionPlanModal.tsx',
+  'src/components/LaunchBlueprintRouter.tsx',
   'src/components/LaunchBlueprintViewV21.tsx',
+  'src/components/UserDashboard.tsx',
+  'tests/commercialAttribution.test.ts',
   'tests/commercialMetrics.test.ts',
   'tests/blueprintProgressV21.test.ts',
   'tests/blueprintRecoveryV21.test.ts',
@@ -89,7 +97,7 @@ function command(commandName, args) {
 }
 
 function eventNamesFromAnalytics(source) {
-  const block = source.match(/const allowedEvents\s*=\s*new Set\(\[([\s\S]*?)\]\);/)?.[1] || '';
+  const block = source.match(/const allowedEvents\s*=\s*new Set(?:<[^>]+>)?\(\[([\s\S]*?)\]\);/)?.[1] || '';
   return [...block.matchAll(/['"]([^'"]+)['"]/g)].map(match => match[1]);
 }
 
@@ -130,22 +138,22 @@ if (!freeze.policy?.allowed_purposes?.includes('measurement') || freeze.invarian
   throw new Error('Q5 acceptance failed: Infrastructure Freeze does not authorize bounded measurement work or manual-release invariants changed');
 }
 
+const clientAttribution = read('src/lib/commercialAttribution.ts');
+const serverAttribution = read('src/api/commercialAttribution.ts');
 const analytics = read('src/api/analytics.ts');
 const metrics = read('src/api/commercialMetrics.ts');
+const paidCheckout = read('src/api/paidTestCheckout.ts');
 const paidTest = read('src/api/paidTest.ts');
 const webhook = read('src/api/webhook.ts');
+const blueprintMeasurement = read('src/api/blueprintApiMeasurement.ts');
 const blueprintApi = read('src/api/blueprintApi.ts');
 const index = read('src/api/index.ts');
-const emitterSources = [
-  'src/app/App.tsx',
-  'src/components/QuestionFlow.tsx',
-  'src/components/ResultReport.tsx',
-  'src/components/PaywallModal.tsx',
-  'src/components/ActionPlanSuccess.tsx',
-  'src/components/LaunchBlueprintViewV21.tsx',
-  'src/api/paidTest.ts',
-  'src/api/blueprintApi.ts'
-].map(read).join('\n');
+const app = read('src/app/App.tsx');
+const questionFlow = read('src/components/QuestionFlow.tsx');
+const actionPlanModal = read('src/components/ActionPlanModal.tsx');
+const blueprintRouter = read('src/components/LaunchBlueprintRouter.tsx');
+const dashboard = read('src/components/UserDashboard.tsx');
+const emitterSources = [app, questionFlow, paidCheckout, blueprintRouter, blueprintMeasurement].join('\n');
 
 const allowedEvents = eventNamesFromAnalytics(analytics);
 const supportedAndEmitted = eventName => allowedEvents.includes(eventName) && occurrences(emitterSources, eventName) > 0;
@@ -154,29 +162,44 @@ const attributionFields = [
   'attributionToken', 'experimentId', 'sourceVerdictId', 'creativeId', 'publicationId',
   'platform', 'accountId', 'campaign', 'source', 'visitorId', 'ghosttownSessionId'
 ];
+const clientAttributionContract = has(clientAttribution, 'ghosttown_commercial_attribution_v1')
+  && has(clientAttribution, 'ghosttown_commercial_session_v1')
+  && has(clientAttribution, 'localStorage')
+  && has(clientAttribution, 'sessionStorage')
+  && has(clientAttribution, 'commercialAttributionForCheckout')
+  && attributionFields.every(field => has(clientAttribution, field));
 const analyticsAttributionContract = attributionFields.every(field => has(analytics, field));
-const metricAttributionContract = [
-  'attributionToken', 'experimentId', 'sourceVerdictId', 'creativeId', 'publicationId',
-  'platform', 'accountId', 'campaign', 'source', 'visitorId', 'ghosttownSessionId'
-].every(field => has(metrics, field)) && (has(metrics, 'sessionAttribution') || has(metrics, 'session_attribution'));
-const checkoutAttributionMetadata = [
-  'metadata[attribution_token]',
-  'metadata[experiment_id]',
-  'metadata[source_verdict_id]',
-  'metadata[creative_id]',
-  'metadata[publication_id]',
-  'metadata[platform]',
-  'metadata[distribution_account_id]',
-  'metadata[campaign]',
-  'metadata[source]',
-  'metadata[visitor_id]',
-  'metadata[ghosttown_session_id]'
-].every(field => has(paidTest, field));
+const metricAttributionContract = attributionFields.every(field => has(metrics, field))
+  && has(metrics, 'attributionCoverage')
+  && has(metrics, 'uniqueVisitors')
+  && has(metrics, 'uniqueSessions')
+  && has(metrics, 'attributedVerifiedPurchases');
+const checkoutAttributionMetadata = has(actionPlanModal, 'commercialAttributionForCheckout')
+  && has(paidCheckout, 'sanitizeCommercialAttribution')
+  && has(paidCheckout, 'appendStripeAttributionMetadata')
+  && [
+    'metadata[attribution_token]',
+    'metadata[experiment_id]',
+    'metadata[source_verdict_id]',
+    'metadata[creative_id]',
+    'metadata[publication_id]',
+    'metadata[platform]',
+    'metadata[distribution_account_id]',
+    'metadata[campaign]',
+    'metadata[source]',
+    'metadata[visitor_id]',
+    'metadata[ghosttown_session_id]'
+  ].every(field => has(serverAttribution, field));
 const purchaseAttributionRecovered = has(webhook, 'recordVerifiedPurchase')
   && has(metrics, 'attributionFromMetadata')
   && has(metrics, 'metadata.attribution_token')
   && has(metrics, 'metadata.publication_id')
-  && has(metrics, 'metadata.source');
+  && has(metrics, 'metadata.source')
+  && has(metrics, 'metadata.visitor_id')
+  && has(metrics, 'metadata.ghosttown_session_id');
+const checkoutAuthoritative = has(paidTest, "export { handlePaidTestCheckout } from './paidTestCheckout'")
+  && has(paidCheckout, "recordCommercialFunnelEvent(env, 'checkout_started'")
+  && paidCheckout.indexOf("response.ok") < paidCheckout.indexOf("recordCommercialFunnelEvent(env, 'checkout_started'");
 
 const purchaseAuthority = has(webhook, 'recordVerifiedPurchase')
   && has(webhook, "event.type === 'checkout.session.completed'")
@@ -184,12 +207,29 @@ const purchaseAuthority = has(webhook, 'recordVerifiedPurchase')
   && has(metrics, 'revenueMinorUnitsByCurrency')
   && has(metrics, 'checkout_to_verified_purchase');
 
-const repairRoute = has(index, 'blueprintRetryMatch')
+const blueprintOpenSurface = has(blueprintRouter, "recordCommercialEvent('blueprint_opened'")
+  && has(blueprintRouter, 'LaunchBlueprintViewV21')
+  && has(blueprintRouter, 'setPayload(body)');
+const dailyPacketSurface = has(blueprintRouter, "recordCommercialEvent('daily_packet_opened'")
+  && has(blueprintRouter, "target?.textContent?.trim() === 'Today'")
+  && has(blueprintRouter, "target.value === 'today'");
+const progressAuthoritative = has(blueprintApi, "export * from './blueprintApiCore'")
+  && has(blueprintApi, 'handleLaunchBlueprintProgress')
+  && has(blueprintMeasurement, 'handleCoreProgress')
+  && has(blueprintMeasurement, 'response.ok')
+  && has(blueprintMeasurement, "safeRecord(env, 'day_completed'")
+  && has(blueprintMeasurement, "safeRecord(env, 'evidence_recorded'");
+const repairRoute = has(dashboard, '/blueprint/retry')
+  && has(index, 'blueprintRetryMatch')
   && has(index, 'handleLaunchBlueprintRetry')
-  && has(blueprintApi, 'handleLaunchBlueprintRetry');
+  && has(blueprintApi, 'handleLaunchBlueprintRetry')
+  && has(blueprintMeasurement, 'handleCoreRetry')
+  && has(blueprintMeasurement, 'response.status === 202')
+  && has(blueprintMeasurement, "safeRecord(env, 'blueprint_retry_requested'");
 
 const focused = command(process.execPath, [
   join(ROOT, 'node_modules/vitest/vitest.mjs'), 'run',
+  'tests/commercialAttribution.test.ts',
   'tests/commercialMetrics.test.ts',
   'tests/blueprintProgressV21.test.ts',
   'tests/blueprintRecoveryV21.test.ts',
@@ -200,15 +240,15 @@ const typecheck = command(process.execPath, [join(ROOT, 'node_modules/typescript
 const build = command(process.execPath, [join(ROOT, 'node_modules/vite/bin/vite.js'), 'build']);
 
 const checks = {
-  source_to_session_attribution: analyticsAttributionContract && metricAttributionContract && checkoutAttributionMetadata && purchaseAttributionRecovered,
+  source_to_session_attribution: clientAttributionContract && analyticsAttributionContract && metricAttributionContract && checkoutAttributionMetadata && purchaseAttributionRecovered,
   test_started: supportedAndEmitted(measuredEvents.test_started),
   verdict_completed: supportedAndEmitted(measuredEvents.verdict_completed),
-  checkout_started: supportedAndEmitted(measuredEvents.checkout_started),
+  checkout_started: checkoutAuthoritative && supportedAndEmitted(measuredEvents.checkout_started),
   purchase_and_revenue: purchaseAuthority,
-  blueprint_opened: supportedAndEmitted(measuredEvents.blueprint_opened),
-  daily_packet_opened: supportedAndEmitted(measuredEvents.daily_packet_opened),
-  day_completed: supportedAndEmitted(measuredEvents.day_completed),
-  evidence_recorded: supportedAndEmitted(measuredEvents.evidence_recorded),
+  blueprint_opened: blueprintOpenSurface && supportedAndEmitted(measuredEvents.blueprint_opened),
+  daily_packet_opened: dailyPacketSurface && supportedAndEmitted(measuredEvents.daily_packet_opened),
+  day_completed: progressAuthoritative && supportedAndEmitted(measuredEvents.day_completed),
+  evidence_recorded: progressAuthoritative && supportedAndEmitted(measuredEvents.evidence_recorded),
   repair_routing_supported: repairRoute && supportedAndEmitted(measuredEvents.repair_routing_supported),
   tests_pass: focused.ok && sourceLock.ok && typecheck.ok && build.ok
 };
@@ -231,13 +271,20 @@ const receipt = {
     analytics_event_contract: allowedEvents,
     required_measured_events: measuredEvents,
     attribution: {
+      client_persistence: clientAttributionContract,
       analytics_contract: analyticsAttributionContract,
       metrics_contract: metricAttributionContract,
       checkout_to_stripe_metadata: checkoutAttributionMetadata,
       stripe_webhook_recovery: purchaseAttributionRecovered
     },
+    surfaces: {
+      checkout_authoritative: checkoutAuthoritative,
+      blueprint_open_surface: blueprintOpenSurface,
+      daily_packet_surface: dailyPacketSurface,
+      progress_authoritative: progressAuthoritative,
+      repair_route: repairRoute
+    },
     stripe_purchase_authority: purchaseAuthority,
-    repair_route_present: repairRoute,
     runtime_receipt: '.roadmap-autopilot/q5-commercial-measurement-receipt.json'
   },
   hashes: Object.fromEntries(requiredSources.map(relative => [relative, fileHash(join(ROOT, relative))])),
