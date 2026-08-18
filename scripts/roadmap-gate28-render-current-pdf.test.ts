@@ -11,12 +11,20 @@ const INPUT_ENV = 'GHOSTTOWN_GATE28_BLUEPRINT_PATH';
 const PDF_ENV = 'GHOSTTOWN_GATE28_PDF_PATH';
 const ZIP_ENV = 'GHOSTTOWN_GATE28_ZIP_PATH';
 const DOCUMENT_RECEIPT_ENV = 'GHOSTTOWN_GATE28_DOCUMENT_RECEIPT_PATH';
+const REQUIRED_ENV = [INPUT_ENV, PDF_ENV, ZIP_ENV, DOCUMENT_RECEIPT_ENV] as const;
+const gate28AdapterConfigured = REQUIRED_ENV.every(name => Boolean(process.env[name]));
 
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-describe('Gate 28 current v2.1 artifact renderer adapter', () => {
+// This file is an environment-driven Gate 28 adapter that intentionally uses
+// Vitest so the existing renderer/import graph is exercised exactly as the
+// application tests exercise it. Global `vitest run` also discovers *.test.ts
+// under scripts/, so skip this adapter unless Gate 28 supplied all required
+// paths. Gate 28 v4 supplies all four variables and therefore still executes
+// the full deterministic PDF/ZIP render and mutation guards below.
+describe.skipIf(!gate28AdapterConfigured)('Gate 28 current v2.1 artifact renderer adapter', () => {
   it('renders PDF and 16-file ZIP from the exact canonical JSON without mutating it', () => {
     const inputPath = process.env[INPUT_ENV];
     const pdfPath = process.env[PDF_ENV];
