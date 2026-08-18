@@ -53,6 +53,8 @@ describe('Gate 27/28 authoritative acceptance artifact path', () => {
     expect(helper).toContain('buildBlueprintAssetZipFromCanonicalBytesV21');
     expect(helper).toContain('canonicalJsonBytes');
     expect(helper).toContain('expect(JSON.stringify(blueprint)).toBe(before)');
+    expect(helper).toContain('describe.skipIf(!gate28AdapterConfigured)');
+    expect(helper).toContain('REQUIRED_ENV.every');
     expect(repair).toContain("'First Customer'");
     expect(repair).toContain('actual.length !== 16');
     expect(repair).toContain('bundledJson');
