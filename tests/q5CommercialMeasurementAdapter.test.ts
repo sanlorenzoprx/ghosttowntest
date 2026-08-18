@@ -73,7 +73,7 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
     expect(questionFlow).toContain("recordCommercialEvent('verdict_started'"); expect(questionFlow).toContain("recordCommercialEvent('verdict_completed'");
     expect(checkout).toContain("recordCommercialFunnelEvent(env, 'checkout_started'");
     expect(router).toContain("recordCommercialEvent('blueprint_opened'"); expect(router).toContain("recordCommercialEvent('daily_packet_opened'");
-    expect(router).toContain("target?.textContent?.trim() === 'Today'"); expect(router).toContain("target.value === 'today'"); expect(router).toContain('Today · Day');
+    expect(router).toContain('setActiveDay(dayNumber)'); expect(router).toContain('recordRenderedDailyPacket(event.currentTarget)'); expect(router).toContain('Today · Day');
     expect(measurement).toContain("safeRecord(env, 'day_completed'"); expect(measurement).toContain("safeRecord(env, 'evidence_recorded'");
     expect(dashboard).toContain('/blueprint/retry'); expect(measurement).toContain('response.status === 202'); expect(measurement).toContain("safeRecord(env, 'blueprint_retry_requested'");
   });
