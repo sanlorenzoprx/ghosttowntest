@@ -68,7 +68,6 @@ function checkpointComplete(review: ExecutionCompletionCheckpointReview | undefi
     && text(review.evidenceSummary)
     && text(review.nextAction)
     && text(review.strongestEvidence)
-    && review.strongestEvidence !== 'none'
   );
 }
 
