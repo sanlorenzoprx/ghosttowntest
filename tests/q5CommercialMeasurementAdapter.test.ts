@@ -47,11 +47,12 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
     expect(client).toContain('commercialAttributionForCheckout');
     expect(checkout).toContain('sanitizeCommercialAttribution'); expect(checkout).toContain('appendStripeAttributionMetadata');
     expect(checkout).toContain('commercialAttribution: attribution'); expect(checkout).toContain('attribution: undefined');
-    for (const metadata of [
-      'metadata[attribution_token]','metadata[visitor_id]','metadata[ghosttown_session_id]',
-      'metadata[first_touch_experiment_id]','metadata[first_touch_creative_id]','metadata[first_touch_publication_id]',
-      'metadata[last_touch_experiment_id]','metadata[last_touch_creative_id]','metadata[last_touch_publication_id]'
-    ]) expect(server).toContain(metadata);
+    for (const metadata of ['metadata[attribution_token]','metadata[visitor_id]','metadata[ghosttown_session_id]']) expect(server).toContain(metadata);
+    expect(server).toContain("setTouchMetadata(fields, 'first_touch'");
+    expect(server).toContain("setTouchMetadata(fields, 'last_touch'");
+    for (const suffix of ['_experiment_id]','_source_verdict_id]','_creative_id]','_publication_id]','_platform]','_account_id]','_campaign]','_source]']) {
+      expect(server).toContain(suffix);
+    }
     expect(metrics).toContain('firstTouchPublicationRevenue');
     expect(metrics).toContain('lastTouchPublicationRevenue');
     expect(metrics).toContain('dualTouchPurchases');
