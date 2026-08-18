@@ -171,7 +171,10 @@ if (tracked) throw new Error(`Tracked working tree changes exist. Commit/stash t
 
 const verified = run('npm', ['run', 'verify:blueprint']);
 const verifyOutput = `${verified.stdout}\n${verified.stderr}`;
-for (const token of [AMENDMENT_VERSION, AMENDMENT_SHA, BASE_SHA, CHANGE_ID]) {
+// The verifier fail-closes internally if the preserved v2.1.4 compatibility
+// change ID is altered. Its success line now reports the v2.1.6 chain tip,
+// so preflight should assert stable v2.1.4/base hashes rather than a log token.
+for (const token of [AMENDMENT_VERSION, AMENDMENT_SHA, BASE_SHA]) {
   if (!verifyOutput.includes(token)) throw new Error(`Blueprint verifier did not confirm ${token}.`);
 }
 pass(state, config, 1, {
