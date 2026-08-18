@@ -14,13 +14,8 @@ export type CommercialEventName =
   | 'evidence_recorded'
   | 'blueprint_retry_requested';
 
-export interface CommercialAttributionEnvelope {
-  schemaVersion: 'ghosttown-commercial-attribution-v1';
-  attributionToken: string;
-  visitorId: string;
-  ghosttownSessionId: string;
-  firstTouchAt: string;
-  lastTouchAt: string;
+export interface CommercialAttributionTouch {
+  capturedAt: string;
   experimentId?: string;
   sourceVerdictId?: string;
   creativeId?: string;
@@ -30,6 +25,27 @@ export interface CommercialAttributionEnvelope {
   campaign?: string;
   source?: string;
   shareType?: CommercialShareType;
+}
+
+export interface CommercialAttributionEnvelope {
+  schemaVersion: 'ghosttown-commercial-attribution-v1';
+  attributionToken: string;
+  visitorId: string;
+  ghosttownSessionId: string;
+  firstTouchAt: string;
+  lastTouchAt: string;
+  /** Compatibility projection of firstTouch for existing Story Studio joins. */
+  experimentId?: string;
+  sourceVerdictId?: string;
+  creativeId?: string;
+  publicationId?: string;
+  platform?: string;
+  accountId?: string;
+  campaign?: string;
+  source?: string;
+  shareType?: CommercialShareType;
+  firstTouch: CommercialAttributionTouch;
+  lastTouch: CommercialAttributionTouch;
   verdictId?: string;
 }
 
