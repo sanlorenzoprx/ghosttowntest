@@ -3,6 +3,8 @@ import { checkoutAccessibilityBlueprintFixture } from './fixtures/checkoutAccess
 import {
   completionTransitionFailures,
   dayCompletionReadiness,
+  deriveObservedExecutionMetrics,
+  executionProgressWithObservedMetrics,
   type ExecutionCompletionProgress,
 } from '../src/lib/blueprintExecutionCompletion';
 
@@ -27,6 +29,9 @@ function dayEvidence(dayNumber: number, index = 1) {
     customerLanguage: '',
     commitmentOffered: '',
     commitmentReceived: '',
+    revenueCents: 0,
+    founderMinutes: 0,
+    variableCostCents: 0,
     sourceNote: 'Dated execution evidence.',
   };
 }
@@ -124,5 +129,35 @@ describe('30-day execution completion integrity', () => {
       evidenceLedger: requiredEvidenceForDay(blueprint, 1),
     };
     expect(completionTransitionFailures(blueprint, progress(), validRequest)).toEqual([]);
+  });
+
+  it('rolls up only objective ledger totals without inventing outreach or interview counts', () => {
+    const entries = [
+      { ...dayEvidence(16, 1), commitmentReceived: 'Paid pilot accepted', revenueCents: 50000, founderMinutes: 45, variableCostCents: 1200 },
+      { ...dayEvidence(16, 2), commitmentReceived: 'declined', revenueCents: 0, founderMinutes: 20, variableCostCents: 0 },
+      { ...dayEvidence(21, 1), commitmentReceived: 'Deposit received', revenueCents: 25000, founderMinutes: 90, variableCostCents: 800 },
+    ];
+    expect(deriveObservedExecutionMetrics(entries)).toEqual({
+      commitments: 2,
+      revenueCents: 75000,
+      founderMinutes: 155,
+      variableCostCents: 2000,
+    });
+
+    const next = executionProgressWithObservedMetrics(
+      progress({ metrics: { outreachSent: 12, replies: 4, interviews: 2, qualifiedConversations: 2, commitments: 0, revenueCents: 0, founderMinutes: 0, variableCostCents: 0, leads: 1 } }),
+      { evidenceLedger: entries },
+    );
+    expect(next.metrics).toMatchObject({
+      outreachSent: 12,
+      replies: 4,
+      interviews: 2,
+      qualifiedConversations: 2,
+      leads: 1,
+      commitments: 2,
+      revenueCents: 75000,
+      founderMinutes: 155,
+      variableCostCents: 2000,
+    });
   });
 });
