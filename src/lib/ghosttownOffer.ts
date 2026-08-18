@@ -2,18 +2,18 @@ export const GHOSTTOWN_30_DAY_PLAN_V1 = {
   offerId: 'ghosttown_30_day_plan_v1',
   version: '1.0',
   name: 'GhostTown Launch Blueprint',
-  subtitle: 'Your personalized 30-day idea-to-evidence launch system',
+  subtitle: 'Your guided 30-day idea-to-evidence execution system',
   customerPromise: [
-    'Personalized 30-day launch roadmap',
+    'Guided 30-day execution calendar that opens each day’s exact actions, prepared assets, evidence prompts, and decision context',
     'Clear offer and pricing strategy',
     'Target-customer and positioning plan',
     'Current customer-access and Media & Distribution Network research',
     'Landing-page messaging and sales copy',
     'Customer outreach scripts and action plan',
     'Weekly priorities, milestones, and success metrics',
-    'Thirty-day daily execution calendar',
+    'Evidence checkpoints that tell you when to continue, revise, pivot, pause, or stop',
     'Custom Launch Website — a real website built around your idea, offer, and customer',
-    'Downloadable plan and finished assets saved to the customer account'
+    'Prepared assets stay openable, editable, and exportable from your account'
   ],
   launchSiteInvariant: 'The Launch Site is the working implementation of the landing-page messaging, offer, pricing, and call to action created in the Blueprint—not a separate unrelated bonus.',
   amountCents: 9700,
