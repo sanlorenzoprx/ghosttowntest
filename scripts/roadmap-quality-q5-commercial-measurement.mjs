@@ -157,8 +157,8 @@ const attributionFields = [
 const analyticsAttributionContract = attributionFields.every(field => has(analytics, field));
 const metricAttributionContract = [
   'attributionToken', 'experimentId', 'sourceVerdictId', 'creativeId', 'publicationId',
-  'platform', 'accountId', 'campaign', 'source'
-].every(field => has(metrics, field));
+  'platform', 'accountId', 'campaign', 'source', 'visitorId', 'ghosttownSessionId'
+].every(field => has(metrics, field)) && (has(metrics, 'sessionAttribution') || has(metrics, 'session_attribution'));
 const checkoutAttributionMetadata = [
   'metadata[attribution_token]',
   'metadata[experiment_id]',
@@ -166,6 +166,8 @@ const checkoutAttributionMetadata = [
   'metadata[creative_id]',
   'metadata[publication_id]',
   'metadata[platform]',
+  'metadata[distribution_account_id]',
+  'metadata[campaign]',
   'metadata[source]',
   'metadata[visitor_id]',
   'metadata[ghosttown_session_id]'
@@ -182,7 +184,7 @@ const purchaseAuthority = has(webhook, 'recordVerifiedPurchase')
   && has(metrics, 'revenueMinorUnitsByCurrency')
   && has(metrics, 'checkout_to_verified_purchase');
 
-const repairRoute = has(index, '/blueprint/retry')
+const repairRoute = has(index, 'blueprintRetryMatch')
   && has(index, 'handleLaunchBlueprintRetry')
   && has(blueprintApi, 'handleLaunchBlueprintRetry');
 
