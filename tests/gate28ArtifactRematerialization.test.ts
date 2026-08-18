@@ -29,6 +29,8 @@ describe('Gate 28 acceptance artifact rematerialization', () => {
   it('refuses to change the canonical Blueprint and preserves pre-repair evidence', () => {
     expect(repair).toContain("sha256(canonicalJsonBytes) !== gate27.artifacts.json.sha256");
     expect(repair).toContain('canonical_blueprint_unchanged: true');
+    expect(repair).toContain('canonical_blueprint_regenerated: false');
+    expect(repair).not.toContain('blueprint_json =');
     expect(repair).toContain('pre-rematerialization-blueprint.pdf');
     expect(repair).toContain('pre-rematerialization-assets.zip');
     expect(repair).toContain('pre-rematerialization-gate27-receipt.json');
