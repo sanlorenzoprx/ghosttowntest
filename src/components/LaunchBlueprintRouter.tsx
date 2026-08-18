@@ -55,33 +55,27 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
     });
   }, [orderId, payload]);
 
-  const currentPacketDay = () => {
-    if (!payload) return 1;
-    const completed = new Set(payload.progress.completedDays || []);
-    return payload.blueprint.dailyCalendar.find(day => !completed.has(day.dayNumber))?.dayNumber || 30;
-  };
-
-  const recordDailyPacketOpen = () => {
+  const recordRenderedDailyPacket = (container: HTMLDivElement) => {
     if (!payload) return;
-    const dayNumber = currentPacketDay();
-    void recordCommercialEvent('daily_packet_opened', {
-      orderId,
-      verdictId: payload.blueprint.sourceVerdictId,
-      content: `day:${dayNumber}`,
-      dedupeKey: `daily_packet_opened:${orderId}:${dayNumber}`
-    });
+    window.setTimeout(() => {
+      const match = container.textContent?.match(/Today · Day\s+(\d{1,2})/);
+      const dayNumber = match ? Number(match[1]) : 0;
+      if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 30) return;
+      void recordCommercialEvent('daily_packet_opened', {
+        orderId,
+        verdictId: payload.blueprint.sourceVerdictId,
+        content: `day:${dayNumber}`,
+        dedupeKey: `daily_packet_opened:${orderId}:${dayNumber}`
+      });
+    }, 0);
   };
 
   const captureClick = (event: MouseEvent<HTMLDivElement>) => {
-    const target = event.target instanceof Element ? event.target.closest('button') : null;
-    if (target?.textContent?.trim() === 'Today') recordDailyPacketOpen();
+    recordRenderedDailyPacket(event.currentTarget);
   };
 
   const captureChange = (event: ChangeEvent<HTMLDivElement>) => {
-    const target = event.target;
-    if (target instanceof HTMLSelectElement && target.id === 'blueprint-mobile-nav' && target.value === 'today') {
-      recordDailyPacketOpen();
-    }
+    recordRenderedDailyPacket(event.currentTarget);
   };
 
   if (loading) {
