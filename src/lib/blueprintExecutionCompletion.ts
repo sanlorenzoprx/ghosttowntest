@@ -72,6 +72,12 @@ const EXTERNAL_EVIDENCE_TARGETS = new Set([
   'fulfillment_run',
 ]);
 
+// These canonical days prepare or simulate the next external action; they do
+// not themselves produce a customer result. They still require a meaningful
+// execution note (or structured evidence), but must not force fabricated buyer
+// evidence merely because the prepared asset retains its downstream target.
+const PREPARATION_ONLY_DAYS = new Set([9, 15]);
+
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -154,7 +160,8 @@ export function dayCompletionReadiness(
   const matchingEvidence = (progress.evidenceLedger || []).filter(entry =>
     Boolean(entry.actionId && actionIds.has(entry.actionId) && meaningfulEvidence(entry))
   );
-  const requiresStructuredEvidence = Boolean(packet?.targets.some(target => EXTERNAL_EVIDENCE_TARGETS.has(target.kind)));
+  const requiresStructuredEvidence = !PREPARATION_ONLY_DAYS.has(dayNumber)
+    && Boolean(packet?.targets.some(target => EXTERNAL_EVIDENCE_TARGETS.has(target.kind)));
   const requiredEvidenceCount = requiresStructuredEvidence
     ? Math.max(1, ...(packet?.actions || []).map(action => evidenceQuantity(action.quantity)))
     : 1;
