@@ -64,17 +64,17 @@ function redact(value, orderId = '') {
     .replace(/-----BEGIN [^-]+PRIVATE KEY-----[\s\S]*?-----END [^-]+PRIVATE KEY-----/g, '[PRIVATE_KEY_REDACTED]');
 }
 
-function runNode(script, args = [], options = {}) {
+function runNode(script, args = [], { orderId = '', ...spawnOptions } = {}) {
   const result = spawnSync(process.execPath, [script, ...args], {
     cwd: ROOT,
     encoding: 'utf8',
     shell: false,
     maxBuffer: 64 * 1024 * 1024,
-    ...options,
+    ...spawnOptions,
   });
   if (result.error) throw result.error;
   if ((result.status ?? 1) !== 0) {
-    throw new Error(`Gate 28 repair command failed (${result.status ?? 1}).\n${redact(result.stderr || result.stdout || '', options.orderId || '')}`.trim());
+    throw new Error(`Gate 28 repair command failed (${result.status ?? 1}).\n${redact(result.stderr || result.stdout || '', orderId)}`.trim());
   }
   return `${result.stdout || ''}\n${result.stderr || ''}`;
 }
@@ -177,8 +177,10 @@ function assertCurrentArtifacts(pdfBytes, zipBytes, canonicalJsonBytes) {
 function renderCurrentArtifacts(blueprintPath, orderId) {
   const pdfPath = join(TEMP_DIR, 'current-blueprint.pdf');
   const zipPath = join(TEMP_DIR, 'current-assets.zip');
+  const documentReceiptPath = join(TEMP_DIR, 'current-document-receipt.json');
   rmSync(pdfPath, { force: true });
   rmSync(zipPath, { force: true });
+  rmSync(documentReceiptPath, { force: true });
   runNode(VITEST_CLI, ['run', HELPER], {
     orderId,
     env: {
@@ -186,11 +188,13 @@ function renderCurrentArtifacts(blueprintPath, orderId) {
       GHOSTTOWN_GATE28_BLUEPRINT_PATH: blueprintPath,
       GHOSTTOWN_GATE28_PDF_PATH: pdfPath,
       GHOSTTOWN_GATE28_ZIP_PATH: zipPath,
+      GHOSTTOWN_GATE28_DOCUMENT_RECEIPT_PATH: documentReceiptPath,
     },
   });
   requireFile(pdfPath, 'current v2.1 PDF');
   requireFile(zipPath, 'current v2.1 ZIP');
-  return { pdfPath, zipPath };
+  requireFile(documentReceiptPath, 'current deterministic document receipt');
+  return { pdfPath, zipPath, documentReceiptPath };
 }
 
 function fetchD1Receipt(orderId) {
@@ -218,8 +222,8 @@ function putKvJson(key, value, filename, orderId) {
   runWrangler(['kv', 'key', 'put', key, '--binding', KV_BINDING, '--path', path, '--remote', '--env', 'acceptance'], orderId);
 }
 
-function writeD1Receipt(orderId, researchReceipt) {
-  const sqlPath = join(TEMP_DIR, 'update-research-receipt.sql');
+function writeD1Receipt(orderId, researchReceipt, filename = 'update-research-receipt.sql') {
+  const sqlPath = join(TEMP_DIR, filename);
   const now = new Date().toISOString();
   writeFileSync(sqlPath,
     `UPDATE launch_blueprints SET research_receipt_json = ${sqlLiteral(JSON.stringify(researchReceipt))}, updated_at = ${sqlLiteral(now)} WHERE order_id = ${sqlLiteral(orderId)};\n`,
@@ -232,13 +236,13 @@ function putPresentationArtifacts(orderId, pdfPath, zipPath) {
     'r2', 'object', 'put', `${R2_BUCKET}/orders/${orderId}/ghosttown-launch-blueprint-v2.pdf`,
     '--file', pdfPath, '--content-type', 'application/pdf',
     '--content-disposition', `attachment; filename="ghosttown-launch-blueprint-${orderId}.pdf"`,
-    '--remote', '--env', 'acceptance',
+    '--remote', '--env', 'acceptance', '--force',
   ], orderId);
   runWrangler([
     'r2', 'object', 'put', `${R2_BUCKET}/orders/${orderId}/ghosttown-launch-blueprint-v2-assets.zip`,
     '--file', zipPath, '--content-type', 'application/zip',
     '--content-disposition', `attachment; filename="ghosttown-launch-blueprint-${orderId}-assets.zip"`,
-    '--remote', '--env', 'acceptance',
+    '--remote', '--env', 'acceptance', '--force',
   ], orderId);
 }
 
@@ -285,9 +289,10 @@ copyFileSync(oldPdfPath, join(BACKUP_DIR, 'pre-rematerialization-blueprint.pdf')
 copyFileSync(oldZipPath, join(BACKUP_DIR, 'pre-rematerialization-assets.zip'));
 copyFileSync(GATE27_RECEIPT_PATH, join(BACKUP_DIR, 'pre-rematerialization-gate27-receipt.json'));
 
-const { pdfPath, zipPath } = renderCurrentArtifacts(jsonPath, orderId);
+const { pdfPath, zipPath, documentReceiptPath } = renderCurrentArtifacts(jsonPath, orderId);
 const newPdfBytes = readFileSync(pdfPath);
 const newZipBytes = readFileSync(zipPath);
+const documentReceipt = JSON.parse(readFileSync(documentReceiptPath, 'utf8'));
 assertCurrentArtifacts(newPdfBytes, newZipBytes, canonicalJsonBytes);
 const newPdfSha256 = sha256(newPdfBytes);
 const newZipSha256 = sha256(newZipBytes);
@@ -296,13 +301,22 @@ if (newPdfSha256 === gate27.artifacts.pdf.sha256 && newZipSha256 === gate27.arti
   throw new Error('Gate 28 repair found no artifact-byte change; rerun Gate 28 because the stored artifacts already match the current renderer.');
 }
 
-const researchReceipt = fetchD1Receipt(orderId);
-const previousEvidence = JSON.parse(JSON.stringify(researchReceipt.generationReceiptEvidence));
+const priorResearchReceipt = fetchD1Receipt(orderId);
+const priorIntegrity = fetchKvJson(`paid_test_blueprint_integrity_${orderId}`, orderId);
+const pointerKey = `paid_test_blueprint_pointer_${orderId}`;
+const priorPointer = fetchKvJson(pointerKey, orderId);
+writeFileSync(join(BACKUP_DIR, 'pre-rematerialization-research-receipt.json'), `${JSON.stringify(priorResearchReceipt, null, 2)}\n`, 'utf8');
+writeFileSync(join(BACKUP_DIR, 'pre-rematerialization-integrity-kv.json'), `${JSON.stringify(priorIntegrity, null, 2)}\n`, 'utf8');
+writeFileSync(join(BACKUP_DIR, 'pre-rematerialization-pointer-kv.json'), `${JSON.stringify(priorPointer, null, 2)}\n`, 'utf8');
+
+const researchReceipt = JSON.parse(JSON.stringify(priorResearchReceipt));
+const previousEvidence = researchReceipt.generationReceiptEvidence;
 if (previousEvidence.hashes.canonicalBlueprintSha256 !== gate27.artifacts.json.sha256) {
   throw new Error('Gate 28 repair refuses to continue: D1 canonical Blueprint hash does not match Gate 27.');
 }
 researchReceipt.generationReceiptEvidence.hashes.pdfSha256 = newPdfSha256;
 researchReceipt.generationReceiptEvidence.hashes.zipSha256 = newZipSha256;
+researchReceipt.generationReceiptEvidence.document = documentReceipt;
 researchReceipt.artifactRematerialization = {
   schemaVersion: 'ghosttown-acceptance-artifact-rematerialization-v1',
   reason: 'Gate 28 premium-document renderer contract postdates the preserved Gate 20 acceptance purchase.',
@@ -312,6 +326,7 @@ researchReceipt.artifactRematerialization = {
   pdfSha256: newPdfSha256,
   zipSha256: newZipSha256,
   renderer: 'renderLaunchBlueprintPdfV21',
+  documentReceipt,
   purchaseReplayed: false,
   researchReplayed: false,
   modelInvoked: false,
@@ -319,24 +334,47 @@ researchReceipt.artifactRematerialization = {
   productionDeployed: false,
   rematerializedAt: new Date().toISOString(),
 };
-
-putPresentationArtifacts(orderId, pdfPath, zipPath);
-writeD1Receipt(orderId, researchReceipt);
-putKvJson(`paid_test_blueprint_integrity_${orderId}`, researchReceipt.generationReceiptEvidence, 'integrity-receipt.json', orderId);
-const pointerKey = `paid_test_blueprint_pointer_${orderId}`;
-const pointer = fetchKvJson(pointerKey, orderId);
+const pointer = JSON.parse(JSON.stringify(priorPointer));
 pointer.hashes = researchReceipt.generationReceiptEvidence.hashes;
 pointer.updatedAt = new Date().toISOString();
-putKvJson(pointerKey, pointer, 'blueprint-pointer.json', orderId);
 
-const verifyPdfPath = downloadR2(orderId, `orders/${orderId}/ghosttown-launch-blueprint-v2.pdf`, 'verify-blueprint.pdf');
-const verifyZipPath = downloadR2(orderId, `orders/${orderId}/ghosttown-launch-blueprint-v2-assets.zip`, 'verify-assets.zip');
-if (sha256(readFileSync(verifyPdfPath)) !== newPdfSha256 || sha256(readFileSync(verifyZipPath)) !== newZipSha256) {
-  throw new Error('Gate 28 repair post-write R2 verification failed.');
-}
-const verifyD1 = fetchD1Receipt(orderId).generationReceiptEvidence;
-if (verifyD1.hashes.pdfSha256 !== newPdfSha256 || verifyD1.hashes.zipSha256 !== newZipSha256 || verifyD1.hashes.canonicalBlueprintSha256 !== gate27.artifacts.json.sha256) {
-  throw new Error('Gate 28 repair post-write D1 integrity verification failed.');
+let mutationStarted = false;
+try {
+  mutationStarted = true;
+  putPresentationArtifacts(orderId, pdfPath, zipPath);
+  writeD1Receipt(orderId, researchReceipt);
+  putKvJson(`paid_test_blueprint_integrity_${orderId}`, researchReceipt.generationReceiptEvidence, 'integrity-receipt.json', orderId);
+  putKvJson(pointerKey, pointer, 'blueprint-pointer.json', orderId);
+
+  const verifyPdfPath = downloadR2(orderId, `orders/${orderId}/ghosttown-launch-blueprint-v2.pdf`, 'verify-blueprint.pdf');
+  const verifyZipPath = downloadR2(orderId, `orders/${orderId}/ghosttown-launch-blueprint-v2-assets.zip`, 'verify-assets.zip');
+  if (sha256(readFileSync(verifyPdfPath)) !== newPdfSha256 || sha256(readFileSync(verifyZipPath)) !== newZipSha256) {
+    throw new Error('Gate 28 repair post-write R2 verification failed.');
+  }
+  const verifyD1 = fetchD1Receipt(orderId).generationReceiptEvidence;
+  if (verifyD1.hashes.pdfSha256 !== newPdfSha256 || verifyD1.hashes.zipSha256 !== newZipSha256 || verifyD1.hashes.canonicalBlueprintSha256 !== gate27.artifacts.json.sha256) {
+    throw new Error('Gate 28 repair post-write D1 integrity verification failed.');
+  }
+  const verifyIntegrity = fetchKvJson(`paid_test_blueprint_integrity_${orderId}`, orderId);
+  const verifyPointer = fetchKvJson(pointerKey, orderId);
+  if (verifyIntegrity?.hashes?.pdfSha256 !== newPdfSha256 || verifyIntegrity?.hashes?.zipSha256 !== newZipSha256) throw new Error('Gate 28 repair post-write KV integrity receipt verification failed.');
+  if (verifyPointer?.hashes?.pdfSha256 !== newPdfSha256 || verifyPointer?.hashes?.zipSha256 !== newZipSha256) throw new Error('Gate 28 repair post-write KV Blueprint pointer verification failed.');
+} catch (error) {
+  if (mutationStarted) {
+    let rollbackError = null;
+    try {
+      putPresentationArtifacts(orderId, oldPdfPath, oldZipPath);
+      writeD1Receipt(orderId, priorResearchReceipt, 'rollback-research-receipt.sql');
+      putKvJson(`paid_test_blueprint_integrity_${orderId}`, priorIntegrity, 'rollback-integrity-receipt.json', orderId);
+      putKvJson(pointerKey, priorPointer, 'rollback-blueprint-pointer.json', orderId);
+    } catch (caught) {
+      rollbackError = caught;
+    }
+    if (rollbackError) {
+      throw new Error(`Gate 28 rematerialization failed and rollback also failed. Original: ${error instanceof Error ? error.message : String(error)}. Rollback: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`);
+    }
+  }
+  throw error;
 }
 
 const repairReceipt = {
@@ -347,7 +385,7 @@ const repairReceipt = {
   canonical_blueprint_sha256: gate27.artifacts.json.sha256,
   canonical_blueprint_unchanged: true,
   prior: { pdf_sha256: gate27.artifacts.pdf.sha256, zip_sha256: gate27.artifacts.zip.sha256 },
-  current: { pdf_sha256: newPdfSha256, zip_sha256: newZipSha256 },
+  current: { pdf_sha256: newPdfSha256, zip_sha256: newZipSha256, document_receipt: documentReceipt },
   purchase_replayed: false,
   stripe_charge_created: false,
   research_replayed: false,
@@ -357,6 +395,7 @@ const repairReceipt = {
   acceptance_d1_integrity_receipt_updated: true,
   acceptance_kv_integrity_pointer_updated: true,
   historical_artifacts_backed_up_locally: true,
+  rollback_on_partial_failure: true,
   production_mutated: false,
   production_deployed: false,
   gate27_reverification_required: true,
