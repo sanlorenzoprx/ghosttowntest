@@ -1,6 +1,7 @@
 import { apiUrl } from './api';
 import type {
   CommercialAttributionEnvelope,
+  CommercialAttributionTouch,
   CommercialEventContext,
   CommercialEventName,
   CommercialShareType
@@ -27,15 +28,12 @@ function randomId(prefix: string): string {
 function safeLocalGet(key: string): string | null {
   try { return localStorage.getItem(key); } catch { return null; }
 }
-
 function safeLocalSet(key: string, value: string): void {
   try { localStorage.setItem(key, value); } catch { /* analytics must never block the product */ }
 }
-
 function safeSessionGet(key: string): string | null {
   try { return sessionStorage.getItem(key); } catch { return null; }
 }
-
 function safeSessionSet(key: string, value: string): void {
   try { sessionStorage.setItem(key, value); } catch { /* analytics must never block the product */ }
 }
@@ -67,14 +65,13 @@ function parameter(params: URLSearchParams, ...names: string[]): string | undefi
   return undefined;
 }
 
-function shareType(value: string | undefined): CommercialShareType | undefined {
+function shareType(value: unknown): CommercialShareType | undefined {
   return value === 'factory' || value === 'customer' || value === 'earned' ? value : undefined;
 }
 
-function urlTouch(search: string): Partial<CommercialAttributionEnvelope> {
+function urlTouch(search: string): Omit<CommercialAttributionTouch, 'capturedAt'> {
   const params = new URLSearchParams(search);
   return {
-    attributionToken: parameter(params, 'attribution_token', 'attributionToken'),
     experimentId: parameter(params, 'experiment_id', 'experimentId'),
     sourceVerdictId: parameter(params, 'source_verdict_id', 'sourceVerdictId'),
     creativeId: parameter(params, 'creative_id', 'creativeId'),
@@ -87,34 +84,81 @@ function urlTouch(search: string): Partial<CommercialAttributionEnvelope> {
   };
 }
 
+function hasTouch(value: Partial<CommercialAttributionTouch>): boolean {
+  return Boolean(value.experimentId || value.sourceVerdictId || value.creativeId || value.publicationId || value.platform || value.accountId || value.campaign || value.source || value.shareType);
+}
+
+function sanitizeTouch(value: unknown, fallbackAt: string): CommercialAttributionTouch | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const source = value as Partial<CommercialAttributionTouch>;
+  const touch: CommercialAttributionTouch = {
+    capturedAt: clean(source.capturedAt) || fallbackAt,
+    experimentId: clean(source.experimentId),
+    sourceVerdictId: clean(source.sourceVerdictId),
+    creativeId: clean(source.creativeId),
+    publicationId: clean(source.publicationId),
+    platform: clean(source.platform, 40),
+    accountId: clean(source.accountId),
+    campaign: clean(source.campaign),
+    source: clean(source.source),
+    shareType: shareType(source.shareType)
+  };
+  return hasTouch(touch) ? touch : undefined;
+}
+
+function legacyTouch(prior: Partial<CommercialAttributionEnvelope>, capturedAt: string): CommercialAttributionTouch | undefined {
+  const touch: CommercialAttributionTouch = {
+    capturedAt,
+    experimentId: clean(prior.experimentId),
+    sourceVerdictId: clean(prior.sourceVerdictId),
+    creativeId: clean(prior.creativeId),
+    publicationId: clean(prior.publicationId),
+    platform: clean(prior.platform, 40),
+    accountId: clean(prior.accountId),
+    campaign: clean(prior.campaign),
+    source: clean(prior.source),
+    shareType: shareType(prior.shareType)
+  };
+  return hasTouch(touch) ? touch : undefined;
+}
+
+function withSourceVerdict(touch: CommercialAttributionTouch, verdictId: string | undefined): CommercialAttributionTouch {
+  return touch.sourceVerdictId || !verdictId ? touch : { ...touch, sourceVerdictId: verdictId };
+}
+
 export function captureCommercialAttribution(search = typeof window !== 'undefined' ? window.location.search : ''): CommercialAttributionEnvelope {
   const now = new Date().toISOString();
-  const prior = readStored();
-  const touch = urlTouch(search);
-  const firstTouchAt = clean(prior?.firstTouchAt) || now;
-  const visitorId = clean(prior?.visitorId) || randomId('gtv');
-  const stableToken = clean(prior?.attributionToken) || clean(touch.attributionToken) || randomId('gta');
+  const prior = readStored() || {};
+  const incoming = urlTouch(search);
+  const incomingTouch = hasTouch(incoming) ? { ...incoming, capturedAt: now } as CommercialAttributionTouch : undefined;
+  const priorFirstAt = clean(prior.firstTouchAt) || now;
+  const priorLastAt = clean(prior.lastTouchAt) || priorFirstAt;
+  const priorFirst = sanitizeTouch(prior.firstTouch, priorFirstAt) || legacyTouch(prior, priorFirstAt);
+  const priorLast = sanitizeTouch(prior.lastTouch, priorLastAt) || priorFirst;
+  const firstTouch = priorFirst || incomingTouch || { capturedAt: now };
+  const lastTouch = incomingTouch || priorLast || firstTouch;
+  const params = new URLSearchParams(search);
+  const stableToken = clean(prior.attributionToken) || parameter(params, 'attribution_token', 'attributionToken') || randomId('gta');
 
-  // Attribution is intentionally sticky: the first attributable acquisition touch
-  // owns the conversion lineage. Untagged revisits and later URL changes do not
-  // silently rewrite the source/creative that originally acquired the visitor.
   const envelope: CommercialAttributionEnvelope = {
     schemaVersion: 'ghosttown-commercial-attribution-v1',
     attributionToken: stableToken,
-    visitorId,
+    visitorId: clean(prior.visitorId) || randomId('gtv'),
     ghosttownSessionId: sessionId(),
-    firstTouchAt,
-    lastTouchAt: now,
-    experimentId: clean(prior?.experimentId) || clean(touch.experimentId),
-    sourceVerdictId: clean(prior?.sourceVerdictId) || clean(touch.sourceVerdictId),
-    creativeId: clean(prior?.creativeId) || clean(touch.creativeId),
-    publicationId: clean(prior?.publicationId) || clean(touch.publicationId),
-    platform: clean(prior?.platform, 40) || clean(touch.platform, 40),
-    accountId: clean(prior?.accountId) || clean(touch.accountId),
-    campaign: clean(prior?.campaign) || clean(touch.campaign),
-    source: clean(prior?.source) || clean(touch.source),
-    shareType: shareType(prior?.shareType) || shareType(touch.shareType),
-    verdictId: clean(prior?.verdictId)
+    firstTouchAt: firstTouch.capturedAt,
+    lastTouchAt: lastTouch.capturedAt,
+    experimentId: firstTouch.experimentId,
+    sourceVerdictId: firstTouch.sourceVerdictId,
+    creativeId: firstTouch.creativeId,
+    publicationId: firstTouch.publicationId,
+    platform: firstTouch.platform,
+    accountId: firstTouch.accountId,
+    campaign: firstTouch.campaign,
+    source: firstTouch.source,
+    shareType: firstTouch.shareType,
+    firstTouch,
+    lastTouch,
+    verdictId: clean(prior.verdictId)
   };
   safeLocalSet(ATTRIBUTION_KEY, JSON.stringify(envelope));
   return envelope;
@@ -122,32 +166,27 @@ export function captureCommercialAttribution(search = typeof window !== 'undefin
 
 export function linkCommercialVerdict(verdictId: string): CommercialAttributionEnvelope {
   const current = captureCommercialAttribution();
-  const next: CommercialAttributionEnvelope = {
-    ...current,
-    verdictId: clean(verdictId),
-    lastTouchAt: new Date().toISOString()
-  };
+  const next: CommercialAttributionEnvelope = { ...current, verdictId: clean(verdictId) };
   safeLocalSet(ATTRIBUTION_KEY, JSON.stringify(next));
   return next;
 }
 
 export function commercialAttributionForCheckout(verdictId: string): CommercialAttributionEnvelope {
   const current = linkCommercialVerdict(verdictId);
+  const normalizedVerdict = clean(verdictId);
+  const firstTouch = withSourceVerdict(current.firstTouch, normalizedVerdict);
+  const lastTouch = withSourceVerdict(current.lastTouch, normalizedVerdict);
   const next: CommercialAttributionEnvelope = {
     ...current,
-    // When there is no upstream Story Studio/source verdict, the current
-    // GhostTown verdict becomes the terminal source-verdict lineage key.
-    sourceVerdictId: current.sourceVerdictId || clean(verdictId),
-    lastTouchAt: new Date().toISOString()
+    sourceVerdictId: firstTouch.sourceVerdictId,
+    firstTouch,
+    lastTouch
   };
   safeLocalSet(ATTRIBUTION_KEY, JSON.stringify(next));
   return next;
 }
 
-export async function recordCommercialEvent(
-  eventName: CommercialEventName,
-  context: CommercialEventContext = {}
-): Promise<void> {
+export async function recordCommercialEvent(eventName: CommercialEventName, context: CommercialEventContext = {}): Promise<void> {
   try {
     if (context.dedupeKey) {
       const key = `${EVENT_DEDUPE_PREFIX}${context.dedupeKey}`;
@@ -159,10 +198,7 @@ export async function recordCommercialEvent(
     await fetch(apiUrl('/api/analytics/events'), {
       method: 'POST',
       keepalive: true,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({
         eventName,
         orderId: clean(context.orderId, 120),
@@ -179,11 +215,12 @@ export async function recordCommercialEvent(
         source: attribution.source,
         shareType: attribution.shareType,
         visitorId: attribution.visitorId,
-        ghosttownSessionId: attribution.ghosttownSessionId
+        ghosttownSessionId: attribution.ghosttownSessionId,
+        firstTouch: attribution.firstTouch,
+        lastTouch: attribution.lastTouch
       })
     }).catch(() => undefined);
   } catch {
-    // Measurement is best-effort at the browser edge; trusted purchase and
-    // progress evidence is recorded again by the Worker on authoritative paths.
+    // Browser-edge measurement is best-effort; trusted checkout/progress evidence is recorded by the Worker.
   }
 }
