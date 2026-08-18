@@ -1,6 +1,6 @@
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
-import { composeBlueprintDocumentModel, validateBlueprintDocumentModel } from './blueprintDocumentModel';
-import { renderBlueprintDocumentHtml } from './blueprintDocumentHtml';
+import { composeBlueprintDocumentModel, validateBlueprintDocumentAgainstCanonical, type BlueprintDocumentModel } from './blueprintDocumentModel';
+import { renderBlueprintDocumentHtml, renderWithBrowserPdfOrFallback, type BrowserPdfRenderer } from './blueprintDocumentHtml';
 
 const WIDTH = 612;
 const HEIGHT = 792;
@@ -75,7 +75,7 @@ function wrap(value: string, width: number, size: number): string[] {
   return output;
 }
 
-class V21PdfBuilder {
+export class V21PdfBuilder {
   private pages: Page[] = [];
   private current!: Page;
   private y = 0;
@@ -554,6 +554,42 @@ class V21PdfBuilder {
   }
 }
 
+/** Deterministic PDF fallback rendered from the document model, not from a
+ * parallel legacy report. It intentionally has no browser/provider dependency. */
+export function renderBlueprintDocumentModelPdf(model: BlueprintDocumentModel): Uint8Array {
+  const pages: Page[] = [];
+  let current: Page | undefined;
+  let y = HEIGHT - 58;
+  const page = (section: string) => {
+    current = { commands: [], section, number: pages.length + 1 }; pages.push(current); y = HEIGHT - 58;
+    current.commands.push(`q\n${rgb(COLORS.ink)} rg\n0 ${HEIGHT - 34} ${WIDTH} 34 re f\nQ`);
+    current.commands.push(`BT\n/F2 8 Tf\n${rgb(COLORS.white)} rg\n1 0 0 1 ${MARGIN} ${HEIGHT - 22} Tm\n(GHOSTTOWN LAUNCH BLUEPRINT) Tj\nET`);
+    current.commands.push(`BT\n/F1 7.5 Tf\n${rgb(COLORS.muted)} rg\n1 0 0 1 ${MARGIN} 23 Tm\n(Contract ${escape(model.sourceBlueprint.blueprintVersion)} | Page ${pages.length}) Tj\nET`);
+  };
+  const write = (value: string, size = 9.5, bold = false) => {
+    if (!current) page('Document');
+    const lines = wrap(value, BODY_WIDTH, size);
+    for (const line of lines) {
+      if (y < 54) page(current!.section);
+      current!.commands.push(`BT\n/${bold ? 'F2' : 'F1'} ${size} Tf\n${rgb(COLORS.ink)} rg\n1 0 0 1 ${MARGIN} ${y.toFixed(1)} Tm\n(${escape(line)}) Tj\nET`);
+      y -= size * 1.33;
+    }
+    y -= 4;
+  };
+  const heading = (value: string, level = 2) => { write(value, level === 1 ? 22 : level === 2 ? 15 : 10, true); };
+  page('Cover'); heading('GHOSTTOWN LAUNCH BLUEPRINT', 1); write(`CANONICAL V2.1 · ${model.documentId}`, 10, true); write(`Render mode: deterministic_fallback`); write(`Customer actions: Open Blueprint · PDF`); write(`Verdict lineage: ${model.sourceBlueprint.sourceVerdictId} -> ${model.sourceBlueprint.blueprintId}`);
+  for (const section of model.prioritySections) {
+    page(section.title); heading(section.title); heading('DECISION', 3); write(section.decision); heading('WHY', 3); write(section.why);
+    heading('EVIDENCE', 3); section.evidence.forEach(item => write(`[${item.truthLabel}] ${item.statement}${item.sourceRefs.length ? ` (sources: ${item.sourceRefs.join(', ')})` : ''}`));
+    heading('READY-TO-USE ASSETS', 3); section.readyToUseAssets.forEach(item => { heading(item.title, 3); write(item.finishedContent, 8.8); write(`Use: ${item.usageInstructions}`, 8.8); });
+    heading('MEASUREMENT', 3); write(`Success: ${section.measurement.successThreshold}`); write(`Failure: ${section.measurement.failureThreshold}`); write(`Complete when: ${section.measurement.completionDefinition}`); section.measurement.evidenceToCapture.forEach(item => write(`Capture: ${item}`, 8.8));
+    if (section.accessGroups) { heading('ACCESS NETWORK: PRIORITY FIVE / RESERVE FIVE / PARTNER TARGETS', 3); section.accessGroups.forEach(group => { heading(group.title, 3); group.targets.forEach(target => write(`${target.name} | ${target.publicUrl} | sources ${target.sourceRefs.join(', ')} | ${target.researchDate} | ${target.confidence} | ${target.accessPath} | risk ${target.risk} | ${target.matchedAssetOrScript} | first action: ${target.firstAction}`, 8.3)); }); }
+    heading('ADAPTATION RULE', 3); section.adaptationRule.forEach(rule => write(`IF ${rule.condition} THEN ${rule.action} (${rule.route}); capture ${rule.evidenceRequired.join(', ')}`));
+  }
+  for (const section of model.supportingSections) { page(section.title); heading(section.title); section.content.forEach(item => write(item, 8.8)); }
+  return encodePdf(pages);
+}
+
 function encodePdf(pages: Page[]): Uint8Array {
   const objects: string[] = [
     '<< /Type /Catalog /Pages 2 0 R >>',
@@ -592,8 +628,20 @@ export function renderLaunchBlueprintPdfV21(blueprint: GhostTownLaunchBlueprintV
   // pipeline byte-compatible while making the document model the fail-closed
   // presentation contract.
   const model = composeBlueprintDocumentModel(blueprint);
-  const failures = validateBlueprintDocumentModel(model);
+  const failures = validateBlueprintDocumentAgainstCanonical(model, blueprint);
   if (failures.length) throw new Error(`Blueprint document model failed: ${failures.join(', ')}`);
   renderBlueprintDocumentHtml(model);
-  return new V21PdfBuilder(blueprint).render();
+  return renderBlueprintDocumentModelPdf(model);
+}
+
+export async function renderLaunchBlueprintPdfV21WithBrowser(
+  blueprint: GhostTownLaunchBlueprintV21,
+  renderer?: BrowserPdfRenderer
+): Promise<{ bytes: Uint8Array; html: string; model: BlueprintDocumentModel; mode: 'browser' | 'deterministic_fallback' }> {
+  const model = composeBlueprintDocumentModel(blueprint);
+  const failures = validateBlueprintDocumentAgainstCanonical(model, blueprint);
+  if (failures.length) throw new Error(`Blueprint document model failed: ${failures.join(', ')}`);
+  const html = renderBlueprintDocumentHtml(model);
+  const result = await renderWithBrowserPdfOrFallback(html, () => renderBlueprintDocumentModelPdf(model), renderer);
+  return { ...result, html, model };
 }

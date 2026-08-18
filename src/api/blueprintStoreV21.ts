@@ -292,7 +292,8 @@ export async function saveBlueprintRecordV21(
   env: Env,
   blueprint: GhostTownLaunchBlueprintV21,
   researchReceipt: CustomerAccessResearchReceipt,
-  pdfBytes: Uint8Array
+  pdfBytes: Uint8Array,
+  document?: BlueprintGenerationEvidenceReceipt['document']
 ): Promise<BlueprintGenerationEvidenceReceipt> {
   if (!env.DB) throw new Error('Launch Blueprint D1 binding is not configured');
   if (!env.BLUEPRINTS) throw new Error('Private Launch Blueprint R2 binding is not configured');
@@ -317,7 +318,8 @@ export async function saveBlueprintRecordV21(
       zipSha256: await sha256Hex(zipBytes)
     },
     quality: blueprint.generationReceipt.quality,
-    artifactKeys: blueprint.generationReceipt.artifactKeys
+    artifactKeys: blueprint.generationReceipt.artifactKeys,
+    document
   };
   assertNoSecretValues(JSON.stringify(exactReceipt), env);
 

@@ -330,6 +330,13 @@ export interface BlueprintGenerationEvidenceReceipt {
   hashes: BlueprintGenerationHashesReceipt;
   quality: BlueprintGenerationQualityReceipt;
   artifactKeys: BlueprintGenerationArtifactKeysReceipt;
+  document?: {
+    modelVersion: 'ghosttown-blueprint-document-model-v1';
+    renderMode: 'browser' | 'deterministic_fallback';
+    modelSha256: string;
+    htmlSha256: string;
+    cssSha256: string;
+  };
 }
 
 export type BlueprintGenerationReceiptV21 = BlueprintGenerationReceipt & {

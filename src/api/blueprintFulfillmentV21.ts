@@ -4,10 +4,13 @@ import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
 import { loadLaunchBlueprintWorkflowContext } from './blueprintFulfillment';
 import { renderLaunchBlueprintPdfV21 } from './blueprintPdfV21';
+import { composeBlueprintDocumentModel } from './blueprintDocumentModel';
+import { renderBlueprintDocumentHtml } from './blueprintDocumentHtml';
 import { createGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
 import {
   prepareBlueprintGenerationReceiptV21,
-  saveBlueprintRecordV21
+  saveBlueprintRecordV21,
+  sha256Hex
 } from './blueprintStoreV21';
 import {
   assertBlueprintReleaseQualityGateV21,
@@ -180,8 +183,18 @@ export async function completeLaunchBlueprintOrderV21(
     vertexRequired
   );
 
+  const documentModel = composeBlueprintDocumentModel(blueprint);
+  const documentHtml = renderBlueprintDocumentHtml(documentModel);
   const pdf = renderLaunchBlueprintPdfV21(blueprint);
-  const exactReceipt = await saveBlueprintRecordV21(env, blueprint, result.receipt, pdf);
+  const css = documentHtml.match(/<style>([\s\S]*?)<\/style>/i)?.[1] || '';
+  const documentReceipt = {
+    modelVersion: 'ghosttown-blueprint-document-model-v1' as const,
+    renderMode: 'deterministic_fallback' as const,
+    modelSha256: await sha256Hex(new TextEncoder().encode(JSON.stringify(documentModel))),
+    htmlSha256: await sha256Hex(new TextEncoder().encode(documentHtml)),
+    cssSha256: await sha256Hex(new TextEncoder().encode(css))
+  };
+  const exactReceipt = await saveBlueprintRecordV21(env, blueprint, result.receipt, pdf, documentReceipt);
   const delivery = await verifyBlueprintDeliveryStateExactV21(env, blueprint, exactReceipt);
   assertBlueprintReleaseQualityGateV21(evaluateBlueprintReleaseQualityGateV21({ blueprint, research: result, delivery }));
 
