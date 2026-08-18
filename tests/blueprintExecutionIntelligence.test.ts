@@ -48,6 +48,26 @@ describe('GhostTown execution intelligence', () => {
     expect(branch.mustKeep).toContain('price');
   });
 
+  it('uses the Day 30 named constraint for continue-with-revision instead of assuming an offer change', () => {
+    const branch = formalCheckpointBranch(progress({
+      finalDecision: 'continue_with_revision',
+      metrics: { commitments: 2, revenueCents: 50000 },
+      checkpointReviews: [{
+        dayNumber: 30,
+        completedAt: '2026-08-18T12:00:00.000Z',
+        evidenceSummary: 'Buyers paid, but the current price produced repeated margin pressure.',
+        strongestEvidence: 'strong',
+        primaryConstraint: 'price',
+        nextAction: 'Run one bounded price test while keeping the customer, problem, access path, and offer fixed.'
+      }]
+    }), 30);
+    expect(branch.source).toBe('final_decision');
+    expect(branch.route).toBe('revise_price');
+    expect(branch.mayChange).toEqual(['price']);
+    expect(branch.mustKeep).toContain('offer');
+    expect(branch.mustKeep).toContain('customer');
+  });
+
   it('pauses rather than fabricating a change when a checkpoint records no evidence', () => {
     const branch = formalCheckpointBranch(progress({
       checkpointReviews: [{
