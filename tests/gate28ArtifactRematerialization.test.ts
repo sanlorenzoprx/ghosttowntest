@@ -9,6 +9,8 @@ const repair = readFileSync(new URL('../scripts/roadmap-gate28-rematerialize-acc
 const gate27 = readFileSync(new URL('../scripts/roadmap-gate27-private-r2-artifacts.mjs', import.meta.url), 'utf8');
 const gate28 = readFileSync(new URL('../scripts/roadmap-gate28-zip-pdf-product.mjs', import.meta.url), 'utf8');
 const helper = readFileSync(new URL('../scripts/roadmap-gate28-render-current-pdf.test.ts', import.meta.url), 'utf8');
+const keyStore = readFileSync(new URL('../src/api/blueprintStore.ts', import.meta.url), 'utf8');
+const storeV21 = readFileSync(new URL('../src/api/blueprintStoreV21.ts', import.meta.url), 'utf8');
 const workflow = readFileSync(new URL('../src/api/launchBlueprintWorkflow.ts', import.meta.url), 'utf8');
 const fulfillment = readFileSync(new URL('../src/api/blueprintFulfillmentV21.ts', import.meta.url), 'utf8');
 
@@ -17,6 +19,20 @@ describe('Gate 27/28 authoritative acceptance artifact path', () => {
     expect(workflow).toContain('completeLaunchBlueprintOrderV21');
     expect(fulfillment).toContain('renderLaunchBlueprintPdfV21(blueprint)');
     expect(fulfillment).toContain('saveBlueprintRecordV21');
+  });
+
+  it('keeps canonical artifact key literals in the shared key store and consumes them from v2.1 persistence', () => {
+    expect(keyStore).toContain('ghosttown-launch-blueprint-v2.pdf');
+    expect(keyStore).toContain('ghosttown-launch-blueprint-v2.json');
+    expect(keyStore).toContain('ghosttown-launch-blueprint-v2-assets.zip');
+    expect(keyStore).toContain('export function blueprintPdfKey');
+    expect(keyStore).toContain('export function blueprintJsonKey');
+    expect(keyStore).toContain('export function blueprintAssetsKey');
+    expect(storeV21).toContain("from './blueprintStore'");
+    expect(storeV21).toContain('blueprintPdfKey(order.orderId)');
+    expect(storeV21).toContain('blueprintJsonKey(order.orderId)');
+    expect(storeV21).toContain('blueprintAssetsKey(order.orderId)');
+    expect(gate27).toContain("const keyStore = readFileSync(join(ROOT, 'src', 'api', 'blueprintStore.ts')");
   });
 
   it('uses remote DB, KV and BLUEPRINTS bindings instead of direct data CLI commands', () => {
