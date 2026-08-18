@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { composeLaunchSitePresentation, handlePublicLaunchLead, handlePublicLaunchSite, launchSitePublishFailures, renderLaunchSite, validateLaunchSitePresentation } from '../src/api/launchSite';
+import { writeFileSync } from 'node:fs';
+import { composeLaunchSitePresentation, handleLaunchSiteOwner, handlePublicLaunchLead, handlePublicLaunchSite, launchSitePublishFailures, renderLaunchSite, validateLaunchSitePresentation } from '../src/api/launchSite';
+import { handleSignup } from '../src/api/auth';
 import type { Env } from '../src/api/env';
-import { launchBlueprintFixture } from './fixtures/launchBlueprint';
+import { checkoutAccessibilityBlueprintFixture as launchBlueprintFixture } from './fixtures/checkoutAccessibilityBlueprint';
 
 describe('Launch Site canonical rendering and publish gates', () => {
   it('renders offer, price, positioning, and form from the existing canonical Blueprint', () => {
@@ -31,6 +33,22 @@ describe('Launch Site canonical rendering and publish gates', () => {
     const model = composeLaunchSitePresentation(blueprint);
     model.blocks[1].body = 'Unlock your potential with a game-changing workflow.';
     expect(validateLaunchSitePresentation(model, blueprint)).toContain('Generic conversion copy is not allowed on the validation Launch Site.');
+  });
+
+  it('fails closed for canonical drift, missing jobs, fabricated claims, proof-label drift, and incomplete artifact evidence', () => {
+    const blueprint = launchBlueprintFixture();
+    const mutations: Array<(model: ReturnType<typeof composeLaunchSitePresentation>) => void> = [
+      model => { model.customer = 'Any business'; },
+      model => { model.blocks.splice(4, 1); },
+      model => { model.blocks[1].body = 'Customers achieved a 40% increase with limited spots.'; },
+      model => { model.proofItems[0].label = 'PROOF_TO_EARN'; },
+      model => { model.artifactSteps.pop(); },
+    ];
+    for (const mutate of mutations) {
+      const model = composeLaunchSitePresentation(blueprint);
+      mutate(model);
+      expect(validateLaunchSitePresentation(model, blueprint).length).toBeGreaterThan(0);
+    }
   });
 
   it('fails closed when canonical quality, proof, or legal requirements are missing', () => {
@@ -82,5 +100,57 @@ describe('Launch Site canonical rendering and publish gates', () => {
     expect(leadBinds[0]).toEqual(expect.arrayContaining(['site-1', 'lead@example.com']));
     status = 'unpublished';
     expect((await handlePublicLaunchSite(new Request('https://ghost.test/launch/family-game-night'), environment, 'family-game-night')).status).toBe(404);
+  });
+
+  it('behaviorally publishes and unpublishes through the owner handler and denies another account', async () => {
+    const blueprint = launchBlueprintFixture();
+    const values = new Map<string, string>();
+    const KV = {
+      get: async (key: string) => values.get(key) ?? null,
+      put: async (key: string, value: string) => { values.set(key, value); },
+      delete: async (key: string) => { values.delete(key); },
+      list: async ({ prefix = '' }: { prefix?: string } = {}) => ({ keys: [...values.keys()].filter(key => key.startsWith(prefix)).map(name => ({ name })) }),
+    };
+    const ownerId = 'owner@example.test';
+    let siteStatus: 'draft' | 'published' | 'unpublished' = 'draft';
+    const row = () => ({ site_id: 'site-checkout', order_id: blueprint.orderId, owner_id: ownerId, public_slug: 'checkout-audit', status: siteStatus, published_at: siteStatus === 'published' ? blueprint.createdAt : null, unpublished_at: siteStatus === 'unpublished' ? blueprint.createdAt : null, created_at: blueprint.createdAt, updated_at: blueprint.createdAt });
+    const database = {
+      prepare(sql: string) {
+        return {
+          bind() { return this; },
+          async first() {
+            if (sql.includes('FROM launch_sites')) return row();
+            if (sql.includes('FROM launch_blueprints')) return { blueprint_json: JSON.stringify(blueprint), research_receipt_json: JSON.stringify({ provider: 'distribution_footprint' }), pdf_r2_key: 'private.pdf' };
+            return null;
+          },
+          async run() {
+            if (sql.includes("status = 'published'")) siteStatus = 'published';
+            if (sql.includes("status = 'unpublished'")) siteStatus = 'unpublished';
+            return { success: true };
+          },
+          async all() { return { results: [] }; },
+        };
+      },
+    };
+    const environment = { DB: database, KV, JWT_SECRET: 'test-jwt-secret-with-enough-entropy' } as unknown as Env;
+    await KV.put(`paid_test_order_${blueprint.orderId}`, JSON.stringify({ orderId: blueprint.orderId, email: ownerId, verdictId: blueprint.sourceVerdictId, status: 'ready', artifactType: 'launch_blueprint_v2', intake: {}, createdAt: blueprint.createdAt, updatedAt: blueprint.createdAt }));
+    const signup = async (email: string) => {
+      const response = await handleSignup(new Request('https://ghost.test/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: 'correct-horse-battery' }) }), environment);
+      return (await response.json() as { token: string }).token;
+    };
+    const ownerToken = await signup(ownerId);
+    const intruderToken = await signup('intruder@example.test');
+    const ownerRequest = (path: string) => new Request(`https://ghost.test/${path}`, { method: 'POST', headers: { Authorization: `Bearer ${ownerToken}` } });
+    const published = await handleLaunchSiteOwner(ownerRequest('publish'), environment, blueprint.orderId, 'publish');
+    expect(published.status).toBe(200);
+    expect((await published.json() as { site: { status: string } }).site.status).toBe('published');
+    const unpublished = await handleLaunchSiteOwner(ownerRequest('unpublish'), environment, blueprint.orderId, 'unpublish');
+    expect(unpublished.status).toBe(200);
+    expect((await unpublished.json() as { site: { status: string } }).site.status).toBe('unpublished');
+    const denied = await handleLaunchSiteOwner(new Request('https://ghost.test/publish', { method: 'POST', headers: { Authorization: `Bearer ${intruderToken}` } }), environment, blueprint.orderId, 'publish');
+    expect(denied.status).toBe(404);
+    if (process.env.ROADMAP_Q4_LIFECYCLE_ARTIFACT_PATH) {
+      writeFileSync(process.env.ROADMAP_Q4_LIFECYCLE_ARTIFACT_PATH, `${JSON.stringify({ schema_version: 'ghosttown-q4-lifecycle-evidence-v1', owner_publish: true, published_status: 'published', owner_unpublish: true, unpublished_status: 'unpublished', cross_account_denied: true, denial_status: 404, handler: 'handleLaunchSiteOwner', storage: 'D1', production_mutated: false }, null, 2)}\n`);
+    }
   });
 });

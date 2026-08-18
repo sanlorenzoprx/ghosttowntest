@@ -6,6 +6,7 @@ import { synchronizeDailyExecutionPackets, validateDailyExecutionPackets } from 
 import type { EvaluationResult } from '../src/types/lit';
 import type { PaidTestOrder } from '../src/types/paidTest';
 import { launchBlueprintFixture } from './fixtures/launchBlueprint';
+import { checkoutAccessibilityBlueprintFixture } from './fixtures/checkoutAccessibilityBlueprint';
 
 const verdict = {
   resultId: 'q2-specific-paid-pilot', generatedAt: '2026-08-17T22:00:00.000Z',
@@ -24,7 +25,7 @@ const verdict = {
 
 const order = { orderId: 'q2-order', email: 'owner@example.test', verdictId: verdict.resultId, status: 'generating', artifactType: 'launch_blueprint_v2', planVersion: '2.0', intake: { verdictId: verdict.resultId, targetBuyer: 'Independent ecommerce stores with active checkout traffic', problem: 'Checkout accessibility friction/support', currentWorkaround: 'Sporadic QA and generic scans', offerHypothesis: 'Fixed-scope checkout accessibility audit', expectedPrice: '$300-$500' }, createdAt: verdict.generatedAt, updatedAt: verdict.generatedAt } as PaidTestOrder;
 
-function blueprint() {
+function legacyCheckoutAccessibilityBlueprintDefinition() {
   const base = launchBlueprintFixture();
   // The golden must be one coherent paid product, not a Family Game Night base
   // with an unrelated ecommerce verdict injected afterward.
@@ -197,6 +198,8 @@ function blueprint() {
   return synchronizeDailyExecutionPackets(output, verdict);
 }
 
+const blueprint = checkoutAccessibilityBlueprintFixture;
+
 function nonEcommerceBlueprint() {
   const familyVerdict = {
     ...verdict,
@@ -324,7 +327,7 @@ describe('Q2 DailyExecutionPacket and DeliverableAsset', () => {
       });
       writeFileSync(destination, JSON.stringify({
         schema_version: 'ghosttown-q2-daily-execution-golden-output-v1', fixture_id: 'specific-paid-pilot',
-        canonical: { blueprintId: output.blueprintId, blueprintVersion: output.blueprintVersion, sourceVerdictId: output.sourceVerdictId, customer: output.offer.targetCustomer, problem: output.offer.painfulProblem, offer: output.offer.offerName, offerPromise: output.offer.oneSentencePromise, price: output.firstRevenuePath.firstPrice, launchSiteHeadline: output.launchSite.offer.headline, sourceIds: output.sources.map(source => source.sourceId), channels: output.customerAccessPack.channels.map(channel => ({ channelId: channel.channelId, community: channel.community, publicUrl: channel.publicUrl, sourceIds: channel.sourceIds })) },
+        canonical: { blueprintId: output.blueprintId, blueprintVersion: output.blueprintVersion, sourceVerdictId: output.sourceVerdictId, customer: output.offer.targetCustomer, problem: output.offer.painfulProblem, offer: output.offer.offerName, offerPromise: output.offer.oneSentencePromise, price: output.firstRevenuePath.firstPrice, primaryCallToAction: output.launchSite.offer.callToAction, proofBoundary: output.foundingCustomerPilotBrief.proofBoundary, launchSiteHeadline: output.launchSite.offer.headline, sourceIds: output.sources.map(source => source.sourceId), channels: output.customerAccessPack.channels.map(channel => ({ channelId: channel.channelId, community: channel.community, publicUrl: channel.publicUrl, sourceIds: channel.sourceIds })) },
         days: output.dailyCalendar.map(day => ({ day: day.dayNumber, packet: day.executionPacket, legacy: { objective: day.primaryObjective, why: day.whyItMatters, deliverable: day.expectedDeliverable, success: day.successMeasurement } })),
         representative_days: [1, 4, 7, 14, 21, 30],
         regression_cases: [{

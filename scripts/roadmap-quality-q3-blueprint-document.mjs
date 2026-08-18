@@ -10,14 +10,16 @@ const RECEIPT = join(STATE, 'q3-blueprint-quality-document-receipt.json');
 const Q2 = join(STATE, 'q2-daily-execution-assets-receipt.json');
 const GATE25 = join(STATE, 'gate25-workflow-ready-receipt.json');
 const GOLDEN = join(STATE, 'q3-blueprint-document-golden-output.json');
+const Q2_GOLDEN = join(STATE, 'q2-daily-execution-assets-golden-output.json');
 const validationOnly = process.argv.includes('--validation-only');
 const hash = value => createHash('sha256').update(value).digest('hex');
 function fail(message) { console.error(`[q3] ${message}`); process.exit(1); }
 function run(command, args, env = process.env) { const result = spawnSync(command, args, { cwd: ROOT, env, encoding: 'utf8', shell: false, maxBuffer: 32 * 1024 * 1024 }); if (result.status !== 0) fail(`${command} ${args.join(' ')} failed\n${result.stdout}\n${result.stderr}`); return `${result.stdout}${result.stderr}`; }
 const required = ['src/api/blueprintDocumentModel.ts', 'src/api/blueprintDocumentHtml.ts', 'src/api/blueprintPdfV21.ts', 'src/components/ActionPlanSuccess.tsx', 'src/components/LaunchBlueprintView.tsx', 'tests/blueprintDocumentModel.test.ts', 'tests/blueprintPdfV21.test.ts', 'config/commercial-quality-roadmap-v1.json'];
 for (const path of required) if (!existsSync(join(ROOT, path))) fail(`missing required Q3 source: ${path}`);
-if (!existsSync(Q2) || !existsSync(GATE25)) fail('Q3 requires existing Q2 and Gate25 READY receipts');
+if (!existsSync(Q2) || !existsSync(Q2_GOLDEN) || !existsSync(GATE25)) fail('Q3 requires existing Q2 and Gate25 READY receipts');
 const q2 = JSON.parse(readFileSync(Q2, 'utf8')); const gate25 = JSON.parse(readFileSync(GATE25, 'utf8'));
+const q2Golden = JSON.parse(readFileSync(Q2_GOLDEN, 'utf8'));
 if (q2.checks?.golden_fixture_comparison !== true || gate25.workflow_status !== 'complete' || gate25.order_status !== 'ready') fail('Q2 or Gate25 receipt is not a usable completed baseline');
 const model = readFileSync(join(ROOT, 'src/api/blueprintDocumentModel.ts'), 'utf8');
 const html = readFileSync(join(ROOT, 'src/api/blueprintDocumentHtml.ts'), 'utf8');
@@ -47,7 +49,7 @@ const artifactChecks = {
   html_semantic_print: /<main>|<section|<table><caption>|<thead>|scope=\"col\"/.test(golden.html || '') && /@page \{ size: Letter|font-size:9\.5pt|print-color-adjust:exact|widows:3|overflow-wrap:anywhere/.test(golden.css || ''),
   pdf_document_driven: priority.every(id => pdfText.includes(id === '48_hour_launch_card' ? '48-Hour Launch Card' : id === 'first_customer' ? 'First Customer' : id === 'first_offer' ? 'First Offer' : id === 'first_revenue' ? 'First Revenue Path' : id === 'customer_access_network' ? 'Customer Access Network' : 'Today: Day 1')) && expectedBlocks.every(block => pdfText.includes(block)) && [golden.model?.presentation?.title, golden.model?.presentation?.customer, golden.model?.presentation?.subtitle].every(value => value && pdfContainsTerm(value)) && !['blueprint-document:', 'Render mode:', 'Verdict lineage:'].some(value => pdfText.includes(value)),
   cross_surface_terms: canonicalTerms.every(term => JSON.stringify(golden.model).includes(term) && golden.html.includes(term) && pdfContainsTerm(term)),
-  coherent_fixture_lineage: golden.canonical?.sourceVerdictId === 'q3-verdict' && golden.model?.sourceBlueprint?.sourceVerdictId === golden.canonical.sourceVerdictId && golden.lineage?.sourceVerdictId === golden.canonical.sourceVerdictId && golden.lineage?.blueprintId === golden.model?.sourceBlueprint?.blueprintId && /ecommerce/i.test(golden.canonical?.customer || '') && /checkout accessibility/i.test(`${golden.canonical?.problem || ''} ${golden.canonical?.offer || ''}`),
+  coherent_fixture_lineage: golden.canonical?.sourceVerdictId === q2Golden.canonical?.sourceVerdictId && golden.model?.sourceBlueprint?.sourceVerdictId === golden.canonical.sourceVerdictId && golden.lineage?.sourceVerdictId === golden.canonical.sourceVerdictId && golden.lineage?.blueprintId === golden.model?.sourceBlueprint?.blueprintId && /ecommerce/i.test(golden.canonical?.customer || '') && /checkout accessibility/i.test(`${golden.canonical?.problem || ''} ${golden.canonical?.offer || ''}`),
   sixteen_file_bundle: golden.bundle_file_count === 16,
   adverse_cases: Array.isArray(golden.adversarial_cases) && ['broad_generic', 'contradictory_offer_price', 'unresolved_source', 'description_only_asset', 'missing_branch', 'duplicate_id', 'script_injection', 'private_material', 'invalid_browser_pdf', 'legacy_v21_compatibility'].every(value => golden.adversarial_cases.includes(value)),
   no_customer_json_zip: !/Download JSON|Asset ZIP|machine-readable Blueprint JSON/.test(ui)
