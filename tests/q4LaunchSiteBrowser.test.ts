@@ -28,9 +28,18 @@ const sha256File = (path: string) => createHash('sha256').update(readFileSync(pa
 
 beforeAll(async () => {
   const html = renderLaunchSite(blueprint, 'checkout-audit-fixture');
+  const renderedJobs = [...html.matchAll(/data-conversion-job="([^"]+)"/g)].map(match => match[1]);
+  if (JSON.stringify(renderedJobs) !== JSON.stringify(LAUNCH_SITE_CONVERSION_JOBS)) {
+    throw new Error(`Q4 renderer emitted incomplete conversion jobs before browser launch: ${JSON.stringify(renderedJobs)}`);
+  }
+  const htmlBytes = Buffer.byteLength(html, 'utf8');
   server = createServer((request, response) => {
     if (request.url === '/launch/checkout-audit-fixture') {
-      response.writeHead(200, { 'content-type': 'text/html' });
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'content-length': String(htmlBytes),
+      });
       response.end(html);
       return;
     }
@@ -64,7 +73,13 @@ describe('Q4 exact viewport Launch Site browser evidence', () => {
         const consoleErrors: string[] = [];
         page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
         page.on('pageerror', error => consoleErrors.push(error.message));
-        await page.goto(`${origin}/launch/checkout-audit-fixture`, { waitUntil: 'networkidle' });
+        const navigation = await page.goto(`${origin}/launch/checkout-audit-fixture`, { waitUntil: 'domcontentloaded' });
+        expect(navigation?.status()).toBe(200);
+        await page.waitForLoadState('load');
+        await expect.poll(
+          () => page.locator('[data-conversion-job]').count(),
+          { timeout: 5000, interval: 50, message: `${viewport.name} must parse all static conversion jobs` },
+        ).toBe(LAUNCH_SITE_CONVERSION_JOBS.length);
         const jobOrder = await page.locator('[data-conversion-job]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-conversion-job')));
         expect(jobOrder).toEqual(LAUNCH_SITE_CONVERSION_JOBS);
         expect(await page.locator('h1').count()).toBe(1);
@@ -135,7 +150,10 @@ describe('Q4 exact viewport Launch Site browser evidence', () => {
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     try {
-      await page.goto(`${origin}/launch/checkout-audit-fixture`, { waitUntil: 'networkidle' });
+      const navigation = await page.goto(`${origin}/launch/checkout-audit-fixture`, { waitUntil: 'domcontentloaded' });
+      expect(navigation?.status()).toBe(200);
+      await page.waitForLoadState('load');
+      await expect.poll(() => page.locator('[data-conversion-job]').count(), { timeout: 5000, interval: 50 }).toBe(LAUNCH_SITE_CONVERSION_JOBS.length);
       await page.locator('[data-primary-cta]').click();
       await page.waitForTimeout(20);
       expect(await page.evaluate(() => document.activeElement?.id)).toBe('form-title');
