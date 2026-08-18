@@ -7,7 +7,11 @@ import {
 import { loadBlueprintProgress, loadBlueprintRecord } from './blueprintStore';
 import { commercialEventAttribution } from './commercialAttribution';
 import { recordCommercialFunnelEvent, type CommercialFunnelEventInput } from './analytics';
-import { completionTransitionFailures, type ExecutionCompletionProgress } from '../lib/blueprintExecutionCompletion';
+import {
+  completionTransitionFailures,
+  executionProgressWithObservedMetrics,
+  type ExecutionCompletionProgress
+} from '../lib/blueprintExecutionCompletion';
 import type { CommercialEventName } from '../types/commercialAttribution';
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import type { PaidTestOrder } from '../types/paidTest';
@@ -74,10 +78,11 @@ export async function handleLaunchBlueprintProgress(
     });
   }
 
+  let requestForCore = request;
   if (isV21Blueprint(record.blueprint)) {
-    let requested: ExecutionCompletionProgress;
+    let requested: ExecutionCompletionProgress & Record<string, unknown>;
     try {
-      requested = await request.clone().json<ExecutionCompletionProgress>();
+      requested = await request.clone().json<ExecutionCompletionProgress & Record<string, unknown>>();
     } catch {
       return new Response(JSON.stringify({ error: 'Invalid execution progress JSON' }), {
         status: 400,
@@ -94,9 +99,16 @@ export async function handleLaunchBlueprintProgress(
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' }
       });
     }
+
+    const withObservedMetrics = executionProgressWithObservedMetrics(before, requested);
+    requestForCore = new Request(request.url, {
+      method: 'POST',
+      headers: request.headers,
+      body: JSON.stringify({ ...requested, metrics: withObservedMetrics.metrics })
+    });
   }
 
-  const response = await handleCoreProgress(request, env, orderId);
+  const response = await handleCoreProgress(requestForCore, env, orderId);
   if (!response.ok) return response;
 
   let after: ProgressShape = {};
