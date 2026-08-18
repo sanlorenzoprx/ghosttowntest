@@ -46,6 +46,7 @@ export interface PaidTestIntake {
   landingPageLink?: string;
   customerNotes?: string;
   researchSignals?: PrePurchaseResearchSignals;
+  /** Transport-only checkout lineage; the Worker moves this onto PaidTestOrder. */
   attribution?: CommercialAttributionEnvelope;
 }
 
@@ -83,6 +84,8 @@ export interface PaidTestOrder {
   idempotencyKey?: string;
   reportVersion?: '1.0';
   intake: PaidTestIntake;
+  /** Commercial lineage is persisted beside, not inside, canonical Blueprint inputs. */
+  commercialAttribution?: CommercialAttributionEnvelope;
   competitorSeedSuggestions?: CompetitorSeedSuggestion[];
   competitorSeedSuggestionsGeneratedAt?: string;
   createdAt: string;
