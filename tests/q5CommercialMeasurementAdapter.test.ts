@@ -5,29 +5,16 @@ import { resolve } from 'node:path';
 const root = resolve(process.cwd());
 const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 const json = (path: string) => JSON.parse(read(path));
-
 const q5Keys = [
-  'source_to_session_attribution',
-  'test_started',
-  'verdict_completed',
-  'checkout_started',
-  'purchase_and_revenue',
-  'blueprint_opened',
-  'daily_packet_opened',
-  'day_completed',
-  'evidence_recorded',
-  'repair_routing_supported',
-  'tests_pass'
+  'source_to_session_attribution','test_started','verdict_completed','checkout_started','purchase_and_revenue',
+  'blueprint_opened','daily_packet_opened','day_completed','evidence_recorded','repair_routing_supported','tests_pass'
 ];
 
 describe('Q5 first-party commercial measurement acceptance adapter', () => {
   it('matches the exact governing Q5 acceptance contract', () => {
     const config = json('config/commercial-quality-roadmap-v1.json');
     const q5 = config.quality_gates.find((gate: { id: string }) => gate.id === 'Q5');
-    expect(q5).toBeTruthy();
-    expect(q5.purpose).toBe('measurement');
-    expect(q5.requires).toEqual(['Q4']);
-    expect(q5.acceptance).toEqual(q5Keys);
+    expect(q5).toBeTruthy(); expect(q5.purpose).toBe('measurement'); expect(q5.requires).toEqual(['Q4']); expect(q5.acceptance).toEqual(q5Keys);
   });
 
   it('is the sanctioned default Q5 hook in the stable roadmap wrapper', () => {
@@ -42,14 +29,12 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
     expect(adapter).toContain('q5-commercial-measurement-receipt.json');
     expect(adapter).toContain("schema_version: 'ghosttown-quality-q5-commercial-measurement-receipt-v1'");
     expect(adapter).toContain("decision: failedChecks.length === 0 ? 'PASS' : 'FAIL'");
-    expect(adapter).toContain('purchase_replayed: false');
-    expect(adapter).toContain('production_deployed: false');
-    expect(adapter).toContain('secret_values_recorded: false');
-    expect(adapter).toContain('process.exit(1)');
+    expect(adapter).toContain('purchase_replayed: false'); expect(adapter).toContain('production_deployed: false');
+    expect(adapter).toContain('secret_values_recorded: false'); expect(adapter).toContain('process.exit(1)');
     for (const key of q5Keys) expect(adapter).toContain(key);
   });
 
-  it('requires one persisted visitor/session envelope through sanitized Stripe metadata', () => {
+  it('requires one visitor/session envelope with immutable first touch and mutable last touch through Stripe', () => {
     const client = read('src/lib/commercialAttribution.ts');
     const server = read('src/api/commercialAttribution.ts');
     const checkout = read('src/api/paidTestCheckout.ts');
@@ -57,25 +42,25 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
 
     expect(client).toContain('ghosttown_commercial_attribution_v1');
     expect(client).toContain('ghosttown_commercial_session_v1');
+    expect(client).toContain('firstTouch'); expect(client).toContain('lastTouch');
+    expect(client).toContain('incomingTouch || priorLast || firstTouch');
     expect(client).toContain('commercialAttributionForCheckout');
-    expect(checkout).toContain('sanitizeCommercialAttribution');
-    expect(checkout).toContain('appendStripeAttributionMetadata');
-    expect(checkout).toContain('commercialAttribution: attribution');
-    expect(checkout).toContain('attribution: undefined');
+    expect(checkout).toContain('sanitizeCommercialAttribution'); expect(checkout).toContain('appendStripeAttributionMetadata');
+    expect(checkout).toContain('commercialAttribution: attribution'); expect(checkout).toContain('attribution: undefined');
     for (const metadata of [
-      'metadata[attribution_token]',
-      'metadata[experiment_id]',
-      'metadata[source_verdict_id]',
-      'metadata[creative_id]',
-      'metadata[publication_id]',
-      'metadata[platform]',
-      'metadata[source]',
-      'metadata[visitor_id]',
-      'metadata[ghosttown_session_id]'
+      'metadata[attribution_token]','metadata[visitor_id]','metadata[ghosttown_session_id]',
+      'metadata[first_touch_experiment_id]','metadata[first_touch_creative_id]','metadata[first_touch_publication_id]',
+      'metadata[last_touch_experiment_id]','metadata[last_touch_creative_id]','metadata[last_touch_publication_id]'
     ]) expect(server).toContain(metadata);
-    expect(metrics).toContain('metadata.visitor_id');
-    expect(metrics).toContain('metadata.ghosttown_session_id');
-    expect(metrics).toContain('attributedVerifiedPurchases');
+    expect(metrics).toContain('firstTouchPublicationRevenue');
+    expect(metrics).toContain('lastTouchPublicationRevenue');
+    expect(metrics).toContain('dualTouchPurchases');
+    expect(metrics).toContain('metadata.visitor_id'); expect(metrics).toContain('metadata.ghosttown_session_id');
+  });
+
+  it('counts public root traffic but not success/internal routes as landing visitors', () => {
+    const app = read('src/app/App.tsx');
+    expect(app).toContain("if (window.location.pathname === '/') void recordCommercialEvent('landing_viewed'");
   });
 
   it('instruments the real verdict, checkout, Blueprint, daily packet, evidence and retry surfaces', () => {
@@ -84,30 +69,18 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
     const router = read('src/components/LaunchBlueprintRouter.tsx');
     const measurement = read('src/api/blueprintApiMeasurement.ts');
     const dashboard = read('src/components/UserDashboard.tsx');
-
-    expect(questionFlow).toContain("recordCommercialEvent('verdict_started'");
-    expect(questionFlow).toContain("recordCommercialEvent('verdict_completed'");
+    expect(questionFlow).toContain("recordCommercialEvent('verdict_started'"); expect(questionFlow).toContain("recordCommercialEvent('verdict_completed'");
     expect(checkout).toContain("recordCommercialFunnelEvent(env, 'checkout_started'");
-    expect(router).toContain("recordCommercialEvent('blueprint_opened'");
-    expect(router).toContain("recordCommercialEvent('daily_packet_opened'");
-    expect(router).toContain("target?.textContent?.trim() === 'Today'");
-    expect(router).toContain("target.value === 'today'");
-    expect(router).toContain('Today · Day');
-    expect(measurement).toContain("safeRecord(env, 'day_completed'");
-    expect(measurement).toContain("safeRecord(env, 'evidence_recorded'");
-    expect(dashboard).toContain('/blueprint/retry');
-    expect(measurement).toContain('response.status === 202');
-    expect(measurement).toContain("safeRecord(env, 'blueprint_retry_requested'");
+    expect(router).toContain("recordCommercialEvent('blueprint_opened'"); expect(router).toContain("recordCommercialEvent('daily_packet_opened'");
+    expect(router).toContain("target?.textContent?.trim() === 'Today'"); expect(router).toContain("target.value === 'today'"); expect(router).toContain('Today · Day');
+    expect(measurement).toContain("safeRecord(env, 'day_completed'"); expect(measurement).toContain("safeRecord(env, 'evidence_recorded'");
+    expect(dashboard).toContain('/blueprint/retry'); expect(measurement).toContain('response.status === 202'); expect(measurement).toContain("safeRecord(env, 'blueprint_retry_requested'");
   });
 
   it('keeps established paid and Blueprint implementations intact and routes only measured handlers', () => {
-    const paid = read('src/api/paidTest.ts');
-    const blueprint = read('src/api/blueprintApi.ts');
-    const measurement = read('src/api/blueprintApiMeasurement.ts');
-    const index = read('src/api/index.ts');
-
-    expect(paid).not.toContain('paidTestCore');
-    expect(blueprint).not.toContain('blueprintApiCore');
+    const paid = read('src/api/paidTest.ts'); const blueprint = read('src/api/blueprintApi.ts');
+    const measurement = read('src/api/blueprintApiMeasurement.ts'); const index = read('src/api/index.ts');
+    expect(paid).not.toContain('paidTestCore'); expect(blueprint).not.toContain('blueprintApiCore');
     expect(index).toContain("handlePaidTestCheckout } from './paidTestCheckout'");
     expect(index).toContain("handleLaunchBlueprintProgress, handleLaunchBlueprintRetry } from './blueprintApiMeasurement'");
     expect(measurement).toContain("from './blueprintApi'");
@@ -115,11 +88,8 @@ describe('Q5 first-party commercial measurement acceptance adapter', () => {
 
   it('preserves Stripe webhook revenue authority and the manual production-release boundary', () => {
     const adapter = read('scripts/roadmap-quality-q5-commercial-measurement.mjs');
-    expect(adapter).toContain('recordVerifiedPurchase');
-    expect(adapter).toContain("authority: 'stripe_webhook'");
-    expect(adapter).toContain("purpose: 'measurement'");
-    expect(adapter).toContain('gate_36_remains_manual: true');
-    expect(adapter).toContain('new_architecture: false');
-    expect(adapter).toContain('new_provider: false');
+    expect(adapter).toContain('recordVerifiedPurchase'); expect(adapter).toContain("authority: 'stripe_webhook'");
+    expect(adapter).toContain("purpose: 'measurement'"); expect(adapter).toContain('gate_36_remains_manual: true');
+    expect(adapter).toContain('new_architecture: false'); expect(adapter).toContain('new_provider: false');
   });
 });
