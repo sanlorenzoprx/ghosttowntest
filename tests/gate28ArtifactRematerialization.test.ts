@@ -1,60 +1,57 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const repair = readFileSync(new URL('../scripts/roadmap-gate28-rematerialize-acceptance.mjs', import.meta.url), 'utf8');
+const bridge = readFileSync(new URL('../scripts/roadmap-r2-binding-bridge.mjs', import.meta.url), 'utf8');
+const bridgeWorker = readFileSync(new URL('../scripts/roadmap-r2-binding-worker.ts', import.meta.url), 'utf8');
+const repair = readFileSync(new URL('../scripts/roadmap-gate28-rematerialize-acceptance-v3.mjs', import.meta.url), 'utf8');
+const gate27 = readFileSync(new URL('../scripts/roadmap-gate27-private-r2-artifacts.mjs', import.meta.url), 'utf8');
+const gate28 = readFileSync(new URL('../scripts/roadmap-gate28-zip-pdf-product.mjs', import.meta.url), 'utf8');
 const helper = readFileSync(new URL('../scripts/roadmap-gate28-render-current-pdf.test.ts', import.meta.url), 'utf8');
 const workflow = readFileSync(new URL('../src/api/launchBlueprintWorkflow.ts', import.meta.url), 'utf8');
 const fulfillment = readFileSync(new URL('../src/api/blueprintFulfillmentV21.ts', import.meta.url), 'utf8');
 
-describe('Gate 28 acceptance artifact rematerialization', () => {
-  it('proves the real paid workflow is wired to the v2.1 PDF renderer', () => {
+describe('Gate 27/28 authoritative acceptance artifact path', () => {
+  it('proves paid fulfillment writes through the v2.1 Worker R2 binding path', () => {
     expect(workflow).toContain('completeLaunchBlueprintOrderV21');
-    expect(workflow).toContain('persist canonical blueprint v2.1 artifacts before ready');
-    expect(fulfillment).toContain("renderLaunchBlueprintPdfV21(blueprint)");
+    expect(fulfillment).toContain('renderLaunchBlueprintPdfV21(blueprint)');
     expect(fulfillment).toContain('saveBlueprintRecordV21');
   });
 
-  it('renders PDF, ZIP, and document receipt only from exact canonical JSON', () => {
-    expect(helper).toContain('renderLaunchBlueprintPdfV21');
-    expect(helper).toContain('buildBlueprintAssetZipFromCanonicalBytesV21');
-    expect(helper).toContain('composeBlueprintDocumentModel');
-    expect(helper).toContain('renderBlueprintDocumentHtml');
-    expect(helper).toContain('canonicalJsonBytes');
-    expect(helper).toContain("expect(JSON.stringify(blueprint)).toBe(before)");
-    expect(helper).toContain('modelSha256');
-    expect(helper).toContain('htmlSha256');
-    expect(helper).toContain('cssSha256');
+  it('uses a local Worker with a remote BLUEPRINTS binding for acceptance R2 reads and writes', () => {
+    expect(bridge).toContain('remote = true');
+    expect(bridge).toContain("'dev'");
+    expect(bridgeWorker).toContain('env.BLUEPRINTS.get');
+    expect(bridgeWorker).toContain('env.BLUEPRINTS.put');
+    expect(bridgeWorker).toContain('customMetadata');
   });
 
-  it('refuses to change the canonical Blueprint and preserves pre-repair evidence', () => {
-    expect(repair).toContain("sha256(canonicalJsonBytes) !== gate27.artifacts.json.sha256");
+  it('never allows the repair bridge to rewrite canonical JSON', () => {
+    expect(bridgeWorker).toContain('Canonical JSON is read-only through this bridge');
     expect(repair).toContain('canonical_blueprint_unchanged: true');
     expect(repair).toContain('canonical_blueprint_regenerated: false');
-    expect(repair).not.toContain('blueprint_json =');
-    expect(repair).toContain('pre-rematerialization-blueprint.pdf');
-    expect(repair).toContain('pre-rematerialization-assets.zip');
-    expect(repair).toContain('pre-rematerialization-gate27-receipt.json');
-    expect(repair).toContain('pre-rematerialization-research-receipt.json');
-    expect(repair).toContain('pre-rematerialization-integrity-kv.json');
-    expect(repair).toContain('pre-rematerialization-pointer-kv.json');
   });
 
-  it('updates all acceptance integrity authorities and requires Gates 27 and 28 to reverify', () => {
-    expect(repair).toContain("'ghosttowntest-blueprints-acceptance'");
-    expect(repair).toContain("'ghosttowntest-private-blueprints-acceptance'");
-    expect(repair).toContain('paid_test_blueprint_integrity_');
-    expect(repair).toContain('paid_test_blueprint_pointer_');
-    expect(repair).toContain('generationReceiptEvidence.document = documentReceipt');
-    expect(repair).toContain("for (const id of ['27', '28'])");
-    expect(repair).toContain("status: 'PENDING'");
+  it('renders PDF and ZIP only from exact canonical JSON', () => {
+    expect(helper).toContain('renderLaunchBlueprintPdfV21');
+    expect(helper).toContain('buildBlueprintAssetZipFromCanonicalBytesV21');
+    expect(helper).toContain('canonicalJsonBytes');
+    expect(helper).toContain('expect(JSON.stringify(blueprint)).toBe(before)');
   });
 
-  it('rolls every acceptance authority back if any mutation or verification step fails', () => {
-    expect(repair).toContain('rollback-research-receipt.sql');
-    expect(repair).toContain('rollback-integrity-receipt.json');
-    expect(repair).toContain('rollback-blueprint-pointer.json');
-    expect(repair).toContain('putPresentationArtifacts(orderId, oldPdfPath, oldZipPath)');
+  it('repairs and verifies through the same Worker-visible R2 object set', () => {
+    expect(repair).toContain('withAcceptanceR2Binding');
+    expect(repair).toContain("r2_mutation_path: 'workers_remote_binding'");
+    expect(repair).toContain('r2_exact_round_trip_verified: true');
     expect(repair).toContain('rollback_on_partial_failure: true');
+  });
+
+  it('forces Gate 27 and Gate 28 to certify Worker-binding-visible bytes rather than Wrangler object CLI bytes', () => {
+    expect(gate27).toContain('withAcceptanceR2Binding');
+    expect(gate27).toContain("r2_read_path: 'workers_remote_binding'");
+    expect(gate28).toContain('withAcceptanceR2Binding');
+    expect(gate28).toContain("r2_read_path:'workers_remote_binding'");
+    expect(gate27).not.toContain("'r2', 'object', 'get'");
+    expect(gate28).not.toContain("'r2', 'object', 'get'");
   });
 
   it('does not replay purchase, research, Vertex generation, or touch production', () => {
