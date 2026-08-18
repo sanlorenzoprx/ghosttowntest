@@ -7,6 +7,11 @@ const ROOT = resolve(process.cwd());
 const STATE_DIR = join(ROOT, '.roadmap-autopilot');
 const CONFIG_PATH = join(ROOT, '.roadmap-r2-binding-bridge.wrangler.toml');
 const R2_BUCKET = 'ghosttowntest-private-blueprints-acceptance';
+// This local bridge uses only baseline Fetch, Web Crypto, and R2 binding APIs.
+// Keep its runtime compatibility aligned with the repository's stable Worker
+// baseline instead of pinning it to today's date. Wrangler remote-binding
+// routing is controlled by `remote = true`, not by a current compatibility date.
+const BRIDGE_COMPATIBILITY_DATE = '2024-01-01';
 
 function packageBin(packageName, binName = packageName) {
   const dir = join(ROOT, 'node_modules', packageName);
@@ -53,7 +58,7 @@ export async function withAcceptanceR2Binding(callback) {
   mkdirSync(STATE_DIR, { recursive: true });
   const port = await freePort();
   const baseUrl = `http://127.0.0.1:${port}`;
-  writeFileSync(CONFIG_PATH, `name = "ghosttown-roadmap-r2-binding-bridge"\nmain = "scripts/roadmap-r2-binding-worker.ts"\ncompatibility_date = "2026-08-18"\nworkers_dev = false\n\n[[r2_buckets]]\nbinding = "BLUEPRINTS"\nbucket_name = "${R2_BUCKET}"\nremote = true\n`, 'utf8');
+  writeFileSync(CONFIG_PATH, `name = "ghosttown-roadmap-r2-binding-bridge"\nmain = "scripts/roadmap-r2-binding-worker.ts"\ncompatibility_date = "${BRIDGE_COMPATIBILITY_DATE}"\nworkers_dev = false\n\n[[r2_buckets]]\nbinding = "BLUEPRINTS"\nbucket_name = "${R2_BUCKET}"\nremote = true\n`, 'utf8');
 
   let stdout = '';
   let stderr = '';
