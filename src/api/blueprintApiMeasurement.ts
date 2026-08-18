@@ -3,7 +3,7 @@ import {
   handleLaunchBlueprintProgress as handleCoreProgress,
   handleLaunchBlueprintRetry as handleCoreRetry,
   ownedLaunchBlueprintOrder
-} from './blueprintApiCore';
+} from './blueprintApi';
 import { loadBlueprintProgress } from './blueprintStore';
 import { commercialEventAttribution } from './commercialAttribution';
 import { recordCommercialFunnelEvent, type CommercialFunnelEventInput } from './analytics';
