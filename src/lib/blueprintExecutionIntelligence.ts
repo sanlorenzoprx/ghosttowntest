@@ -250,15 +250,13 @@ function routeForConstraint(constraint: string): ExecutionBranchRoute {
   }
 }
 
-function finalDecisionRoute(value: string | undefined): ExecutionBranchRoute | null {
+function explicitFinalDecisionRoute(value: string | undefined): ExecutionBranchRoute | null {
   switch (value) {
     case 'stop': return 'stop';
     case 'pause_missing_evidence': return 'pause_missing_evidence';
     case 'pivot_customer': return 'revise_customer';
     case 'pivot_problem': return 'revise_problem';
     case 'pivot_offer': return 'revise_offer';
-    case 'revise':
-    case 'continue_with_revision': return 'revise_offer';
     case 'continue': return 'continue';
     default: return null;
   }
@@ -269,11 +267,19 @@ export function formalCheckpointBranch(progress: ExecutionProgressLike, dayNumbe
     .filter(review => review.dayNumber <= dayNumber && Boolean(review.completedAt))
     .sort((left, right) => right.dayNumber - left.dayNumber);
   const latest = reviews[0];
-  const finalRoute = latest?.dayNumber === 30 ? finalDecisionRoute(progress.finalDecision) : null;
   const constraint = latest?.primaryConstraint?.trim() || 'none';
-  let route = finalRoute || (latest ? routeForConstraint(constraint) : 'continue');
+  const finalDecision = latest?.dayNumber === 30 ? progress.finalDecision : undefined;
+  const explicitFinalRoute = explicitFinalDecisionRoute(finalDecision);
+  let route = explicitFinalRoute || (latest ? routeForConstraint(constraint) : 'continue');
+  const revisionDecision = finalDecision === 'revise' || finalDecision === 'continue_with_revision';
   const strength = latest?.strongestEvidence?.trim() || 'none';
   const metrics = progress.metrics || {};
+
+  // A generic "revise" decision never means "revise offer" by default. The
+  // named checkpoint constraint selects the one permitted variable. If the
+  // checkpoint did not identify a constraint, pause and collect evidence rather
+  // than inventing a revision target.
+  if (revisionDecision && route === 'continue') route = 'pause_missing_evidence';
   if (latest && constraint === 'none' && route === 'continue' && strength === 'none' && !(metrics.commitments || 0) && !(metrics.revenueCents || 0)) {
     route = 'pause_missing_evidence';
   }
@@ -287,7 +293,7 @@ export function formalCheckpointBranch(progress: ExecutionProgressLike, dayNumbe
     reason: plan.reason,
     nextAction: latest?.nextAction?.trim() || (route === 'continue' ? 'Complete the current declared experiment before changing a variable.' : plan.reason),
     evidenceStrength: strength,
-    source: finalRoute ? 'final_decision' : latest ? 'checkpoint_review' : 'no_checkpoint_yet'
+    source: finalDecision ? 'final_decision' : latest ? 'checkpoint_review' : 'no_checkpoint_yet'
   };
 }
 
@@ -317,20 +323,24 @@ function currentDayEvidence(blueprint: GhostTownLaunchBlueprintV21, progress: Ex
   return (progress.evidenceLedger || []).filter(entry => Boolean(entry.actionId && ids.has(entry.actionId)));
 }
 
+function asRetrievedEvidence(entry: ExecutionEvidenceLike): ExecutionRetrievedEvidence {
+  return {
+    entryId: entry.entryId || '', actionId: entry.actionId || '', date: entry.date || '', evidenceStrength: entry.evidenceStrength || 'weak',
+    contactOrChannel: entry.contactOrChannel || '', response: entry.response || '', customerLanguage: entry.customerLanguage || '', objection: entry.objection || '',
+    commitmentReceived: entry.commitmentReceived || '', revenueCents: Number(entry.revenueCents) || 0, sourceNote: entry.sourceNote || ''
+  };
+}
+
 function retrieveEvidence(blueprint: GhostTownLaunchBlueprintV21, progress: ExecutionProgressLike, dayNumber: number, question: string): ExecutionRetrievedEvidence[] {
-  const exact = currentDayEvidence(blueprint, progress, dayNumber);
+  const exact = currentDayEvidence(blueprint, progress, dayNumber).slice(-14);
   const query = words(question);
   const others = (progress.evidenceLedger || [])
     .filter(entry => !exact.includes(entry))
     .map(entry => ({ entry, score: overlapScore(query, [entry.response || '', entry.customerLanguage || '', entry.objection || '', entry.alternativeMentioned || '', entry.sourceNote || '']) }))
     .sort((left, right) => right.score - left.score)
-    .slice(0, 8)
+    .slice(0, Math.max(0, 14 - exact.length))
     .map(item => item.entry);
-  return [...exact, ...others].slice(-14).map(entry => ({
-    entryId: entry.entryId || '', actionId: entry.actionId || '', date: entry.date || '', evidenceStrength: entry.evidenceStrength || 'weak',
-    contactOrChannel: entry.contactOrChannel || '', response: entry.response || '', customerLanguage: entry.customerLanguage || '', objection: entry.objection || '',
-    commitmentReceived: entry.commitmentReceived || '', revenueCents: Number(entry.revenueCents) || 0, sourceNote: entry.sourceNote || ''
-  }));
+  return [...exact, ...others].map(asRetrievedEvidence);
 }
 
 function retrieveSources(blueprint: GhostTownLaunchBlueprintV21, question: string): ExecutionRetrievedSource[] {
