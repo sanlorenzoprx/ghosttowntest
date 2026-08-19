@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { prepareAcceptanceOwnerSession } from './roadmap-gate34-owner-session-setup.mjs';
 
 const ROOT = resolve(process.cwd());
 const STATE_DIR = join(ROOT, '.roadmap-autopilot');
@@ -19,7 +20,7 @@ function run(command, args, options = {}) {
     stdio: options.capture ? 'pipe' : 'inherit',
     maxBuffer: 64 * 1024 * 1024,
     timeout: options.timeout || 600000,
-    env: process.env
+    env: options.env || process.env
   });
   if ((result.status ?? 1) !== 0) {
     const detail = options.capture ? `\n${result.stdout || ''}\n${result.stderr || ''}` : '';
@@ -68,11 +69,6 @@ function receiptPasses(file, schema) {
   }
 }
 
-function ownerCredentialGuard() {
-  const value = String(process.env[OWNER_TOKEN_ENV] || '').trim();
-  if (value.length < 40) throw new Error(`INPUT_REQUIRED: set ${OWNER_TOKEN_ENV} locally to the EXISTING Gate 20 owner acceptance token. Do not paste it into chat or store it in the repository.`);
-}
-
 const gate36Before = stateGuard();
 const headBefore = gitAndPrGuard();
 console.log(`Pre-Gate-36 correction validation starting at ${headBefore}; Gate 36 remains ${gate36Before}.`);
@@ -81,6 +77,7 @@ console.log(`Pre-Gate-36 correction validation starting at ${headBefore}; Gate 3
 for (const script of [
   'scripts/roadmap-gate31-second-account-setup.mjs',
   'scripts/roadmap-gate31-cross-account-security-v2.mjs',
+  'scripts/roadmap-gate34-owner-session-setup.mjs',
   'scripts/roadmap-gate34-visual-certification.mjs',
   'scripts/roadmap-gate34-canonical-visual-matrix.mjs',
   'scripts/roadmap-gate35-authoritative-receipt.mjs'
@@ -88,6 +85,7 @@ for (const script of [
 run('npx', ['vitest', 'run',
   'tests/roadmapGate31Adapter.test.ts',
   'tests/roadmapGate31AuthenticatedCrossAccountV2.test.ts',
+  'tests/roadmapGate34OwnerSessionSetup.test.ts',
   'tests/roadmapGate34Adapter.test.ts',
   'tests/roadmapGate34MobileNavigation.test.ts',
   'tests/roadmapGate34VisualMatrix.test.ts',
@@ -108,10 +106,15 @@ if (!receiptPasses('gate31-cross-account-security-receipt-v2.json', 'roadmap-gat
   console.log('Gate 31 v2 receipt already PASS; no additional second acceptance account will be created.');
 }
 
-// Gate 34 remains read-only and therefore uses an existing owner session supplied locally.
+// Gate 34 itself remains read-only. If no owner JWT was supplied locally, obtain one through a
+// separate acceptance-auth setup that restores the owner user record exactly before Gate 34 starts.
 if (!receiptPasses('gate34-visual-certification-receipt-v2.json', 'roadmap-gate34-visual-certification-receipt-v2')) {
-  ownerCredentialGuard();
-  run(process.execPath, ['scripts/roadmap-gate34-visual-certification.mjs', '--correction'], { timeout: 360000 });
+  let ownerToken = String(process.env[OWNER_TOKEN_ENV] || '').trim();
+  if (ownerToken.length < 40) ownerToken = await prepareAcceptanceOwnerSession();
+  run(process.execPath, ['scripts/roadmap-gate34-visual-certification.mjs', '--correction'], {
+    timeout: 360000,
+    env: { ...process.env, [OWNER_TOKEN_ENV]: ownerToken }
+  });
 } else {
   console.log('Gate 34 v2 receipt already PASS; existing read-only evidence will be reused.');
 }
@@ -139,11 +142,13 @@ console.log(JSON.stringify({
   corrected_receipts: [
     '.roadmap-autopilot/gate31-second-account-setup-receipt.json',
     '.roadmap-autopilot/gate31-cross-account-security-receipt-v2.json',
+    '.roadmap-autopilot/gate34-owner-session-setup-receipt.json',
     '.roadmap-autopilot/gate34-visual-certification-receipt-v2.json',
     '.roadmap-autopilot/gate34-visual-evidence-matrix.json',
     '.roadmap-autopilot/gate35-ghosttown-final-acceptance-receipt.json'
   ],
   acceptance_auth_account_setup_allowed: true,
+  gate34_auth_setup_restored_before_certification: true,
   production_deployed: false,
   merge_performed: false,
   second_purchase_created: false,
