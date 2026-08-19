@@ -85,6 +85,13 @@ describe('Gate 34 canonical visual evidence matrix', () => {
     }
   });
 
+  it('mocks only root API endpoints so Vite source modules under src/api keep JavaScript MIME types', () => {
+    const browser = readText('tests/gate34VisualFixtureBrowser.test.ts');
+    expect(browser).toContain("page.route(/^https?:\\/\\/[^/]+\\/api\\//");
+    expect(browser).not.toContain("page.route('**/api/**'");
+    expect(browser).toContain('Vite source modules such as /src/api/*.ts');
+  });
+
   it('serializes the two heavy Playwright suites and preserves suite-specific diagnostics', () => {
     const script = readText('scripts/roadmap-gate34-canonical-visual-matrix.mjs');
     expect(script).toContain("runVisualSuite('tests/gate34VisualFixtureBrowser.test.ts', 300000)");
