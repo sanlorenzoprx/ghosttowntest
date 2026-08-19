@@ -41,6 +41,15 @@ describe('Gate 34 canonical visual evidence matrix', () => {
     expect(browser).toContain("environment: 'DETERMINISTIC_UI_FIXTURE'");
   });
 
+  it('serializes the two heavy Playwright suites and preserves suite-specific diagnostics', () => {
+    const script = readText('scripts/roadmap-gate34-canonical-visual-matrix.mjs');
+    expect(script).toContain("runVisualSuite('tests/gate34VisualFixtureBrowser.test.ts', 300000)");
+    expect(script).toContain("runVisualSuite('tests/q4LaunchSiteBrowser.test.ts', 240000)");
+    expect(script).toContain("'--no-file-parallelism'");
+    expect(script).toContain('file_parallelism: false');
+    expect(script).toContain('canonical visual suite ${file} failed');
+  });
+
   it('does not recreate purchase, production, or accepted order mutations', () => {
     const script = readText('scripts/roadmap-gate34-canonical-visual-matrix.mjs');
     expect(script).toContain('purchase_replayed: false');
