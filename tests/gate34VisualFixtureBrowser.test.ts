@@ -62,12 +62,15 @@ function orderFor(surface: string) {
 }
 
 async function mockApi(page: Page, surface: string) {
-  // Match only real application endpoints whose URL path begins with /api/.
-  // A broad **/api/** glob also matches Vite source modules such as /src/api/*.ts,
-  // causing Playwright to return JSON for JavaScript and fail strict MIME checks.
-  await page.route(/^https?:\/\/[^/]+\/api\//, async route => {
+  // Inspect every browser request by parsed pathname. Only true root API calls are mocked;
+  // Vite source modules such as /src/api/*.ts explicitly continue to the dev server.
+  await page.route('**/*', async route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (!path.startsWith('/api/')) {
+      await route.continue();
+      return;
+    }
     if (path.endsWith('/api/auth/verify')) {
       await json(route, { user: { email: 'fixture@example.test', testsUsed: 0, testsPurchased: 0, sharesGiven: 0, sharesReceived: 0, shareCredits: 0, createdAt: '2026-08-01T00:00:00.000Z', lastTestAt: null } });
       return;
@@ -167,27 +170,27 @@ async function prepareSurface(page: Page, surface: string, viewportWidth: number
     return;
   }
   if (surface === 'blueprint-48-hour-card') {
-    await page.getByText('48-hour Launch Card').waitFor();
+    await page.getByText('48-hour Launch Card', { exact: true }).waitFor();
     return;
   }
   if (surface === 'blueprint-starting-state') {
     await selectBlueprintTab(page, viewportWidth, 'Starting State', 'audit');
-    await page.getByText('Five critical tests').waitFor();
+    await page.getByText('Five critical tests', { exact: true }).waitFor();
     return;
   }
   if (surface === 'blueprint-first-revenue') {
     await selectBlueprintTab(page, viewportWidth, 'First Revenue', 'revenue');
-    await page.getByText('First ask').waitFor();
+    await page.getByText('First ask', { exact: true }).waitFor();
     return;
   }
   if (surface === 'blueprint-fulfillment') {
     await selectBlueprintTab(page, viewportWidth, 'Fulfillment', 'fulfillment');
-    await page.getByText('Delivery timeline').waitFor();
+    await page.getByText('Delivery timeline', { exact: true }).waitFor();
     return;
   }
   if (surface === 'blueprint-evidence-ledger') {
     await selectBlueprintTab(page, viewportWidth, 'Evidence', 'evidence');
-    await page.getByText('Qualified buyer interview').waitFor();
+    await page.getByText('Qualified buyer interview', { exact: true }).waitFor();
     return;
   }
   if (surface === 'blueprint-checkpoint-forms') {
