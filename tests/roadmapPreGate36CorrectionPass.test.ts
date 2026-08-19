@@ -4,19 +4,21 @@ import { readFile } from 'node:fs/promises';
 const readText = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 describe('pre-Gate-36 correction pass runner', () => {
-  it('creates the literal second acceptance account without exposing its credentials and only requires the owner token', async () => {
+  it('creates the literal second acceptance account without exposing its credentials and does not require a manual owner JWT', async () => {
     const runner = await readText('scripts/roadmap-pre-gate36-correction-pass.mjs');
-    const setup = await readText('scripts/roadmap-gate31-second-account-setup.mjs');
+    const secondAccount = await readText('scripts/roadmap-gate31-second-account-setup.mjs');
+    const ownerSetup = await readText('scripts/roadmap-gate34-owner-session-setup.mjs');
     expect(runner).toContain('roadmap-gate31-second-account-setup.mjs');
-    expect(runner).not.toContain("SECOND_ACCOUNT_TOKEN_ENV = 'ROADMAP_GATE_31_SECOND_ACCOUNT_TOKEN'");
-    expect(runner).toContain("OWNER_TOKEN_ENV = 'ROADMAP_GATE_34_OWNER_TOKEN'");
-    expect(runner).toContain('Do not paste it into chat');
-    expect(setup).toContain('/api/auth/signup');
-    expect(setup).toContain('acceptance_auth_account_created: true');
-    expect(setup).toContain('password_value_recorded: false');
-    expect(setup).toContain('token_value_recorded: false');
-    expect(setup).toContain('email_value_recorded: false');
-    expect(setup).toContain('second_purchase_created: false');
+    expect(runner).toContain('prepareAcceptanceOwnerSession');
+    expect(runner).not.toContain('ownerCredentialGuard');
+    expect(runner).not.toContain('INPUT_REQUIRED: set ROADMAP_GATE_34_OWNER_TOKEN');
+    expect(secondAccount).toContain('/api/auth/signup');
+    expect(secondAccount).toContain('acceptance_auth_account_created: true');
+    expect(secondAccount).toContain('password_value_recorded: false');
+    expect(secondAccount).toContain('token_value_recorded: false');
+    expect(ownerSetup).toContain('acceptance_auth_restored_before_gate34: true');
+    expect(ownerSetup).toContain('owner_user_record_restored_exactly: true');
+    expect(ownerSetup).toContain('token_value_recorded: false');
   });
 
   it('requires Gates 1-35 PASS and refuses an authorized/executed Gate 36', async () => {
@@ -41,6 +43,7 @@ describe('pre-Gate-36 correction pass runner', () => {
   it('runs only additive correction evidence and final refresh, never Autopilot or reset', async () => {
     const runner = await readText('scripts/roadmap-pre-gate36-correction-pass.mjs');
     expect(runner).toContain('roadmap-gate31-second-account-setup.mjs');
+    expect(runner).toContain('roadmap-gate34-owner-session-setup.mjs');
     expect(runner).toContain("roadmap-gate34-visual-certification.mjs', '--correction'");
     expect(runner).toContain('roadmap-gate34-canonical-visual-matrix.mjs');
     expect(runner).toContain("roadmap-gate35-authoritative-receipt.mjs', '--final-refresh'");
