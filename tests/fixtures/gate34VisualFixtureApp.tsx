@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import '../../src/index.css';
+import '../../src/styles/globals.css';
 import ResultReport from '../../src/components/ResultReport';
 import ActionPlanModal from '../../src/components/ActionPlanModal';
 import CompetitorSeedStep from '../../src/components/CompetitorSeedStep';
