@@ -86,7 +86,7 @@ export default function LaunchSitePanel({ orderId }: { orderId: string }) {
 
   if (!payload?.site)
     return (
-      <section className="rounded-xl border border-black/10 bg-white p-6">
+      <section className="min-w-0 max-w-full rounded-xl border border-black/10 bg-white p-6">
         <h2 className="text-2xl font-black">Launch Site</h2>
         <p className="mt-3 text-sm text-gray-600">
           {error || "Preparing the D1-backed Launch Site record…"}
@@ -95,10 +95,10 @@ export default function LaunchSitePanel({ orderId }: { orderId: string }) {
     );
   const published = payload.site.status === "published";
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl border border-black/10 bg-white p-6">
+    <div className="min-w-0 max-w-full space-y-6">
+      <section className="min-w-0 max-w-full rounded-xl border border-black/10 bg-white p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-wide text-ghost-rust">
               Canonical Blueprint Launch Site
             </p>
@@ -112,7 +112,7 @@ export default function LaunchSitePanel({ orderId }: { orderId: string }) {
             </p>
           </div>
           <span
-            className={`rounded-full px-3 py-1 text-xs font-black uppercase ${published ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-black uppercase ${published ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}
           >
             {payload.site.status}
           </span>
@@ -181,9 +181,9 @@ export default function LaunchSitePanel({ orderId }: { orderId: string }) {
           )}
         </div>
       </section>
-      <section className="rounded-xl border border-black/10 bg-white p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
+      <section className="min-w-0 max-w-full rounded-xl border border-black/10 bg-white p-6">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h2 className="text-2xl font-black">Leads</h2>
             <p className="mt-1 text-sm text-gray-600">
               Owner-only submissions stored in D1.
@@ -205,7 +205,7 @@ export default function LaunchSitePanel({ orderId }: { orderId: string }) {
                     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
                   });
               }}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-black"
+              className="shrink-0 rounded-lg border border-gray-300 px-4 py-2 text-sm font-black"
             >
               Export CSV
             </a>
@@ -214,8 +214,8 @@ export default function LaunchSitePanel({ orderId }: { orderId: string }) {
         {leads.length === 0 ? (
           <p className="mt-4 text-sm text-gray-500">No leads yet.</p>
         ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left text-sm">
+          <div className="mt-4 w-full max-w-full overflow-x-auto">
+            <table className="w-full min-w-[36rem] text-left text-sm">
               <thead>
                 <tr>
                   <th className="p-2">Date</th>
