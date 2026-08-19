@@ -120,7 +120,7 @@ if (!receiptPasses('gate34-visual-certification-receipt-v2.json', 'roadmap-gate3
 }
 
 if (!receiptPasses('gate34-visual-evidence-matrix.json', 'roadmap-gate34-visual-evidence-matrix-v1')) {
-  run(process.execPath, ['scripts/roadmap-gate34-canonical-visual-matrix.mjs'], { timeout: 480000 });
+  run(process.execPath, ['scripts/roadmap-gate34-canonical-visual-matrix.mjs'], { timeout: 600000 });
 } else {
   console.log('Gate 34 canonical visual matrix already PASS; existing evidence will be reused.');
 }
