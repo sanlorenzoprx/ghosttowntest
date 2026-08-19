@@ -66,25 +66,21 @@ function credentialGuard() {
 
 const gate36Before = stateGuard();
 const headBefore = gitAndPrGuard();
-credentialGuard();
+console.log(`Pre-Gate-36 correction validation starting at ${headBefore}; Gate 36 remains ${gate36Before}.`);
 
-console.log(`Pre-Gate-36 correction pass starting at ${headBefore}; Gate 36 remains ${gate36Before}.`);
-
+// Deterministic repository validation runs before any live acceptance request.
 run(process.execPath, ['--check', 'scripts/roadmap-gate31-cross-account-security-v2.mjs']);
 run(process.execPath, ['--check', 'scripts/roadmap-gate34-visual-certification.mjs']);
 run(process.execPath, ['--check', 'scripts/roadmap-gate34-canonical-visual-matrix.mjs']);
 run(process.execPath, ['--check', 'scripts/roadmap-gate35-authoritative-receipt.mjs']);
-
-run(process.execPath, ['scripts/roadmap-gate31-cross-account-security-v2.mjs']);
-run(process.execPath, ['scripts/roadmap-gate34-visual-certification.mjs', '--correction'], { timeout: 360000 });
-run(process.execPath, ['scripts/roadmap-gate34-canonical-visual-matrix.mjs'], { timeout: 480000 });
-
 run('npx', ['vitest', 'run',
   'tests/roadmapGate31Adapter.test.ts',
   'tests/roadmapGate31AuthenticatedCrossAccountV2.test.ts',
   'tests/roadmapGate34Adapter.test.ts',
+  'tests/roadmapGate34MobileNavigation.test.ts',
   'tests/roadmapGate34VisualMatrix.test.ts',
   'tests/roadmapGate35Adapter.test.ts',
+  'tests/roadmapPreGate36CorrectionPass.test.ts',
   'tests/productionRoadmapAutopilot.test.ts'
 ], { timeout: 360000 });
 run('npm', ['run', 'verify:blueprint']);
@@ -93,8 +89,14 @@ run('npm', ['run', 'build'], { timeout: 360000 });
 run('npm', ['run', 'worker:check:acceptance'], { timeout: 360000 });
 run('git', ['diff', '--check']);
 
-const headAfterValidation = gitAndPrGuard();
-if (headAfterValidation !== headBefore) throw new Error('Tracked Git HEAD changed during correction evidence generation; refusing final authority refresh.');
+// Only after deterministic validation do we require existing acceptance sessions.
+credentialGuard();
+run(process.execPath, ['scripts/roadmap-gate31-cross-account-security-v2.mjs']);
+run(process.execPath, ['scripts/roadmap-gate34-visual-certification.mjs', '--correction'], { timeout: 360000 });
+run(process.execPath, ['scripts/roadmap-gate34-canonical-visual-matrix.mjs'], { timeout: 480000 });
+
+const headAfterEvidence = gitAndPrGuard();
+if (headAfterEvidence !== headBefore) throw new Error('Tracked Git HEAD changed during correction evidence generation; refusing final authority refresh.');
 run(process.execPath, ['scripts/roadmap-gate35-authoritative-receipt.mjs', '--final-refresh']);
 run('npm', ['run', 'roadmap:status']);
 
