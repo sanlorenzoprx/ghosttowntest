@@ -85,11 +85,21 @@ describe('Gate 34 canonical visual evidence matrix', () => {
     }
   });
 
-  it('mocks only root API endpoints so Vite source modules under src/api keep JavaScript MIME types', () => {
+  it('mocks only parsed root API paths and explicitly continues Vite source-module requests', () => {
     const browser = readText('tests/gate34VisualFixtureBrowser.test.ts');
-    expect(browser).toContain("page.route(/^https?:\\/\\/[^/]+\\/api\\//");
+    expect(browser).toContain("page.route('**/*'");
+    expect(browser).toContain("if (!path.startsWith('/api/'))");
+    expect(browser).toContain('await route.continue()');
     expect(browser).not.toContain("page.route('**/api/**'");
+    expect(browser).not.toContain('page.route(/^https?:\\/\\/[^/]+\\/api\\//');
     expect(browser).toContain('Vite source modules such as /src/api/*.ts');
+  });
+
+  it('uses exact text selectors for Blueprint labels that also appear inside body copy', () => {
+    const browser = readText('tests/gate34VisualFixtureBrowser.test.ts');
+    expect(browser).toContain("getByText('First ask', { exact: true })");
+    expect(browser).toContain("getByText('Delivery timeline', { exact: true })");
+    expect(browser).toContain("getByText('48-hour Launch Card', { exact: true })");
   });
 
   it('contains the production Leads table within the mobile viewport while preserving an internal horizontal scroller', () => {
