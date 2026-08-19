@@ -181,8 +181,8 @@ async function sha256(value) {
 }
 async function objectSha256(object) {
   if (!object) return null;
-  const bytes = await object.arrayBuffer();
-  return await sha256(new Uint8Array(bytes));
+  const digest = await crypto.subtle.digest('SHA-256', await object.arrayBuffer());
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 async function readR2Hashes(env, keys) {
   const json = await objectSha256(await env.BLUEPRINTS.get(keys.json));
