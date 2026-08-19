@@ -217,11 +217,23 @@ describe('Gate 34 canonical deterministic UI visual fixtures', () => {
     for (const viewport of VIEWPORTS) {
       for (const surface of FIXTURE_SURFACES) {
         const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
+        const runtimeErrors: string[] = [];
+        page.on('pageerror', error => runtimeErrors.push(`pageerror: ${error.message}`));
+        page.on('console', message => {
+          if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`);
+        });
         await mockApi(page, surface);
         const routeSurface = surface === 'free-verdict' ? 'verdict' : surface;
         const response = await page.goto(`${origin}/gate34-visual-fixture.html?surface=${encodeURIComponent(routeSurface)}`, { waitUntil: 'domcontentloaded' });
         expect(response?.status()).toBe(200);
-        await prepareSurface(page, surface, viewport.width);
+        try {
+          await prepareSurface(page, surface, viewport.width);
+        } catch (error) {
+          const fixtureError = await page.locator('#root').getAttribute('data-fixture-error').catch(() => null);
+          const bodyText = String(await page.locator('body').textContent().catch(() => '')).slice(0, 1800);
+          const original = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+          throw new Error(`Gate 34 fixture ${surface} ${viewport.name} failed. ${original}. fixture_error=${fixtureError || 'none'} runtime_errors=${JSON.stringify(runtimeErrors)} body=${JSON.stringify(bodyText)}`);
+        }
         const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
         expect(horizontalOverflow, `${surface} ${viewport.name}`).toBe(false);
         const screenshotPath = join(SHOT_DIR, `${surface}-${viewport.name}.png`);
