@@ -62,7 +62,10 @@ function orderFor(surface: string) {
 }
 
 async function mockApi(page: Page, surface: string) {
-  await page.route('**/api/**', async route => {
+  // Match only real application endpoints whose URL path begins with /api/.
+  // A broad **/api/** glob also matches Vite source modules such as /src/api/*.ts,
+  // causing Playwright to return JSON for JavaScript and fail strict MIME checks.
+  await page.route(/^https?:\/\/[^/]+\/api\//, async route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     if (path.endsWith('/api/auth/verify')) {
