@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 
-const readText = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+const readText = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 describe('Gate 34 canonical visual evidence matrix', () => {
-  it('enumerates every literal canonical surface and all five required viewports', async () => {
-    const script = await readText('scripts/roadmap-gate34-canonical-visual-matrix.mjs');
+  it('enumerates every literal canonical surface and all five required viewports', () => {
+    const script = readText('scripts/roadmap-gate34-canonical-visual-matrix.mjs');
     for (const label of [
       'Free verdict', 'Micro-commitments', 'Checkout', 'Seed confirmation', 'Workflow status',
       '48-hour card', 'Starting-state audit', 'First-revenue plan', 'Fulfillment economics', 'Media Network',
@@ -17,8 +17,8 @@ describe('Gate 34 canonical visual evidence matrix', () => {
     expect(script).toContain('all_viewports_represented_per_requirement');
   });
 
-  it('requires screenshot files rather than receipt-only assertions and labels fixture evidence truthfully', async () => {
-    const script = await readText('scripts/roadmap-gate34-canonical-visual-matrix.mjs');
+  it('requires screenshot files rather than receipt-only assertions and labels fixture evidence truthfully', () => {
+    const script = readText('scripts/roadmap-gate34-canonical-visual-matrix.mjs');
     expect(script).toContain('normalizeScreenshot');
     expect(script).toContain('is missing screenshot evidence');
     expect(script).toContain("environment: 'DETERMINISTIC_UI_FIXTURE'");
@@ -27,9 +27,9 @@ describe('Gate 34 canonical visual evidence matrix', () => {
     expect(script).toContain('live_acceptance_claims_limited_to_live_evidence: true');
   });
 
-  it('uses real production React components for deterministic failure/retry and non-mutating surfaces', async () => {
-    const fixture = await readText('tests/fixtures/gate34VisualFixtureApp.tsx');
-    const browser = await readText('tests/gate34VisualFixtureBrowser.test.ts');
+  it('uses real production React components for deterministic failure/retry and non-mutating surfaces', () => {
+    const fixture = readText('tests/fixtures/gate34VisualFixtureApp.tsx');
+    const browser = readText('tests/gate34VisualFixtureBrowser.test.ts');
     for (const component of ['ResultReport', 'ActionPlanModal', 'CompetitorSeedStep', 'UserDashboard', 'LaunchSitePanel', 'LaunchBlueprintViewV21']) {
       expect(fixture).toContain(component);
     }
@@ -41,8 +41,8 @@ describe('Gate 34 canonical visual evidence matrix', () => {
     expect(browser).toContain("environment: 'DETERMINISTIC_UI_FIXTURE'");
   });
 
-  it('does not recreate purchase, production, or accepted order mutations', async () => {
-    const script = await readText('scripts/roadmap-gate34-canonical-visual-matrix.mjs');
+  it('does not recreate purchase, production, or accepted order mutations', () => {
+    const script = readText('scripts/roadmap-gate34-canonical-visual-matrix.mjs');
     expect(script).toContain('purchase_replayed: false');
     expect(script).toContain('acceptance_order_mutated: false');
     expect(script).toContain('production_deployed: false');
