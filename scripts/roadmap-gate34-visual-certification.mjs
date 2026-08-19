@@ -67,6 +67,23 @@ function runWrangler(args) {
   return `${result.stdout || ''}\n${result.stderr || ''}`;
 }
 
+function deployAcceptancePages() {
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8', shell: false }).stdout.trim();
+  const build = spawnSync('npm', ['run', 'build'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    maxBuffer: 64 * 1024 * 1024,
+    env: { ...process.env, VITE_API_URL: WORKER_URL },
+    timeout: 300000
+  });
+  if ((build.status ?? 1) !== 0) {
+    throw new Error(`Gate 34 acceptance build failed (${build.status ?? 1}).\n${build.stderr || build.stdout || ''}`.trim());
+  }
+  runWrangler(['pages', 'deploy', './dist', '--project-name', 'ghosttown-acceptance', '--branch', 'feat/launch-blueprint-spa', '--commit-hash', head]);
+  return head;
+}
+
 function runVitest(files) {
   const result = spawnSync('npx', ['vitest', 'run', ...files], {
     cwd: ROOT,
@@ -120,8 +137,10 @@ function sourceContract() {
   ]) {
     if (!sitePanel.includes(token)) throw new Error(`Gate 34 Launch Site panel source contract is missing ${token}.`);
   }
-  for (const token of ['/blueprint.json', '/launch-site/leads(?:\\\\.csv)?']) {
-    if (!index.includes(token)) throw new Error(`Gate 34 route-table source contract is missing ${token}.`);
+  // Route regexes in index.ts escape dots and slashes; flatten before checking.
+  const flattenedIndex = index.replace(/\\(.)/g, '$1');
+  for (const token of ['/blueprint.json', '/launch-site/leads(?:.csv)?', '/launch-site/(publish|unpublish)']) {
+    if (!flattenedIndex.includes(token)) throw new Error(`Gate 34 route-table source contract is missing ${token}.`);
   }
   return { paid_journey_ui_wired: true };
 }
@@ -260,6 +279,21 @@ async function waitCanonicalRestored(token) {
   throw new Error('Gate 34 canonical acceptance Worker did not return within the restore window.');
 }
 
+async function waitForPagesBundle() {
+  for (let attempt = 1; attempt <= 60; attempt += 1) {
+    try {
+      const html = await (await fetch(PAGES_URL)).text();
+      const match = html.match(/<script[^>]+src="([^"]+\.js)"/);
+      if (match) {
+        const js = await (await fetch(`${PAGES_URL}${match[1]}`)).text();
+        if (js.includes('30-Day Launch Execution') && js.includes('Evidence, reviews')) return match[1];
+      }
+    } catch {}
+    await sleep(3000);
+  }
+  throw new Error('Gate 34 acceptance Pages did not propagate the calendar-primary execution build.');
+}
+
 const { state, purchase, gate27, gate29 } = prerequisites();
 const contract = sourceContract();
 const focused = runVitest([
@@ -300,10 +334,14 @@ let tempDeployed = false;
 let mintBody = null;
 let smokeError = null;
 let ownerToken = null;
+let pagesHead = null;
+let pagesBundle = null;
 const viewportEvidence = [];
 const mutationPosts = [];
 
 try {
+  pagesHead = deployAcceptancePages();
+  pagesBundle = await waitForPagesBundle();
   writeFileSync(TEMP_ENTRY, mintWorkerSource(token, orderId), 'utf8');
   runWrangler(['deploy', TEMP_ENTRY, '--env', 'acceptance']);
   tempDeployed = true;
@@ -356,11 +394,28 @@ try {
 
       await stage('open-blueprint', async () => {
         await page.getByRole('button', { name: /Open Blueprint/i }).first().click();
-        await page.getByText('30-Day Launch Execution').first().waitFor({ timeout: 45000 });
+        try {
+          await page.getByText('30-Day Launch Execution').first().waitFor({ timeout: 45000 });
+        } catch (error) {
+          const dump = await page.evaluate(() => {
+            const body = document.body?.innerText?.slice(0, 900) || '(no body)';
+            const alerts = [...document.querySelectorAll('[role="alert"], .error, [class*="error"]')].map(node => node.textContent?.slice(0, 200)).filter(Boolean).slice(0, 5);
+            return { url: location.href, body, alerts };
+          });
+          await page.screenshot({ path: join(SHOT_DIR, `debug_open_blueprint_${viewport.name.replace('x', '_')}.png`) }).catch(() => undefined);
+          throw new Error(`open-blueprint waitFor failed at ${viewport.name}. ${JSON.stringify(dump)}`);
+        }
+        await page.getByRole('button', { name: /Open Day 1/i }).first().waitFor({ timeout: 45000 });
+        await page.locator('[aria-label="30-day execution calendar"]').first().waitFor({ timeout: 45000 });
         await page.getByRole('button', { name: /Download Blueprint PDF/i }).first().waitFor({ timeout: 45000 });
         await page.getByRole('button', { name: /Export all assets/i }).first().waitFor({ timeout: 45000 });
-        await page.getByText(/Day 1/).first().waitFor({ timeout: 45000 });
         await overflowAt('open-blueprint');
+      });
+
+      await stage('calendar-day', async () => {
+        await page.getByRole('button', { name: /Open Day 1/i }).first().click();
+        await page.locator('#daily-execution-detail').waitFor({ timeout: 45000 });
+        await overflowAt('calendar-day');
       });
 
       await stage('download-pdf', async () => {
@@ -453,6 +508,10 @@ const receipt = {
   owner_id_sha256: mintBody?.emailSha256 || null,
   pages_url: PAGES_URL,
   worker_url: WORKER_URL,
+  pages_bundle_deployed: true,
+  pages_bundle: pagesBundle,
+  pages_head: pagesHead,
+  pages_bundle_calendar_primary: true,
   viewports: viewportEvidence,
   artifact_integrity: {
     pdf_matches_gate27_every_viewport: pdfMatch,
