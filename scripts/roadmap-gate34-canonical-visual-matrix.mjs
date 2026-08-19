@@ -45,18 +45,35 @@ function readJson(path, label) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-function runVisualTests() {
-  const result = spawnSync('npx', ['vitest', 'run', 'tests/gate34VisualFixtureBrowser.test.ts', 'tests/q4LaunchSiteBrowser.test.ts'], {
+function runVisualSuite(file, timeout) {
+  const args = ['vitest', 'run', file, '--no-file-parallelism'];
+  const result = spawnSync('npx', args, {
     cwd: ROOT,
     encoding: 'utf8',
     shell: process.platform === 'win32',
     maxBuffer: 64 * 1024 * 1024,
-    timeout: 360000
+    timeout
   });
   if ((result.status ?? 1) !== 0) {
-    throw new Error(`Gate 34 canonical visual fixture tests failed (${result.status ?? 1}).\n${result.stdout || ''}\n${result.stderr || ''}`.trim());
+    const timeoutDetail = result.error?.code === 'ETIMEDOUT' ? ` timed out after ${timeout}ms` : '';
+    throw new Error(`Gate 34 canonical visual suite ${file} failed${timeoutDetail} (status ${result.status ?? 1}).\n${result.stdout || ''}\n${result.stderr || ''}`.trim());
   }
-  return { command: 'npx vitest run tests/gate34VisualFixtureBrowser.test.ts tests/q4LaunchSiteBrowser.test.ts', status: 'PASS' };
+  return {
+    command: `npx ${args.join(' ')}`,
+    status: 'PASS'
+  };
+}
+
+function runVisualTests() {
+  // These suites each launch Chromium and a local server. Running them in the same
+  // default-parallel Vitest invocation creates unnecessary resource/timing contention
+  // on Windows acceptance workstations. Serialize them so evidence generation is
+  // deterministic while preserving each suite's own assertions and timeouts.
+  const suites = [
+    runVisualSuite('tests/gate34VisualFixtureBrowser.test.ts', 300000),
+    runVisualSuite('tests/q4LaunchSiteBrowser.test.ts', 240000)
+  ];
+  return { suites, status: 'PASS', file_parallelism: false };
 }
 
 function normalizeScreenshot(relative) {
