@@ -49,8 +49,9 @@ describe('Gate 34 canonical visual evidence matrix', () => {
     for (const module of ['ResultReport', 'ActionPlanModal', 'CompetitorSeedStep', 'UserDashboard', 'LaunchSitePanel', 'LaunchBlueprintViewV21']) {
       expect(fixture).toContain(`await import('../../src/components/${module}')`);
     }
-    expect(fixture).toContain('data-fixture-error');
+    expect(fixture).toContain('dataset.fixtureError');
     expect(fixture).toContain('Gate 34 fixture mount failed');
+    expect(browser).toContain("getAttribute('data-fixture-error')");
     expect(browser).toContain("page.on('pageerror'");
     expect(browser).toContain("message.type() === 'error'");
     expect(browser).toContain('runtime_errors=');
