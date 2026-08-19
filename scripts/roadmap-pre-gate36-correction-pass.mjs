@@ -4,11 +4,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(process.cwd());
-const STATE_PATH = join(ROOT, '.roadmap-autopilot', 'state.json');
+const STATE_DIR = join(ROOT, '.roadmap-autopilot');
+const STATE_PATH = join(STATE_DIR, 'state.json');
 const BRANCH = 'feat/launch-blueprint-spa';
 const REPOSITORY = 'sanlorenzoprx/ghosttowntest';
 const PR_NUMBER = '7';
-const SECOND_ACCOUNT_TOKEN_ENV = 'ROADMAP_GATE_31_SECOND_ACCOUNT_TOKEN';
 const OWNER_TOKEN_ENV = 'ROADMAP_GATE_34_OWNER_TOKEN';
 
 function run(command, args, options = {}) {
@@ -57,22 +57,34 @@ function gitAndPrGuard() {
   return localHead;
 }
 
-function credentialGuard() {
-  for (const name of [SECOND_ACCOUNT_TOKEN_ENV, OWNER_TOKEN_ENV]) {
-    const value = String(process.env[name] || '').trim();
-    if (value.length < 40) throw new Error(`INPUT_REQUIRED: set ${name} locally. Do not paste the token into chat or store it in the repository.`);
+function receiptPasses(file, schema) {
+  const path = join(STATE_DIR, file);
+  if (!existsSync(path)) return false;
+  try {
+    const value = JSON.parse(readFileSync(path, 'utf8'));
+    return value?.schema_version === schema && value?.decision === 'PASS';
+  } catch {
+    return false;
   }
+}
+
+function ownerCredentialGuard() {
+  const value = String(process.env[OWNER_TOKEN_ENV] || '').trim();
+  if (value.length < 40) throw new Error(`INPUT_REQUIRED: set ${OWNER_TOKEN_ENV} locally to the EXISTING Gate 20 owner acceptance token. Do not paste it into chat or store it in the repository.`);
 }
 
 const gate36Before = stateGuard();
 const headBefore = gitAndPrGuard();
 console.log(`Pre-Gate-36 correction validation starting at ${headBefore}; Gate 36 remains ${gate36Before}.`);
 
-// Deterministic repository validation runs before any live acceptance request.
-run(process.execPath, ['--check', 'scripts/roadmap-gate31-cross-account-security-v2.mjs']);
-run(process.execPath, ['--check', 'scripts/roadmap-gate34-visual-certification.mjs']);
-run(process.execPath, ['--check', 'scripts/roadmap-gate34-canonical-visual-matrix.mjs']);
-run(process.execPath, ['--check', 'scripts/roadmap-gate35-authoritative-receipt.mjs']);
+// Deterministic repository validation always runs before live acceptance requests.
+for (const script of [
+  'scripts/roadmap-gate31-second-account-setup.mjs',
+  'scripts/roadmap-gate31-cross-account-security-v2.mjs',
+  'scripts/roadmap-gate34-visual-certification.mjs',
+  'scripts/roadmap-gate34-canonical-visual-matrix.mjs',
+  'scripts/roadmap-gate35-authoritative-receipt.mjs'
+]) run(process.execPath, ['--check', script]);
 run('npx', ['vitest', 'run',
   'tests/roadmapGate31Adapter.test.ts',
   'tests/roadmapGate31AuthenticatedCrossAccountV2.test.ts',
@@ -89,11 +101,26 @@ run('npm', ['run', 'build'], { timeout: 360000 });
 run('npm', ['run', 'worker:check:acceptance'], { timeout: 360000 });
 run('git', ['diff', '--check']);
 
-// Only after deterministic validation do we require existing acceptance sessions.
-credentialGuard();
-run(process.execPath, ['scripts/roadmap-gate31-cross-account-security-v2.mjs']);
-run(process.execPath, ['scripts/roadmap-gate34-visual-certification.mjs', '--correction'], { timeout: 360000 });
-run(process.execPath, ['scripts/roadmap-gate34-canonical-visual-matrix.mjs'], { timeout: 480000 });
+// Literal cross-account setup is acceptance-auth-only. The JWT/password/email stay inside the setup process.
+if (!receiptPasses('gate31-cross-account-security-receipt-v2.json', 'roadmap-gate31-cross-account-security-receipt-v2')) {
+  run(process.execPath, ['scripts/roadmap-gate31-second-account-setup.mjs'], { timeout: 360000 });
+} else {
+  console.log('Gate 31 v2 receipt already PASS; no additional second acceptance account will be created.');
+}
+
+// Gate 34 remains read-only and therefore uses an existing owner session supplied locally.
+if (!receiptPasses('gate34-visual-certification-receipt-v2.json', 'roadmap-gate34-visual-certification-receipt-v2')) {
+  ownerCredentialGuard();
+  run(process.execPath, ['scripts/roadmap-gate34-visual-certification.mjs', '--correction'], { timeout: 360000 });
+} else {
+  console.log('Gate 34 v2 receipt already PASS; existing read-only evidence will be reused.');
+}
+
+if (!receiptPasses('gate34-visual-evidence-matrix.json', 'roadmap-gate34-visual-evidence-matrix-v1')) {
+  run(process.execPath, ['scripts/roadmap-gate34-canonical-visual-matrix.mjs'], { timeout: 480000 });
+} else {
+  console.log('Gate 34 canonical visual matrix already PASS; existing evidence will be reused.');
+}
 
 const headAfterEvidence = gitAndPrGuard();
 if (headAfterEvidence !== headBefore) throw new Error('Tracked Git HEAD changed during correction evidence generation; refusing final authority refresh.');
@@ -110,11 +137,13 @@ console.log(JSON.stringify({
   gates_1_35: '35/35 PASS',
   gate_36: gate36After,
   corrected_receipts: [
+    '.roadmap-autopilot/gate31-second-account-setup-receipt.json',
     '.roadmap-autopilot/gate31-cross-account-security-receipt-v2.json',
     '.roadmap-autopilot/gate34-visual-certification-receipt-v2.json',
     '.roadmap-autopilot/gate34-visual-evidence-matrix.json',
     '.roadmap-autopilot/gate35-ghosttown-final-acceptance-receipt.json'
   ],
+  acceptance_auth_account_setup_allowed: true,
   production_deployed: false,
   merge_performed: false,
   second_purchase_created: false,
