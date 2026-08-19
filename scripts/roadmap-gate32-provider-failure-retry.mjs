@@ -19,7 +19,7 @@ const WRANGLER_TOML = join(ROOT, 'wrangler.toml');
 const SMOKE_PREFIX = '/__roadmap/acceptance/gate32';
 const WORKER_URL = 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev';
 const BOGUS_GATEWAY_ID = 'roadmap-gate32-forced-missing-gateway';
-const ACTIVE_WORKFLOW_STATUSES = new Set(['queued', 'running', 'paused', 'unknown', 'none']);
+const ACTIVE_WORKFLOW_STATUSES = new Set(['queued', 'running', 'paused', 'unknown', 'none', 'error']);
 
 const WRANGLER_PACKAGE_DIR = join(ROOT, 'node_modules', 'wrangler');
 const wranglerPackage = JSON.parse(readFileSync(join(WRANGLER_PACKAGE_DIR, 'package.json'), 'utf8'));
@@ -151,7 +151,17 @@ function prerequisites() {
   for (const id of ['26', '27', '28', '29', '30', '31']) {
     if (state?.gates?.[id]?.status !== 'PASS') throw new Error(`Gate 32 requires Gate ${id} to be PASS.`);
   }
-  const purchase = requireJson(GATE20_RECEIPT_PATH, 'roadmap-gate20-purchase-receipt-v1', 'Gate 20 receipt');
+  let purchase = null;
+  if (existsSync(GATE20_RECEIPT_PATH)) {
+    purchase = JSON.parse(readFileSync(GATE20_RECEIPT_PATH, 'utf8'));
+  }
+  if (purchase?.schema_version !== 'roadmap-gate20-purchase-receipt-v1'
+    || purchase?.stripe_mode !== 'test'
+    || typeof purchase?.order_id !== 'string'
+    || !/^gtt_[A-Za-z0-9_-]+$/.test(purchase.order_id)
+    || typeof purchase?.stripe_checkout_session_id !== 'string') {
+    throw new Error('Gate 32 found an invalid Gate 20 purchase receipt.');
+  }
   const gate26 = requireJson(GATE26_RECEIPT_PATH, 'roadmap-gate26-canonical-d1-artifacts-receipt-v1', 'Gate 26 receipt');
   const gate27 = requireJson(GATE27_RECEIPT_PATH, 'roadmap-gate27-private-r2-artifacts-receipt-v1', 'Gate 27 receipt');
   if (purchase?.stripe_mode !== 'test' || typeof purchase?.order_id !== 'string' || typeof purchase?.stripe_checkout_session_id !== 'string') {
@@ -521,9 +531,20 @@ try {
   if (!terminal) throw new Error('Gate 32 workflow did not reach a terminal state within the bounded window.');
   workflowOutcome = terminal;
 
-  afterFailure = await (await fetchJson(`${WORKER_URL}${SMOKE_PREFIX}/snapshot`, {
-    method: 'POST', headers: { 'X-Roadmap-Acceptance-Token': token }
-  }, 'Gate 32 after failure')).body;
+  // The workflow instance can reach a terminal state slightly before the catch
+  // handler persists the failed order, so settle-wait for the KV transition.
+  afterFailure = null;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const current = await (await fetchJson(`${WORKER_URL}${SMOKE_PREFIX}/snapshot`, {
+      method: 'POST', headers: { 'X-Roadmap-Acceptance-Token': token }
+    }, 'Gate 32 after failure')).body;
+    if (current?.orderStatus !== 'researching' && current?.orderStatus !== 'generating') {
+      afterFailure = current;
+      break;
+    }
+    await sleep(4000);
+  }
+  if (!afterFailure) throw new Error('Gate 32 order KV did not settle after the terminal workflow state.');
   if (afterFailure?.orderStatus !== 'failed') {
     throw new Error(`Gate 32 did not fail closed: order status after provider failure is ${afterFailure?.orderStatus}.`);
   }
@@ -585,18 +606,32 @@ if (smokeError) {
 
 await waitCanonicalRestored(token);
 
-// Final integrity: D1/R2 artifacts must still match the accepted Gate 26/27 hashes.
+// Final integrity: D1/R2 artifacts must still match the accepted Gate 26/27
+// hashes. The local remote-binding bridge can be slow to warm, so retry.
 let finalIntegrity = null;
-await withAcceptanceDataBindings(async client => {
-  const snapshot = await client.snapshot(orderId);
-  if (!snapshot?.hashes) throw new Error('Gate 32 post-restore acceptance snapshot could not be read.');
-  finalIntegrity = {
-    json_sha256: snapshot.hashes.json,
-    pdf_sha256: snapshot.hashes.pdf,
-    zip_sha256: snapshot.hashes.zip,
-    blueprint_sha256: snapshot.blueprintJson ? sha256(Buffer.from(snapshot.blueprintJson, 'utf8')) : null
-  };
-});
+let bridgeAttempts = 0;
+let bridgeError = null;
+while (!finalIntegrity && bridgeAttempts < 3) {
+  bridgeAttempts += 1;
+  try {
+    await withAcceptanceDataBindings(async client => {
+      const snapshot = await client.snapshot(orderId);
+      if (!snapshot?.hashes) throw new Error('Gate 32 post-restore acceptance snapshot could not be read.');
+      finalIntegrity = {
+        json_sha256: snapshot.hashes.json,
+        pdf_sha256: snapshot.hashes.pdf,
+        zip_sha256: snapshot.hashes.zip,
+        blueprint_sha256: snapshot.blueprintJson ? sha256(Buffer.from(snapshot.blueprintJson, 'utf8')) : null
+      };
+    });
+  } catch (error) {
+    bridgeError = error;
+    if (bridgeAttempts < 3) await sleep(10000);
+  }
+}
+if (!finalIntegrity) {
+  throw new Error(`Gate 32 post-restore acceptance snapshot could not be read after ${bridgeAttempts} bridge attempts.\n${bridgeError instanceof Error ? bridgeError.message : String(bridgeError)}`);
+}
 if (finalIntegrity.json_sha256 !== gate27.artifacts.json.sha256
   || finalIntegrity.pdf_sha256 !== gate27.artifacts.pdf.sha256
   || finalIntegrity.zip_sha256 !== gate27.artifacts.zip.sha256
