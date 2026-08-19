@@ -52,6 +52,11 @@ describe('pre-Gate-36 correction pass runner', () => {
     expect(runner).not.toContain('roadmap:reset');
   });
 
+  it('gives the serialized Gate 34 visual matrix enough parent-process runtime', async () => {
+    const runner = await readText('scripts/roadmap-pre-gate36-correction-pass.mjs');
+    expect(runner).toContain("roadmap-gate34-canonical-visual-matrix.mjs'], { timeout: 600000 }");
+  });
+
   it('is idempotent for completed corrected evidence', async () => {
     const runner = await readText('scripts/roadmap-pre-gate36-correction-pass.mjs');
     expect(runner).toContain('receiptPasses');
