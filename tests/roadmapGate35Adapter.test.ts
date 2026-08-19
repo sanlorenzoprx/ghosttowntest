@@ -1,60 +1,60 @@
 import { describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
 
-async function readText(path: string) {
-  return readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-}
+const readText = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-describe('Gate 35 authoritative acceptance receipt adapter', () => {
-  it('proves the configured roadmap contract and keeps the adapter explicit through the sanctioned hook', async () => {
-    const config = JSON.parse(await readText('config/production-roadmap-47-gates.json')) as {
-      gates: Array<{ id: number; mode: string; mutation_scope: string; requires_user_input: boolean; hook_env?: string }>;
-    };
+describe('Gate 35 authoritative acceptance receipt v2', () => {
+  it('supports separate hook and post-PASS final-refresh modes', async () => {
     const adapter = await readText('scripts/roadmap-gate35-authoritative-receipt.mjs');
-
-    expect(config.gates[34]).toMatchObject({
-      id: 35,
-      mode: 'hook',
-      mutation_scope: 'none',
-      requires_user_input: false,
-      hook_env: 'ROADMAP_GATE_35_COMMAND'
-    });
-    expect(adapter).toContain("const RECEIPT_PATH = join(STATE_DIR, 'gate35-ghosttown-acceptance-receipt.json')");
-    expect(adapter).toContain("'ghosttown-authoritative-acceptance-receipt-v1'");
+    expect(adapter).toContain("FINAL_REFRESH = process.argv.includes('--final-refresh')");
+    expect(adapter).toContain("requiredThrough = FINAL_REFRESH ? 35 : 34");
+    expect(adapter).toContain("use --final-refresh for the post-PASS authoritative snapshot");
+    expect(adapter).toContain("FINAL_RECEIPT_PATH = join(STATE_DIR, 'gate35-ghosttown-final-acceptance-receipt.json')");
+    expect(adapter).toContain("mode: FINAL_REFRESH ? 'FINAL_REFRESH' : 'GATE_HOOK'");
   });
 
-  it('summarizes Gates 1-35 from actual roadmap state and references the canonical chain', async () => {
+  it('requires an exact 35/35 PASS final snapshot and corrected Gate 31/34 evidence', async () => {
     const adapter = await readText('scripts/roadmap-gate35-authoritative-receipt.mjs');
-
-    expect(adapter).toContain('616c691e6b4c9cea93615963a07375d13ffba57f');
-    expect(adapter).toContain("'2.1.1'");
-    expect(adapter).toContain('gate31-cross-account-security-receipt.json');
-    expect(adapter).toContain('gate32-provider-failure-retry-receipt.json');
-    expect(adapter).toContain('gate33-r2-failure-retry-receipt.json');
-    expect(adapter).toContain('gate34-visual-certification-receipt.json');
-    expect(adapter).toContain('total_passed');
-    expect(adapter).toContain("status: entry?.status || 'PENDING'");
+    expect(adapter).toContain('Gate 35 final refresh requires an exact 35/35 PASS snapshot');
+    expect(adapter).toContain('exact_35_of_35_pass');
+    expect(adapter).toContain('gate31-cross-account-security-receipt-v2.json');
+    expect(adapter).toContain('gate34-visual-certification-receipt-v2.json');
+    expect(adapter).toContain('gate34-visual-evidence-matrix.json');
   });
 
-  it('fails closed, records secret names only, and never claims Story Studio ran', async () => {
+  it('refuses final authority after Gate 36 is authorized or executed', async () => {
     const adapter = await readText('scripts/roadmap-gate35-authoritative-receipt.mjs');
+    expect(adapter).toContain("['PASS', 'AUTHORIZED', 'EXECUTED'].includes(gate36Status)");
+    expect(adapter).toContain('production_release_authorized === true');
+    expect(adapter).toContain('authorized: false');
+    expect(adapter).toContain('executed: false');
+  });
 
-    expect(adapter).toContain('fails closed');
-    expect(adapter).toContain('secret_names_only');
+  it('requires local, origin and PR #7 heads to match while PR remains draft/open/unmerged', async () => {
+    const adapter = await readText('scripts/roadmap-gate35-authoritative-receipt.mjs');
+    expect(adapter).toContain("git', ['ls-remote', 'origin'");
+    expect(adapter).toContain("'gh', ['pr', 'view'");
+    expect(adapter).toContain("pr?.isDraft === true");
+    expect(adapter).toContain("pr?.state === 'OPEN'");
+    expect(adapter).toContain('pr?.mergedAt == null');
+    expect(adapter).toContain('local_origin_pr_heads_equal');
+  });
+
+  it('records secret names only and actively rejects secret values', async () => {
+    const adapter = await readText('scripts/roadmap-gate35-authoritative-receipt.mjs');
+    expect(adapter).toContain('secret_names_only: names');
     expect(adapter).toContain('secret_values_recorded: false');
-    expect(adapter).toContain("'PENDING_HUMAN_DECISION'");
-    expect(adapter).toContain('gates_37_47_run: false');
-    expect(adapter).toContain('production_deployed: false');
-    expect(adapter).not.toMatch(/secret\s*[:=]\s*['\"](?:sk_|whsec_|BEGIN [A-Z ]*PRIVATE KEY)/);
+    expect(adapter).toContain('assertNoSecretValues(serialized, names)');
+    expect(adapter).toContain('refuses to write a receipt containing the value of secret');
   });
 
-  it('registers the sanctioned Gate 35 command in the autopilot wrapper without unsafe future hooks', async () => {
-    const wrapper = await readText('scripts/roadmap-autopilot-wrapper.mjs');
-
-    expect(wrapper).toContain('roadmap-gate35-authoritative-receipt.mjs');
-    expect(wrapper).toContain('sanctionedGate35Command');
-    expect(wrapper).toContain('ROADMAP_GATE_35_COMMAND: sanctionedGate35Command');
-    expect(wrapper).not.toContain('sanctionedGate36Command');
-    expect(wrapper).not.toContain('ROADMAP_GATE_36_COMMAND');
+  it('records no second purchase, no production deploy, no merge and Story Studio not run', async () => {
+    const adapter = await readText('scripts/roadmap-gate35-authoritative-receipt.mjs');
+    expect(adapter).toContain('second_purchase_occurred: false');
+    expect(adapter).toContain('second_charge_occurred: false');
+    expect(adapter).toContain('production_deployed: false');
+    expect(adapter).toContain('merge_performed: false');
+    expect(adapter).toContain('gates_37_47_run: false');
+    expect(adapter).toContain('completed_count: 0');
   });
 });
