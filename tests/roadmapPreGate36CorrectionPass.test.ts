@@ -4,11 +4,19 @@ import { readFile } from 'node:fs/promises';
 const readText = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 describe('pre-Gate-36 correction pass runner', () => {
-  it('requires the existing second-account and owner acceptance tokens locally', async () => {
+  it('creates the literal second acceptance account without exposing its credentials and only requires the owner token', async () => {
     const runner = await readText('scripts/roadmap-pre-gate36-correction-pass.mjs');
-    expect(runner).toContain("ROADMAP_GATE_31_SECOND_ACCOUNT_TOKEN");
-    expect(runner).toContain("ROADMAP_GATE_34_OWNER_TOKEN");
-    expect(runner).toContain('Do not paste the token into chat');
+    const setup = await readText('scripts/roadmap-gate31-second-account-setup.mjs');
+    expect(runner).toContain('roadmap-gate31-second-account-setup.mjs');
+    expect(runner).not.toContain("SECOND_ACCOUNT_TOKEN_ENV = 'ROADMAP_GATE_31_SECOND_ACCOUNT_TOKEN'");
+    expect(runner).toContain("OWNER_TOKEN_ENV = 'ROADMAP_GATE_34_OWNER_TOKEN'");
+    expect(runner).toContain('Do not paste it into chat');
+    expect(setup).toContain('/api/auth/signup');
+    expect(setup).toContain('acceptance_auth_account_created: true');
+    expect(setup).toContain('password_value_recorded: false');
+    expect(setup).toContain('token_value_recorded: false');
+    expect(setup).toContain('email_value_recorded: false');
+    expect(setup).toContain('second_purchase_created: false');
   });
 
   it('requires Gates 1-35 PASS and refuses an authorized/executed Gate 36', async () => {
@@ -30,15 +38,22 @@ describe('pre-Gate-36 correction pass runner', () => {
     expect(runner).toContain('pr.mergedAt != null');
   });
 
-  it('runs only the additive correction evidence and final refresh, never Autopilot or reset', async () => {
+  it('runs only additive correction evidence and final refresh, never Autopilot or reset', async () => {
     const runner = await readText('scripts/roadmap-pre-gate36-correction-pass.mjs');
-    expect(runner).toContain('roadmap-gate31-cross-account-security-v2.mjs');
+    expect(runner).toContain('roadmap-gate31-second-account-setup.mjs');
     expect(runner).toContain("roadmap-gate34-visual-certification.mjs', '--correction'");
     expect(runner).toContain('roadmap-gate34-canonical-visual-matrix.mjs');
     expect(runner).toContain("roadmap-gate35-authoritative-receipt.mjs', '--final-refresh'");
     expect(runner).toContain("npm', ['run', 'roadmap:status'");
-    expect(runner).not.toContain("roadmap:autopilot");
-    expect(runner).not.toContain("roadmap:reset");
+    expect(runner).not.toContain('roadmap:autopilot');
+    expect(runner).not.toContain('roadmap:reset');
+  });
+
+  it('is idempotent for completed corrected evidence', async () => {
+    const runner = await readText('scripts/roadmap-pre-gate36-correction-pass.mjs');
+    expect(runner).toContain('receiptPasses');
+    expect(runner).toContain('no additional second acceptance account will be created');
+    expect(runner).toContain('existing read-only evidence will be reused');
   });
 
   it('performs validation without production deployment, merge, push, or purchase commands', async () => {
