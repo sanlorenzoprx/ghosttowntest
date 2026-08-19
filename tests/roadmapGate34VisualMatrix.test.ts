@@ -92,6 +92,16 @@ describe('Gate 34 canonical visual evidence matrix', () => {
     expect(browser).toContain('Vite source modules such as /src/api/*.ts');
   });
 
+  it('contains the production Leads table within the mobile viewport while preserving an internal horizontal scroller', () => {
+    const panel = readText('src/components/LaunchSitePanel.tsx');
+    expect(panel).toContain('min-w-0 max-w-full space-y-6');
+    expect(panel).toContain('flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between');
+    expect(panel).toContain('mt-4 w-full max-w-full overflow-x-auto');
+    expect(panel).toContain('w-full min-w-[36rem] text-left text-sm');
+    expect(panel).toContain('<table');
+    expect(panel).toContain('Export CSV');
+  });
+
   it('serializes the two heavy Playwright suites and preserves suite-specific diagnostics', () => {
     const script = readText('scripts/roadmap-gate34-canonical-visual-matrix.mjs');
     expect(script).toContain("runVisualSuite('tests/gate34VisualFixtureBrowser.test.ts', 300000)");
