@@ -65,7 +65,10 @@ function prerequisites() {
   if (!existsSync(STATE_PATH)) throw new Error('Gate 35 requires roadmap state.');
   const state = JSON.parse(readFileSync(STATE_PATH, 'utf8'));
   const gates = state?.gates || {};
-  const failed = Object.keys(gates).filter(id => gates[id]?.status !== 'PASS').map(id => Number(id)).sort((a, b) => a - b);
+  const failed = Object.keys(gates)
+    .filter(id => Number(id) >= 1 && Number(id) <= 34 && gates[id]?.status !== 'PASS')
+    .map(Number)
+    .sort((a, b) => a - b);
   if (failed.length) {
     throw new Error(`Gate 35 fails closed: roadmap gates ${failed.join(', ')} are not PASS.`);
   }
