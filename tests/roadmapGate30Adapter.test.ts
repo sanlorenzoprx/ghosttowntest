@@ -6,11 +6,11 @@ async function readText(path: string) {
 }
 
 describe('Gate 30 second-device recovery adapter', () => {
-  it('proves the configured roadmap contract and uses a sanctioned first-party adapter', async () => {
+  it('proves the configured roadmap contract and keeps the adapter explicit through the sanctioned hook', async () => {
     const config = JSON.parse(await readText('config/production-roadmap-47-gates.json')) as {
       gates: Array<{ id: number; mode: string; mutation_scope: string; requires_user_input: boolean; hook_env?: string }>;
     };
-    const wrapper = await readText('scripts/roadmap-autopilot-wrapper.mjs');
+    const gate30 = await readText('scripts/roadmap-gate30-second-device-recovery.mjs');
 
     expect(config.gates[29]).toMatchObject({
       id: 30,
@@ -19,8 +19,7 @@ describe('Gate 30 second-device recovery adapter', () => {
       requires_user_input: true,
       hook_env: 'ROADMAP_GATE_30_COMMAND'
     });
-    expect(wrapper).toContain('roadmap-gate30-second-device-recovery.mjs');
-    expect(wrapper).toContain('ROADMAP_GATE_30_COMMAND: sanctionedGate30Command');
+    expect(gate30).toContain("const OWNER_PASSWORD_ENV = 'ROADMAP_GATE_30_OWNER_PASSWORD'");
   });
 
   it('requires the purchasing-account password only through local process environment and never records it', async () => {
@@ -49,9 +48,9 @@ describe('Gate 30 second-device recovery adapter', () => {
     expect(gate30).toContain("passwordScheme !== 'pbkdf2-100000'");
     expect(gate30).toContain("mutation_scope_verified: 'none'");
     expect(gate30).toContain("acceptance_resources_mutated: false");
-
     expect(gate30).toContain("'remote = true'");
-    expect(gate30).toContain("'wrangler', 'dev'").or.toContain("WRANGLER_CLI, 'dev'");
+    expect(gate30).toContain("WRANGLER_CLI, 'dev'");
+
     expect(gate30).not.toContain("'deploy'");
     expect(gate30).not.toContain('/publish');
     expect(gate30).not.toContain('/unpublish');
