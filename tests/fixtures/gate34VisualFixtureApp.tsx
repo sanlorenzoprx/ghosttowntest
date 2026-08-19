@@ -120,7 +120,7 @@ async function renderRequestedSurface(): Promise<React.ReactElement> {
   }
   if (surface === 'leads-table') {
     const { default: LaunchSitePanel } = await import('../../src/components/LaunchSitePanel');
-    return <main className="mx-auto max-w-6xl bg-[#f6f1e8] p-4 py-8"><LaunchSitePanel orderId="fixture-order" /></main>;
+    return <main className="mx-auto w-full min-w-0 max-w-6xl bg-[#f6f1e8] p-4 py-8"><LaunchSitePanel orderId="fixture-order" /></main>;
   }
   if (surface.startsWith('blueprint-')) {
     const { default: LaunchBlueprintViewV21 } = await import('../../src/components/LaunchBlueprintViewV21');
