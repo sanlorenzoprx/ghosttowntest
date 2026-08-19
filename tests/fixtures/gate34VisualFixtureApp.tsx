@@ -1,14 +1,9 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../src/styles/globals.css';
-import ResultReport from '../../src/components/ResultReport';
-import ActionPlanModal from '../../src/components/ActionPlanModal';
-import CompetitorSeedStep from '../../src/components/CompetitorSeedStep';
-import UserDashboard from '../../src/components/UserDashboard';
-import LaunchSitePanel from '../../src/components/LaunchSitePanel';
-import LaunchBlueprintViewV21, { type BlueprintV21Payload } from '../../src/components/LaunchBlueprintViewV21';
 import { buildVerdictDecisionV2 } from '../../src/verdict/verdictDecisionV2';
 import type { EvaluationResult } from '../../src/types/lit';
+import type { BlueprintV21Payload } from '../../src/components/LaunchBlueprintViewV21';
 import { launchBlueprintFixture } from './launchBlueprint';
 
 const params = new URLSearchParams(window.location.search);
@@ -110,23 +105,45 @@ const blueprintPayload: BlueprintV21Payload = {
   }
 };
 
-function App() {
+async function renderRequestedSurface(): Promise<React.ReactElement> {
   if (surface === 'verdict' || surface === 'micro-commitments') {
+    const { default: ResultReport } = await import('../../src/components/ResultReport');
     return <ResultReport result={result} onReset={() => undefined} isLoggedIn={false} onLoginClick={() => undefined} onRewardClaimed={() => undefined} locale="en" />;
   }
   if (surface === 'checkout') {
+    const { default: ActionPlanModal } = await import('../../src/components/ActionPlanModal');
     return <ActionPlanModal idea={idea} verdictId={result.resultId} loading={false} error="" onClose={() => undefined} onSubmit={() => undefined} />;
   }
   if (surface === 'seed-confirmation') {
+    const { default: CompetitorSeedStep } = await import('../../src/components/CompetitorSeedStep');
     return <main className="mx-auto max-w-5xl p-4 py-8"><CompetitorSeedStep orderId="fixture-order" onStarted={() => undefined} onBack={() => undefined} /></main>;
   }
   if (surface === 'leads-table') {
+    const { default: LaunchSitePanel } = await import('../../src/components/LaunchSitePanel');
     return <main className="mx-auto max-w-6xl bg-[#f6f1e8] p-4 py-8"><LaunchSitePanel orderId="fixture-order" /></main>;
   }
   if (surface.startsWith('blueprint-')) {
+    const { default: LaunchBlueprintViewV21 } = await import('../../src/components/LaunchBlueprintViewV21');
     return <LaunchBlueprintViewV21 orderId="fixture-order" onBack={() => undefined} initialPayload={blueprintPayload} />;
   }
+  const { default: UserDashboard } = await import('../../src/components/UserDashboard');
   return <UserDashboard onLogout={() => undefined} onBuy={() => undefined} onStart={() => undefined} onOpenResult={() => undefined} />;
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+async function mountFixture() {
+  const rootElement = document.getElementById('root');
+  if (!rootElement) throw new Error('Gate 34 fixture root element is missing.');
+  rootElement.dataset.fixtureSurface = surface;
+  const element = await renderRequestedSurface();
+  createRoot(rootElement).render(element);
+}
+
+void mountFixture().catch(error => {
+  const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  const rootElement = document.getElementById('root');
+  if (rootElement) {
+    rootElement.dataset.fixtureError = message;
+    rootElement.textContent = `Gate 34 fixture failed: ${message}`;
+  }
+  console.error('Gate 34 fixture mount failed', error);
+});
