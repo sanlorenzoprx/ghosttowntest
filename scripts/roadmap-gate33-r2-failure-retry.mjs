@@ -407,7 +407,8 @@ if (existsSync(RECEIPT_PATH)) {
   const receipt = JSON.parse(readFileSync(RECEIPT_PATH, 'utf8'));
   if (receipt?.schema_version !== 'roadmap-gate33-r2-failure-retry-receipt-v1'
     || receipt?.decision !== 'PASS'
-    || receipt?.restore?.accepted_artifacts_exact !== true
+    || receipt?.recovery?.accepted_artifacts_exact !== true
+    || receipt?.restore?.acceptance_restored_verified !== true
     || receipt?.payment?.second_charge_occurred !== false) {
     throw new Error('Gate 33 existing receipt is incomplete; the live R2 failure window will not be replayed.');
   }
