@@ -43,6 +43,20 @@ describe('Gate 34 canonical visual evidence matrix', () => {
     expect(browser).toContain("environment: 'DETERMINISTIC_UI_FIXTURE'");
   });
 
+  it('isolates production component loading by requested surface and exposes runtime errors instead of locator-only timeouts', () => {
+    const fixture = readText('tests/fixtures/gate34VisualFixtureApp.tsx');
+    const browser = readText('tests/gate34VisualFixtureBrowser.test.ts');
+    for (const module of ['ResultReport', 'ActionPlanModal', 'CompetitorSeedStep', 'UserDashboard', 'LaunchSitePanel', 'LaunchBlueprintViewV21']) {
+      expect(fixture).toContain(`await import('../../src/components/${module}')`);
+    }
+    expect(fixture).toContain('data-fixture-error');
+    expect(fixture).toContain('Gate 34 fixture mount failed');
+    expect(browser).toContain("page.on('pageerror'");
+    expect(browser).toContain("message.type() === 'error'");
+    expect(browser).toContain('runtime_errors=');
+    expect(browser).toContain('fixture_error=');
+  });
+
   it('keeps every relative visual-fixture import resolvable before Chromium starts', () => {
     const fixtureUrl = new URL('./fixtures/gate34VisualFixtureApp.tsx', import.meta.url);
     const fixturePath = fileURLToPath(fixtureUrl);
