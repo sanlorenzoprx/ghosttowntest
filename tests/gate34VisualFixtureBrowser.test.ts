@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium, type Browser, type Page } from 'playwright';
+import { chromium, type Browser, type Page, type Route } from 'playwright';
 import { createServer, type ViteDevServer } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -42,7 +42,7 @@ const evidence: Array<Record<string, unknown>> = [];
 
 const sha256File = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
 
-function json(route: Parameters<Page['route']>[1] extends never ? never : any, body: unknown, status = 200) {
+function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
@@ -64,8 +64,7 @@ function orderFor(surface: string) {
 async function mockApi(page: Page, surface: string) {
   await page.route('**/api/**', async route => {
     const request = route.request();
-    const url = new URL(request.url());
-    const path = url.pathname;
+    const path = new URL(request.url()).pathname;
     if (path.endsWith('/api/auth/verify')) {
       await json(route, { user: { email: 'fixture@example.test', testsUsed: 0, testsPurchased: 0, sharesGiven: 0, sharesReceived: 0, shareCredits: 0, createdAt: '2026-08-01T00:00:00.000Z', lastTestAt: null } });
       return;
@@ -109,9 +108,9 @@ async function mockApi(page: Page, surface: string) {
   });
 }
 
-async function selectBlueprintTab(page: Page, viewportWidth: number, label: string) {
+async function selectBlueprintTab(page: Page, viewportWidth: number, label: string, value: string) {
   if (viewportWidth < 768) {
-    await page.locator('#blueprint-mobile-nav').selectOption({ label });
+    await page.locator('#blueprint-mobile-nav').selectOption(value);
   } else {
     await page.getByRole('button', { name: label, exact: true }).click();
   }
@@ -121,49 +120,79 @@ async function prepareSurface(page: Page, surface: string, viewportWidth: number
   if (surface === 'free-verdict') {
     await page.locator('[data-testid="verdict-decision-v2"]').waitFor();
     await page.getByText('Cheapest way to prove us wrong').waitFor();
-  } else if (surface === 'micro-commitments') {
+    return;
+  }
+  if (surface === 'micro-commitments') {
     await page.locator('[data-testid="verdict-decision-v2"]').waitFor();
     await page.getByText('Commitment', { exact: true }).first().waitFor();
-  } else if (surface === 'checkout') {
+    return;
+  }
+  if (surface === 'checkout') {
     await page.getByRole('dialog').waitFor();
     await page.getByRole('button', { name: /Continue to Checkout/i }).waitFor();
-  } else if (surface === 'seed-confirmation') {
+    return;
+  }
+  if (surface === 'seed-confirmation') {
     await page.getByText('Choose the footprints GhostTown should reverse-engineer.').waitFor();
     await page.getByRole('button', { name: /Confirm seeds and build my network/i }).waitFor();
-  } else if (surface === 'workflow-status') {
+    return;
+  }
+  if (surface === 'workflow-status') {
     await page.getByText('Building', { exact: true }).waitFor();
     await page.getByText(/GhostTown is mapping podcasts/i).waitFor();
-  } else if (surface === 'media-network') {
+    return;
+  }
+  if (surface === 'media-network') {
     await page.getByText('Launch Blueprints and Media Networks').waitFor();
     await page.getByText(/podcasts, creators, publications/i).waitFor();
-  } else if (surface === 'leads-table') {
+    return;
+  }
+  if (surface === 'leads-table') {
     await page.getByRole('heading', { name: 'Leads' }).waitFor();
     await page.getByText('buyer@example.test').waitFor();
     await page.getByRole('link', { name: 'Export CSV' }).waitFor();
-  } else if (surface === 'failure-state') {
+    return;
+  }
+  if (surface === 'failure-state') {
     await page.getByText('failed', { exact: true }).waitFor();
     await page.getByRole('button', { name: 'Retry Blueprint' }).waitFor();
-  } else if (surface === 'retry-state') {
+    return;
+  }
+  if (surface === 'retry-state') {
     await page.getByRole('button', { name: 'Retry Blueprint' }).click();
     await page.getByRole('button', { name: 'Checking…' }).waitFor();
-  } else if (surface.startsWith('blueprint-')) {
-    const tab = surface.replace('blueprint-', '');
-    if (tab === '48-hour-card') {
-      await page.getByText('48-hour Launch Card').waitFor();
-    } else {
-      const mapping: Record<string, { label: string; evidence: string }> = {
-        'starting-state': { label: 'Starting State', evidence: 'Five critical tests' },
-        'first-revenue': { label: 'First Revenue', evidence: 'First ask' },
-        fulfillment: { label: 'Fulfillment', evidence: 'Manual fulfillment' },
-        'evidence-ledger': { label: 'Evidence', evidence: 'Evidence ledger' },
-        'checkpoint-forms': { label: 'Weekly Review', evidence: 'Day 7' }
-      };
-      const target = mapping[tab];
-      if (!target) throw new Error(`Unknown Blueprint fixture surface: ${surface}`);
-      await selectBlueprintTab(page, viewportWidth, target.label);
-      await page.getByText(target.evidence, { exact: false }).first().waitFor();
-    }
+    return;
   }
+  if (surface === 'blueprint-48-hour-card') {
+    await page.getByText('48-hour Launch Card').waitFor();
+    return;
+  }
+  if (surface === 'blueprint-starting-state') {
+    await selectBlueprintTab(page, viewportWidth, 'Starting State', 'audit');
+    await page.getByText('Five critical tests').waitFor();
+    return;
+  }
+  if (surface === 'blueprint-first-revenue') {
+    await selectBlueprintTab(page, viewportWidth, 'First Revenue', 'revenue');
+    await page.getByText('First ask').waitFor();
+    return;
+  }
+  if (surface === 'blueprint-fulfillment') {
+    await selectBlueprintTab(page, viewportWidth, 'Fulfillment', 'fulfillment');
+    await page.getByText('Delivery timeline').waitFor();
+    return;
+  }
+  if (surface === 'blueprint-evidence-ledger') {
+    await selectBlueprintTab(page, viewportWidth, 'Evidence', 'evidence');
+    await page.getByText('Qualified buyer interview').waitFor();
+    return;
+  }
+  if (surface === 'blueprint-checkpoint-forms') {
+    await selectBlueprintTab(page, viewportWidth, 'Weekly Review', 'review');
+    await page.locator('#checkpoint-7').waitFor();
+    return;
+  }
+  throw new Error(`Unknown Gate 34 fixture surface: ${surface}`);
 }
 
 beforeAll(async () => {
@@ -189,7 +218,7 @@ describe('Gate 34 canonical deterministic UI visual fixtures', () => {
       for (const surface of FIXTURE_SURFACES) {
         const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
         await mockApi(page, surface);
-        const routeSurface = surface === 'free-verdict' ? 'verdict' : surface === 'micro-commitments' ? 'micro-commitments' : surface;
+        const routeSurface = surface === 'free-verdict' ? 'verdict' : surface;
         const response = await page.goto(`${origin}/gate34-visual-fixture.html?surface=${encodeURIComponent(routeSurface)}`, { waitUntil: 'domcontentloaded' });
         expect(response?.status()).toBe(200);
         await prepareSurface(page, surface, viewport.width);

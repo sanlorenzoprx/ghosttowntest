@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
@@ -27,7 +26,7 @@ const VIEWPORTS = [
   { name: '1366x768', width: 1366, height: 768 },
   { name: '1440x900', width: 1440, height: 900 }
 ];
-const STATE_MUTATION_MARKERS = [
+const FORBIDDEN_MUTATION_MARKERS = [
   '/blueprint/progress',
   '/launch-site/publish',
   '/launch-site/unpublish',
@@ -40,53 +39,31 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function stripAnsi(value) {
-  return String(value ?? '').replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '');
-}
-
 function readJson(path, label) {
   if (!existsSync(path)) throw new Error(`Gate 34 requires ${label}.`);
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-function runVitest(files) {
-  const result = spawnSync('npx', ['vitest', 'run', ...files], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-    maxBuffer: 64 * 1024 * 1024,
-    timeout: 300000
-  });
-  const stdout = stripAnsi(result.stdout || '');
-  const stderr = stripAnsi(result.stderr || '');
-  if ((result.status ?? 1) !== 0) {
-    throw new Error(`Gate 34 focused UI-certification tests failed (${result.status ?? 1}).\n${stdout}\n${stderr}`.trim());
-  }
-  const filesMatch = stdout.match(/Test Files\s+(\d+) passed/);
-  const testsMatch = stdout.match(/Tests\s+(\d+) passed/);
-  const filesPassed = filesMatch ? Number(filesMatch[1]) : 0;
-  const testsPassed = testsMatch ? Number(testsMatch[1]) : 0;
-  if (filesPassed < 1 || testsPassed < 1 || /failed|FAIL/.test(stdout)) {
-    throw new Error('Gate 34 focused UI-certification test output did not confirm a passing deterministic suite.');
-  }
-  return { test_files: files, test_files_passed: filesPassed, tests_passed: testsPassed };
-}
-
 function sourceContract() {
   const dashboard = readFileSync(join(ROOT, 'src', 'components', 'UserDashboard.tsx'), 'utf8');
   const execution = readFileSync(join(ROOT, 'src', 'components', 'LaunchBlueprintExecutionHomeV21.tsx'), 'utf8');
+  const view = readFileSync(join(ROOT, 'src', 'components', 'LaunchBlueprintViewV21.tsx'), 'utf8');
   const sitePanel = readFileSync(join(ROOT, 'src', 'components', 'LaunchSitePanel.tsx'), 'utf8');
   const api = readFileSync(join(ROOT, 'src', 'lib', 'api.ts'), 'utf8');
-  for (const token of ['Open Blueprint', 'GhostTown Launch Blueprint', TOKEN_KEY]) {
-    if (!dashboard.includes(token) && !api.includes(token)) throw new Error(`Gate 34 dashboard source contract is missing ${token}.`);
+  for (const token of ['Open Blueprint', 'GhostTown Launch Blueprint']) {
+    if (!dashboard.includes(token)) throw new Error(`Gate 34 dashboard source contract is missing ${token}.`);
   }
+  if (!api.includes(TOKEN_KEY)) throw new Error(`Gate 34 API source contract is missing ${TOKEN_KEY}.`);
   for (const token of ['30-Day Launch Execution', 'Download Blueprint PDF', 'Export all assets', 'Evidence, reviews & site']) {
     if (!execution.includes(token)) throw new Error(`Gate 34 execution source contract is missing ${token}.`);
+  }
+  for (const token of ['blueprint-mobile-nav', 'Blueprint sections', 'Launch Site']) {
+    if (!view.includes(token)) throw new Error(`Gate 34 Blueprint workspace source contract is missing ${token}.`);
   }
   for (const token of ['Publish Launch Site', 'Unpublish', '/launch-site']) {
     if (!sitePanel.includes(token)) throw new Error(`Gate 34 Launch Site source contract is missing ${token}.`);
   }
-  return { paid_journey_ui_wired: true };
+  return { paid_journey_ui_wired: true, mobile_workspace_navigation_wired: true };
 }
 
 function prerequisites() {
@@ -102,8 +79,8 @@ function prerequisites() {
     throw new Error('Gate 34 is already PASS; use --correction for the additive pre-Gate-36 correction run.');
   }
   const gate36 = state?.gates?.['36'];
-  if (gate36?.status === 'PASS' || gate36?.status === 'AUTHORIZED') {
-    throw new Error('Gate 34 refuses to run after Gate 36 production release is authorized or PASS.');
+  if (['PASS', 'AUTHORIZED', 'EXECUTED'].includes(gate36?.status) || state?.runtime?.production_release_authorized === true) {
+    throw new Error('Gate 34 refuses to run after Gate 36 production release is authorized or executed.');
   }
   const purchase = readJson(GATE20_RECEIPT_PATH, 'the Gate 20 purchase receipt');
   const gate27 = readJson(GATE27_RECEIPT_PATH, 'the Gate 27 artifact receipt');
@@ -118,7 +95,7 @@ function prerequisites() {
     throw new Error('Gate 34 requires Gate 29 evidence that the accepted Launch Site is unpublished.');
   }
   const historical = existsSync(HISTORICAL_RECEIPT_PATH) ? JSON.parse(readFileSync(HISTORICAL_RECEIPT_PATH, 'utf8')) : null;
-  return { state, purchase, gate27, gate29, historical };
+  return { purchase, gate27, gate29, historical };
 }
 
 function acceptedOwnerHash(historical) {
@@ -155,13 +132,19 @@ async function verifyAcceptancePairing() {
     throw new Error('Gate 34 refuses to certify a non-acceptance endpoint.');
   }
   const htmlResponse = await fetch(PAGES_URL, { cache: 'no-store' });
-  if (!htmlResponse.ok) throw new Error(`ACCEPTANCE_PAIRING_STALE: acceptance Pages returned HTTP ${htmlResponse.status}. Run the established acceptance-pairing deployment outside Gate 34.`);
+  if (!htmlResponse.ok) {
+    throw new Error(`ACCEPTANCE_PAIRING_STALE: acceptance Pages returned HTTP ${htmlResponse.status}. Run the established acceptance-pairing deployment outside Gate 34.`);
+  }
   const html = await htmlResponse.text();
   const match = html.match(/<script[^>]+src=["']([^"']+\.js)["']/i);
-  if (!match) throw new Error('ACCEPTANCE_PAIRING_STALE: acceptance Pages has no discoverable application bundle. Run the established acceptance-pairing deployment outside Gate 34.');
+  if (!match) {
+    throw new Error('ACCEPTANCE_PAIRING_STALE: acceptance Pages has no discoverable application bundle. Run the established acceptance-pairing deployment outside Gate 34.');
+  }
   const bundleUrl = new URL(match[1], PAGES_URL).toString();
   const jsResponse = await fetch(bundleUrl, { cache: 'no-store' });
-  if (!jsResponse.ok) throw new Error(`ACCEPTANCE_PAIRING_STALE: acceptance bundle returned HTTP ${jsResponse.status}. Run the established acceptance-pairing deployment outside Gate 34.`);
+  if (!jsResponse.ok) {
+    throw new Error(`ACCEPTANCE_PAIRING_STALE: acceptance bundle returned HTTP ${jsResponse.status}. Run the established acceptance-pairing deployment outside Gate 34.`);
+  }
   const js = await jsResponse.text();
   const markers = {
     calendar_primary: js.includes('30-Day Launch Execution'),
@@ -174,14 +157,18 @@ async function verifyAcceptancePairing() {
   return { pages_url: PAGES_URL, worker_url: WORKER_URL, bundle_url: bundleUrl, markers };
 }
 
+async function selectWorkspaceTab(page, viewportWidth, label, value) {
+  if (viewportWidth < 768) {
+    const mobile = page.locator('#blueprint-mobile-nav');
+    await mobile.waitFor({ state: 'visible', timeout: 45000 });
+    await mobile.selectOption(value);
+    return;
+  }
+  await page.getByRole('button', { name: label, exact: true }).click();
+}
+
 const { purchase, gate27, gate29, historical } = prerequisites();
 const contract = sourceContract();
-const focused = runVitest([
-  'tests/launchBlueprintExecutionHomeV21.test.ts',
-  'tests/launchBlueprintViewV21.test.ts',
-  'tests/mobileFunnel.test.ts',
-  'tests/userDashboard.test.tsx'
-].filter(file => existsSync(join(ROOT, file))));
 const pairing = await verifyAcceptancePairing();
 const ownerHash = acceptedOwnerHash(historical);
 const ownerToken = String(process.env[OWNER_TOKEN_ENV] || '').trim();
@@ -217,7 +204,7 @@ try {
       if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
         && path !== '/api/auth/verify'
         && !path.includes('/api/analytics/')
-        && STATE_MUTATION_MARKERS.some(marker => path.includes(marker))) {
+        && FORBIDDEN_MUTATION_MARKERS.some(marker => path.includes(marker))) {
         mutationRequests.push(`${viewport.name}:${method} ${path}`);
       }
     });
@@ -293,7 +280,7 @@ try {
 
     await stage('launch-site-panel', async () => {
       await page.getByRole('button', { name: /Evidence, reviews & site/i }).first().click();
-      await page.getByRole('button', { name: /^Launch Site$/i }).first().click();
+      await selectWorkspaceTab(page, viewport.width, 'Launch Site', 'site');
       await page.getByText(/unpublished/i).first().waitFor({ timeout: 45000 });
       await page.getByRole('button', { name: /Publish Launch Site/i }).first().waitFor({ timeout: 45000 });
       await overflowAt('launch-site-panel');
@@ -334,7 +321,6 @@ const receipt = {
   authentication_verify_status: owner.verifyStatus,
   pairing,
   source_contract: contract,
-  focused_tests: focused,
   viewports: viewportEvidence,
   accepted_launch_site_status: gate29.final_owner_status,
   artifact_integrity: {

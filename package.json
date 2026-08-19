@@ -26,7 +26,8 @@
     "roadmap:reset": "node --require ./scripts/roadmap-windows-spawn-compat.cjs scripts/roadmap-master-autopilot.mjs --reset",
     "roadmap:production": "node scripts/roadmap-autopilot-wrapper.mjs",
     "roadmap:quality": "node scripts/commercial-quality-roadmap-autopilot.mjs",
-    "roadmap:freeze": "node scripts/roadmap-infrastructure-freeze.mjs"
+    "roadmap:freeze": "node scripts/roadmap-infrastructure-freeze.mjs",
+    "roadmap:pre-gate36-corrections": "node scripts/roadmap-pre-gate36-correction-pass.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",
