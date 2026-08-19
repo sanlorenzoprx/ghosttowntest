@@ -6,15 +6,18 @@ async function readText(path: string) {
 }
 
 describe('Gate 31 authenticated cross-account correction', () => {
-  it('requires an existing authenticated second account and never creates one', async () => {
+  it('keeps account creation in explicit acceptance-only setup and verification itself read-only', async () => {
     const adapter = await readText('scripts/roadmap-gate31-cross-account-security-v2.mjs');
+    const setup = await readText('scripts/roadmap-gate31-second-account-setup.mjs');
 
     expect(adapter).toContain("SECOND_ACCOUNT_TOKEN_ENV = 'ROADMAP_GATE_31_SECOND_ACCOUNT_TOKEN'");
     expect(adapter).toContain('/api/auth/verify');
     expect(adapter).toContain('authenticated_second_account: true');
-    expect(adapter).toContain('account_created_for_probe: false');
+    expect(adapter).toContain("verification_mutation_scope: 'none'");
     expect(adapter).not.toContain('/api/auth/signup');
-    expect(adapter).toContain('EXISTING second acceptance account');
+    expect(setup).toContain('/api/auth/signup');
+    expect(setup).toContain('acceptance_auth_account_created: true');
+    expect(setup).toContain('gate31_verification_mutation_scope');
   });
 
   it('covers the literal required authenticated wrong-account matrix with privacy-safe 404s', async () => {
@@ -39,7 +42,7 @@ describe('Gate 31 authenticated cross-account correction', () => {
     expect(adapter).toContain("SAFE_DENIALS = new Set(['Launch Blueprint not found', 'Launch Site not found'])");
   });
 
-  it('stores only hashed identities and proves the correction is non-mutating', async () => {
+  it('stores only hashed identities and proves the verification does not mutate protected resources', async () => {
     const adapter = await readText('scripts/roadmap-gate31-cross-account-security-v2.mjs');
 
     expect(adapter).toContain('second_account_identity_sha256');
@@ -49,14 +52,16 @@ describe('Gate 31 authenticated cross-account correction', () => {
     expect(adapter).toContain("order_mutations: 'none'");
     expect(adapter).toContain("artifact_mutations: 'none'");
     expect(adapter).toContain("launch_site_mutations: 'none'");
+    expect(adapter).toContain('acceptance_auth_setup_mutation');
     expect(adapter).toContain('token_value_recorded: false');
     expect(adapter).toContain('email_value_recorded: false');
     expect(adapter).toContain('production_deployed: false');
     expect(adapter).toContain('gate_36_touched: false');
   });
 
-  it('refuses to operate after production release is authorized or PASS', async () => {
+  it('refuses to operate after production release is authorized or executed', async () => {
     const adapter = await readText('scripts/roadmap-gate31-cross-account-security-v2.mjs');
-    expect(adapter).toContain("gate36?.status === 'PASS' || gate36?.status === 'AUTHORIZED'");
+    expect(adapter).toContain("['PASS', 'AUTHORIZED', 'EXECUTED'].includes(gate36?.status)");
+    expect(adapter).toContain('production_release_authorized === true');
   });
 });
