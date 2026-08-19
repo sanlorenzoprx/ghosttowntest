@@ -330,6 +330,16 @@ export async function saveBlueprintRecordV21(
   const now = new Date().toISOString();
   const { pdf, json, zip } = exactReceipt.artifactKeys;
 
+  // Gate 33 acceptance-only failpoint. When the roadmap sets the
+  // roadmap_gate33_force_r2_failure KV flag in the acceptance environment, the
+  // R2 persistence step fails closed so the roadmap can prove bounded retry and
+  // recovery behavior without rewriting accepted artifact bytes. The flag is
+  // absent in production and outside the acceptance environment this check is
+  // inert, so the product contract is unchanged.
+  if (env.DEPLOYMENT_ENV === 'acceptance' && (await env.KV?.get('roadmap_gate33_force_r2_failure'))) {
+    throw new Error('Acceptance failpoint: forced Launch Blueprint R2 persistence failure (roadmap_gate33_force_r2_failure)');
+  }
+
   await Promise.all([
     env.BLUEPRINTS.put(pdf, pdfBytes, {
       httpMetadata: { contentType: 'application/pdf', contentDisposition: `attachment; filename="ghosttown-launch-blueprint-${blueprint.orderId}.pdf"` },
