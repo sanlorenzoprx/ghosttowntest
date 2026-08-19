@@ -29,6 +29,7 @@ const GATE31_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate31-cross-account-secur
 const GATE32_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate32-provider-failure-retry.mjs');
 const GATE33_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate33-r2-failure-retry.mjs');
 const GATE34_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate34-visual-certification.mjs');
+const GATE35_ADAPTER = join(ROOT, 'scripts', 'roadmap-gate35-authoritative-receipt.mjs');
 const QUALITY_Q1_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q1-verdict-decision-v2.mjs');
 const QUALITY_Q2_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q2-daily-execution-assets.mjs');
 const QUALITY_Q3_ADAPTER = join(ROOT, 'scripts', 'roadmap-quality-q3-blueprint-document.mjs');
@@ -77,6 +78,8 @@ const sanctionedGate33Command = process.env.ROADMAP_GATE_33_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(GATE33_ADAPTER)}`;
 const sanctionedGate34Command = process.env.ROADMAP_GATE_34_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(GATE34_ADAPTER)}`;
+const sanctionedGate35Command = process.env.ROADMAP_GATE_35_COMMAND?.trim()
+  || `${quoted(process.execPath)} ${quoted(GATE35_ADAPTER)}`;
 const sanctionedQualityQ1Command = process.env.ROADMAP_QUALITY_Q1_COMMAND?.trim()
   || `${quoted(process.execPath)} ${quoted(QUALITY_Q1_ADAPTER)}`;
 const sanctionedQualityQ2Command = process.env.ROADMAP_QUALITY_Q2_COMMAND?.trim()
@@ -108,6 +111,7 @@ function childEnv() {
     ROADMAP_GATE_32_COMMAND: sanctionedGate32Command,
     ROADMAP_GATE_33_COMMAND: sanctionedGate33Command,
     ROADMAP_GATE_34_COMMAND: sanctionedGate34Command,
+    ROADMAP_GATE_35_COMMAND: sanctionedGate35Command,
     ROADMAP_QUALITY_Q1_COMMAND: sanctionedQualityQ1Command,
     ROADMAP_QUALITY_Q2_COMMAND: sanctionedQualityQ2Command,
     ROADMAP_QUALITY_Q3_COMMAND: sanctionedQualityQ3Command,
