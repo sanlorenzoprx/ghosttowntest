@@ -102,6 +102,14 @@ describe('Gate 34 canonical visual evidence matrix', () => {
     expect(panel).toContain('Export CSV');
   });
 
+  it('builds the Blueprint visual fixture through the canonical v2.1 generator', () => {
+    const blueprintFixture = readText('tests/fixtures/launchBlueprint.ts');
+    expect(blueprintFixture).toContain("import { createGhostTownLaunchBlueprintV21 } from '../../src/api/launchBlueprintGeneratorV21';");
+    expect(blueprintFixture).toContain('createGhostTownLaunchBlueprintV21(order, verdict, research)');
+    expect(blueprintFixture).not.toContain('const blueprint = createGhostTownLaunchBlueprint(order, verdict, research)');
+    expect(blueprintFixture).toContain("planVersion: '2.1'");
+  });
+
   it('serializes the two heavy Playwright suites and preserves suite-specific diagnostics', () => {
     const script = readText('scripts/roadmap-gate34-canonical-visual-matrix.mjs');
     expect(script).toContain("runVisualSuite('tests/gate34VisualFixtureBrowser.test.ts', 300000)");
