@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const readText = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -39,6 +41,33 @@ describe('Gate 34 canonical visual evidence matrix', () => {
     expect(browser).toContain('Checking…');
     expect(browser).toContain('horizontalOverflow');
     expect(browser).toContain("environment: 'DETERMINISTIC_UI_FIXTURE'");
+  });
+
+  it('keeps every relative visual-fixture import resolvable before Chromium starts', () => {
+    const fixtureUrl = new URL('./fixtures/gate34VisualFixtureApp.tsx', import.meta.url);
+    const fixturePath = fileURLToPath(fixtureUrl);
+    const fixture = readFileSync(fixturePath, 'utf8');
+    expect(fixture).toContain("import '../../src/styles/globals.css';");
+    expect(fixture).not.toContain("../../src/index.css");
+
+    const relativeImports = [...fixture.matchAll(/(?:from\s+|import\s+)['"](\.[^'"]+)['"]/g)].map(match => match[1]);
+    expect(relativeImports.length).toBeGreaterThan(0);
+    for (const specifier of relativeImports) {
+      const base = resolve(dirname(fixturePath), specifier);
+      const candidates = [
+        base,
+        `${base}.ts`,
+        `${base}.tsx`,
+        `${base}.js`,
+        `${base}.jsx`,
+        `${base}.css`,
+        resolve(base, 'index.ts'),
+        resolve(base, 'index.tsx'),
+        resolve(base, 'index.js'),
+        resolve(base, 'index.jsx')
+      ];
+      expect(candidates.some(candidate => existsSync(candidate)), `unresolved Gate 34 fixture import ${specifier}`).toBe(true);
+    }
   });
 
   it('serializes the two heavy Playwright suites and preserves suite-specific diagnostics', () => {
