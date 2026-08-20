@@ -93,11 +93,9 @@ function normalizedResearchSignals(value: PrePurchaseResearchSignals | undefined
   return normalized;
 }
 
-async function savedVerdict(env: Env, verdictId: string, email?: string): Promise<EvaluationResult | null> {
-  const normalizedEmail = email ? normalizeEmail(email) : '';
-  const raw = await env.KV.get(`verdict_${verdictId}`)
-    ?? await env.KV.get(`verdict:${verdictId}`)
-    ?? (normalizedEmail ? await env.KV.get(`user_result_${normalizedEmail}_${verdictId}`) : null);
+async function savedVerdict(env: Env, verdictId: string, email: string): Promise<EvaluationResult | null> {
+  const normalizedEmail = normalizeEmail(email);
+  const raw = await env.KV.get(`user_result_${normalizedEmail}_${verdictId}`);
   return raw ? hydrateEvaluationResultDecisionV2(JSON.parse(raw) as EvaluationResult) : null;
 }
 

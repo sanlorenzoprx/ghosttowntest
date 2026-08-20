@@ -20,6 +20,7 @@ import { verifyBlueprintDeliveryStateExactV21 } from './blueprintDeliveryVerifie
 
 const orderKey = (id: string) => `paid_test_order_${id}`;
 const userOrdersKey = (email: string) => `paid_test_orders_${email.trim().toLowerCase()}`;
+const normalizedOwner = (value: string) => value.trim().toLowerCase();
 
 export interface CompleteLaunchBlueprintOrderV21Options {
   blueprint?: GhostTownLaunchBlueprintV21;
@@ -154,6 +155,12 @@ export async function completeLaunchBlueprintOrderV21(
     result.research,
     order.paidAt
   );
+  if (
+    normalizedOwner(blueprint.ownerId) !== normalizedOwner(order.email)
+    || blueprint.sourceVerdictId !== order.verdictId
+  ) {
+    throw new Error('Launch Blueprint v2.1 identity does not match the paid order');
+  }
   const vertexRequired = options.vertexRequired === true;
 
   assertVertexPipelineComplete(blueprint, vertexRequired);

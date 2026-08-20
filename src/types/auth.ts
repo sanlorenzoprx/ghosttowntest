@@ -1,6 +1,8 @@
 export interface UserData {
   email: string;
   passwordHash: string;
+  authVersion?: number;
+  legacyPasswordMigratedAt?: string;
   testsUsed: number;
   testsPurchased: number;
   sharesGiven: number;
@@ -11,12 +13,13 @@ export interface UserData {
   lastPurchaseAt?: string;
 }
 
-export type PublicUserData = Omit<UserData, 'passwordHash'>;
+export type PublicUserData = Omit<UserData, 'passwordHash' | 'authVersion' | 'legacyPasswordMigratedAt'>;
 
 export interface JWTPayload {
   email: string;
   iat: number;
   exp: number;
+  authVersion?: number;
 }
 
 export interface AuthResponse {

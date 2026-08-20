@@ -82,10 +82,10 @@ describe('Launch Site canonical rendering and publish gates', () => {
           bind(...values: unknown[]) { bindings = values; return this; },
           async first() {
             if (sql.includes('FROM launch_sites')) return status === 'published' ? { site_id: 'site-1', order_id: blueprint.orderId, owner_id: blueprint.ownerId, public_slug: 'family-game-night', status, published_at: blueprint.createdAt, unpublished_at: null, created_at: blueprint.createdAt, updated_at: blueprint.createdAt } : null;
-            if (sql.includes('FROM launch_blueprints')) return { blueprint_json: JSON.stringify(blueprint), research_receipt_json: JSON.stringify({ provider: 'distribution_footprint' }), pdf_r2_key: 'private.pdf' };
+            if (sql.includes('FROM launch_blueprints')) return { owner_id: blueprint.ownerId, blueprint_json: JSON.stringify(blueprint), research_receipt_json: JSON.stringify({ provider: 'distribution_footprint' }), pdf_r2_key: 'private.pdf' };
             return null;
           },
-          async run() { if (sql.includes('INSERT INTO launch_site_leads')) leadBinds.push(bindings); return { success: true }; }
+          async run() { if (sql.includes('INSERT INTO launch_site_leads')) leadBinds.push(bindings); return { success: true, meta: { changes: 1 } }; }
         };
       }
     };
@@ -109,7 +109,7 @@ describe('Launch Site canonical rendering and publish gates', () => {
       get: async (key: string) => values.get(key) ?? null,
       put: async (key: string, value: string) => { values.set(key, value); },
       delete: async (key: string) => { values.delete(key); },
-      list: async ({ prefix = '' }: { prefix?: string } = {}) => ({ keys: [...values.keys()].filter(key => key.startsWith(prefix)).map(name => ({ name })) }),
+      list: async ({ prefix = '' }: { prefix?: string } = {}) => ({ keys: [...values.keys()].filter(key => key.startsWith(prefix)).map(name => ({ name })), cursor: '', list_complete: true }),
     };
     const ownerId = 'owner@example.test';
     let siteStatus: 'draft' | 'published' | 'unpublished' = 'draft';
@@ -120,13 +120,13 @@ describe('Launch Site canonical rendering and publish gates', () => {
           bind() { return this; },
           async first() {
             if (sql.includes('FROM launch_sites')) return row();
-            if (sql.includes('FROM launch_blueprints')) return { blueprint_json: JSON.stringify(blueprint), research_receipt_json: JSON.stringify({ provider: 'distribution_footprint' }), pdf_r2_key: 'private.pdf' };
+            if (sql.includes('FROM launch_blueprints')) return { owner_id: ownerId, blueprint_json: JSON.stringify(blueprint), research_receipt_json: JSON.stringify({ provider: 'distribution_footprint' }), pdf_r2_key: 'private.pdf' };
             return null;
           },
           async run() {
             if (sql.includes("status = 'published'")) siteStatus = 'published';
             if (sql.includes("status = 'unpublished'")) siteStatus = 'unpublished';
-            return { success: true };
+            return { success: true, meta: { changes: 1 } };
           },
           async all() { return { results: [] }; },
         };

@@ -3,14 +3,14 @@ import { createGhostTownLaunchBlueprintV21 } from '../../src/api/launchBlueprint
 import type { EvaluationResult } from '../../src/types/lit';
 import type { PaidTestOrder } from '../../src/types/paidTest';
 
-export function launchBlueprintFixture() {
+export function launchBlueprintFixture(ownerEmail = 'founder@fixture.test') {
   const verdict = {
     resultId: 'fixture-verdict', generatedAt: '2026-07-31T12:00:00.000Z',
     idea: { ideaName: 'Family Game Night', description: 'Curated family game nights.', targetUser: 'Families with children', painfulProblem: 'Choosing games is difficult.', currentAlternative: 'Buying random games', motivation: 'Firsthand experience' },
     deterministicScores: { ghostTownScore: 3, ghostTownRisk: 'medium', leverageScore: 3, insightScore: 3, timingScore: 3, litScore: 3, litBand: 'unclear', highWallsScore: 2, highWallsBand: 'weak', businessDnaType: 'subscription', businessDnaTrap: 'Inventory risk', businessDnaWinStrategy: 'Concierge pilot', finalVerdict: 'test_first', verdictHeadline: 'Test first', verdictExplanation: 'Demand is not yet proven.', recommendedNextTest: 'Sell a pilot.', doNotBuildUntil: 'A family pays.', oneSentenceAdvice: 'Sell before stocking.' }, usedAI: false, cacheHit: false, answers: {}
   } as EvaluationResult;
   const order = {
-    orderId: 'gtt_fixture_12345678', email: 'founder@fixture.test', verdictId: verdict.resultId, status: 'generating', artifactType: 'launch_blueprint_v2', reportVersion: '1.0', planVersion: '2.1',
+    orderId: 'gtt_fixture_12345678', email: ownerEmail, verdictId: verdict.resultId, status: 'generating', artifactType: 'launch_blueprint_v2', reportVersion: '1.0', planVersion: '2.1',
     intake: { verdictId: verdict.resultId, targetBuyer: 'Families with children', problem: 'Choosing games is difficult.', currentWorkaround: 'Buying random games' },
     createdAt: verdict.generatedAt, updatedAt: verdict.generatedAt
   } as PaidTestOrder;

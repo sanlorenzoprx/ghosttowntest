@@ -73,9 +73,7 @@ function blueprintForPdf(blueprint: GhostTownLaunchBlueprint): GhostTownLaunchBl
 
 async function savedVerdict(env: Env, verdictId: string, email: string): Promise<EvaluationResult | null> {
   const normalized = normalizedEmail(email);
-  const raw = await env.KV.get(`verdict_${verdictId}`)
-    ?? await env.KV.get(`verdict:${verdictId}`)
-    ?? await env.KV.get(`user_result_${normalized}_${verdictId}`);
+  const raw = await env.KV.get(`user_result_${normalized}_${verdictId}`);
   return raw ? hydrateEvaluationResultDecisionV2(JSON.parse(raw) as EvaluationResult) : null;
 }
 
@@ -260,6 +258,12 @@ export async function completeLaunchBlueprintOrder(
 ): Promise<PaidTestOrder> {
   const { order, verdict } = await loadLaunchBlueprintWorkflowContext(env, orderId);
   const blueprint = createGhostTownLaunchBlueprint(order, verdict, result.research, order.paidAt);
+  if (
+    normalizedEmail(blueprint.ownerId) !== normalizedEmail(order.email)
+    || blueprint.sourceVerdictId !== order.verdictId
+  ) {
+    throw new Error('Launch Blueprint identity does not match the paid order');
+  }
   blueprint.generationReceipt.model = result.receipt.model;
   blueprint.generationReceipt.promptVersion = 'distribution-footprint-v1';
   blueprint.generationReceipt.fallbackStatus = 'ai_enriched';

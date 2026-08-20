@@ -115,6 +115,32 @@ function requireStorage(env: Env): { db: D1Database; bucket: R2Bucket } {
   return { db: env.DB, bucket: env.BLUEPRINTS };
 }
 
+function normalizedOwnerId(ownerId: string): string {
+  return ownerId.trim().toLowerCase();
+}
+
+export async function assertStoredBlueprintOwner(
+  db: D1Database,
+  orderId: string,
+  ownerId: string,
+  allowMissing: boolean
+): Promise<void> {
+  const existing = await db.prepare(`
+    SELECT owner_id
+    FROM launch_blueprints
+    WHERE order_id = ?
+  `).bind(orderId).first<{ owner_id: string }>();
+
+  if (!existing) {
+    if (allowMissing) return;
+    throw new Error('Launch Blueprint not found');
+  }
+
+  if (normalizedOwnerId(existing.owner_id) !== normalizedOwnerId(ownerId)) {
+    throw new Error('Launch Blueprint owner is immutable');
+  }
+}
+
 export function blueprintPdfKey(orderId: string): string {
   return `orders/${orderId}/ghosttown-launch-blueprint-v2.pdf`;
 }
@@ -134,6 +160,10 @@ export async function saveBlueprintRecord(
   pdfBytes: Uint8Array
 ): Promise<void> {
   const { db, bucket } = requireStorage(env);
+  const ownerId = normalizedOwnerId(blueprint.ownerId);
+  // Check the canonical D1 owner before touching R2 so an attempted owner
+  // transfer cannot overwrite private artifacts and only then fail the upsert.
+  await assertStoredBlueprintOwner(db, blueprint.orderId, ownerId, true);
   const pdfKey = blueprintPdfKey(blueprint.orderId);
   const jsonKey = blueprintJsonKey(blueprint.orderId);
   const assetsKey = blueprintAssetsKey(blueprint.orderId);
@@ -157,13 +187,12 @@ export async function saveBlueprintRecord(
     })
   ]);
 
-  await db.prepare(`
+  const write = await db.prepare(`
     INSERT INTO launch_blueprints (
       order_id, owner_id, source_verdict_id, schema_version, status,
       blueprint_json, research_receipt_json, pdf_r2_key, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(order_id) DO UPDATE SET
-      owner_id = excluded.owner_id,
       source_verdict_id = excluded.source_verdict_id,
       schema_version = excluded.schema_version,
       status = excluded.status,
@@ -171,9 +200,10 @@ export async function saveBlueprintRecord(
       research_receipt_json = excluded.research_receipt_json,
       pdf_r2_key = excluded.pdf_r2_key,
       updated_at = excluded.updated_at
+    WHERE launch_blueprints.owner_id = excluded.owner_id
   `).bind(
     blueprint.orderId,
-    blueprint.ownerId.trim().toLowerCase(),
+    ownerId,
     blueprint.sourceVerdictId,
     blueprint.schemaVersion,
     blueprint.status,
@@ -183,10 +213,13 @@ export async function saveBlueprintRecord(
     blueprint.createdAt,
     now
   ).run();
+  if ((write.meta?.changes ?? 0) !== 1) {
+    throw new Error('Launch Blueprint owner is immutable');
+  }
 
   await env.KV.put(`paid_test_blueprint_pointer_${blueprint.orderId}`, JSON.stringify({
     orderId: blueprint.orderId,
-    ownerId: blueprint.ownerId.trim().toLowerCase(),
+    ownerId,
     schemaVersion: blueprint.schemaVersion,
     pdfR2Key: pdfKey,
     jsonR2Key: jsonKey,
@@ -436,6 +469,8 @@ export function normalizeBlueprintProgress(value: Partial<BlueprintProgress>): B
 
 export async function saveBlueprintProgress(env: Env, orderId: string, ownerId: string, value: Partial<BlueprintProgress>): Promise<BlueprintProgress> {
   if (!env.DB) throw new Error('Launch Blueprint D1 binding is not configured');
+  const normalizedOwner = normalizedOwnerId(ownerId);
+  await assertStoredBlueprintOwner(env.DB, orderId, normalizedOwner, false);
   const existing = await loadBlueprintProgress(env, orderId, ownerId);
   const progress = normalizeBlueprintProgress({
     ...existing,
@@ -449,13 +484,16 @@ export async function saveBlueprintProgress(env: Env, orderId: string, ownerId: 
     assetDrafts: value.assetDrafts ?? existing.assetDrafts,
     metrics: { ...existing.metrics, ...(value.metrics || {}) }
   });
-  await env.DB.prepare(`
+  const write = await env.DB.prepare(`
     INSERT INTO launch_blueprint_progress (order_id, owner_id, progress_json, updated_at)
     VALUES (?, ?, ?, ?)
     ON CONFLICT(order_id) DO UPDATE SET
-      owner_id = excluded.owner_id,
       progress_json = excluded.progress_json,
       updated_at = excluded.updated_at
-  `).bind(orderId, ownerId.trim().toLowerCase(), JSON.stringify(progress), progress.updatedAt).run();
+    WHERE launch_blueprint_progress.owner_id = excluded.owner_id
+  `).bind(orderId, normalizedOwner, JSON.stringify(progress), progress.updatedAt).run();
+  if ((write.meta?.changes ?? 0) !== 1) {
+    throw new Error('Launch Blueprint progress owner is immutable');
+  }
   return progress;
 }

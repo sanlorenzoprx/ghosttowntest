@@ -26,7 +26,7 @@ export const checkoutAccessibilityOrder = {
 } as PaidTestOrder;
 
 export function checkoutAccessibilityBlueprintFixture() {
-  const base = launchBlueprintFixture();
+  const base = launchBlueprintFixture(checkoutAccessibilityOrder.email);
   base.sourceVerdictId = checkoutAccessibilityVerdict.resultId;
   base.executiveDecision.recommendedInitialCustomer = '10 independent ecommerce stores with active checkout traffic';
   base.executiveDecision.originalIdea = checkoutAccessibilityVerdict.idea.description;

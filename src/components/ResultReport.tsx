@@ -102,6 +102,17 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   const startPaidTest = async (intake: PaidTestIntake) => {
     setPaidLoading(true); setPaidError('');
     try {
+      // Establish/confirm this account's owner-scoped verdict before checkout.
+      // The server ignores client verdict content and claims only its own
+      // server-issued verdict instance for this resultId.
+      const claimResponse = await fetch(apiUrl('/api/results'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ result })
+      });
+      if (!claimResponse.ok) {
+        throw new Error('Save this verdict to your account before checkout. Please log in again and retry.');
+      }
       const response = await fetch(apiUrl('/api/paid-test/checkout'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(intake) });
       const data = await response.json<{ sessionUrl?: string; error?: string }>();
       if (!response.ok || !data.sessionUrl) throw new Error(data.error || 'Checkout is not available right now');

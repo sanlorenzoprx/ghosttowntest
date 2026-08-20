@@ -54,27 +54,58 @@ async function hashPassword(password: string): Promise<string> {
   return `pbkdf2$${PASSWORD_ITERATIONS}$${toBase64Url(salt)}$${await derivePasswordHash(password, salt)}`;
 }
 
-async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+interface PasswordVerification {
+  valid: boolean;
+  legacy: boolean;
+}
+
+function isLegacySimpleHash(storedHash: string): boolean {
+  // Historical simpleHash values are lower-case base36 strings derived from a
+  // signed 32-bit integer. Never treat a malformed PBKDF2 record as legacy.
+  return /^[0-9a-z]{1,7}$/.test(storedHash);
+}
+
+async function verifyPassword(password: string, storedHash: string): Promise<PasswordVerification> {
   const [scheme, iterations, encodedSalt, expectedHash] = storedHash.split('$');
-  if (scheme !== 'pbkdf2' || Number(iterations) !== PASSWORD_ITERATIONS || !encodedSalt || !expectedHash) {
-    return simpleHash(password) === storedHash;
+  if (scheme === 'pbkdf2') {
+    if (Number(iterations) !== PASSWORD_ITERATIONS || !encodedSalt || !expectedHash) {
+      return { valid: false, legacy: false };
+    }
+    try {
+      const base64 = encodedSalt.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(encodedSalt.length / 4) * 4, '=');
+      const binary = atob(base64);
+      const salt = Uint8Array.from(binary, char => char.charCodeAt(0));
+      return {
+        valid: await derivePasswordHash(password, salt) === expectedHash,
+        legacy: false
+      };
+    } catch {
+      return { valid: false, legacy: false };
+    }
   }
 
-  const base64 = encodedSalt.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(encodedSalt.length / 4) * 4, '=');
-  const binary = atob(base64);
-  const salt = Uint8Array.from(binary, char => char.charCodeAt(0));
-  return await derivePasswordHash(password, salt) === expectedHash;
+  if (!isLegacySimpleHash(storedHash)) return { valid: false, legacy: false };
+  return { valid: legacySimpleHash(password) === storedHash, legacy: true };
 }
 
 function toPublicUser(user: UserData): PublicUserData {
-  const { passwordHash: _passwordHash, ...publicUser } = user;
+  const {
+    passwordHash: _passwordHash,
+    authVersion: _authVersion,
+    legacyPasswordMigratedAt: _legacyPasswordMigratedAt,
+    ...publicUser
+  } = user;
   return publicUser;
 }
 
 /**
- * Simple password hashing (not cryptographically secure, use bcrypt in production)
+ * Legacy migration compatibility only.
+ *
+ * New passwords are never written with this scheme. A successful legacy login
+ * is immediately upgraded to PBKDF2 and the authVersion is incremented so all
+ * previously issued JWTs are invalidated.
  */
-function simpleHash(password: string): string {
+function legacySimpleHash(password: string): string {
   let hash = 0;
   for (let i = 0; i < password.length; i++) {
     const char = password.charCodeAt(i);
@@ -82,6 +113,12 @@ function simpleHash(password: string): string {
     hash = hash & hash;
   }
   return Math.abs(hash).toString(36);
+}
+
+function currentAuthVersion(user: Pick<UserData, 'authVersion'>): number {
+  return Number.isInteger(user.authVersion) && Number(user.authVersion) > 0
+    ? Number(user.authVersion)
+    : 1;
 }
 
 /**
@@ -98,11 +135,12 @@ async function signToken(data: string, secret: string): Promise<string> {
   return toBase64Url(new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data))));
 }
 
-async function generateJWT(email: string, secret: string): Promise<string> {
+async function generateJWT(email: string, secret: string, authVersion = 1): Promise<string> {
   const header = encodeBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const now = Math.floor(Date.now() / 1000);
   const payload = encodeBase64Url(JSON.stringify({
     email,
+    authVersion,
     iat: now,
     exp: now + 86400 * 30 // 30 days
   }));
@@ -113,7 +151,10 @@ async function generateJWT(email: string, secret: string): Promise<string> {
 /**
  * Verify JWT token
  */
-export async function verifyJWT(token: string, secret: string): Promise<{ email: string } | null> {
+export async function verifyJWT(
+  token: string,
+  secret: string
+): Promise<{ email: string; authVersion: number } | null> {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -121,10 +162,22 @@ export async function verifyJWT(token: string, secret: string): Promise<{ email:
     const expectedSignature = await signToken(`${parts[0]}.${parts[1]}`, secret);
     if (parts[2] !== expectedSignature) return null;
 
-    const payload = JSON.parse(decodeBase64Url(parts[1])) as { email?: unknown; exp?: unknown };
+    const payload = JSON.parse(decodeBase64Url(parts[1])) as {
+      email?: unknown;
+      exp?: unknown;
+      authVersion?: unknown;
+    };
     if (typeof payload.email !== 'string' || typeof payload.exp !== 'number') return null;
     if (payload.exp * 1000 < Date.now()) return null;
-    return { email: payload.email };
+    if (payload.authVersion !== undefined && (
+      typeof payload.authVersion !== 'number'
+      || !Number.isInteger(payload.authVersion)
+      || payload.authVersion < 1
+    )) return null;
+    // Tokens issued before Slice B have no authVersion. Treat them as version 1
+    // so deployment does not log out every existing user; any subsequent
+    // revocation or password migration increments the user to version 2+.
+    return { email: payload.email, authVersion: payload.authVersion ?? 1 };
   } catch {
     return null;
   }
@@ -140,7 +193,9 @@ export async function authenticateRequest(
   if (!payload) return null;
   const userJson = await env.KV.get(`user_${payload.email}`);
   if (!userJson) return null;
-  return { email: payload.email, user: JSON.parse(userJson) as UserData };
+  const user = JSON.parse(userJson) as UserData;
+  if (payload.authVersion !== currentAuthVersion(user)) return null;
+  return { email: payload.email, user };
 }
 
 /**
@@ -173,6 +228,7 @@ export async function handleSignup(request: Request, env: AuthEnv) {
     const userData: UserData = {
       email,
       passwordHash,
+      authVersion: 1,
       testsUsed: body.usedAnonymousAssessment ? 1 : 0,
       testsPurchased: 0,
       sharesGiven: 0,
@@ -185,7 +241,7 @@ export async function handleSignup(request: Request, env: AuthEnv) {
     await env.KV.put(`user_${email}`, JSON.stringify(userData));
 
     // Generate JWT
-    const token = await generateJWT(email, env.JWT_SECRET);
+    const token = await generateJWT(email, env.JWT_SECRET, currentAuthVersion(userData));
 
     return new Response(
       JSON.stringify({ token, user: toPublicUser(userData) }),
@@ -228,20 +284,24 @@ export async function handleLogin(request: Request, env: AuthEnv) {
     const user = JSON.parse(userJSON) as UserData;
 
     // Verify password
-    if (!await verifyPassword(password, user.passwordHash)) {
+    const passwordVerification = await verifyPassword(password, user.passwordHash);
+    if (!passwordVerification.valid) {
       return new Response(
         JSON.stringify({ error: 'Invalid password' }),
         { status: 401 }
       );
     }
 
-    // Generate JWT
-    if (!user.passwordHash.startsWith('pbkdf2$')) {
+    // One-way migration only. Legacy hashes are accepted solely so the user can
+    // prove the password once, after which the weak hash is permanently replaced.
+    if (passwordVerification.legacy) {
       user.passwordHash = await hashPassword(password);
+      user.authVersion = currentAuthVersion(user) + 1;
+      user.legacyPasswordMigratedAt = new Date().toISOString();
       await env.KV.put(`user_${email}`, JSON.stringify(user));
     }
 
-    const token = await generateJWT(email, env.JWT_SECRET);
+    const token = await generateJWT(email, env.JWT_SECRET, currentAuthVersion(user));
 
     return new Response(
       JSON.stringify({ token, user: toPublicUser(user) }),
@@ -286,6 +346,12 @@ export async function handleVerify(request: Request, env: AuthEnv) {
     }
 
     const user = JSON.parse(userJSON) as UserData;
+    if (payload.authVersion !== currentAuthVersion(user)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid token' }),
+        { status: 401 }
+      );
+    }
 
     return new Response(
       JSON.stringify({ user: toPublicUser(user) }),
@@ -298,4 +364,32 @@ export async function handleVerify(request: Request, env: AuthEnv) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * POST /api/auth/revoke-sessions
+ *
+ * Invalidates every currently issued JWT for the authenticated account by
+ * incrementing the account authVersion. The current token is intentionally not
+ * replaced: callers must log in again after a successful revocation.
+ */
+export async function handleRevokeSessions(request: Request, env: AuthEnv): Promise<Response> {
+  const auth = await authenticateRequest(request, env);
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Authentication required' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  auth.user.authVersion = currentAuthVersion(auth.user) + 1;
+  await env.KV.put(`user_${auth.email}`, JSON.stringify(auth.user));
+
+  return new Response(JSON.stringify({ revoked: true }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'private, no-store'
+    }
+  });
 }

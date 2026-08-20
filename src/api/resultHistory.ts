@@ -13,6 +13,8 @@ export interface ResultSummary {
 
 const historyKey = (email: string) => `user_results_${email}`;
 const userResultKey = (email: string, resultId: string) => `user_result_${email}_${resultId}`;
+const serverVerdictKey = (resultId: string) => `verdict_${resultId}`;
+const serverIssuedResultId = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function saveUserResult(email: string, result: EvaluationResult, env: Env): Promise<void> {
   const canonical = hydrateEvaluationResultDecisionV2(result);
@@ -44,11 +46,37 @@ export async function handleSaveCurrentResult(request: Request, env: Env): Promi
   const auth = await authenticateRequest(request, env);
   if (!auth) return json({ error: 'Authentication required' }, 401);
   const body = await request.json<{ result?: EvaluationResult }>();
-  const result = body.result;
-  if (!result?.resultId || !result.idea?.ideaName || !result.deterministicScores || !result.generatedAt) {
+  const resultId = body.result?.resultId?.trim();
+  if (!resultId) {
     return json({ error: 'A completed assessment is required' }, 400);
   }
-  await saveUserResult(auth.email, hydrateEvaluationResultDecisionV2(result), env);
+
+  // Idempotent for verdicts this account already owns. This also allows older
+  // owner-scoped results to remain purchasable after the 90-day claim-source
+  // record has expired.
+  const existingOwned = await env.KV.get(userResultKey(auth.email, resultId));
+  if (existingOwned) return json({ saved: true });
+
+  // Pre-Slice-B short deterministic IDs may remain readable for accounts that
+  // already own them, but they can no longer cross the ownership-claim
+  // boundary. New claims require the UUID issued by the verdict endpoint.
+  if (!serverIssuedResultId.test(resultId)) {
+    return json({ error: 'Assessment not found' }, 404);
+  }
+
+  // Ownership is established from the server-issued verdict instance, never
+  // from client-supplied verdict content. The body contributes only resultId.
+  const authoritativeRaw = await env.KV.get(serverVerdictKey(resultId));
+  if (!authoritativeRaw) return json({ error: 'Assessment not found' }, 404);
+
+  const authoritative = hydrateEvaluationResultDecisionV2(
+    JSON.parse(authoritativeRaw) as EvaluationResult
+  );
+  if (authoritative.resultId !== resultId) {
+    return json({ error: 'Assessment not found' }, 404);
+  }
+
+  await saveUserResult(auth.email, authoritative, env);
   return json({ saved: true });
 }
 

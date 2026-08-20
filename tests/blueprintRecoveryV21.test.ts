@@ -6,8 +6,8 @@ import type { Env } from '../src/api/env';
 import type { GhostTownLaunchBlueprint } from '../src/types/launchBlueprint';
 import { launchBlueprintFixture } from './fixtures/launchBlueprint';
 
-function currentBlueprint(): GhostTownLaunchBlueprint {
-  const base = launchBlueprintFixture();
+function currentBlueprint(ownerId: string): GhostTownLaunchBlueprint {
+  const base = launchBlueprintFixture(ownerId);
   return {
     ...base,
     blueprintVersion: '2.1',
@@ -26,7 +26,7 @@ function currentBlueprint(): GhostTownLaunchBlueprint {
   } as unknown as GhostTownLaunchBlueprint;
 }
 
-function fakeEnvironment(blueprint: GhostTownLaunchBlueprint) {
+function fakeEnvironment(blueprint: GhostTownLaunchBlueprint, ownerId: string) {
   const kvValues = new Map<string, string>();
   let progressJson: string | null = null;
   let normalizedBatchCount = 0;
@@ -48,6 +48,7 @@ function fakeEnvironment(blueprint: GhostTownLaunchBlueprint) {
         async first() {
           if (sql.includes('FROM launch_blueprints')) {
             return {
+              owner_id: ownerId,
               blueprint_json: JSON.stringify(blueprint),
               research_receipt_json: JSON.stringify({
                 provider: 'distribution_footprint', model: 'gemini-2.5-flash', completedAt: blueprint.createdAt,
@@ -67,7 +68,7 @@ function fakeEnvironment(blueprint: GhostTownLaunchBlueprint) {
           if (sql.includes('INSERT INTO launch_blueprint_progress')) {
             progressJson = String(bindings[2]);
           }
-          return { success: true };
+          return { success: true, meta: { changes: 1 } };
         }
       };
     },
@@ -97,10 +98,10 @@ async function tokenFrom(response: Response) {
 
 describe('Blueprint v2.1.1 account recovery', () => {
   it('persists evidence-led progress and restores it after a fresh login', async () => {
-    const blueprint = currentBlueprint();
-    const { env, KV, getNormalizedBatchCount } = fakeEnvironment(blueprint);
     const email = 'founder@example.com';
     const password = 'correct-horse-battery';
+    const blueprint = currentBlueprint(email);
+    const { env, KV, getNormalizedBatchCount } = fakeEnvironment(blueprint, email);
 
     const firstToken = await tokenFrom(await handleSignup(new Request('https://ghost.test/api/auth/signup', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })

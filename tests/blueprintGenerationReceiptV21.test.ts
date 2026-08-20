@@ -130,7 +130,7 @@ function v21Blueprint() {
   const currentOrder = order();
   const currentVerdict = verdict();
   const blueprint = upgradeGhostTownLaunchBlueprintToV21(
-    launchBlueprintFixture(),
+    launchBlueprintFixture(currentOrder.email),
     currentOrder,
     currentVerdict
   );
@@ -157,18 +157,23 @@ function fakeEnvironment() {
   const r2Values = new Map<string, Uint8Array>();
   let blueprintJson = '';
   let researchReceiptJson = '';
+  let blueprintOwnerId = '';
 
   const db = {
     prepare: (sql: string) => ({
       bind: (...args: unknown[]) => ({
         run: async () => {
           if (sql.includes('INSERT INTO launch_blueprints')) {
+            blueprintOwnerId = String(args[1]);
             blueprintJson = String(args[5]);
             researchReceiptJson = String(args[6]);
           }
-          return { success: true };
+          return { success: true, meta: { changes: 1 } };
         },
         first: async () => {
+          if (sql.includes('SELECT owner_id')) {
+            return blueprintOwnerId ? { owner_id: blueprintOwnerId } : null;
+          }
           if (sql.includes('SELECT research_receipt_json')) {
             return researchReceiptJson ? { research_receipt_json: researchReceiptJson } : null;
           }
@@ -179,7 +184,7 @@ function fakeEnvironment() {
   } as unknown as D1Database;
 
   const bucket = {
-    put: async (key: string, value: Uint8Array | ArrayBuffer | string) => {
+    put: async (key: string, value: Uint8Array | ArrayBuffer | string, _options?: unknown) => {
       const bytes = typeof value === 'string'
         ? new TextEncoder().encode(value)
         : value instanceof Uint8Array

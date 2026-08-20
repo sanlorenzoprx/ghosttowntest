@@ -13,6 +13,7 @@ import type {
 } from './customerAccessResearch';
 import { buildBlueprintAssetFiles } from './blueprintAssets';
 import {
+  assertStoredBlueprintOwner,
   blueprintAssetsKey,
   blueprintJsonKey,
   blueprintPdfKey
@@ -302,6 +303,11 @@ export async function saveBlueprintRecordV21(
     throw new Error('Launch Blueprint v2.1 generation receipt was not prepared before persistence');
   }
 
+  const ownerId = blueprint.ownerId.trim().toLowerCase();
+  // D1 is the canonical owner boundary. Check it before R2 writes so an
+  // attempted owner transfer cannot overwrite private artifacts.
+  await assertStoredBlueprintOwner(env.DB, blueprint.orderId, ownerId, true);
+
   const canonicalJson = JSON.stringify(blueprint, null, 2);
   const canonicalJsonBytes = encoder.encode(canonicalJson);
   assertNoSecretValues(canonicalJson, env);
@@ -355,13 +361,12 @@ export async function saveBlueprintRecordV21(
     })
   ]);
 
-  await env.DB.prepare(`
+  const write = await env.DB.prepare(`
     INSERT INTO launch_blueprints (
       order_id, owner_id, source_verdict_id, schema_version, status,
       blueprint_json, research_receipt_json, pdf_r2_key, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(order_id) DO UPDATE SET
-      owner_id = excluded.owner_id,
       source_verdict_id = excluded.source_verdict_id,
       schema_version = excluded.schema_version,
       status = excluded.status,
@@ -369,9 +374,10 @@ export async function saveBlueprintRecordV21(
       research_receipt_json = excluded.research_receipt_json,
       pdf_r2_key = excluded.pdf_r2_key,
       updated_at = excluded.updated_at
+    WHERE launch_blueprints.owner_id = excluded.owner_id
   `).bind(
     blueprint.orderId,
-    blueprint.ownerId.trim().toLowerCase(),
+    ownerId,
     blueprint.sourceVerdictId,
     blueprint.schemaVersion,
     blueprint.status,
@@ -381,10 +387,13 @@ export async function saveBlueprintRecordV21(
     blueprint.createdAt,
     now
   ).run();
+  if ((write.meta?.changes ?? 0) !== 1) {
+    throw new Error('Launch Blueprint owner is immutable');
+  }
 
   await env.KV.put(`paid_test_blueprint_pointer_${blueprint.orderId}`, JSON.stringify({
     orderId: blueprint.orderId,
-    ownerId: blueprint.ownerId.trim().toLowerCase(),
+    ownerId,
     schemaVersion: blueprint.schemaVersion,
     pdfR2Key: pdf,
     jsonR2Key: json,

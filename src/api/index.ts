@@ -1,4 +1,4 @@
-import { handleSignup, handleLogin, handleVerify } from './auth';
+import { handleSignup, handleLogin, handleVerify, handleRevokeSessions } from './auth';
 import { handleAnalyticsEvent } from './analytics';
 import { handleCommercialMetrics } from './commercialMetrics';
 import { handleCheckout } from './checkout';
@@ -126,6 +126,11 @@ export default {
       }
       if (path === '/api/auth/verify' && method === 'POST') {
         const response = await handleVerify(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/auth/revoke-sessions' && method === 'POST') {
+        const response = await handleRevokeSessions(request, env);
         applyCors(response, corsHeaders);
         return response;
       }

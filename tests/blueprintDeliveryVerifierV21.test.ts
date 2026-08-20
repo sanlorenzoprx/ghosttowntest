@@ -22,6 +22,11 @@ function r2Body(bytes: Uint8Array): R2ObjectBody {
       const copy = new Uint8Array(bytes.byteLength);
       copy.set(bytes);
       return copy.buffer;
+    }),
+    text: vi.fn(async () => {
+      if (consumed) throw new Error('R2 body already consumed');
+      consumed = true;
+      return new TextDecoder().decode(bytes);
     })
   } as unknown as R2ObjectBody;
 }

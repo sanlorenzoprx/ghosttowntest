@@ -96,12 +96,23 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
     if (cached) {
       try {
         const cachedResult = JSON.parse(cached);
-        const restoredResult = { ...cachedResult, resultId: cachedResult.resultId ?? ideaHash, cacheHit: true } as EvaluationResult;
+        // The idea hash is only a cache key. Every delivered verdict instance
+        // receives an unguessable identifier so resultId is not a trust token.
+        const restoredResult = {
+          ...cachedResult,
+          resultId: crypto.randomUUID(),
+          cacheHit: true
+        } as EvaluationResult;
         hydrateEvaluationResultDecisionV2(restoredResult);
         restoredResult.video = await queuePublicVideo(
           restoredResult,
           typeof payload.locale === 'string' ? payload.locale : 'en-US',
           env
+        );
+        await env.KV.put(
+          `verdict_${restoredResult.resultId}`,
+          JSON.stringify(restoredResult),
+          { expirationTtl: 86400 * 90 }
         );
         if (authenticated) {
           await recordTestUse(authenticated.user, env);
@@ -144,7 +155,7 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
     const deterministicResult = calculateDeterministicScores(answers);
 
     const result: EvaluationResult = {
-      resultId: ideaHash,
+      resultId: crypto.randomUUID(),
       idea,
       answers,
       analysis,

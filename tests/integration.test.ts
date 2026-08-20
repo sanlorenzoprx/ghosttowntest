@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import worker from '../src/api/index';
+import type { EvaluationResult } from '../src/types/lit';
 
 class MemoryKv {
   private values = new Map<string, string>();
@@ -14,9 +15,13 @@ class MemoryKv {
     this.values.set(key, value);
   }
 
-  async list(options: { prefix?: string } = {}): Promise<{ keys: Array<{ name: string }> }> {
+  async list(options: { prefix?: string } = {}): Promise<{ keys: Array<{ name: string }>; cursor: string; list_complete: boolean }> {
     const prefix = options.prefix ?? '';
-    return { keys: [...this.values.keys()].filter(key => key.startsWith(prefix)).map(name => ({ name })) };
+    return {
+      keys: [...this.values.keys()].filter(key => key.startsWith(prefix)).map(name => ({ name })),
+      cursor: '',
+      list_complete: true
+    };
   }
 }
 
@@ -153,7 +158,7 @@ describe('Worker verdict flow', () => {
     const kv = new MemoryKv();
     const env = createEnv(kv);
     const verdictResponse = await worker.fetch(verdictRequest(), env);
-    const verdict = await verdictResponse.json<{ resultId: string }>();
+    const verdict = await verdictResponse.json<EvaluationResult>();
 
     const signupResponse = await worker.fetch(new Request('http://localhost/api/auth/signup', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -164,6 +169,12 @@ describe('Worker verdict flow', () => {
     const storedUser = JSON.parse((await kv.get('user_share-reward@example.com')) || '{}') as { passwordHash?: string };
     expect(storedUser.passwordHash).toMatch(/^pbkdf2\$100000\$/);
     const authorization = { Authorization: `Bearer ${signup.token}` };
+    const claimResult = (result: EvaluationResult) => worker.fetch(new Request('http://localhost/api/results', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authorization },
+      body: JSON.stringify({ result })
+    }), env);
+    expect((await claimResult(verdict)).status).toBe(200);
 
     const linkResponse = await worker.fetch(new Request('http://localhost/api/referral/create', { method: 'POST', headers: authorization }), env);
     const link = await linkResponse.json<{ refId: string }>();
@@ -181,7 +192,8 @@ describe('Worker verdict flow', () => {
     await kv.put('user_share-reward@example.com', JSON.stringify({ ...user, shareCredits: 1 }));
 
     const secondVerdictResponse = await worker.fetch(verdictRequest({ ...payload, idea: { ...payload.idea, ideaName: 'A different rewardable idea' } }), env);
-    const secondVerdict = await secondVerdictResponse.json<{ resultId: string }>();
+    const secondVerdict = await secondVerdictResponse.json<EvaluationResult>();
+    expect((await claimResult(secondVerdict)).status).toBe(200);
     const secondLinkResponse = await worker.fetch(new Request('http://localhost/api/referral/create', { method: 'POST', headers: authorization }), env);
     const secondLink = await secondLinkResponse.json<{ refId: string }>();
     const limitResponse = await worker.fetch(rewardRequest(secondVerdict.resultId, secondLink.refId), env);

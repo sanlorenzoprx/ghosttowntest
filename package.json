@@ -10,7 +10,7 @@
     "pretype-check": "npm run verify:blueprint",
     "type-check": "tsc --noEmit",
     "pretest": "npm run verify:blueprint",
-    "test": "vitest run",
+    "test": "npm run test:fast && npm run test:browser",
     "prebuild": "npm run verify:blueprint",
     "build": "vite build",
     "preview": "vite preview",
@@ -27,7 +27,9 @@
     "roadmap:production": "node scripts/roadmap-autopilot-wrapper.mjs",
     "roadmap:quality": "node scripts/commercial-quality-roadmap-autopilot.mjs",
     "roadmap:freeze": "node scripts/roadmap-infrastructure-freeze.mjs",
-    "roadmap:pre-gate36-corrections": "node scripts/roadmap-pre-gate36-correction-pass.mjs"
+    "roadmap:pre-gate36-corrections": "node scripts/roadmap-pre-gate36-correction-pass.mjs",
+    "test:fast": "vitest run --exclude tests/q4LaunchSiteBrowser.test.ts --exclude tests/gate34VisualFixtureBrowser.test.ts",
+    "test:browser": "vitest run tests/q4LaunchSiteBrowser.test.ts tests/gate34VisualFixtureBrowser.test.ts --no-file-parallelism"
   },
   "dependencies": {
     "react": "^18.2.0",

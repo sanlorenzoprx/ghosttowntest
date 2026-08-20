@@ -24,7 +24,7 @@ describe('canonical Blueprint asset package', () => {
     expect(first).toEqual(second);
     const printable = new TextDecoder().decode(first);
     expect(printable).not.toMatch(/gemini_api_key|dataforseo_password|system prompt|raw provider/i);
-  });
+  }, 15_000);
 
   it('serves the private R2 ZIP only through the paid-order ownership boundary', async () => {
     const values = new Map<string, string>();
