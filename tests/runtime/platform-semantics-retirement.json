@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "ghosttown-platform-semantics-retirement-v1",
+  "generatedAt": "2026-08-20T12:40:41.449Z",
+  "rule": "Cloudflare runtime tests are authoritative for D1/KV/R2 semantics. Grandfathered mock-heavy tests are retained only for business/failure semantics.",
+  "runtimeAuthorities": {
+    "D1_migrations_and_meta": [
+      "tests/runtime/d1Migrations.worker.test.ts"
+    ],
+    "paid_path_D1_R2_KV": [
+      "tests/runtime/paidPathStorage.worker.test.ts"
+    ],
+    "R2_object_body_and_metadata": [
+      "tests/runtime/r2Binding.worker.test.ts"
+    ],
+    "KV_pagination_and_values": [
+      "tests/runtime/kvBinding.worker.test.ts"
+    ],
+    "Launch_Site_D1_KV": [
+      "tests/runtime/launchSiteStorage.worker.test.ts"
+    ],
+    "Worker_HTTP_build": [
+      "tests/runtime/workerHarness.node.test.ts"
+    ]
+  },
+  "grandfatheredBusinessTests": [
+    "tests/blueprintGenerationReceiptV21.test.ts",
+    "tests/blueprintDeliveryVerifierV21.test.ts",
+    "tests/blueprintRecoveryV21.test.ts",
+    "tests/integration.test.ts",
+    "tests/launchSite.test.ts",
+    "tests/blueprintAssets.test.ts"
+  ],
+  "deletionDecision": "Do not delete tests that still contain unique business/failure assertions. Their platform emulation is no longer release-authoritative."
+}
