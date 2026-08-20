@@ -1,0 +1,268 @@
+{
+  "schemaVersion": "ghosttown-provider-contract-ledger-v1",
+  "generatedAt": "2026-08-20T12:40:34.704Z",
+  "policy": "External providers are deterministic contract boundaries in local tests; platform-runtime migration tests must not invoke live providers.",
+  "sourceFiles": [
+    {
+      "file": "src/api/blueprintApi.ts",
+      "providers": [
+        "stripe"
+      ]
+    },
+    {
+      "file": "src/api/blueprintExecutionCopilot.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/blueprintFulfillment.ts",
+      "providers": [
+        "stripe"
+      ]
+    },
+    {
+      "file": "src/api/blueprintFulfillmentV21.ts",
+      "providers": [
+        "stripe",
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/blueprintReleaseQualityGateV21.ts",
+      "providers": [
+        "podcast_index",
+        "youtube"
+      ]
+    },
+    {
+      "file": "src/api/blueprintStoreV21.ts",
+      "providers": [
+        "stripe",
+        "vertex",
+        "dataforseo",
+        "podcast_index",
+        "youtube"
+      ]
+    },
+    {
+      "file": "src/api/checkout.ts",
+      "providers": [
+        "stripe"
+      ]
+    },
+    {
+      "file": "src/api/commercialAttribution.ts",
+      "providers": [
+        "stripe"
+      ]
+    },
+    {
+      "file": "src/api/commercialMetrics.ts",
+      "providers": [
+        "stripe"
+      ]
+    },
+    {
+      "file": "src/api/customerAccessResearch.ts",
+      "providers": [
+        "dataforseo",
+        "podcast_index",
+        "youtube"
+      ]
+    },
+    {
+      "file": "src/api/distributionFootprintResearch.ts",
+      "providers": [
+        "vertex",
+        "dataforseo",
+        "podcast_index",
+        "youtube"
+      ]
+    },
+    {
+      "file": "src/api/env.ts",
+      "providers": [
+        "stripe",
+        "vertex",
+        "dataforseo",
+        "podcast_index",
+        "youtube"
+      ]
+    },
+    {
+      "file": "src/api/executionAIService.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/generativeAIService.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/index.ts",
+      "providers": [
+        "stripe"
+      ]
+    },
+    {
+      "file": "src/api/internalGoogleSearch.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/launchBlueprintGeneratorV21.ts",
+      "providers": [
+        "podcast_index",
+        "youtube"
+      ]
+    },
+    {
+      "file": "src/api/launchBlueprintVertexAssetGuard.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/launchBlueprintVertexGuards.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/launchBlueprintVertexPipeline.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/launchBlueprintWorkflow.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/paidBlueprintResearch.ts",
+      "providers": [
+        "stripe"
+      ]
+    },
+    {
+      "file": "src/api/paidTest.ts",
+      "providers": [
+        "stripe"
+      ]
+    },
+    {
+      "file": "src/api/paidTestCheckout.ts",
+      "providers": [
+        "stripe"
+      ]
+    },
+    {
+      "file": "src/api/researchPreview.ts",
+      "providers": [
+        "dataforseo",
+        "podcast_index",
+        "youtube"
+      ]
+    },
+    {
+      "file": "src/api/shortsFactoryVerdict.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/verdict.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/vertexStructuredGeneration.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/webhook.ts",
+      "providers": [
+        "stripe"
+      ]
+    },
+    {
+      "file": "src/api/websiteAssetGenerator.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/websiteCreationService.ts",
+      "providers": [
+        "vertex"
+      ]
+    },
+    {
+      "file": "src/api/worker.ts",
+      "providers": [
+        "vertex"
+      ]
+    }
+  ],
+  "existingContractTests": [
+    "tests/acceptanceEnvironment.test.ts",
+    "tests/blueprintAssets.test.ts",
+    "tests/blueprintDocumentModel.test.ts",
+    "tests/blueprintExecutionIntelligence.test.ts",
+    "tests/blueprintGenerationReceiptV21.test.ts",
+    "tests/blueprintOwnershipV21.test.ts",
+    "tests/blueprintPdf.test.ts",
+    "tests/blueprintRecoveryV21.test.ts",
+    "tests/blueprintReleaseQualityGateV21.test.ts",
+    "tests/commercialAttribution.test.ts",
+    "tests/commercialMetrics.test.ts",
+    "tests/commercialUiContract.test.ts",
+    "tests/customerAccessResearch.test.ts",
+    "tests/gate28ArtifactRematerialization.test.ts",
+    "tests/generativeAIService.test.ts",
+    "tests/launchBlueprintBusinessModelLaneRegression.test.ts",
+    "tests/launchBlueprintGenerator.test.ts",
+    "tests/launchBlueprintGeneratorV21.test.ts",
+    "tests/launchBlueprintVertexAssetGuard.test.ts",
+    "tests/launchBlueprintVertexGuards.test.ts",
+    "tests/launchBlueprintVertexPipeline.test.ts",
+    "tests/launchSite.test.ts",
+    "tests/mobileFunnel.test.ts",
+    "tests/paidBlueprintAcceptanceRecovery.test.ts",
+    "tests/paidBlueprintResearch.test.ts",
+    "tests/paidTest.test.ts",
+    "tests/productionRoadmapAutopilot.test.ts",
+    "tests/q1GoldenReceipt.test.tsx",
+    "tests/q2DailyExecutionPackets.test.ts",
+    "tests/researchPreview.test.ts",
+    "tests/richVerdictValidator.test.ts",
+    "tests/roadmapGate14Adapter.test.ts",
+    "tests/roadmapGate19Adapter.test.ts",
+    "tests/roadmapGate20ManualPurchase.test.ts",
+    "tests/roadmapGate21Adapter.test.ts",
+    "tests/roadmapGate23Adapter.test.ts",
+    "tests/roadmapGate24Adapter.test.ts",
+    "tests/roadmapGate25Adapter.test.ts",
+    "tests/roadmapGate29Adapter.test.ts",
+    "tests/roadmapGate30Adapter.test.ts",
+    "tests/roadmapGate30DurableRecoveryV2.test.ts",
+    "tests/roadmapGate30DurableRecoveryV3.test.ts",
+    "tests/roadmapGate30PasswordReset.test.ts",
+    "tests/roadmapGate32Adapter.test.ts",
+    "tests/roadmapGate33Adapter.test.ts",
+    "tests/roadmapGate34OwnerSessionSetup.test.ts",
+    "tests/securityInvariantsSliceB.test.ts",
+    "tests/vertexStructuredGeneration.test.ts",
+    "tests/websiteCreationService.test.ts"
+  ]
+}
