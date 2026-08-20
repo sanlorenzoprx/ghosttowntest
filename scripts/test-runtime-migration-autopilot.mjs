@@ -480,14 +480,14 @@ import type { Env } from "../../src/api/env";
 import type { EvaluationResult } from "../../src/types/lit";
 import type { PaidTestOrder } from "../../src/types/paidTest";
 import type { CustomerAccessResearchResult } from "../../src/api/customerAccessResearch";
+import type { CustomerAccessResearchInput } from "../../src/api/launchBlueprintGenerator";
 import type { BlueprintVertexStageReceipt } from "../../src/types/launchBlueprintV21";
-import { upgradeGhostTownLaunchBlueprintToV21 } from "../../src/api/launchBlueprintGeneratorV21";
+import { createGhostTownLaunchBlueprintV21 } from "../../src/api/launchBlueprintGeneratorV21";
 import {
   loadBlueprintIntegrityReceiptV21,
   prepareBlueprintGenerationReceiptV21,
   saveBlueprintRecordV21
 } from "../../src/api/blueprintStoreV21";
-import { launchBlueprintFixture } from "../fixtures/launchBlueprint";
 
 const generatedAt = "2026-08-20T12:00:00.000Z";
 
@@ -565,11 +565,61 @@ function stage(stageName: BlueprintVertexStageReceipt["stage"]): BlueprintVertex
   };
 }
 
+function researchInput(): CustomerAccessResearchInput {
+  const researchDate = "2026-08-20";
+  const sources = Array.from({ length: 10 }, (_, index) => ({
+    sourceId: \`runtime-source-\${index}\`,
+    title: \`Runtime Source \${index}\`,
+    url: \`https://example.com/runtime-source-\${index}\`,
+    publisher: "Runtime Fixture",
+    accessedAt: \`\${researchDate}T12:00:00.000Z\`,
+    supports: [\`runtime-channel-\${index}\`]
+  }));
+  const channels = Array.from({ length: 10 }, (_, index) => ({
+    channelId: \`runtime-channel-\${index}\`,
+    community: \`Runtime Community \${index}\`,
+    platform: index < 3 ? "Podcast" : index < 6 ? "YouTube" : "Publication",
+    publicUrl: \`https://example.com/runtime-channel-\${index}\`,
+    relevance: "Families discuss game selection and purchases.",
+    activity: "active",
+    participationRules: "Read current rules.",
+    recommendedApproach: "Contribute before pitching.",
+    usefulTopic: "Choosing a family game.",
+    risk: "Rules can change.",
+    firstAction: "Read recent discussions.",
+    confidence: "high",
+    researchDate,
+    sourceIds: [\`runtime-source-\${index}\`],
+    targetType: index < 3 ? "podcast" : index < 6 ? "youtube_creator" : "newsletter_or_publication"
+  })) as CustomerAccessResearchInput["channels"];
+
+  return {
+    status: "complete",
+    researchDate,
+    sources,
+    channels,
+    publicExpertsAndPartners: [{
+      name: "Runtime organizer",
+      role: "Organizer",
+      publicUrl: "https://example.com/runtime-organizer",
+      relevance: "Runs family game events.",
+      sourceIds: ["runtime-source-0"]
+    }]
+  };
+}
+
 function makeScenario(owner = "founder@runtime.test") {
   const currentOrder = order(owner);
   const currentVerdict = verdict();
-  const base = launchBlueprintFixture(currentOrder.email);
-  const blueprint = upgradeGhostTownLaunchBlueprintToV21(base, currentOrder, currentVerdict);
+
+  // One canonical scenario source: the production generator receives the same
+  // order/verdict pair that every storage assertion below uses.
+  const blueprint = createGhostTownLaunchBlueprintV21(
+    currentOrder,
+    currentVerdict,
+    researchInput(),
+    generatedAt
+  );
   blueprint.status = "ready";
   blueprint.qualityGate = { passed: true, failures: [], warnings: [] };
   blueprint.generationReceipt.vertexPipeline = {
@@ -585,6 +635,17 @@ function makeScenario(owner = "founder@runtime.test") {
     redTeam: { passed: true, findings: [] },
     completedAt: generatedAt
   };
+
+  if (blueprint.orderId !== currentOrder.orderId) {
+    throw new Error(\`Runtime scenario order drift: \${blueprint.orderId} !== \${currentOrder.orderId}\`);
+  }
+  if (blueprint.sourceVerdictId !== currentVerdict.resultId) {
+    throw new Error(\`Runtime scenario verdict drift: \${blueprint.sourceVerdictId} !== \${currentVerdict.resultId}\`);
+  }
+  if (blueprint.ownerId !== currentOrder.email) {
+    throw new Error(\`Runtime scenario owner drift: \${blueprint.ownerId} !== \${currentOrder.email}\`);
+  }
+
   const result: CustomerAccessResearchResult = {
     research: {
       status: "complete",
@@ -665,7 +726,7 @@ describe("GhostTown paid-path storage on real local Cloudflare bindings", () => 
 
     const row = await env.DB.prepare(
       "SELECT owner_id, source_verdict_id, status, research_receipt_json FROM launch_blueprints WHERE order_id = ?"
-    ).bind(scenario.blueprint.orderId).first<{
+    ).bind(scenario.currentOrder.orderId).first<{
       owner_id: string;
       source_verdict_id: string;
       status: string;
@@ -684,14 +745,14 @@ describe("GhostTown paid-path storage on real local Cloudflare bindings", () => 
     expect(storedZip).not.toBeNull();
     expect(storedJson?.customMetadata?.ownerId).toBe(scenario.currentOrder.email);
 
-    const pointer = await env.KV.get(\`paid_test_blueprint_pointer_\${scenario.blueprint.orderId}\`, "json") as {
+    const pointer = await env.KV.get(\`paid_test_blueprint_pointer_\${scenario.currentOrder.orderId}\`, "json") as {
       ownerId?: string;
       hashes?: { canonicalBlueprintSha256?: string };
     } | null;
     expect(pointer?.ownerId).toBe(scenario.currentOrder.email);
     expect(pointer?.hashes?.canonicalBlueprintSha256).toBe(receipt.hashes.canonicalBlueprintSha256);
 
-    const loadedReceipt = await loadBlueprintIntegrityReceiptV21(runtime, scenario.blueprint.orderId);
+    const loadedReceipt = await loadBlueprintIntegrityReceiptV21(runtime, scenario.currentOrder.orderId);
     expect(loadedReceipt?.hashes.canonicalBlueprintSha256).toBe(receipt.hashes.canonicalBlueprintSha256);
   }, 30000);
 
@@ -725,7 +786,7 @@ describe("GhostTown paid-path storage on real local Cloudflare bindings", () => 
 
     const row = await env.DB.prepare(
       "SELECT owner_id FROM launch_blueprints WHERE order_id = ?"
-    ).bind(original.blueprint.orderId).first<{ owner_id: string }>();
+    ).bind(original.currentOrder.orderId).first<{ owner_id: string }>();
     expect(row?.owner_id).toBe("founder@runtime.test");
   }, 30000);
 });
