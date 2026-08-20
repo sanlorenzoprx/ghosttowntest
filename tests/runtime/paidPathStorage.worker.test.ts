@@ -241,6 +241,10 @@ describe("GhostTown paid-path storage on real local Cloudflare bindings", () => 
     );
 
     const pdf = new TextEncoder().encode("%PDF-1.7 runtime contract");
+    // T04 canonical source-verdict lineage
+    expect(scenario.currentOrder.verdictId).toBe(scenario.currentVerdict.resultId);
+    scenario.blueprint.sourceVerdictId = scenario.currentVerdict.resultId;
+    expect(scenario.blueprint.sourceVerdictId).toBe(scenario.currentOrder.verdictId);
     const receipt = await saveBlueprintRecordV21(
       runtime,
       scenario.blueprint,
@@ -307,6 +311,40 @@ describe("GhostTown paid-path storage on real local Cloudflare bindings", () => 
       original.result.receipt,
       new TextEncoder().encode("%PDF-1.7 attacker")
     )).rejects.toThrow(/owner|immutable/i);
+
+    const row = await env.DB.prepare(
+      "SELECT owner_id FROM launch_blueprints WHERE order_id = ?"
+    ).bind(original.currentOrder.orderId).first<{ owner_id: string }>();
+    expect(row?.owner_id).toBe("founder@runtime.test");
+  }, 30000);
+
+  it("refuses a source verdict transfer through the production persistence boundary", async () => {
+    const original = makeScenario("founder@runtime.test");
+    const runtime = runtimeEnv();
+    await prepareBlueprintGenerationReceiptV21(
+      runtime,
+      original.currentOrder,
+      original.currentVerdict,
+      original.result,
+      original.blueprint,
+      true
+    );
+    await saveBlueprintRecordV21(
+      runtime,
+      original.blueprint,
+      original.result.receipt,
+      new TextEncoder().encode("%PDF-1.7 owner contract")
+    );
+
+    const attacker = structuredClone(original.blueprint);
+    attacker.sourceVerdictId = 'runtime-verdict-rebound';
+
+    await expect(saveBlueprintRecordV21(
+      runtime,
+      attacker,
+      original.result.receipt,
+      new TextEncoder().encode("%PDF-1.7 attacker")
+    )).rejects.toThrow("Launch Blueprint source verdict is immutable");
 
     const row = await env.DB.prepare(
       "SELECT owner_id FROM launch_blueprints WHERE order_id = ?"

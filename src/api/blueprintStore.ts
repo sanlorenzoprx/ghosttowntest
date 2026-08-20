@@ -123,13 +123,14 @@ export async function assertStoredBlueprintOwner(
   db: D1Database,
   orderId: string,
   ownerId: string,
-  allowMissing: boolean
+  allowMissing: boolean,
+  sourceVerdictId?: string
 ): Promise<void> {
   const existing = await db.prepare(`
-    SELECT owner_id
+    SELECT owner_id, source_verdict_id
     FROM launch_blueprints
     WHERE order_id = ?
-  `).bind(orderId).first<{ owner_id: string }>();
+  `).bind(orderId).first<{ owner_id: string; source_verdict_id: string }>();
 
   if (!existing) {
     if (allowMissing) return;
@@ -138,6 +139,10 @@ export async function assertStoredBlueprintOwner(
 
   if (normalizedOwnerId(existing.owner_id) !== normalizedOwnerId(ownerId)) {
     throw new Error('Launch Blueprint owner is immutable');
+  }
+
+  if (sourceVerdictId !== undefined && existing.source_verdict_id !== sourceVerdictId) {
+    throw new Error('Launch Blueprint source verdict is immutable');
   }
 }
 
@@ -163,7 +168,7 @@ export async function saveBlueprintRecord(
   const ownerId = normalizedOwnerId(blueprint.ownerId);
   // Check the canonical D1 owner before touching R2 so an attempted owner
   // transfer cannot overwrite private artifacts and only then fail the upsert.
-  await assertStoredBlueprintOwner(db, blueprint.orderId, ownerId, true);
+  await assertStoredBlueprintOwner(db, blueprint.orderId, ownerId, true, blueprint.sourceVerdictId);
   const pdfKey = blueprintPdfKey(blueprint.orderId);
   const jsonKey = blueprintJsonKey(blueprint.orderId);
   const assetsKey = blueprintAssetsKey(blueprint.orderId);
@@ -193,7 +198,6 @@ export async function saveBlueprintRecord(
       blueprint_json, research_receipt_json, pdf_r2_key, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(order_id) DO UPDATE SET
-      source_verdict_id = excluded.source_verdict_id,
       schema_version = excluded.schema_version,
       status = excluded.status,
       blueprint_json = excluded.blueprint_json,
@@ -201,6 +205,7 @@ export async function saveBlueprintRecord(
       pdf_r2_key = excluded.pdf_r2_key,
       updated_at = excluded.updated_at
     WHERE launch_blueprints.owner_id = excluded.owner_id
+      AND launch_blueprints.source_verdict_id = excluded.source_verdict_id
   `).bind(
     blueprint.orderId,
     ownerId,

@@ -306,7 +306,7 @@ export async function saveBlueprintRecordV21(
   const ownerId = blueprint.ownerId.trim().toLowerCase();
   // D1 is the canonical owner boundary. Check it before R2 writes so an
   // attempted owner transfer cannot overwrite private artifacts.
-  await assertStoredBlueprintOwner(env.DB, blueprint.orderId, ownerId, true);
+  await assertStoredBlueprintOwner(env.DB, blueprint.orderId, ownerId, true, blueprint.sourceVerdictId);
 
   const canonicalJson = JSON.stringify(blueprint, null, 2);
   const canonicalJsonBytes = encoder.encode(canonicalJson);
@@ -367,7 +367,6 @@ export async function saveBlueprintRecordV21(
       blueprint_json, research_receipt_json, pdf_r2_key, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(order_id) DO UPDATE SET
-      source_verdict_id = excluded.source_verdict_id,
       schema_version = excluded.schema_version,
       status = excluded.status,
       blueprint_json = excluded.blueprint_json,
@@ -375,6 +374,7 @@ export async function saveBlueprintRecordV21(
       pdf_r2_key = excluded.pdf_r2_key,
       updated_at = excluded.updated_at
     WHERE launch_blueprints.owner_id = excluded.owner_id
+      AND launch_blueprints.source_verdict_id = excluded.source_verdict_id
   `).bind(
     blueprint.orderId,
     ownerId,
