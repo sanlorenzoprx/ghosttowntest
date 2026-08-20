@@ -1,4 +1,5 @@
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildBlueprintAssetFiles } from '../src/api/blueprintAssets';
 import { upgradeGhostTownLaunchBlueprintToV21, validateGhostTownLaunchBlueprintV21 } from '../src/api/launchBlueprintGeneratorV21';
@@ -315,6 +316,7 @@ describe('Q2 DailyExecutionPacket and DeliverableAsset', () => {
     const output = blueprint();
     const destination = process.env.ROADMAP_Q2_GOLDEN_ARTIFACT_PATH;
     if (destination) {
+      mkdirSync(dirname(destination), { recursive: true });
       const canonicalTerms = [output.offer.targetCustomer, output.offer.painfulProblem, output.offer.offerName, output.firstRevenuePath.firstPrice];
       const nonEcommerce = nonEcommerceBlueprint();
       const nonEcommerceTerms = [nonEcommerce.offer.targetCustomer, nonEcommerce.offer.painfulProblem, nonEcommerce.offer.offerName, nonEcommerce.firstRevenuePath.firstPrice];

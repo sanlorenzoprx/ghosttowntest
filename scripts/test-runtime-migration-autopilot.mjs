@@ -1331,10 +1331,46 @@ await executeStage("T11_PLATFORM_SEMANTICS_RETIREMENT", async () => {
 });
 
 await executeStage("T12_FULL_VALIDATION", async () => {
+  // Known repair: Q2 golden-artifact emission must be portable to a clean
+  // isolated worktree. The writer owns creation of its destination directory.
+  const q2Path = path.join(repo, "tests", "q2DailyExecutionPackets.test.ts");
+  let q2Source = fs.readFileSync(q2Path, "utf8");
+
+  // Structural/idempotent repair. Do not depend on CRLF/LF or exact spacing.
+  if (!q2Source.includes("mkdirSync") || !q2Source.includes("dirname")) {
+    const importPattern = /import\s*\{\s*writeFileSync\s*\}\s*from\s*['"]node:fs['"]\s*;?/;
+    if (!importPattern.test(q2Source)) {
+      throw new Error("T12 Q2 known-repair import contract drifted");
+    }
+    q2Source = q2Source.replace(
+      importPattern,
+      "import { mkdirSync, writeFileSync } from 'node:fs';\nimport { dirname } from 'node:path';"
+    );
+  }
+
+  const mkdirLine = "      mkdirSync(dirname(destination), { recursive: true });";
+  if (!q2Source.includes("mkdirSync(dirname(destination), { recursive: true });")) {
+    const destinationPattern = /(\s+if\s*\(destination\)\s*\{\r?\n)/;
+    if (!destinationPattern.test(q2Source)) {
+      throw new Error("T12 Q2 known-repair destination block drifted");
+    }
+    q2Source = q2Source.replace(destinationPattern, `$1${mkdirLine}\n`);
+  }
+
+  fs.writeFileSync(q2Path, q2Source, "utf8");
+
+  npx(["vitest", "run",
+    "tests/q2DailyExecutionPackets.test.ts",
+    "tests/q2AcceptanceAdapterAdversarial.test.ts"
+  ], { timeout: 180000 });
+
+  const repairCommit = commitIfDirty("test-runtime T12: make Q2 artifact emission worktree-safe");
+
   npm(["run", "verify:blueprint"], { timeout: 120000 });
   npm(["run", "regression:blueprint-upgrade"], { timeout: 600000 });
   npm(["run", "check"], { timeout: 900000 });
   return {
+    q2ArtifactWriterRepairCommit: repairCommit,
     blueprint: "PASS",
     blueprintRegression: "PASS",
     fullRepositoryCheck: "PASS",
