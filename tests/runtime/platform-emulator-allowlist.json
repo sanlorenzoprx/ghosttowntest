@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "ghosttown-platform-emulator-allowlist-v1",
+  "generatedAt": "2026-08-20T12:40:37.599Z",
+  "policy": "Grandfathered files may retain business/failure test doubles; new Cloudflare platform emulators are forbidden.",
+  "files": [
+    "tests/acceptanceCors.test.ts",
+    "tests/blueprintAssets.test.ts",
+    "tests/blueprintDeliveryVerifierV21.test.ts",
+    "tests/blueprintGenerationReceiptV21.test.ts",
+    "tests/blueprintOwnershipV21.test.ts",
+    "tests/blueprintRecoveryV21.test.ts",
+    "tests/commercialMetrics.test.ts",
+    "tests/customerAccessResearch.test.ts",
+    "tests/generativeAIService.test.ts",
+    "tests/integration.test.ts",
+    "tests/launchSite.test.ts",
+    "tests/paidTest.test.ts",
+    "tests/researchPreview.test.ts",
+    "tests/securityInvariantsSliceB.test.ts",
+    "tests/shortsFactoryVerdict.test.ts",
+    "tests/vertexStructuredGeneration.test.ts",
+    "tests/websiteCreationService.test.ts"
+  ]
+}
