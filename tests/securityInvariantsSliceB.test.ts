@@ -6,6 +6,7 @@ import {
   handleVerify
 } from '../src/api/auth';
 import { handleSaveCurrentResult } from '../src/api/resultHistory';
+import { issueResultClaimToken } from '../src/api/resultClaim';
 import { handlePaidTestCheckout } from '../src/api/paidTestCheckout';
 import { handleShareReward } from '../src/api/shareReward';
 import type { Env } from '../src/api/env';
@@ -146,13 +147,39 @@ describe('Slice B security invariants', () => {
     expect(after.legacyPasswordMigratedAt).toBeUndefined();
   });
 
-  it('claims only the authoritative server verdict and ignores forged client content', async () => {
+  it('does not allow a public resultId alone to establish new account ownership', async () => {
+    const { env, values } = memoryEnv();
+    const email = 'owner@example.com';
+    const token = await signup(env, email);
+    const server = verdict('123e4567-e89b-42d3-a456-426614174000');
+    values.set(`verdict_${server.resultId}`, JSON.stringify(server));
+
+    const response = await handleSaveCurrentResult(authRequest(
+      'https://ghost.test/api/results',
+      token,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ result: server })
+      }
+    ), env);
+
+    expect(response.status).toBe(404);
+    expect(values.has(`user_result_${email}_${server.resultId}`)).toBe(false);
+  });
+
+  it('claims only the authoritative server verdict with the private one-time claim capability', async () => {
     const { env, values } = memoryEnv();
     const email = 'owner@example.com';
     const token = await signup(env, email);
     const server = verdict('123e4567-e89b-42d3-a456-426614174000', 'Authoritative server idea');
     values.set(`verdict_${server.resultId}`, JSON.stringify(server));
-    const forged = { ...server, idea: { ...server.idea, ideaName: 'Forged client idea' } };
+    const claimToken = await issueResultClaimToken(env, server.resultId);
+    const forged = {
+      ...server,
+      claimToken,
+      idea: { ...server.idea, ideaName: 'Forged client idea' }
+    };
 
     const response = await handleSaveCurrentResult(authRequest(
       'https://ghost.test/api/results',
@@ -167,6 +194,21 @@ describe('Slice B security invariants', () => {
 
     const owned = JSON.parse(values.get(`user_result_${email}_${server.resultId}`) || '{}');
     expect(owned.idea.ideaName).toBe('Authoritative server idea');
+    expect(owned.claimToken).toBeUndefined();
+    expect(values.has(`verdict_claim_${server.resultId}`)).toBe(false);
+
+    const attackerToken = await signup(env, 'attacker@example.com');
+    const replay = await handleSaveCurrentResult(authRequest(
+      'https://ghost.test/api/results',
+      attackerToken,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ result: forged })
+      }
+    ), env);
+    expect(replay.status).toBe(404);
+    expect(values.has(`user_result_attacker@example.com_${server.resultId}`)).toBe(false);
   });
 
   it('does not allow a legacy short global verdict id to establish new ownership', async () => {

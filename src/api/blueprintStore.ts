@@ -126,6 +126,7 @@ export async function assertStoredBlueprintOwner(
   allowMissing: boolean,
   sourceVerdictId?: string
 ): Promise<void> {
+  const normalizedOwner = normalizedOwnerId(ownerId);
   const existing = await db.prepare(`
     SELECT owner_id, source_verdict_id
     FROM launch_blueprints
@@ -133,11 +134,36 @@ export async function assertStoredBlueprintOwner(
   `).bind(orderId).first<{ owner_id: string; source_verdict_id: string }>();
 
   if (!existing) {
-    if (allowMissing) return;
-    throw new Error('Launch Blueprint not found');
+    if (!allowMissing) throw new Error('Launch Blueprint not found');
+    if (sourceVerdictId === undefined) return;
+
+    // First-writer-wins identity reservation. This D1 insert is atomic and
+    // happens before any shared R2 artifact key is touched by either the v2 or
+    // v2.1 persistence path. Concurrent initial writers with a conflicting
+    // owner or source verdict therefore fail before they can overwrite bytes.
+    await db.prepare(`
+      INSERT INTO launch_blueprint_identity_reservations (
+        order_id, owner_id, source_verdict_id, created_at
+      ) VALUES (?, ?, ?, ?)
+      ON CONFLICT(order_id) DO NOTHING
+    `).bind(orderId, normalizedOwner, sourceVerdictId, new Date().toISOString()).run();
+
+    const reservation = await db.prepare(`
+      SELECT owner_id, source_verdict_id
+      FROM launch_blueprint_identity_reservations
+      WHERE order_id = ?
+    `).bind(orderId).first<{ owner_id: string; source_verdict_id: string }>();
+
+    if (!reservation || normalizedOwnerId(reservation.owner_id) !== normalizedOwner) {
+      throw new Error('Launch Blueprint owner is immutable');
+    }
+    if (reservation.source_verdict_id !== sourceVerdictId) {
+      throw new Error('Launch Blueprint source verdict is immutable');
+    }
+    return;
   }
 
-  if (normalizedOwnerId(existing.owner_id) !== normalizedOwnerId(ownerId)) {
+  if (normalizedOwnerId(existing.owner_id) !== normalizedOwner) {
     throw new Error('Launch Blueprint owner is immutable');
   }
 
@@ -166,8 +192,8 @@ export async function saveBlueprintRecord(
 ): Promise<void> {
   const { db, bucket } = requireStorage(env);
   const ownerId = normalizedOwnerId(blueprint.ownerId);
-  // Check the canonical D1 owner before touching R2 so an attempted owner
-  // transfer cannot overwrite private artifacts and only then fail the upsert.
+  // Reserve/check the canonical D1 identity before touching R2 so an attempted
+  // owner/source transfer cannot overwrite private artifacts before failing.
   await assertStoredBlueprintOwner(db, blueprint.orderId, ownerId, true, blueprint.sourceVerdictId);
   const pdfKey = blueprintPdfKey(blueprint.orderId);
   const jsonKey = blueprintJsonKey(blueprint.orderId);

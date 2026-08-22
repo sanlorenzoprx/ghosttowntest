@@ -29,6 +29,7 @@ import type { UserData } from '../types/auth';
 import { handleShortsFactoryVerdict, isShortsFactoryVerdictRequest } from './shortsFactoryVerdict';
 import { saveUserResult } from './resultHistory';
 import { queuePublicVideo } from './publicVideoJobs';
+import { issueResultClaimToken } from './resultClaim';
 import { generateAI } from './generativeAIService';
 import { buildVerdictDecisionV2, hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
 
@@ -41,6 +42,13 @@ async function runTextModel(env: Env, prompt: string, maxTokens: number): Promis
     timeoutMs: 30_000
   });
   return result.text;
+}
+
+function verdictResponse(result: EvaluationResult, claimToken?: string): Response {
+  const body = claimToken ? { ...result, claimToken } : result;
+  return new Response(JSON.stringify(body), {
+    headers: { 'Content-Type': 'application/json' }
+  });
 }
 
 async function handleVerdict(request: Request, env: Env): Promise<Response> {
@@ -117,10 +125,10 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
         if (authenticated) {
           await recordTestUse(authenticated.user, env);
           await saveUserResult(authenticated.email, restoredResult, env);
+          return verdictResponse(restoredResult);
         }
-        return new Response(JSON.stringify(restoredResult), {
-          headers: { 'Content-Type': 'application/json' }
-        });
+        const claimToken = await issueResultClaimToken(env, restoredResult.resultId);
+        return verdictResponse(restoredResult, claimToken);
       } catch (e) {
         console.error('Failed to parse cached verdict:', e);
       }
@@ -174,11 +182,13 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       env
     );
 
+    let authoritativeStored = false;
     try {
       await Promise.all([
         env.KV.put(cacheKey, JSON.stringify(result), { expirationTtl: 86400 * 30 }),
         env.KV.put(`verdict_${result.resultId}`, JSON.stringify(result), { expirationTtl: 86400 * 90 })
       ]);
+      authoritativeStored = true;
     } catch (error) {
       console.error('Failed to cache verdict:', error);
     }
@@ -186,11 +196,16 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
     if (authenticated) {
       await recordTestUse(authenticated.user, env);
       await saveUserResult(authenticated.email, result, env);
+      return verdictResponse(result);
     }
 
-    return new Response(JSON.stringify(result), {
-      headers: { 'Content-Type': 'application/json' }
-    });
+    // Anonymous ownership claims require a second secret capability that is not
+    // copied into the authoritative verdict or public-video payload. A public
+    // resultId by itself therefore cannot be used to claim this verdict later.
+    const claimToken = authoritativeStored
+      ? await issueResultClaimToken(env, result.resultId)
+      : undefined;
+    return verdictResponse(result, claimToken);
   } catch (error) {
     console.error('Verdict endpoint error:', error);
     return new Response(

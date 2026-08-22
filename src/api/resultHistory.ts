@@ -2,6 +2,7 @@ import { authenticateRequest } from './auth';
 import type { Env } from './env';
 import type { EvaluationResult } from '../types/lit';
 import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
+import { retireResultClaimToken, verifyResultClaimToken } from './resultClaim';
 
 export interface ResultSummary {
   resultId: string;
@@ -10,6 +11,8 @@ export interface ResultSummary {
   litScore: number;
   generatedAt: string;
 }
+
+type ClaimableEvaluationResult = EvaluationResult & { claimToken?: string };
 
 const historyKey = (email: string) => `user_results_${email}`;
 const userResultKey = (email: string, resultId: string) => `user_result_${email}_${resultId}`;
@@ -45,7 +48,7 @@ export async function handleResultHistory(request: Request, env: Env): Promise<R
 export async function handleSaveCurrentResult(request: Request, env: Env): Promise<Response> {
   const auth = await authenticateRequest(request, env);
   if (!auth) return json({ error: 'Authentication required' }, 401);
-  const body = await request.json<{ result?: EvaluationResult }>();
+  const body = await request.json<{ result?: ClaimableEvaluationResult }>();
   const resultId = body.result?.resultId?.trim();
   if (!resultId) {
     return json({ error: 'A completed assessment is required' }, 400);
@@ -64,10 +67,15 @@ export async function handleSaveCurrentResult(request: Request, env: Env): Promi
     return json({ error: 'Assessment not found' }, 404);
   }
 
-  // Ownership is established from the server-issued verdict instance, never
-  // from client-supplied verdict content. The body contributes only resultId.
-  const authoritativeRaw = await env.KV.get(serverVerdictKey(resultId));
-  if (!authoritativeRaw) return json({ error: 'Assessment not found' }, 404);
+  // resultId is public-facing and is not an ownership credential. A new owner
+  // claim requires both the authoritative server verdict and the separate
+  // opaque claim capability returned only to the browser that requested the
+  // anonymous verdict. Client-supplied verdict content remains ignored.
+  const [authoritativeRaw, validClaim] = await Promise.all([
+    env.KV.get(serverVerdictKey(resultId)),
+    verifyResultClaimToken(env, resultId, body.result?.claimToken)
+  ]);
+  if (!authoritativeRaw || !validClaim) return json({ error: 'Assessment not found' }, 404);
 
   const authoritative = hydrateEvaluationResultDecisionV2(
     JSON.parse(authoritativeRaw) as EvaluationResult
@@ -76,6 +84,10 @@ export async function handleSaveCurrentResult(request: Request, env: Env): Promi
     return json({ error: 'Assessment not found' }, 404);
   }
 
+  // Retire the transferable capability before writing owner-scoped state.
+  // If the owner write then fails, the safer recovery is to rerun the free
+  // verdict rather than leave a reusable claim secret valid across accounts.
+  await retireResultClaimToken(env, resultId);
   await saveUserResult(auth.email, authoritative, env);
   return json({ saved: true });
 }
