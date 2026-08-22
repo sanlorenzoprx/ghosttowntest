@@ -31,7 +31,6 @@ async function stripeSignature(body: string, secret: string): Promise<string> {
 describe('Slice C runtime hardening', () => {
   it('keeps webhook exception details in logs instead of the HTTP response', async () => {
     const secret = 'whsec_slice_c_test_only';
-    const sensitive = 'sensitive provider detail that must not leave the Worker';
     const body = JSON.stringify({
       id: 'evt_slice_c',
       type: 'checkout.session.completed',
@@ -42,19 +41,17 @@ describe('Slice C runtime hardening', () => {
       headers: { 'stripe-signature': await stripeSignature(body, secret) },
       body
     });
-    const env = {
-      STRIPE_WEBHOOK_SECRET: secret,
-      KV: {
-        get: async () => { throw new Error(sensitive); }
-      }
-    } as unknown as Env;
 
+    // Deliberately omit KV so payment finalization throws inside the handler.
+    // This exercises the privacy-safe catch path without introducing a fake
+    // Cloudflare platform binding into the non-runtime test suite.
+    const env = { STRIPE_WEBHOOK_SECRET: secret } as Env;
     const response = await handleStripeWebhook(request, env);
     const text = await response.text();
     expect(response.status).toBe(500);
     expect(response.headers.get('Retry-After')).toBe('60');
     expect(text).toContain('Webhook payment finalization failed');
-    expect(text).not.toContain(sensitive);
+    expect(text).not.toMatch(/TypeError|Cannot read|undefined|get\(/i);
     expect(webhookSource).not.toContain("error instanceof Error ? error.message : 'Webhook payment finalization failed'");
   });
 
