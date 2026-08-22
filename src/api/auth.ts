@@ -54,38 +54,19 @@ async function hashPassword(password: string): Promise<string> {
   return `pbkdf2$${PASSWORD_ITERATIONS}$${toBase64Url(salt)}$${await derivePasswordHash(password, salt)}`;
 }
 
-interface PasswordVerification {
-  valid: boolean;
-  legacy: boolean;
-}
-
-function isLegacySimpleHash(storedHash: string): boolean {
-  // Historical simpleHash values are lower-case base36 strings derived from a
-  // signed 32-bit integer. Never treat a malformed PBKDF2 record as legacy.
-  return /^[0-9a-z]{1,7}$/.test(storedHash);
-}
-
-async function verifyPassword(password: string, storedHash: string): Promise<PasswordVerification> {
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
   const [scheme, iterations, encodedSalt, expectedHash] = storedHash.split('$');
-  if (scheme === 'pbkdf2') {
-    if (Number(iterations) !== PASSWORD_ITERATIONS || !encodedSalt || !expectedHash) {
-      return { valid: false, legacy: false };
-    }
-    try {
-      const base64 = encodedSalt.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(encodedSalt.length / 4) * 4, '=');
-      const binary = atob(base64);
-      const salt = Uint8Array.from(binary, char => char.charCodeAt(0));
-      return {
-        valid: await derivePasswordHash(password, salt) === expectedHash,
-        legacy: false
-      };
-    } catch {
-      return { valid: false, legacy: false };
-    }
-  }
+  if (scheme !== 'pbkdf2') return false;
+  if (Number(iterations) !== PASSWORD_ITERATIONS || !encodedSalt || !expectedHash) return false;
 
-  if (!isLegacySimpleHash(storedHash)) return { valid: false, legacy: false };
-  return { valid: legacySimpleHash(password) === storedHash, legacy: true };
+  try {
+    const base64 = encodedSalt.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(encodedSalt.length / 4) * 4, '=');
+    const binary = atob(base64);
+    const salt = Uint8Array.from(binary, char => char.charCodeAt(0));
+    return await derivePasswordHash(password, salt) === expectedHash;
+  } catch {
+    return false;
+  }
 }
 
 function toPublicUser(user: UserData): PublicUserData {
@@ -96,23 +77,6 @@ function toPublicUser(user: UserData): PublicUserData {
     ...publicUser
   } = user;
   return publicUser;
-}
-
-/**
- * Legacy migration compatibility only.
- *
- * New passwords are never written with this scheme. A successful legacy login
- * is immediately upgraded to PBKDF2 and the authVersion is incremented so all
- * previously issued JWTs are invalidated.
- */
-function legacySimpleHash(password: string): string {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(36);
 }
 
 function currentAuthVersion(user: Pick<UserData, 'authVersion'>): number {
@@ -176,7 +140,7 @@ export async function verifyJWT(
     )) return null;
     // Tokens issued before Slice B have no authVersion. Treat them as version 1
     // so deployment does not log out every existing user; any subsequent
-    // revocation or password migration increments the user to version 2+.
+    // explicit session revocation increments the account version.
     return { email: payload.email, authVersion: payload.authVersion ?? 1 };
   } catch {
     return null;
@@ -283,22 +247,13 @@ export async function handleLogin(request: Request, env: AuthEnv) {
 
     const user = JSON.parse(userJSON) as UserData;
 
-    // Verify password
-    const passwordVerification = await verifyPassword(password, user.passwordHash);
-    if (!passwordVerification.valid) {
+    // Only the current PBKDF2 scheme is accepted. The production account census
+    // recorded zero legacy simpleHash accounts before this compatibility path was retired.
+    if (!await verifyPassword(password, user.passwordHash)) {
       return new Response(
         JSON.stringify({ error: 'Invalid password' }),
         { status: 401 }
       );
-    }
-
-    // One-way migration only. Legacy hashes are accepted solely so the user can
-    // prove the password once, after which the weak hash is permanently replaced.
-    if (passwordVerification.legacy) {
-      user.passwordHash = await hashPassword(password);
-      user.authVersion = currentAuthVersion(user) + 1;
-      user.legacyPasswordMigratedAt = new Date().toISOString();
-      await env.KV.put(`user_${email}`, JSON.stringify(user));
     }
 
     const token = await generateJWT(email, env.JWT_SECRET, currentAuthVersion(user));

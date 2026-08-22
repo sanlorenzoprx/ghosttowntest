@@ -124,14 +124,14 @@ describe('Slice B security invariants', () => {
     expect(after.status).toBe(401);
   });
 
-  it('migrates a legacy simpleHash login one way to PBKDF2 and revokes older tokens', async () => {
+  it('rejects retired simpleHash credentials and does not rewrite the account', async () => {
     const { env, values } = memoryEnv();
     const email = 'legacy@example.com';
     const password = 'correct-horse-battery';
-    const oldToken = await signup(env, email);
+    await signup(env, email);
     const user = JSON.parse(values.get(`user_${email}`) || '{}');
-    user.passwordHash = legacySimpleHash(password);
-    delete user.authVersion;
+    const retiredHash = legacySimpleHash(password);
+    user.passwordHash = retiredHash;
     values.set(`user_${email}`, JSON.stringify(user));
 
     const login = await handleLogin(new Request('https://ghost.test/api/auth/login', {
@@ -139,18 +139,11 @@ describe('Slice B security invariants', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     }), env);
-    expect(login.status).toBe(200);
-    const migrated = JSON.parse(values.get(`user_${email}`) || '{}');
-    expect(migrated.passwordHash).toMatch(/^pbkdf2\$100000\$/);
-    expect(migrated.authVersion).toBe(2);
-    expect(migrated.legacyPasswordMigratedAt).toBeTruthy();
+    expect(login.status).toBe(401);
 
-    const oldVerify = await handleVerify(authRequest(
-      'https://ghost.test/api/auth/verify',
-      oldToken,
-      { method: 'POST' }
-    ), env);
-    expect(oldVerify.status).toBe(401);
+    const after = JSON.parse(values.get(`user_${email}`) || '{}');
+    expect(after.passwordHash).toBe(retiredHash);
+    expect(after.legacyPasswordMigratedAt).toBeUndefined();
   });
 
   it('claims only the authoritative server verdict and ignores forged client content', async () => {
