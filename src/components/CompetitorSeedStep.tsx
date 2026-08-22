@@ -197,10 +197,10 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
 
       <div className="mt-7 rounded-xl border border-black/10 bg-white p-5">
         <h3 className="font-black text-ghost-ink">Add or replace with a seed you know</h3>
-        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1.2fr_.8fr_auto]">
-          <input value={custom.name} onChange={event => setCustom(current => ({ ...current, name: event.target.value }))} placeholder="Brand or product name" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-          <input value={custom.website} onChange={event => setCustom(current => ({ ...current, website: event.target.value }))} placeholder="Official website" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-          <select value={custom.relationship} onChange={event => setCustom(current => ({ ...current, relationship: event.target.value as CompetitorSeedRelationship }))} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+        <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,.8fr)_auto]">
+          <input value={custom.name} onChange={event => setCustom(current => ({ ...current, name: event.target.value }))} placeholder="Brand or product name" className="min-w-0 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          <input value={custom.website} onChange={event => setCustom(current => ({ ...current, website: event.target.value }))} placeholder="Official website" className="min-w-0 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          <select value={custom.relationship} onChange={event => setCustom(current => ({ ...current, relationship: event.target.value as CompetitorSeedRelationship }))} className="min-w-0 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
             {Object.entries(relationshipLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
           <button type="button" onClick={addCustom} className="rounded-lg border border-ghost-rust px-4 py-2 text-sm font-black text-ghost-rust">Add</button>
