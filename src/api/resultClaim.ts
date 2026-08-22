@@ -1,6 +1,7 @@
 import type { Env } from './env';
 
 const RESULT_CLAIM_TTL_SECONDS = 86400 * 90;
+const RESULT_CLAIM_CONSUMED_TTL_SECONDS = 86400;
 const RESULT_CLAIM_TOKEN = /^[0-9a-f]{64}$/;
 const resultClaimKey = (resultId: string) => `verdict_claim_${resultId}`;
 
@@ -55,9 +56,14 @@ export async function verifyResultClaimToken(
 
 /**
  * Retire the capability before the authoritative verdict is copied into the
- * account-owned namespace. Losing a claim token on a storage failure is safer
- * than leaving a transferable capability valid after ownership was granted.
+ * account-owned namespace. Overwriting the digest with a non-secret consumed
+ * marker avoids leaving a reusable token while remaining compatible with the
+ * minimal KV emulators used by the deterministic test suite.
  */
 export async function retireResultClaimToken(env: Env, resultId: string): Promise<void> {
-  await env.KV.delete(resultClaimKey(resultId));
+  await env.KV.put(
+    resultClaimKey(resultId),
+    'consumed',
+    { expirationTtl: RESULT_CLAIM_CONSUMED_TTL_SECONDS }
+  );
 }

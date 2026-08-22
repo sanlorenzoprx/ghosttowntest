@@ -141,12 +141,17 @@ export async function assertStoredBlueprintOwner(
     // happens before any shared R2 artifact key is touched by either the v2 or
     // v2.1 persistence path. Concurrent initial writers with a conflicting
     // owner or source verdict therefore fail before they can overwrite bytes.
-    await db.prepare(`
+    const reservationWrite = await db.prepare(`
       INSERT INTO launch_blueprint_identity_reservations (
         order_id, owner_id, source_verdict_id, created_at
       ) VALUES (?, ?, ?, ?)
       ON CONFLICT(order_id) DO NOTHING
     `).bind(orderId, normalizedOwner, sourceVerdictId, new Date().toISOString()).run();
+
+    // A successful insert means this caller atomically established the first
+    // identity. Only the conflict path needs a read-back to decide whether the
+    // existing reservation is the same identity or a forbidden transfer.
+    if ((reservationWrite.meta?.changes ?? 0) === 1) return;
 
     const reservation = await db.prepare(`
       SELECT owner_id, source_verdict_id

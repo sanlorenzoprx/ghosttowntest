@@ -195,7 +195,7 @@ describe('Slice B security invariants', () => {
     const owned = JSON.parse(values.get(`user_result_${email}_${server.resultId}`) || '{}');
     expect(owned.idea.ideaName).toBe('Authoritative server idea');
     expect(owned.claimToken).toBeUndefined();
-    expect(values.has(`verdict_claim_${server.resultId}`)).toBe(false);
+    expect(values.get(`verdict_claim_${server.resultId}`)).toBe('consumed');
 
     const attackerToken = await signup(env, 'attacker@example.com');
     const replay = await handleSaveCurrentResult(authRequest(
