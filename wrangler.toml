@@ -114,6 +114,9 @@ binding = "LAUNCH_BLUEPRINT_WORKFLOW"
 name = "ghosttown-launch-blueprint-acceptance"
 class_name = "LaunchBlueprintWorkflow"
 
+# Development secrets are intentionally not committed. Put JWT_SECRET,
+# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET and provider credentials in the
+# untracked .dev.vars file used by Wrangler local development.
 [env.development.vars]
 DEPLOYMENT_ENV = "development"
 AI_GATEWAY_ID = "default"
@@ -128,12 +131,9 @@ PAID_BLUEPRINT_RESEARCH_ENABLED = "false"
 DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
 INTERNAL_RESEARCH_OWNER_EMAILS = "owner@example.com"
 FRONTEND_URL = "http://127.0.0.1:5300"
-JWT_SECRET = "dev-secret-key-change-in-production"
-STRIPE_SECRET_KEY = "sk_test_..."
 STRIPE_PRICE_ID = "price_..."
 STRIPE_PAID_TEST_PRICE_ID = "price_..."
 STRIPE_30_DAY_PLAN_PRICE_ID = "price_..."
-STRIPE_WEBHOOK_SECRET = "whsec_..."
 
 [[env.development.kv_namespaces]]
 binding = "KV"

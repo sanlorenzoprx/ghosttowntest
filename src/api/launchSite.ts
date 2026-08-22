@@ -1,6 +1,7 @@
 import type { Env } from "./env";
 import { ownedLaunchBlueprintOrder } from "./blueprintApi";
 import { loadBlueprintRecord } from "./blueprintStore";
+import { consumeHourlyRateLimit } from "./runtimeControls";
 import type { GhostTownLaunchBlueprint } from "../types/launchBlueprint";
 
 export type LaunchSiteStatus = "draft" | "published" | "unpublished";
@@ -80,12 +81,13 @@ interface LeadRow {
   created_at: string;
 }
 
-const privateJson = (body: unknown, status = 200) =>
+const privateJson = (body: unknown, status = 200, headers: HeadersInit = {}) =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "private, no-store",
+      ...headers,
     },
   });
 
@@ -297,16 +299,33 @@ export async function handleLaunchSiteOwner(
       { error: "Canonical Launch Blueprint record not found" },
       404,
     );
-  let site = await ensureSite(env, stored.blueprint);
-  if (site.owner_id !== owned.email.trim().toLowerCase())
+
+  let site = await siteByOrder(env, stored.blueprint.orderId);
+  if (site && site.owner_id !== owned.email.trim().toLowerCase())
     return privateJson({ error: "Launch Site not found" }, 404);
+
+  const publishFailures = launchSitePublishFailures(stored.blueprint);
+  if (action === "get") {
+    const publicUrl = site
+      ? `${new URL(request.url).origin}/launch/${encodeURIComponent(site.public_slug)}`
+      : null;
+    return privateJson({
+      site: site ? record(site) : null,
+      publicUrl,
+      publishFailures,
+      canonicalBlueprintId: stored.blueprint.blueprintId,
+    });
+  }
+
   if (action === "publish") {
-    const failures = launchSitePublishFailures(stored.blueprint);
-    if (failures.length)
+    if (publishFailures.length)
       return privateJson(
-        { error: "Launch Site is not publishable", failures },
+        { error: "Launch Site is not publishable", publishFailures },
         409,
       );
+    site = site ?? await ensureSite(env, stored.blueprint);
+    if (site.owner_id !== owned.email.trim().toLowerCase())
+      return privateJson({ error: "Launch Site not found" }, 404);
     const now = new Date().toISOString();
     await db(env)
       .prepare(
@@ -315,16 +334,20 @@ export async function handleLaunchSiteOwner(
       .bind(now, now, orderId, site.owner_id)
       .run();
     site = (await siteByOrder(env, orderId))!;
-  } else if (action === "unpublish") {
-    const now = new Date().toISOString();
-    await db(env)
-      .prepare(
-        `UPDATE launch_sites SET status = 'unpublished', unpublished_at = ?, updated_at = ? WHERE order_id = ? AND owner_id = ?`,
-      )
-      .bind(now, now, orderId, site.owner_id)
-      .run();
-    site = (await siteByOrder(env, orderId))!;
+  } else {
+    if (!site) return privateJson({ error: "Launch Site not found" }, 404);
+    if (action === "unpublish") {
+      const now = new Date().toISOString();
+      await db(env)
+        .prepare(
+          `UPDATE launch_sites SET status = 'unpublished', unpublished_at = ?, updated_at = ? WHERE order_id = ? AND owner_id = ?`,
+        )
+        .bind(now, now, orderId, site.owner_id)
+        .run();
+      site = (await siteByOrder(env, orderId))!;
+    }
   }
+
   const publicUrl = `${new URL(request.url).origin}/launch/${encodeURIComponent(site.public_slug)}`;
   if (action === "leads" || action === "csv") {
     const result = await db(env)
@@ -376,7 +399,7 @@ export async function handleLaunchSiteOwner(
   return privateJson({
     site: record(site),
     publicUrl,
-    publishFailures: launchSitePublishFailures(stored.blueprint),
+    publishFailures,
     canonicalBlueprintId: stored.blueprint.blueprintId,
   });
 }
@@ -429,20 +452,6 @@ export async function handlePublicLaunchLead(
 ): Promise<Response> {
   const loaded = await publishedSite(env, slug);
   if (!loaded) return privateJson({ error: "Launch Site not found" }, 404);
-  const ip = request.headers.get("CF-Connecting-IP") || "anonymous";
-  const digest = new Uint8Array(
-    await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(`${loaded.site.site_id}:${ip}`),
-    ),
-  );
-  const rateKey = `launch_lead_rate_${Array.from(digest.slice(0, 12), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
-  const count = Number((await env.KV.get(rateKey)) || "0");
-  if (count >= 5)
-    return privateJson(
-      { error: "Too many submissions. Try again later." },
-      429,
-    );
   let body: {
     email?: unknown;
     name?: unknown;
@@ -468,6 +477,30 @@ export async function handlePublicLaunchLead(
       { error: "A valid email and explicit consent are required" },
       400,
     );
+
+  const ip = request.headers.get("CF-Connecting-IP") || "anonymous";
+  const digest = new Uint8Array(
+    await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(`${loaded.site.site_id}:${ip}`),
+    ),
+  );
+  const fingerprint = Array.from(
+    digest.slice(0, 12),
+    (byte) => byte.toString(16).padStart(2, "0"),
+  ).join("");
+  const budget = await consumeHourlyRateLimit(
+    env,
+    `launch_lead:${loaded.site.site_id}:${fingerprint}`,
+    5,
+  );
+  if (!budget.allowed)
+    return privateJson(
+      { error: "Too many submissions. Try again later." },
+      429,
+      { "Retry-After": String(budget.retryAfter) },
+    );
+
   const now = new Date().toISOString();
   await db(env)
     .prepare(
@@ -484,7 +517,6 @@ export async function handlePublicLaunchLead(
       now,
     )
     .run();
-  await env.KV.put(rateKey, String(count + 1), { expirationTtl: 3600 });
   return privateJson(
     { ok: true, message: loaded.blueprint.landingPageCopy.thankYouPageCopy },
     201,

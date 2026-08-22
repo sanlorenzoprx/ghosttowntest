@@ -2,6 +2,7 @@ import app from './index';
 import type { Env } from './env';
 import { resolveGenerativeModel } from './generativeAIService';
 import { handleBlueprintExecutionCopilot } from './blueprintExecutionCopilot';
+import { productionRuntimeBindingGuard } from './runtimeControls';
 
 export { LaunchBlueprintWorkflow } from './launchBlueprintWorkflow';
 
@@ -10,7 +11,7 @@ const LOCAL_ORIGINS = new Set([
   'http://127.0.0.1:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5300'
 ]);
 
-function applyCopilotCors(request: Request, env: Env, response: Response): Response {
+function applyRuntimeCors(request: Request, env: Env, response: Response): Response {
   const origin = request.headers.get('Origin');
   const configured = env.FRONTEND_URL?.replace(/\/$/, '');
   if (origin && (origin === configured || LOCAL_ORIGINS.has(origin))) {
@@ -23,6 +24,9 @@ function applyCopilotCors(request: Request, env: Env, response: Response): Respo
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const unavailable = productionRuntimeBindingGuard(request, env);
+    if (unavailable) return applyRuntimeCors(request, env, unavailable);
+
     const copilotMatch = url.pathname.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/copilot$/);
     if (copilotMatch && request.method === 'OPTIONS') {
       const response = new Response(null, {
@@ -31,10 +35,10 @@ export default {
           'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         }
       });
-      return applyCopilotCors(request, env, response);
+      return applyRuntimeCors(request, env, response);
     }
     if (copilotMatch && request.method === 'POST') {
-      return applyCopilotCors(request, env, await handleBlueprintExecutionCopilot(request, env, copilotMatch[1]));
+      return applyRuntimeCors(request, env, await handleBlueprintExecutionCopilot(request, env, copilotMatch[1]));
     }
 
     if (url.pathname === '/api/integrations/shorts-factory/health' && request.method === 'GET') {

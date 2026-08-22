@@ -3,6 +3,7 @@ import { ownedLaunchBlueprintOrder } from './blueprintApi';
 import { loadBlueprintProgress, loadBlueprintRecord } from './blueprintStore';
 import { generativeAIConfigured } from './generativeAIService';
 import { runExecutionCopilot, runExecutionCritic } from './executionAIService';
+import { consumeHourlyRateLimit } from './runtimeControls';
 import {
   buildExecutionRagContext,
   routeExecutionCapability,
@@ -55,25 +56,6 @@ function groundingSources(metadata: unknown): Array<{ title: string; url: string
   }).slice(0, 8);
 }
 
-function secondsUntilNextUtcHour(now = new Date()): number {
-  const next = new Date(now);
-  next.setUTCMinutes(60, 0, 0);
-  return Math.max(1, Math.ceil((next.getTime() - now.getTime()) / 1000));
-}
-
-async function consumeCopilotRequestBudget(env: Env, orderId: string, now = new Date()): Promise<{ allowed: boolean; used: number; retryAfter: number }> {
-  const hour = now.toISOString().slice(0, 13);
-  // orderId is already owner-scoped by ownedLaunchBlueprintOrder. Avoid putting
-  // email/PII into the rate key. KV is intentionally a soft cost guard rather
-  // than an exact billing counter; concurrent requests can race by one or two.
-  const key = `execution_copilot_rate:${orderId}:${hour}`;
-  const used = Math.max(0, Number(await env.KV.get(key)) || 0);
-  const retryAfter = secondsUntilNextUtcHour(now);
-  if (used >= COPILOT_REQUESTS_PER_HOUR) return { allowed: false, used, retryAfter };
-  await env.KV.put(key, String(used + 1), { expirationTtl: 7200 });
-  return { allowed: true, used: used + 1, retryAfter };
-}
-
 export async function handleBlueprintExecutionCopilot(request: Request, env: Env, orderId: string): Promise<Response> {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
@@ -109,7 +91,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
     }, 503);
   }
 
-  const budget = await consumeCopilotRequestBudget(env, orderId);
+  const budget = await consumeHourlyRateLimit(env, `execution_copilot:${orderId}`, COPILOT_REQUESTS_PER_HOUR);
   if (!budget.allowed) {
     return json({
       error: 'Execution Copilot hourly request limit reached. Your Blueprint, evidence, and progress are unchanged.',

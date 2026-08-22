@@ -7,8 +7,8 @@ interface SitePayload {
     publicSlug: string;
     publishedAt: string | null;
     updatedAt: string;
-  };
-  publicUrl?: string;
+  } | null;
+  publicUrl?: string | null;
   publishFailures?: string[];
   canonicalBlueprintId?: string;
   error?: string;
@@ -33,10 +33,10 @@ export default function LaunchSitePanel({ orderId }: { orderId: string }) {
   const load = useCallback(async () => {
     const response = await fetch(apiUrl(base), { headers: authHeaders() });
     const body = await response.json<SitePayload>();
-    if (!response.ok || !body.site)
+    if (!response.ok)
       throw new Error(body.error || "Launch Site could not be opened");
     setPayload(body);
-    if (body.site.status === "published") {
+    if (body.site?.status === "published") {
       const leadsResponse = await fetch(apiUrl(`${base}/leads`), {
         headers: authHeaders(),
       });
@@ -44,6 +44,8 @@ export default function LaunchSitePanel({ orderId }: { orderId: string }) {
         setLeads(
           ((await leadsResponse.json()) as { leads?: Lead[] }).leads || [],
         );
+    } else {
+      setLeads([]);
     }
   }, [base]);
 
@@ -84,15 +86,55 @@ export default function LaunchSitePanel({ orderId }: { orderId: string }) {
     }
   };
 
-  if (!payload?.site)
+  if (!payload)
     return (
       <section className="min-w-0 max-w-full rounded-xl border border-black/10 bg-white p-6">
         <h2 className="text-2xl font-black">Launch Site</h2>
         <p className="mt-3 text-sm text-gray-600">
-          {error || "Preparing the D1-backed Launch Site record…"}
+          {error || "Loading Launch Site state…"}
         </p>
       </section>
     );
+
+  if (!payload.site)
+    return (
+      <section className="min-w-0 max-w-full rounded-xl border border-black/10 bg-white p-6">
+        <p className="text-xs font-black uppercase tracking-wide text-ghost-rust">
+          Canonical Blueprint Launch Site
+        </p>
+        <h2 className="mt-1 text-3xl font-black">Ready when you choose to publish.</h2>
+        <p className="mt-3 text-sm text-gray-600">
+          Viewing this page is read-only. No Launch Site lifecycle record exists yet;
+          D1 creates one only when you explicitly publish Blueprint{" "}
+          <strong>{payload.canonicalBlueprintId}</strong>.
+        </p>
+        {error && (
+          <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        {payload.publishFailures?.length ? (
+          <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p className="font-black text-amber-900">Publish checks still open</p>
+            <ul className="mt-2 list-disc pl-5 text-sm text-amber-900">
+              {payload.publishFailures.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+        ) : (
+          <p className="mt-5 rounded-lg bg-green-50 p-4 text-sm font-bold text-green-800">
+            The canonical Blueprint passes the Launch Site publish checks.
+          </p>
+        )}
+        <button
+          onClick={() => void changeStatus("publish")}
+          disabled={Boolean(busy) || Boolean(payload.publishFailures?.length)}
+          className="mt-5 rounded-lg bg-ghost-rust px-5 py-3 font-black text-white disabled:opacity-50"
+        >
+          {busy === "publish" ? "Publishing…" : "Publish Launch Site"}
+        </button>
+      </section>
+    );
+
   const published = payload.site.status === "published";
   return (
     <div className="min-w-0 max-w-full space-y-6">
@@ -145,7 +187,7 @@ export default function LaunchSitePanel({ orderId }: { orderId: string }) {
           {published ? (
             <>
               <a
-                href={payload.publicUrl}
+                href={payload.publicUrl || undefined}
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-lg bg-ghost-rust px-5 py-3 font-black text-white"

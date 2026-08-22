@@ -151,7 +151,7 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
     return new Response(JSON.stringify({ received: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (error) {
     console.error('Webhook payment-finalization error:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Webhook payment finalization failed' }), {
+    return new Response(JSON.stringify({ error: 'Webhook payment finalization failed' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', 'Retry-After': '60' }
     });
