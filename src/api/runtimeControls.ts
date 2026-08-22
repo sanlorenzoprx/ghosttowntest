@@ -56,6 +56,15 @@ function requiredProductionBindings(request: Request): ProductionBindingName[] {
   const path = new URL(request.url).pathname;
   const required = new Set<ProductionBindingName>();
 
+  // The $97 paid checkout must fail before a Stripe session can be created if
+  // the production fulfillment plane is unavailable. This prevents a customer
+  // charge from outrunning the DB/R2/Workflow capabilities needed to fulfill it.
+  if (request.method === 'POST' && path === '/api/paid-test/checkout') {
+    required.add('DB');
+    required.add('BLUEPRINTS');
+    required.add('LAUNCH_BLUEPRINT_WORKFLOW');
+  }
+
   if (/^\/api\/paid-test\/orders\/[^/]+\/blueprint(?:\/|$)/.test(path)) {
     required.add('DB');
     if (/\/(?:pdf|assets)$/.test(path)) required.add('BLUEPRINTS');

@@ -67,6 +67,15 @@ describe('Slice C runtime hardening', () => {
     const text = await response!.text();
     expect(text).toContain('GHOSTTOWN_RUNTIME_UNAVAILABLE');
     expect(text).not.toMatch(/DB|BLUEPRINTS|LAUNCH_BLUEPRINT_WORKFLOW/);
+
+    const checkout = productionRuntimeBindingGuard(
+      new Request('https://api.ghosttowntest.com/api/paid-test/checkout', { method: 'POST' }),
+      { DEPLOYMENT_ENV: 'production' } as Env
+    );
+    expect(checkout).not.toBeNull();
+    expect(checkout!.status).toBe(503);
+    expect(await checkout!.text()).not.toMatch(/DB|BLUEPRINTS|LAUNCH_BLUEPRINT_WORKFLOW/);
+
     expect(productionRuntimeBindingGuard(request, { DEPLOYMENT_ENV: 'acceptance' } as Env)).toBeNull();
     expect(productionRuntimeBindingGuard(new Request('https://api.ghosttowntest.com/api/verdict'), { DEPLOYMENT_ENV: 'production' } as Env)).toBeNull();
   });
