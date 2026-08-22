@@ -74,8 +74,14 @@ describe("GhostTown Launch Site on real local D1/KV", () => {
     expect(row?.source_path).toBe(`/launch/${slug}`);
     expect(row?.consent_text).toMatch(/agree/i);
 
-    const rateKeys = await env.KV.list({ prefix: "launch_lead_rate_" });
-    expect(rateKeys.keys.length).toBe(1);
-    expect(await env.KV.get(rateKeys.keys[0].name)).toBe("1");
+    const rateRows = await env.DB.prepare(
+      "SELECT scope, used FROM runtime_rate_limits WHERE scope LIKE ?"
+    ).bind(`launch_lead:${siteId}:%`).all<{ scope: string; used: number }>();
+    expect(rateRows.results).toHaveLength(1);
+    expect(rateRows.results[0]?.scope).toMatch(new RegExp(`^launch_lead:${siteId}:[0-9a-f]{24}$`));
+    expect(rateRows.results[0]?.used).toBe(1);
+
+    const retiredKvRateKeys = await env.KV.list({ prefix: "launch_lead_rate_" });
+    expect(retiredKvRateKeys.keys).toHaveLength(0);
   });
 });
