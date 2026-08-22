@@ -14,11 +14,12 @@ VERTEX_VERDICT_MODEL = "gemini-3.5-flash-lite"
 VERTEX_SELECTION_MODEL = "gemini-3.5-flash-lite"
 VERTEX_RESEARCH_MODEL = "gemini-3.5-flash"
 VERTEX_BLUEPRINT_REQUIRED = "true"
+VERTEX_PROJECT_ID = "ghosttowntest"
 VERTEX_LOCATION = "us"
 VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"
 VERTEX_WEBSITE_MODEL = "gemini-3.5-flash"
 DISTRIBUTION_FOOTPRINT_ENABLED = "false"
-PAID_BLUEPRINT_RESEARCH_ENABLED = "false"
+PAID_BLUEPRINT_RESEARCH_ENABLED = "true"
 DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
 FRONTEND_URL = "https://ghosttowntest.com"
 
@@ -29,38 +30,31 @@ id = "289662c8981d421ba85a7ca588640650"
 [env.production.ai]
 binding = "AI"
 
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "ghosttowntest-blueprints"
+database_id = "7d9dfed2-e25d-4a1d-b692-c60709287324"
+migrations_dir = "migrations"
+
 [[env.production.r2_buckets]]
 binding = "VIDEOS"
 bucket_name = "ghosttowntest-public-videos"
 
-# Launch Blueprint v2 remains fail-closed until production acceptance is complete.
-# Never point BLUEPRINTS at the public video bucket.
+[[env.production.r2_buckets]]
+binding = "BLUEPRINTS"
+bucket_name = "ghosttowntest-private-blueprints"
+
+[[env.production.workflows]]
+binding = "LAUNCH_BLUEPRINT_WORKFLOW"
+name = "ghosttown-launch-blueprint"
+class_name = "LaunchBlueprintWorkflow"
+
+# Gate 36 production release was explicitly authorized on 2026-08-22.
+# Keep the paid Blueprint bucket private and never point BLUEPRINTS at the public video bucket.
+# General Distribution Footprint research remains disabled; the paid-only production
+# research path is controlled by PAID_BLUEPRINT_RESEARCH_ENABLED and live Stripe evidence.
 #
-# [[env.production.d1_databases]]
-# binding = "DB"
-# database_name = "ghosttowntest-blueprints"
-# database_id = "REPLACE_WITH_D1_DATABASE_ID"
-# migrations_dir = "migrations"
-#
-# [[env.production.r2_buckets]]
-# binding = "BLUEPRINTS"
-# bucket_name = "ghosttowntest-private-blueprints"
-#
-# [[env.production.workflows]]
-# binding = "LAUNCH_BLUEPRINT_WORKFLOW"
-# name = "ghosttown-launch-blueprint"
-# class_name = "LaunchBlueprintWorkflow"
-#
-# Required production variables/configuration:
-# VERTEX_PROJECT_ID
-# VERTEX_LOCATION
-# AI_GATEWAY_ID
-# VERTEX_VERDICT_MODEL
-# VERTEX_SELECTION_MODEL
-# VERTEX_RESEARCH_MODEL
-# VERTEX_BLUEPRINT_MODEL
-# VERTEX_WEBSITE_MODEL
-# VERTEX_BLUEPRINT_REQUIRED=true
+# Optional owner-only internal research variable:
 # INTERNAL_RESEARCH_OWNER_EMAILS
 #
 # Required production secrets:

@@ -36,7 +36,7 @@ function order(overrides: Partial<PaidTestOrder> = {}): PaidTestOrder {
 }
 
 describe('paid Blueprint research enablement', () => {
-  it('permits verified Stripe test-mode paid fulfillment only in acceptance', () => {
+  it('permits verified Stripe test-mode paid fulfillment in acceptance', () => {
     const paidOrder = order();
     const acceptance = env();
 
@@ -44,11 +44,30 @@ describe('paid Blueprint research enablement', () => {
     expect(researchEnvForPaidBlueprint(acceptance, paidOrder).DISTRIBUTION_FOOTPRINT_ENABLED).toBe('true');
   });
 
-  it('does not permit an unpaid, unverified, live-mode, or production order through the paid override', () => {
+  it('permits verified Stripe live-mode paid fulfillment in production only after the paid release flag is enabled', () => {
+    const production = env({ DEPLOYMENT_ENV: 'production', PAID_BLUEPRINT_RESEARCH_ENABLED: 'true' });
+    const liveOrder = order({
+      orderId: 'gtt_paid_production',
+      stripeMode: 'live',
+      stripeCheckoutSessionId: 'cs_live_123',
+      stripeEventId: 'evt_live_123'
+    });
+
+    expect(paidBlueprintResearchEnabled(production, liveOrder)).toBe(true);
+    expect(researchEnvForPaidBlueprint(production, liveOrder).DISTRIBUTION_FOOTPRINT_ENABLED).toBe('true');
+  });
+
+  it('rejects unpaid, unverified, environment-mismatched, or release-disabled paid overrides', () => {
     expect(paidBlueprintResearchEnabled(env(), order({ paidAt: undefined }))).toBe(false);
     expect(paidBlueprintResearchEnabled(env(), order({ stripeEventId: undefined }))).toBe(false);
     expect(paidBlueprintResearchEnabled(env(), order({ stripeMode: 'live' }))).toBe(false);
-    expect(paidBlueprintResearchEnabled(env({ DEPLOYMENT_ENV: 'production' }), order())).toBe(false);
+
+    const production = env({ DEPLOYMENT_ENV: 'production', PAID_BLUEPRINT_RESEARCH_ENABLED: 'true' });
+    expect(paidBlueprintResearchEnabled(production, order({ stripeMode: 'test' }))).toBe(false);
+    expect(paidBlueprintResearchEnabled(
+      env({ DEPLOYMENT_ENV: 'production', PAID_BLUEPRINT_RESEARCH_ENABLED: 'false' }),
+      order({ stripeMode: 'live', stripeCheckoutSessionId: 'cs_live_123', stripeEventId: 'evt_live_123' })
+    )).toBe(false);
   });
 
   it('still honors the existing general research switch when explicitly enabled', () => {

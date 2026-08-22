@@ -41,7 +41,27 @@ describe('acceptance Cloudflare environment', () => {
     expect(acceptance).not.toContain('api.lit-ghosttown.app');
   });
 
-  it('uses one Vertex AI platform while keeping general research off and permitting only paid acceptance fulfillment', async () => {
+  it('binds the authorized production Blueprint runtime only to production resources', async () => {
+    const config = await readText('wrangler.toml');
+    const production = section(config, '[env.production]', /\n\[env\.acceptance\]/);
+
+    expect(production).toContain('api.ghosttowntest.com');
+    expect(production).toContain('binding = "KV"');
+    expect(production).toContain('id = "289662c8981d421ba85a7ca588640650"');
+    expect(production).toContain('binding = "DB"');
+    expect(production).toContain('database_name = "ghosttowntest-blueprints"');
+    expect(production).toContain('database_id = "7d9dfed2-e25d-4a1d-b692-c60709287324"');
+    expect(production).toContain('migrations_dir = "migrations"');
+    expect(production).toContain('binding = "BLUEPRINTS"');
+    expect(production).toContain('bucket_name = "ghosttowntest-private-blueprints"');
+    expect(production).toContain('binding = "LAUNCH_BLUEPRINT_WORKFLOW"');
+    expect(production).toContain('name = "ghosttown-launch-blueprint"');
+    expect(production).toContain('class_name = "LaunchBlueprintWorkflow"');
+    expect(production).not.toContain('ghosttowntest-private-blueprints-acceptance');
+    expect(production).not.toContain('9863d883-3c31-4268-9a98-8392fa3b9f8f');
+  });
+
+  it('uses one Vertex AI platform while keeping general research off and enabling only paid release research', async () => {
     const config = await readText('wrangler.toml');
     const acceptanceVars = section(config, '[env.acceptance.vars]', /\n\[\[env\.acceptance\./);
     const productionVars = section(config, '[env.production.vars]', /\n\[\[env\.production\./);
@@ -58,8 +78,10 @@ describe('acceptance Cloudflare environment', () => {
     expect(acceptanceVars).toContain('VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"');
     expect(acceptanceVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
     expect(acceptanceVars).toContain('PAID_BLUEPRINT_RESEARCH_ENABLED = "true"');
+
+    expect(productionVars).toContain('VERTEX_PROJECT_ID = "ghosttowntest"');
     expect(productionVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
-    expect(productionVars).toContain('PAID_BLUEPRINT_RESEARCH_ENABLED = "false"');
+    expect(productionVars).toContain('PAID_BLUEPRINT_RESEARCH_ENABLED = "true"');
 
     for (const legacy of ['GEMINI_RESEARCH_MODEL', 'GEMINI_GOOGLE_SEARCH_MODEL', 'AI_MODEL =', 'ACTION_PLAN_AI_MODEL =']) {
       expect(acceptanceVars).not.toContain(legacy);
@@ -71,7 +93,7 @@ describe('acceptance Cloudflare environment', () => {
     expect(acceptanceVars).not.toContain('https://lit-ghosttown.app');
   });
 
-  it('keeps the complete current D1 migration chain available to acceptance', async () => {
+  it('keeps the complete current D1 migration chain available to acceptance and production', async () => {
     const launchBlueprints = await readText('migrations/0002_launch_blueprints.sql');
     const launchSites = await readText('migrations/0003_launch_sites.sql');
     const executionLog = await readText('migrations/0004_blueprint_execution_log.sql');

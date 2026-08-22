@@ -2,21 +2,22 @@ import type { Env } from './env';
 import type { PaidTestOrder } from '../types/paidTest';
 
 /**
- * General Distribution Footprint research remains disabled in acceptance and
- * production. The acceptance-only paid override exists solely so a verified
- * Stripe test-mode Launch Blueprint purchase can exercise the real fulfillment
- * path before production release.
+ * General Distribution Footprint research remains disabled unless its global
+ * switch is explicitly enabled. The paid-only override is narrower: acceptance
+ * requires verified Stripe test-mode evidence, while production requires
+ * verified Stripe live-mode evidence after the Gate 36 release flag is enabled.
  */
 export function paidBlueprintResearchEnabled(env: Env, order: PaidTestOrder): boolean {
-  return env.DISTRIBUTION_FOOTPRINT_ENABLED === 'true'
-    || (
-      env.DEPLOYMENT_ENV === 'acceptance'
-      && env.PAID_BLUEPRINT_RESEARCH_ENABLED === 'true'
-      && order.stripeMode === 'test'
-      && Boolean(order.paidAt)
-      && Boolean(order.stripeCheckoutSessionId)
-      && Boolean(order.stripeEventId)
-    );
+  if (env.DISTRIBUTION_FOOTPRINT_ENABLED === 'true') return true;
+  if (env.PAID_BLUEPRINT_RESEARCH_ENABLED !== 'true') return false;
+
+  const paidEvidence = Boolean(order.paidAt)
+    && Boolean(order.stripeCheckoutSessionId)
+    && Boolean(order.stripeEventId);
+  if (!paidEvidence) return false;
+
+  return (env.DEPLOYMENT_ENV === 'acceptance' && order.stripeMode === 'test')
+    || (env.DEPLOYMENT_ENV === 'production' && order.stripeMode === 'live');
 }
 
 export function researchEnvForPaidBlueprint(env: Env, order: PaidTestOrder): Env {
@@ -24,8 +25,8 @@ export function researchEnvForPaidBlueprint(env: Env, order: PaidTestOrder): Env
   if (env.DISTRIBUTION_FOOTPRINT_ENABLED === 'true') return env;
 
   // Inherit from the real Worker env instead of spreading it. Cloudflare
-  // bindings remain available through the prototype while this acceptance-only
-  // view overrides one feature flag for the verified paid Workflow.
+  // bindings remain available through the prototype while this paid-only view
+  // enables Distribution Footprint research for the verified order execution.
   const researchEnv = Object.create(env) as Env;
   researchEnv.DISTRIBUTION_FOOTPRINT_ENABLED = 'true';
   return researchEnv;
