@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { env } from "cloudflare:workers";
 import type { Env } from "../../src/api/env";
-import { handlePublicLaunchLead } from "../../src/api/launchSite";
+import { handleSignup } from "../../src/api/auth";
+import { handleLaunchSiteOwner, handlePublicLaunchLead } from "../../src/api/launchSite";
 import { launchBlueprintFixture } from "../fixtures/launchBlueprint";
 
 function runtimeEnv(): Env {
@@ -83,5 +84,68 @@ describe("GhostTown Launch Site on real local D1/KV", () => {
 
     const retiredKvRateKeys = await env.KV.list({ prefix: "launch_lead_rate_" });
     expect(retiredKvRateKeys.keys).toHaveLength(0);
+  });
+
+  it("keeps owner GET mutation-free when no Launch Site exists", async () => {
+    const runtime = runtimeEnv();
+    const owner = "launch-read-owner@runtime.test";
+    const blueprint = launchBlueprintFixture(owner);
+    const orderId = `runtime-read-${crypto.randomUUID()}`;
+    const now = new Date().toISOString();
+    blueprint.orderId = orderId;
+
+    await env.DB.prepare(
+      "INSERT INTO launch_blueprints (order_id, owner_id, source_verdict_id, schema_version, status, blueprint_json, research_receipt_json, pdf_r2_key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(
+      orderId,
+      owner,
+      blueprint.sourceVerdictId,
+      blueprint.schemaVersion,
+      blueprint.status,
+      JSON.stringify(blueprint),
+      "{}",
+      "private/runtime-read.pdf",
+      blueprint.createdAt,
+      now
+    ).run();
+
+    await env.KV.put(`paid_test_order_${orderId}`, JSON.stringify({
+      orderId,
+      email: owner,
+      verdictId: blueprint.sourceVerdictId,
+      status: "ready",
+      artifactType: "launch_blueprint_v2",
+      intake: {},
+      createdAt: blueprint.createdAt,
+      updatedAt: now
+    }));
+
+    const signupResponse = await handleSignup(new Request("https://runtime.test/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: owner, password: "correct-horse-battery" })
+    }), runtime);
+    expect(signupResponse.status).toBe(201);
+    const signup = await signupResponse.json<{ token: string }>();
+
+    const before = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM launch_sites WHERE order_id = ?"
+    ).bind(orderId).first<{ count: number }>();
+    expect(Number(before?.count ?? -1)).toBe(0);
+
+    const response = await handleLaunchSiteOwner(new Request(
+      `https://runtime.test/api/paid-test/orders/${orderId}/launch-site`,
+      { headers: { Authorization: `Bearer ${signup.token}` } }
+    ), runtime, orderId, "get");
+    expect(response.status).toBe(200);
+    expect(await response.json<{ site: unknown; publicUrl: string | null }>()).toMatchObject({
+      site: null,
+      publicUrl: null
+    });
+
+    const after = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM launch_sites WHERE order_id = ?"
+    ).bind(orderId).first<{ count: number }>();
+    expect(Number(after?.count ?? -1)).toBe(0);
   });
 });
