@@ -2,9 +2,12 @@ export const GHOSTTOWN_30_DAY_PLAN_V1 = {
   offerId: 'ghosttown_30_day_plan_v1',
   version: '1.0',
   name: 'GhostTown Launch Blueprint',
-  subtitle: 'Your interactive 30-day idea-to-evidence execution system',
+  subtitle: 'A living, interactive 30-day execution system that stays with you as you work',
   customerPromise: [
     'Interactive 30-day execution calendar that opens each day’s exact actions, prepared assets, evidence prompts, and decision context',
+    'Daily reminders that bring you back to the next action, follow-up, or checkpoint so the plan does not disappear into a download folder',
+    'Execution Copilot tied to the day you are working on, with AI help for evidence, objections, strategy, and next moves',
+    'AI-assisted revisions and editable working copies so scripts, offers, messaging, and execution assets can evolve as you learn',
     'GhostTown-researched opportunity map with up to three verified market or reference resources preselected after purchase',
     'Clear offer and pricing strategy',
     'Target-customer and positioning plan',
