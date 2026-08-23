@@ -14,7 +14,14 @@ const bannedPaidCopy = [
   'adaptive execution intelligence',
   'grounded research',
   'execution system',
+  'decision context',
+  'prepared assets',
+  'our language',
+  'our methodology',
+  'our architecture',
   'deterministic',
+  'provenance',
+  'falsification',
   ' RAG ',
 ];
 
@@ -59,11 +66,20 @@ describe('GhostTown Customer Journey Law', () => {
     expect(offer).toContain('Tell GhostTown what happened and get help deciding what to do next');
   });
 
-  it('keeps known internal jargon out of the paid customer copy', () => {
+  it('keeps known internal and meta-language out of paid customer copy', () => {
     const lower = customerFacingPaidCopy.toLowerCase();
     for (const phrase of bannedPaidCopy) {
       expect(lower).not.toContain(phrase.toLowerCase());
     }
+  });
+
+  it('makes ambiguity itself a release defect', () => {
+    expect(law).toContain('### No meta-language rule');
+    expect(law).toContain('Customer-facing copy must state a customer benefit or a customer action.');
+    expect(law).toContain('What does this sentence tell the customer they get, know, or do?');
+    expect(law).toContain('If the answer is unclear, rewrite or delete it.');
+    expect(law).toContain('benefit test');
+    expect(law).not.toContain('without making you learn our language first');
   });
 
   it('requires customer journey acceptance in addition to technical green checks', () => {
@@ -72,5 +88,6 @@ describe('GhostTown Customer Journey Law', () => {
     expect(law).toContain('no-translation test');
     expect(law).toContain('heavy-lifting test');
     expect(law).toContain('continuity test');
+    expect(law).toContain('benefit test');
   });
 });
