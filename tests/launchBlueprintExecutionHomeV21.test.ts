@@ -75,9 +75,10 @@ describe('Blueprint v2.1.5 guided daily execution amendment', () => {
     expect(executionSource).toContain('/blueprint/progress');
   });
 
-  it('puts the guided calendar promise on the commercial landing page through the shared paid offer', () => {
-    expect(offerSource).toContain('Your guided 30-day idea-to-evidence execution system');
-    expect(offerSource).toContain('Guided 30-day execution calendar that opens each day’s exact actions, prepared assets, evidence prompts, and decision context');
+  it('puts the interactive calendar promise on the commercial landing page through the shared paid offer', () => {
+    expect(offerSource).toContain('Your interactive 30-day idea-to-evidence execution system');
+    expect(offerSource).toContain('Interactive 30-day execution calendar that opens each day’s exact actions, prepared assets, evidence prompts, and decision context');
+    expect(offerSource).toContain('GhostTown-researched opportunity map with up to three verified market or reference resources preselected after purchase');
     expect(offerSource).toContain('Prepared assets stay openable, editable, and exportable from your account');
     expect(landingSource).toContain('[...GHOSTTOWN_30_DAY_PLAN_V1.customerPromise]');
   });
