@@ -74,6 +74,26 @@ Better:
 
 Do not sell the LLM. Sell what the LLM does for the customer.
 
+### No meta-language rule
+
+Do not explain GhostTown by talking about GhostTown's language, complexity, architecture, intelligence, methodology, or how hard the product was to build.
+
+Customer-facing copy must state a customer benefit or a customer action.
+
+Bad:
+
+> GhostTown helps you take the next step without making you learn our language first.
+
+Better:
+
+> GhostTown builds your 30-day plan and helps you follow it one step at a time.
+
+Before approving customer-facing copy, ask:
+
+> **What does this sentence tell the customer they get, know, or do?**
+
+If the answer is unclear, rewrite or delete it.
+
 ## 4. Heavy lifting belongs to GhostTown
 
 A customer pays GhostTown because they do not want to become a startup researcher, marketer, analyst, or prompt engineer first.
@@ -366,6 +386,7 @@ It must also pass these journey checks:
 - **error test:** If something breaks, does the customer know what happened and what to do?
 - **mobile test:** Does the same simple story survive on a phone?
 - **truth test:** Is every promise supported by the product actually shipped?
+- **benefit test:** Does each important sentence tell the customer what they get, know, or do?
 
 ## 13. Journey metrics
 
@@ -405,4 +426,4 @@ No customer-facing feature is complete until those answers are clear.
 
 ## 15. Governing sentence
 
-> **You have an idea. Let's test it. If you decide to move forward, GhostTown helps you take the next step without making you learn our language first.**
+> **You have an idea. Let's test it. If you want to move forward, GhostTown builds your 30-day plan and helps you follow it one step at a time.**
