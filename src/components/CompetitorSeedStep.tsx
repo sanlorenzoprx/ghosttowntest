@@ -28,10 +28,16 @@ interface SeedStatusResponse {
 }
 
 const relationshipLabels: Record<CompetitorSeedRelationship, string> = {
-  direct_competitor: 'Direct competitor',
-  adjacent_product: 'Adjacent product or brand',
-  current_alternative: 'Current alternative'
+  direct_competitor: 'Same market',
+  adjacent_product: 'Similar or adjacent market',
+  current_alternative: 'Alternative or useful market resource'
 };
+
+const preferredRelationshipOrder: CompetitorSeedRelationship[] = [
+  'direct_competitor',
+  'adjacent_product',
+  'current_alternative'
+];
 
 function suggestionDraft(item: CompetitorSeedSuggestion): SeedDraft {
   return {
@@ -40,6 +46,27 @@ function suggestionDraft(item: CompetitorSeedSuggestion): SeedDraft {
     website: item.website,
     relationship: item.relationship
   };
+}
+
+function defaultSuggestionSelection(items: CompetitorSeedSuggestion[]): Record<string, SeedDraft> {
+  const picked: CompetitorSeedSuggestion[] = [];
+  const used = new Set<string>();
+
+  for (const relationship of preferredRelationshipOrder) {
+    const match = items.find(item => item.relationship === relationship && !used.has(item.suggestionId));
+    if (!match) continue;
+    picked.push(match);
+    used.add(match.suggestionId);
+  }
+
+  for (const item of items) {
+    if (picked.length >= 3) break;
+    if (used.has(item.suggestionId)) continue;
+    picked.push(item);
+    used.add(item.suggestionId);
+  }
+
+  return Object.fromEntries(picked.slice(0, 3).map(item => [item.suggestionId, suggestionDraft(item)]));
 }
 
 export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props) {
@@ -63,10 +90,11 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
       try {
         const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/seeds`), { headers: authHeaders() });
         const body = await response.json<SeedStatusResponse>();
-        if (!response.ok) throw new Error(body.error || 'Competitor seed intake could not be opened');
+        if (!response.ok) throw new Error(body.error || 'Market-reference step could not be opened');
         if (cancelled) return;
         setIdeaName(body.ideaName || 'your idea');
-        setSuggestions(body.suggestions || []);
+        const loadedSuggestions = body.suggestions || [];
+        setSuggestions(loadedSuggestions);
         setResearchSignals(body.researchSignals || null);
         setTargetCustomer(body.targetCustomer || '');
         if (body.confirmedSeeds?.length) {
@@ -76,19 +104,25 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
             website: seed.website,
             relationship: seed.relationship
           }])));
+        } else if (loadedSuggestions.length) {
+          setSelected(defaultSuggestionSelection(loadedSuggestions));
         }
-        if (!(body.suggestions || []).length && !body.confirmedSeeds?.length) {
+        if (!loadedSuggestions.length && !body.confirmedSeeds?.length) {
           setGenerating(true);
           const suggestionResponse = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/seeds/suggest`), {
             method: 'POST',
             headers: authHeaders()
           });
           const suggestionBody = await suggestionResponse.json<{ suggestions?: CompetitorSeedSuggestion[]; error?: string }>();
-          if (!suggestionResponse.ok) throw new Error(suggestionBody.error || 'GhostTown could not suggest competitor seeds');
-          if (!cancelled) setSuggestions(suggestionBody.suggestions || []);
+          if (!suggestionResponse.ok) throw new Error(suggestionBody.error || 'GhostTown could not find market references');
+          if (!cancelled) {
+            const generatedSuggestions = suggestionBody.suggestions || [];
+            setSuggestions(generatedSuggestions);
+            setSelected(defaultSuggestionSelection(generatedSuggestions));
+          }
         }
       } catch (caught) {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : 'Competitor seed intake could not be opened');
+        if (!cancelled) setError(caught instanceof Error ? caught.message : 'Market-reference step could not be opened');
       } finally {
         if (!cancelled) {
           setGenerating(false);
@@ -116,11 +150,11 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
   const addCustom = () => {
     setError('');
     if (!custom.name.trim() || !custom.website.trim()) {
-      setError('Enter the public name and official website for the custom seed.');
+      setError('Enter the public name and official website for the replacement resource.');
       return;
     }
     if (selectedSeeds.length >= 3) {
-      setError('Choose no more than three seeds. Remove one before adding another.');
+      setError('Three resources are already selected. Remove one before adding another.');
       return;
     }
     const key = `custom-${Date.now()}`;
@@ -153,34 +187,33 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
         })
       });
       const body = await response.json<{ error?: string }>();
-      if (!response.ok) throw new Error(body.error || 'Media & Distribution research could not be started');
+      if (!response.ok) throw new Error(body.error || 'Blueprint research could not be started');
       onStarted();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Media & Distribution research could not be started');
+      setError(caught instanceof Error ? caught.message : 'Blueprint research could not be started');
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <div className="py-8 text-center"><div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-ghost-rust/20 border-b-ghost-rust" /><p className="mt-4 text-sm text-gray-600">{generating ? 'Finding likely competitors and adjacent brands...' : 'Opening your paid research intake...'}</p></div>;
+  if (loading) return <div className="py-8 text-center"><div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-ghost-rust/20 border-b-ghost-rust" /><p className="mt-4 text-sm text-gray-600">{generating ? 'GhostTown is finding three useful market references for you...' : 'Opening your Blueprint research...'}</p></div>;
 
   return (
     <section className="text-left">
       <div className="text-center">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-rust">Paid research intake</p>
-        <h2 className="mt-2 text-3xl font-black text-ghost-ink">Choose the footprints GhostTown should reverse-engineer.</h2>
-        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-gray-700">For <strong>{ideaName}</strong>, confirm two or three existing products, brands, publications, or adjacent tools whose audiences already resemble your customer. GhostTown will map their podcast, creator, publication, event, review, and partnership footprint.</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-rust">Post-purchase market research</p>
+        <h2 className="mt-2 text-3xl font-black text-ghost-ink">GhostTown already did the first pass.</h2>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-gray-700">For <strong>{ideaName}</strong>, we preselected the strongest verified starting resources we found. They are useful because they operate in the same market, a similar market, or reveal buyer and distribution patterns that can improve your Blueprint. Review them and replace one only if you know a better fit.</p>
       </div>
 
       {error && <p className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p>}
 
       {researchSignals && <section className="mt-7 rounded-xl border border-ghost-forest/20 bg-[#eef3ef] p-5" aria-label="Research confirmation map">
-        <p className="text-xs font-black uppercase tracking-[0.15em] text-ghost-forest">Confirmation map carried from your verdict</p>
+        <p className="text-xs font-black uppercase tracking-[0.15em] text-ghost-forest">Earlier clues retained as optional context</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg bg-white p-3"><p className="text-[10px] font-black uppercase text-gray-500">Customer</p><p className="mt-1 text-sm font-bold">{targetCustomer || researchSignals.targetCustomer}</p></div>
-          {(['commercial', 'audience', 'ecosystem'] as const).map(type => <div key={type} className="rounded-lg bg-white p-3"><p className="text-[10px] font-black uppercase text-gray-500">{type}</p><p className="mt-1 text-sm font-bold">{researchSignals[type]?.value || 'Not supplied'}</p><p className="mt-1 text-[10px] uppercase text-gray-500">{researchSignals[type]?.source === 'not_sure' ? 'Open research clue' : 'Carried into provider planning'}</p></div>)}
+          {(['commercial', 'audience', 'ecosystem'] as const).map(type => <div key={type} className="rounded-lg bg-white p-3"><p className="text-[10px] font-black uppercase text-gray-500">{type}</p><p className="mt-1 text-sm font-bold">{researchSignals[type]?.value || 'Not supplied'}</p><p className="mt-1 text-[10px] uppercase text-gray-500">Optional context only</p></div>)}
         </div>
-        <p className="mt-3 text-xs text-gray-600">Confirm two or three public commercial footprints below. Audience and ecosystem clues are already included in Podcast Index and YouTube research queries.</p>
       </section>}
 
       <div className="mt-7 grid gap-4 md:grid-cols-2">
@@ -190,15 +223,20 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
             <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase text-ghost-rust">{relationshipLabels[item.relationship]}</p><h3 className="mt-1 text-lg font-black text-ghost-ink">{item.name}</h3></div><span className={`flex h-6 w-6 items-center justify-center rounded border-2 text-sm font-black ${active ? 'border-ghost-rust bg-ghost-rust text-white' : 'border-gray-300'}`}>{active ? '✓' : ''}</span></div>
             <p className="mt-2 break-all text-xs font-bold text-blue-700">{item.website}</p>
             <p className="mt-3 text-sm text-gray-700">{item.reason}</p>
-            <p className="mt-3 text-xs font-bold uppercase text-gray-500">GhostTown suggestion · homepage verified · {item.confidence} confidence</p>
+            <p className="mt-3 text-xs font-bold uppercase text-gray-500">GhostTown researched · homepage verified · {item.confidence} confidence</p>
           </button>;
         })}
       </div>
 
+      {suggestions.length > 0 && suggestions.length < 3 && (
+        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">GhostTown found only {suggestions.length} resource{suggestions.length === 1 ? '' : 's'} it could verify safely. We will not invent a third resource just to fill the screen.</p>
+      )}
+
       <div className="mt-7 rounded-xl border border-black/10 bg-white p-5">
-        <h3 className="font-black text-ghost-ink">Add or replace with a seed you know</h3>
+        <h3 className="font-black text-ghost-ink">Want to replace one?</h3>
+        <p className="mt-1 text-sm text-gray-600">Optional. The three GhostTown selections are ready to use as-is.</p>
         <div className="mt-4 grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,.8fr)_auto]">
-          <input value={custom.name} onChange={event => setCustom(current => ({ ...current, name: event.target.value }))} placeholder="Brand or product name" className="min-w-0 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+          <input value={custom.name} onChange={event => setCustom(current => ({ ...current, name: event.target.value }))} placeholder="Brand, product, or resource" className="min-w-0 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           <input value={custom.website} onChange={event => setCustom(current => ({ ...current, website: event.target.value }))} placeholder="Official website" className="min-w-0 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
           <select value={custom.relationship} onChange={event => setCustom(current => ({ ...current, relationship: event.target.value as CompetitorSeedRelationship }))} className="min-w-0 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
             {Object.entries(relationshipLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -209,14 +247,14 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
 
       <div className="mt-6 rounded-xl bg-ghost-ink p-5 text-white">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div><p className="text-xs font-black uppercase tracking-[0.15em] text-ghost-gold">Confirmed research seeds</p><p className="mt-1 text-sm text-white/75">Select exactly two or three. Research charges and the durable Workflow begin only after confirmation.</p></div><span className="text-3xl font-black text-ghost-gold">{selectedSeeds.length}/3</span>
+          <div><p className="text-xs font-black uppercase tracking-[0.15em] text-ghost-gold">Your starting research set</p><p className="mt-1 text-sm text-white/75">GhostTown preselects up to three verified resources. You can use them immediately or replace one before research starts.</p></div><span className="text-3xl font-black text-ghost-gold">{selectedSeeds.length}/3</span>
         </div>
         <div className="mt-4 space-y-2">{selectedSeeds.map(seed => <div key={seed.key} className="flex items-center justify-between gap-3 rounded-lg bg-white/10 p-3"><div><p className="font-black">{seed.name}</p><p className="text-xs text-white/65">{relationshipLabels[seed.relationship]} · {seed.website}</p></div><button type="button" onClick={() => removeSelected(seed.key)} className="text-sm font-black text-ghost-gold">Remove</button></div>)}</div>
       </div>
 
       <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
         {onBack ? <button type="button" onClick={onBack} className="rounded-lg border border-gray-300 px-5 py-3 font-bold text-gray-700">Return to Dashboard</button> : <span />}
-        <button type="button" onClick={() => void startResearch()} disabled={!canSubmit} className="rounded-lg bg-ghost-rust px-6 py-3 font-black text-white disabled:cursor-not-allowed disabled:opacity-45">{submitting ? 'Starting research...' : 'Confirm seeds and build my network'}</button>
+        <button type="button" onClick={() => void startResearch()} disabled={!canSubmit} className="rounded-lg bg-ghost-rust px-6 py-3 font-black text-white disabled:cursor-not-allowed disabled:opacity-45">{submitting ? 'Starting Blueprint research...' : 'Use These Resources and Build My Blueprint'}</button>
       </div>
     </section>
   );
