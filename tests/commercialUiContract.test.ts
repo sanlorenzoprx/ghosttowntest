@@ -11,6 +11,10 @@ describe('commercial UI acceptance contract', () => {
   const examples = readSource('src/components/ExampleIdeaGallery.tsx');
   const proof = readSource('src/components/ProofStandard.tsx');
   const dashboard = readSource('src/components/UserDashboard.tsx');
+  const prePurchaseResearch = readSource('src/components/PrePurchaseResearchSignals.tsx');
+  const checkoutIntake = readSource('src/components/ActionPlanModal.tsx');
+  const competitorSeeds = readSource('src/components/CompetitorSeedStep.tsx');
+  const offer = readSource('src/lib/ghosttownOffer.ts');
 
   it('keeps the founder carousel titles clean and uses the older-woman laptop image', () => {
     for (const title of ['The Idea', 'You Start', 'More Work', 'The Problem', 'The Reality', 'The Cost', 'Clarity']) {
@@ -67,5 +71,25 @@ describe('commercial UI acceptance contract', () => {
     expect(dashboard).toContain('window.setInterval');
     expect(dashboard).toContain('}, 3000);');
     expect(dashboard).toContain('window.clearInterval(timer)');
+  });
+
+  it('keeps research homework behind purchase and makes the paid value explicit', () => {
+    expect(prePurchaseResearch).toContain('return null');
+    expect(checkoutIntake).toContain('GhostTown does the heavy lifting');
+    expect(checkoutIntake).toContain('No research homework before checkout');
+    expect(checkoutIntake).not.toContain('Your research map is already attached');
+    expect(checkoutIntake).toContain('<details');
+    expect(checkoutIntake).toContain('Build My 30-Day Blueprint');
+    expect(offer).toContain('interactive 30-day idea-to-evidence execution system');
+  });
+
+  it('preselects post-purchase market references instead of making the buyer start from zero', () => {
+    expect(competitorSeeds).toContain('defaultSuggestionSelection');
+    expect(competitorSeeds).toContain('setSelected(defaultSuggestionSelection(loadedSuggestions))');
+    expect(competitorSeeds).toContain('setSelected(defaultSuggestionSelection(generatedSuggestions))');
+    expect(competitorSeeds).toContain("direct_competitor: 'Same market'");
+    expect(competitorSeeds).toContain("adjacent_product: 'Similar or adjacent market'");
+    expect(competitorSeeds).toContain('GhostTown already did the first pass.');
+    expect(competitorSeeds).toContain('Use These Resources and Build My Blueprint');
   });
 });
