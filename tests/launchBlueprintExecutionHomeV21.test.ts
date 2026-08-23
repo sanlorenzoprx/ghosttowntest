@@ -75,14 +75,13 @@ describe('Blueprint v2.1.5 guided daily execution amendment', () => {
     expect(executionSource).toContain('/blueprint/progress');
   });
 
-  it('puts the living interactive execution promise on the commercial landing page through the shared paid offer', () => {
-    expect(offerSource).toContain('A living, interactive 30-day execution system that stays with you as you work');
-    expect(offerSource).toContain('Interactive 30-day execution calendar that opens each day’s exact actions, prepared assets, evidence prompts, and decision context');
-    expect(offerSource).toContain('Daily reminders that bring you back to the next action, follow-up, or checkpoint');
-    expect(offerSource).toContain('Execution Copilot tied to the day you are working on');
-    expect(offerSource).toContain('AI-assisted revisions and editable working copies');
-    expect(offerSource).toContain('GhostTown-researched opportunity map with up to three verified market or reference resources preselected after purchase');
-    expect(offerSource).toContain('Prepared assets stay openable, editable, and exportable from your account');
+  it('puts the plain-language interactive promise on the commercial landing page through the shared paid offer', () => {
+    expect(offerSource).toContain('Your 30-day plan, one clear next step at a time');
+    expect(offerSource).toContain('Open GhostTown each day and see what to do next');
+    expect(offerSource).toContain('Get reminders for your next step, follow-up, or weekly check-in');
+    expect(offerSource).toContain('Tell GhostTown what happened and get help deciding what to do next');
+    expect(offerSource).toContain('Start with up to three useful examples GhostTown finds for your market');
+    expect(offerSource).toContain('Keep your plan, work, and files together in your account');
     expect(landingSource).toContain('[...GHOSTTOWN_30_DAY_PLAN_V1.customerPromise]');
   });
 
