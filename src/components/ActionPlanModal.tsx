@@ -47,40 +47,42 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-ghost-rust">{displayPrice} one-time purchase</p>
-              <h2 id="action-plan-title" className="mt-1 text-2xl font-bold text-gray-950">The PDF is the map. Your Interactive Blueprint is turn-by-turn.</h2>
+              <h2 id="action-plan-title" className="mt-1 text-2xl font-bold text-gray-950">You tested your idea. Now let’s help you make it real.</h2>
               <p className="mt-2 text-sm leading-6 text-gray-700">
-                You are not buying a report to read once and forget. GhostTown gives you the full 30-day map, then stays with you through execution: today’s move, reminders, prepared assets, evidence capture, and an AI Copilot that helps you adjust the next move as reality changes.
+                For {displayPrice}, GhostTown builds your 30-day plan and helps you work through it one day at a time.
               </p>
             </div>
             <button type="button" onClick={onClose} disabled={loading} className="shrink-0 rounded-lg px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100" aria-label="Close Launch Blueprint form">Close</button>
           </div>
 
           <section className="mt-6 rounded-xl border border-ghost-rust/20 bg-[#fff7f2] p-5">
-            <h3 className="font-black text-ghost-ink">Built to move with you for 30 days</h3>
-            <p className="mt-2 text-sm leading-6 text-gray-700">The market will not follow the plan perfectly. That is the point. Record what actually happens. GhostTown keeps the evidence attached to the work, reminds you what comes next, and gives the Copilot the context to challenge assumptions, revise working assets, and help you keep moving.</p>
+            <h3 className="font-black text-ghost-ink">Your plan will not sit in a folder.</h3>
+            <p className="mt-2 text-sm leading-6 text-gray-700">
+              The PDF shows the whole 30-day plan. Your Interactive Blueprint shows what to do today. We remind you what comes next. Tell GhostTown what happened, and we help you decide the next move.
+            </p>
             <ul className="mt-4 grid gap-2 text-sm text-gray-800 sm:grid-cols-2">
               {GHOSTTOWN_30_DAY_PLAN_V1.customerPromise.map(item => <li key={item} className="flex gap-2"><span className="font-black text-ghost-rust">✓</span><span>{item}</span></li>)}
             </ul>
-            <p className="mt-4 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">PDF = the map. Interactive Blueprint = the navigator. Execution Copilot = help when the market changes the route.</p>
+            <p className="mt-4 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">The PDF is the full map. Your Interactive Blueprint helps you take the next step.</p>
             <p className="mt-3 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">{GHOSTTOWN_30_DAY_PLAN_V1.launchSiteInvariant}</p>
           </section>
 
           <section className="mt-6 rounded-xl border border-ghost-forest/20 bg-[#eef3ef] p-4">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-ghost-forest">No research homework before checkout</p>
-            <p className="mt-2 text-sm leading-6 text-gray-700">You do not need to find competitors, podcasts, communities, or market examples first. GhostTown starts that research after payment and brings the useful evidence back into the Blueprint you will actually work from.</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-ghost-forest">We do the research</p>
+            <p className="mt-2 text-sm leading-6 text-gray-700">You do not need to hunt for competitors, podcasts, communities, or examples before you pay. GhostTown does that work and starts you with useful examples after purchase.</p>
           </section>
 
           <div className="mt-6 space-y-5">
-            <Field label="Best first buyer" value={targetBuyer} onChange={setTargetBuyer} placeholder="Example: independent web-design agencies" />
-            <Field label="Problem worth solving" value={problem} onChange={setProblem} placeholder="Describe the costly or frustrating problem" multiline />
-            <Field label="What they use or do today" value={currentWorkaround} onChange={setCurrentWorkaround} placeholder="Current tool, service, spreadsheet, or manual workaround" multiline />
+            <Field label="Who do you want to help first?" value={targetBuyer} onChange={setTargetBuyer} placeholder="Example: local salon owners" />
+            <Field label="What problem do they have?" value={problem} onChange={setProblem} placeholder="Describe the problem in your own words" multiline />
+            <Field label="What do they do now?" value={currentWorkaround} onChange={setCurrentWorkaround} placeholder="What do they use or do instead?" multiline />
 
             <details className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <summary className="cursor-pointer font-bold text-gray-800">Optional: I already have an offer or price in mind</summary>
-              <p className="mt-2 text-sm text-gray-600">Skip this if you are still figuring it out. GhostTown will build an offer and pricing strategy from the evidence.</p>
+              <summary className="cursor-pointer font-bold text-gray-800">Optional: I already know what I want to sell</summary>
+              <p className="mt-2 text-sm text-gray-600">Skip this if you are not sure yet. GhostTown can help you work it out.</p>
               <div className="mt-4 space-y-5">
-                <Field label="Offer you want to test" value={offerHypothesis} onChange={setOfferHypothesis} placeholder="Example: a manual QA audit delivered in 48 hours" multiline required={false} />
-                <Field label="Price you want to test" value={expectedPrice} onChange={setExpectedPrice} placeholder="Example: $250 pilot" required={false} />
+                <Field label="What do you want to sell?" value={offerHypothesis} onChange={setOfferHypothesis} placeholder="Example: a 48-hour website checkup" multiline required={false} />
+                <Field label="What price are you thinking about?" value={expectedPrice} onChange={setExpectedPrice} placeholder="Example: $250" required={false} />
               </div>
             </details>
           </div>
