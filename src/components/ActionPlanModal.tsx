@@ -47,27 +47,27 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-ghost-rust">{displayPrice} one-time purchase</p>
-              <h2 id="action-plan-title" className="mt-1 text-2xl font-bold text-gray-950">This isn’t a PDF. It’s your 30-day working system.</h2>
+              <h2 id="action-plan-title" className="mt-1 text-2xl font-bold text-gray-950">The PDF is the map. Your Interactive Blueprint is turn-by-turn.</h2>
               <p className="mt-2 text-sm leading-6 text-gray-700">
-                We already have your verdict. Review the three prefilled basics below, then GhostTown takes over the heavy lifting: market research, your starting opportunity map, and an interactive Blueprint that stays active while you work through the next 30 days.
+                You are not buying a report to read once and forget. GhostTown gives you the full 30-day map, then stays with you through execution: today’s move, reminders, prepared assets, evidence capture, and an AI Copilot that helps you adjust the next move as reality changes.
               </p>
             </div>
             <button type="button" onClick={onClose} disabled={loading} className="shrink-0 rounded-lg px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100" aria-label="Close Launch Blueprint form">Close</button>
           </div>
 
           <section className="mt-6 rounded-xl border border-ghost-rust/20 bg-[#fff7f2] p-5">
-            <h3 className="font-black text-ghost-ink">A Blueprint that stays with you</h3>
-            <p className="mt-2 text-sm leading-6 text-gray-700">Open today’s action, use the prepared assets, record what happened, and keep moving. Daily reminders bring you back to the work. Your Execution Copilot helps you interpret new evidence and improve the working plan as you learn.</p>
+            <h3 className="font-black text-ghost-ink">Built to move with you for 30 days</h3>
+            <p className="mt-2 text-sm leading-6 text-gray-700">The market will not follow the plan perfectly. That is the point. Record what actually happens. GhostTown keeps the evidence attached to the work, reminds you what comes next, and gives the Copilot the context to challenge assumptions, revise working assets, and help you keep moving.</p>
             <ul className="mt-4 grid gap-2 text-sm text-gray-800 sm:grid-cols-2">
               {GHOSTTOWN_30_DAY_PLAN_V1.customerPromise.map(item => <li key={item} className="flex gap-2"><span className="font-black text-ghost-rust">✓</span><span>{item}</span></li>)}
             </ul>
-            <p className="mt-4 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">The PDF is only a durable backup. The product is the interactive 30-day execution workspace in your account.</p>
+            <p className="mt-4 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">PDF = the map. Interactive Blueprint = the navigator. Execution Copilot = help when the market changes the route.</p>
             <p className="mt-3 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">{GHOSTTOWN_30_DAY_PLAN_V1.launchSiteInvariant}</p>
           </section>
 
           <section className="mt-6 rounded-xl border border-ghost-forest/20 bg-[#eef3ef] p-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-ghost-forest">No research homework before checkout</p>
-            <p className="mt-2 text-sm leading-6 text-gray-700">You do not need to find competitors, podcasts, communities, or market examples first. That research begins after payment and comes back inside your Blueprint workflow.</p>
+            <p className="mt-2 text-sm leading-6 text-gray-700">You do not need to find competitors, podcasts, communities, or market examples first. GhostTown starts that research after payment and brings the useful evidence back into the Blueprint you will actually work from.</p>
           </section>
 
           <div className="mt-6 space-y-5">
