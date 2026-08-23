@@ -24,6 +24,7 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
   // This is the founder's own price hypothesis, not the price of GhostTown's Blueprint.
   const [expectedPrice, setExpectedPrice] = useState('');
   const displayPrice = import.meta.env.VITE_30_DAY_PLAN_DISPLAY_PRICE?.trim() || DEFAULT_30_DAY_PLAN_DISPLAY_PRICE;
+  const ctaPrice = displayPrice.replace(/\.00$/, '');
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -46,20 +47,22 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-ghost-rust">{displayPrice} one-time purchase</p>
-              <h2 id="action-plan-title" className="mt-1 text-2xl font-bold text-gray-950">Review the basics. GhostTown does the heavy lifting.</h2>
+              <h2 id="action-plan-title" className="mt-1 text-2xl font-bold text-gray-950">This isn’t a PDF. It’s your 30-day working system.</h2>
               <p className="mt-2 text-sm leading-6 text-gray-700">
-                We already have your verdict. The three essentials below are prefilled from what you told us—edit only if something is wrong. After purchase, GhostTown researches the market, preselects three useful reference resources, and builds your interactive 30-day Blueprint.
+                We already have your verdict. Review the three prefilled basics below, then GhostTown takes over the heavy lifting: market research, your starting opportunity map, and an interactive Blueprint that stays active while you work through the next 30 days.
               </p>
             </div>
             <button type="button" onClick={onClose} disabled={loading} className="shrink-0 rounded-lg px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100" aria-label="Close Launch Blueprint form">Close</button>
           </div>
 
           <section className="mt-6 rounded-xl border border-ghost-rust/20 bg-[#fff7f2] p-5">
-            <h3 className="font-black text-ghost-ink">What you get</h3>
-            <ul className="mt-3 grid gap-2 text-sm text-gray-800 sm:grid-cols-2">
+            <h3 className="font-black text-ghost-ink">A Blueprint that stays with you</h3>
+            <p className="mt-2 text-sm leading-6 text-gray-700">Open today’s action, use the prepared assets, record what happened, and keep moving. Daily reminders bring you back to the work. Your Execution Copilot helps you interpret new evidence and improve the working plan as you learn.</p>
+            <ul className="mt-4 grid gap-2 text-sm text-gray-800 sm:grid-cols-2">
               {GHOSTTOWN_30_DAY_PLAN_V1.customerPromise.map(item => <li key={item} className="flex gap-2"><span className="font-black text-ghost-rust">✓</span><span>{item}</span></li>)}
             </ul>
-            <p className="mt-4 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">{GHOSTTOWN_30_DAY_PLAN_V1.launchSiteInvariant}</p>
+            <p className="mt-4 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">The PDF is only a durable backup. The product is the interactive 30-day execution workspace in your account.</p>
+            <p className="mt-3 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">{GHOSTTOWN_30_DAY_PLAN_V1.launchSiteInvariant}</p>
           </section>
 
           <section className="mt-6 rounded-xl border border-ghost-forest/20 bg-[#eef3ef] p-4">
@@ -91,7 +94,7 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
           <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button type="button" onClick={onClose} disabled={loading} className="rounded-lg border border-gray-300 px-5 py-3 font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
             <button type="submit" disabled={loading || !targetBuyer.trim() || !problem.trim() || !currentWorkaround.trim()} className="rounded-lg bg-ghost-rust px-5 py-3 font-bold text-white hover:bg-[#96360d] disabled:opacity-50">
-              {loading ? 'Opening secure checkout...' : `Build My 30-Day Blueprint - ${displayPrice}`}
+              {loading ? 'Opening secure checkout...' : `Build My 30-Day Interactive Blueprint — ${ctaPrice}`}
             </button>
           </div>
         </form>
