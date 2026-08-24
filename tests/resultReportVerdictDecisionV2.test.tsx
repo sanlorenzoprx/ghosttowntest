@@ -30,17 +30,24 @@ const result: EvaluationResult = {
 result.verdictDecisionV2 = buildVerdictDecisionV2({ idea: result.idea, scores: result.deterministicScores });
 
 describe('ResultReport VerdictDecisionV2', () => {
-  it('renders the Q1 customer-facing sections in canonical order before legacy score detail', () => {
+  it('makes decision, biggest unknown, fastest test, and first action primary while keeping scores behind Detailed analysis', () => {
     Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://ghosttowntest.test' } } });
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => null } });
     const html = renderToStaticMarkup(<ResultReport result={result} onReset={() => {}} isLoggedIn={false} onLoginClick={() => {}} onRewardClaimed={() => {}} locale="en" />);
-    const headings = [
-      'Decision', 'What we are actually predicting', 'Confidence', 'Why this may work', 'Why this may fail',
-      'Biggest unknown', 'Cheapest way to prove us wrong', 'Do this first', 'What would change this verdict', 'Evidence labels'
-    ];
-    const positions = headings.map(heading => html.indexOf(heading));
-    expect(positions.every(position => position >= 0)).toBe(true);
-    expect(positions).toEqual([...positions].sort((left, right) => left - right));
-    expect(html.indexOf('Ghost Town risk')).toBeGreaterThan(positions[positions.length - 1]);
+
+    const primaryHeadings = ['Decision', 'Biggest unknown', 'Fastest test', 'Do this first'];
+    const primaryPositions = primaryHeadings.map(heading => html.indexOf(heading));
+    expect(primaryPositions.every(position => position >= 0)).toBe(true);
+    expect(primaryPositions).toEqual([...primaryPositions].sort((left, right) => left - right));
+
+    const detailedAnalysis = html.indexOf('Detailed analysis');
+    const litScore = html.indexOf('LIT Score');
+    const businessDna = html.indexOf('Business DNA');
+    expect(detailedAnalysis).toBeGreaterThan(primaryPositions[primaryPositions.length - 1]);
+    expect(litScore).toBeGreaterThan(detailedAnalysis);
+    expect(businessDna).toBeGreaterThan(detailedAnalysis);
+    expect(html.slice(0, detailedAnalysis)).not.toContain('LIT Score');
+    expect(html).toContain('<details data-testid="detailed-analysis"');
+    expect(html).not.toContain('ghost-score-ring');
   });
 });
