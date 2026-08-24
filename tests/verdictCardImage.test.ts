@@ -41,7 +41,7 @@ const result: EvaluationResult = {
 };
 
 describe('verdict social card rendering', () => {
-  it('renders a private landscape card with the correct verdict and dimensions', () => {
+  it('renders a private landscape card with the correct verdict and no diagnostic score panel', () => {
     const svg = createVerdictCardSvg(result, {
       format: 'landscape',
       includeIdeaName: false,
@@ -53,10 +53,14 @@ describe('verdict social card rendering', () => {
     expect(svg).toContain('BUILD NOW');
     expect(svg).toContain('Idea name kept private');
     expect(svg).not.toContain('Private &lt;Launch&gt;');
+    expect(svg).toContain('BIGGEST UNKNOWN');
+    expect(svg).toContain('FASTEST TEST');
+    expect(svg).not.toContain('LIT SCORE');
+    expect(svg).not.toContain('BUSINESS DNA');
     expect(svg).toContain('LIT-GHOSTTOWN.COM');
   });
 
-  it('renders an escaped square card when the user includes the idea name', () => {
+  it('renders an escaped square card with action-first context when the user includes the idea name', () => {
     const svg = createVerdictCardSvg(result, {
       format: 'square',
       includeIdeaName: true
@@ -65,10 +69,13 @@ describe('verdict social card rendering', () => {
     expect(svg).toContain('width="1080" height="1080"');
     expect(svg).toContain('Private &lt;Launch&gt; &amp; Co.');
     expect(svg).not.toContain('Private <Launch>');
-    expect(svg).toContain('Digital Product');
+    expect(svg).toContain('BIGGEST UNKNOWN');
+    expect(svg).toContain('FASTEST TEST');
+    expect(svg).not.toContain('LIT SCORE');
+    expect(svg).not.toContain('BUSINESS DNA');
   });
 
-  it('wraps long verdict hooks so they do not run beneath the score panel', () => {
+  it('wraps long verdict hooks inside the decision card layout', () => {
     const testFirstResult: EvaluationResult = {
       ...result,
       deterministicScores: {
@@ -110,6 +117,9 @@ describe('verdict social card rendering', () => {
       expect(svg).toContain(item.label);
       expect(svg).toContain(item.hook);
       expect(svg).toContain(item.color);
+      expect(svg).toContain('BIGGEST UNKNOWN');
+      expect(svg).toContain('FASTEST TEST');
+      expect(svg).not.toContain('LIT SCORE');
       if (item.decision === 'DO_NOT_PURSUE_YET') expect(svg).not.toMatch(/TEST FIRST|GOOD IDEA|MY IDEA SURVIVED/i);
     }
   });
