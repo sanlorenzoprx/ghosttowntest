@@ -75,11 +75,12 @@ describe('commercial UI acceptance contract', () => {
 
   it('keeps research homework behind purchase and makes the paid value explicit', () => {
     expect(prePurchaseResearch).toContain('return null');
-    expect(checkoutIntake).toContain('GhostTown does the heavy lifting');
-    expect(checkoutIntake).toContain('No research homework before checkout');
+    expect(checkoutIntake).toContain('We do the research');
+    expect(checkoutIntake).toContain('You do not need to hunt for competitors, podcasts, communities, or examples before you pay.');
+    expect(checkoutIntake).toContain('GhostTown does that work and starts you with useful examples after purchase.');
     expect(checkoutIntake).not.toContain('Your research map is already attached');
     expect(checkoutIntake).toContain('<details');
-    expect(checkoutIntake).toContain('Build My 30-Day Blueprint');
+    expect(checkoutIntake).toContain('Build My 30-Day Interactive Blueprint');
     expect(offer).toContain('interactive 30-day idea-to-evidence execution system');
   });
 
