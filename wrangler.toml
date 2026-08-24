@@ -1,6 +1,6 @@
 name = "lit-ghost-town-api"
 main = "src/api/worker.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2026-03-24"
 
 [env.production]
 routes = [
@@ -30,6 +30,9 @@ id = "289662c8981d421ba85a7ca588640650"
 [env.production.ai]
 binding = "AI"
 
+[env.production.browser]
+binding = "BROWSER"
+
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "ghosttowntest-blueprints"
@@ -53,6 +56,7 @@ class_name = "LaunchBlueprintWorkflow"
 # Keep the paid Blueprint bucket private and never point BLUEPRINTS at the public video bucket.
 # General Distribution Footprint research remains disabled; the paid-only production
 # research path is controlled by PAID_BLUEPRINT_RESEARCH_ENABLED and live Stripe evidence.
+# Production PDF rendering uses the private Browser Run binding; no browser API token is stored.
 #
 # Optional owner-only internal research variable:
 # INTERNAL_RESEARCH_OWNER_EMAILS
@@ -92,6 +96,9 @@ id = "849e13521d454361aea286b8e1a5e4c7"
 
 [env.acceptance.ai]
 binding = "AI"
+
+[env.acceptance.browser]
+binding = "BROWSER"
 
 [[env.acceptance.d1_databases]]
 binding = "DB"
