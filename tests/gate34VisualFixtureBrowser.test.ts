@@ -226,7 +226,7 @@ describe('Gate 34 canonical deterministic UI visual fixtures', () => {
         const runtimeErrors: string[] = [];
         page.on('pageerror', error => runtimeErrors.push(`pageerror: ${error.message}`));
         page.on('console', message => {
-          if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`));
+          if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`);
         });
         await mockApi(page, surface);
         const routeSurface = surface === 'free-verdict' ? 'verdict' : surface;
