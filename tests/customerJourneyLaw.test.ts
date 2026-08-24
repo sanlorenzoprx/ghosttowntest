@@ -79,7 +79,9 @@ describe('GhostTown Customer Journey Law', () => {
     expect(law).toContain('What does this sentence tell the customer they get, know, or do?');
     expect(law).toContain('If the answer is unclear, rewrite or delete it.');
     expect(law).toContain('benefit test');
-    expect(law).not.toContain('without making you learn our language first');
+    expect(law).toContain('> GhostTown helps you take the next step without making you learn our language first.');
+    expect(law).toContain('> GhostTown builds your 30-day plan and helps you follow it one step at a time.');
+    expect(law.split('without making you learn our language first').length - 1).toBe(1);
   });
 
   it('requires customer journey acceptance in addition to technical green checks', () => {
