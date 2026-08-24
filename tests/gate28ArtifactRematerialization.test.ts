@@ -15,9 +15,12 @@ const workflow = readFileSync(new URL('../src/api/launchBlueprintWorkflow.ts', i
 const fulfillment = readFileSync(new URL('../src/api/blueprintFulfillmentV21.ts', import.meta.url), 'utf8');
 
 describe('Gate 27/28 authoritative acceptance artifact path', () => {
-  it('proves paid fulfillment writes through the v2.1 Worker R2 binding path', () => {
+  it('proves paid fulfillment writes a browser-rendered PDF through the v2.1 Worker R2 binding path', () => {
     expect(workflow).toContain('completeLaunchBlueprintOrderV21');
-    expect(fulfillment).toContain('renderLaunchBlueprintPdfV21(blueprint)');
+    expect(fulfillment).toContain('renderLaunchBlueprintPdfV21WithBrowser(blueprint, renderer)');
+    expect(fulfillment).toContain("env.BROWSER!.quickAction('pdf'");
+    expect(fulfillment).toContain('Production Launch Blueprint PDF requires the Cloudflare Browser Run BROWSER binding');
+    expect(fulfillment).toContain('renderMode: rendered.mode');
     expect(fulfillment).toContain('saveBlueprintRecordV21');
   });
 
