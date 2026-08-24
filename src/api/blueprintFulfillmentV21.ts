@@ -3,9 +3,7 @@ import type { PaidTestOrder } from '../types/paidTest';
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
 import { loadLaunchBlueprintWorkflowContext } from './blueprintFulfillment';
-import { renderLaunchBlueprintPdfV21 } from './blueprintPdfV21';
-import { composeBlueprintDocumentModel } from './blueprintDocumentModel';
-import { renderBlueprintDocumentHtml } from './blueprintDocumentHtml';
+import { renderLaunchBlueprintPdfV21WithBrowser } from './blueprintPdfV21';
 import { createGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
 import {
   prepareBlueprintGenerationReceiptV21,
@@ -113,6 +111,27 @@ function assertVertexPipelineComplete(
   }
 }
 
+function browserPdfRenderer(env: Env) {
+  if (!env.BROWSER) return undefined;
+  return {
+    async render(html: string): Promise<Uint8Array> {
+      const response = await env.BROWSER!.quickAction('pdf', {
+        html,
+        pdfOptions: {
+          printBackground: true,
+          preferCSSPageSize: true,
+          landscape: false,
+          scale: 1
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Browser Run PDF rendering failed with HTTP ${response.status}`);
+      }
+      return new Uint8Array(await response.arrayBuffer());
+    }
+  };
+}
+
 export async function markLaunchBlueprintGeneratingV21(
   env: Env,
   orderId: string
@@ -141,6 +160,8 @@ export async function failLaunchBlueprintOrderV21(
  * A paid order becomes ready only after the v2.1 canonical record, decision-first
  * PDF, JSON, stable 16-file ZIP, research receipt, exact source hash, and Step 3
  * exact-byte integrity receipt have all passed their gates and persisted.
+ * Production requires Cloudflare Browser Run for the customer PDF; local/test
+ * environments retain the deterministic renderer as a fail-closed test fallback.
  */
 export async function completeLaunchBlueprintOrderV21(
   env: Env,
@@ -190,13 +211,18 @@ export async function completeLaunchBlueprintOrderV21(
     vertexRequired
   );
 
-  const documentModel = composeBlueprintDocumentModel(blueprint);
-  const documentHtml = renderBlueprintDocumentHtml(documentModel);
-  const pdf = renderLaunchBlueprintPdfV21(blueprint);
+  const renderer = browserPdfRenderer(env);
+  if (env.DEPLOYMENT_ENV === 'production' && !renderer) {
+    throw new Error('Production Launch Blueprint PDF requires the Cloudflare Browser Run BROWSER binding');
+  }
+  const rendered = await renderLaunchBlueprintPdfV21WithBrowser(blueprint, renderer);
+  const documentModel = rendered.model;
+  const documentHtml = rendered.html;
+  const pdf = rendered.bytes;
   const css = documentHtml.match(/<style>([\s\S]*?)<\/style>/i)?.[1] || '';
   const documentReceipt = {
     modelVersion: 'ghosttown-blueprint-document-model-v1' as const,
-    renderMode: 'deterministic_fallback' as const,
+    renderMode: rendered.mode,
     modelSha256: await sha256Hex(new TextEncoder().encode(JSON.stringify(documentModel))),
     htmlSha256: await sha256Hex(new TextEncoder().encode(documentHtml)),
     cssSha256: await sha256Hex(new TextEncoder().encode(css))
