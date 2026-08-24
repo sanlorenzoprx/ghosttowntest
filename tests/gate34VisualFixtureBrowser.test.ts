@@ -139,8 +139,8 @@ async function prepareSurface(page: Page, surface: string, viewportWidth: number
     return;
   }
   if (surface === 'seed-confirmation') {
-    await page.getByText('Choose the footprints GhostTown should reverse-engineer.').waitFor();
-    await page.getByRole('button', { name: /Confirm seeds and build my network/i }).waitFor();
+    await page.getByText('GhostTown already did the first pass.').waitFor();
+    await page.getByRole('button', { name: /Use These Resources and Build My Blueprint/i }).waitFor();
     return;
   }
   if (surface === 'workflow-status') {
