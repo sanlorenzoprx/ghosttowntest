@@ -22,12 +22,25 @@ interface LaunchBlueprintWorkflowBinding {
   get(id: string): Promise<LaunchBlueprintWorkflowInstanceBinding>;
 }
 
+interface BrowserRunBinding {
+  quickAction(action: 'pdf', options: {
+    html: string;
+    pdfOptions?: {
+      printBackground?: boolean;
+      preferCSSPageSize?: boolean;
+      landscape?: boolean;
+      scale?: number;
+    };
+  }): Promise<Response>;
+}
+
 export interface Env {
   KV: KVNamespace;
   AI: Ai;
   DB?: D1Database;
   VIDEOS?: R2Bucket;
   BLUEPRINTS?: R2Bucket;
+  BROWSER?: BrowserRunBinding;
   LAUNCH_BLUEPRINT_WORKFLOW?: LaunchBlueprintWorkflowBinding;
   AI_GATEWAY_ID?: string;
   AI_GATEWAY_TOKEN?: string;
