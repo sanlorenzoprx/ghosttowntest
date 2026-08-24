@@ -2,13 +2,12 @@ import { calculateDeterministicScores } from '../lib/scoring';
 import type { EvaluationAnswers } from '../types/lit';
 import { DeterministicVerdictProvider } from '../verdict/deterministicVerdictProvider';
 import { generateValidatedVerdict } from '../verdict/verdictEngine';
-import {
-  DEFAULT_SHORTS_FACTORY_AI_MODEL,
-  WorkersAiVerdictProvider
-} from '../verdict/workersAiVerdictProvider';
+import { VertexVerdictProvider } from '../verdict/vertexVerdictProvider';
+import { buildVerdictDecisionV2, projectVerdictDecisionV2ToLegacy } from '../verdict/verdictDecisionV2';
+import type { RichVerdict } from '../verdict/verdictSchema';
 import type { Env } from './env';
 
-interface ShortsFactoryIdea {
+export interface ShortsFactoryIdea {
   name: string;
   description: string;
   target_user: string;
@@ -107,19 +106,28 @@ async function createShortsFactoryVerdict(
     ...ideaResult.idea,
     responses: normalizeResponseContext(payload.answers)
   };
+  const verdictDecisionV2 = buildVerdictDecisionV2({
+    idea: {
+      ideaName: ideaResult.idea.name,
+      description: ideaResult.idea.description,
+      targetUser: ideaResult.idea.target_user,
+      painfulProblem: ideaResult.idea.description || `the stated problem behind ${ideaResult.idea.name}`,
+      currentAlternative: 'the buyer\'s current workaround'
+    },
+    scores
+  });
 
-  let evaluationMode: 'workers_ai' | 'deterministic_fallback' = 'workers_ai';
+  let evaluationMode: 'vertex_ai' | 'deterministic_fallback' = 'vertex_ai';
   let verdict;
   try {
-    const model = env.AI_MODEL?.trim() || DEFAULT_SHORTS_FACTORY_AI_MODEL;
     verdict = await generateValidatedVerdict(
-      new WorkersAiVerdictProvider(env.AI, model),
+      new VertexVerdictProvider(env),
       providerInput,
       signals
     );
   } catch {
     evaluationMode = 'deterministic_fallback';
-    console.warn('Workers AI verdict unavailable; deterministic fallback used');
+    console.warn('Vertex AI verdict unavailable; deterministic fallback used');
     verdict = await generateValidatedVerdict(
       new DeterministicVerdictProvider(),
       providerInput,
@@ -127,12 +135,33 @@ async function createShortsFactoryVerdict(
     );
   }
 
-  return jsonResponse({
-    idea: ideaResult.idea,
+  return jsonResponse(createShortsFactoryVerdictResponse(
+    ideaResult.idea,
+    verdict,
+    verdictDecisionV2,
+    evaluationMode,
+    normalizedScores
+  ));
+}
+
+/** The external v1 fields are projections of canonical V2; V2 remains additive. */
+export function createShortsFactoryVerdictResponse(
+  idea: ShortsFactoryIdea,
+  verdict: RichVerdict,
+  decision: ReturnType<typeof buildVerdictDecisionV2>,
+  evaluationMode: 'vertex_ai' | 'deterministic_fallback',
+  deterministicScores: Record<string, number>
+) {
+  const legacy = projectVerdictDecisionV2ToLegacy(decision);
+  return {
+    idea,
     ...verdict,
+    ...legacy,
+    verdict_decision_v2: decision,
+    legacy_decision_projection: legacy,
     evaluation_mode: evaluationMode,
-    deterministic_scores: normalizedScores
-  });
+    deterministic_scores: deterministicScores
+  };
 }
 
 function normalizeIdea(value: unknown): { ok: true; idea: ShortsFactoryIdea } | { ok: false } {

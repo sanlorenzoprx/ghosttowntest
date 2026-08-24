@@ -1,11 +1,36 @@
 import type { EvaluationResult } from './lit';
 import type { GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
+import type { PrePurchaseResearchSignals } from './researchSignals';
+import type { CommercialAttributionEnvelope } from './commercialAttribution';
 
 export type TruthLabel = 'Verified' | 'Inferred' | 'Test';
-export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'generating' | 'ready' | 'failed' | 'refunded';
+export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'awaiting_seeds' | 'researching' | 'generating' | 'ready' | 'failed' | 'refunded';
 export type StripeMode = 'test' | 'live';
-export type PaidArtifactType = 'legacy_report_v1' | 'execution_plan_30day_v1';
+export type PaidArtifactType = 'legacy_report_v1' | 'execution_plan_30day_v1' | 'launch_blueprint_v2';
 export type PaidPlanOfferId = typeof GHOSTTOWN_30_DAY_PLAN_V1.offerId;
+export type CompetitorSeedRelationship = 'direct_competitor' | 'adjacent_product' | 'current_alternative';
+export type CompetitorSeedOrigin = 'customer_confirmed' | 'ghosttown_suggestion' | 'checkout_intake';
+
+export interface CompetitorSeed {
+  seedId: string;
+  name: string;
+  website: string;
+  domain: string;
+  relationship: CompetitorSeedRelationship;
+  origin: CompetitorSeedOrigin;
+  reason?: string;
+  verifiedAt: string;
+}
+
+export interface CompetitorSeedSuggestion {
+  suggestionId: string;
+  name: string;
+  website: string;
+  relationship: CompetitorSeedRelationship;
+  reason: string;
+  confidence: 'high' | 'medium' | 'low';
+  verified: boolean;
+}
 
 export interface PaidTestIntake {
   verdictId: string;
@@ -17,8 +42,12 @@ export interface PaidTestIntake {
   expectedPrice?: string;
   currentStage?: string;
   competitorLinks?: string[];
+  competitorSeeds?: CompetitorSeed[];
   landingPageLink?: string;
   customerNotes?: string;
+  researchSignals?: PrePurchaseResearchSignals;
+  /** Transport-only checkout lineage; the Worker moves this onto PaidTestOrder. */
+  attribution?: CommercialAttributionEnvelope;
 }
 
 export interface PendingPaidPlanOrder {
@@ -51,14 +80,20 @@ export interface PaidTestOrder {
   artifactType?: PaidArtifactType;
   offerId?: PaidPlanOfferId;
   offerVersion?: '1.0';
-  planVersion?: '1.0';
+  planVersion?: '1.0' | '2.0';
   idempotencyKey?: string;
   reportVersion?: '1.0';
   intake: PaidTestIntake;
+  /** Commercial lineage is persisted beside, not inside, canonical Blueprint inputs. */
+  commercialAttribution?: CommercialAttributionEnvelope;
+  competitorSeedSuggestions?: CompetitorSeedSuggestion[];
+  competitorSeedSuggestionsGeneratedAt?: string;
   createdAt: string;
   updatedAt: string;
   paidAt?: string;
   fulfillmentError?: string;
+  fulfillmentWorkflowId?: string;
+  fulfillmentAttemptCount?: number;
 }
 
 export interface ReportClaim {

@@ -1,8 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    './index.html',
+    './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     container: {
@@ -10,15 +10,64 @@ export default {
       padding: { DEFAULT: '1rem', sm: '1.5rem', lg: '2rem' },
     },
     extend: {
+      opacity: {
+        6: '0.06',
+        8: '0.08',
+        12: '0.12',
+        15: '0.15',
+        35: '0.35',
+        55: '0.55',
+        65: '0.65',
+        68: '0.68',
+        72: '0.72',
+        76: '0.76',
+        82: '0.82',
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
+        canvas: '#F7F3EB',
+        surface: {
+          DEFAULT: '#FFFDF8',
+          raised: '#FFFFFF',
+          stone: '#E8E1D5',
+          muted: '#F0EBE2',
+        },
+        ink: {
+          DEFAULT: '#202523',
+          soft: '#4C5550',
+          muted: '#6E756F',
+          inverse: '#FFFDF8',
+        },
         primary: {
           DEFAULT: '#064E3B',
           foreground: '#FDFBF7',
+        },
+        rust: {
+          DEFAULT: '#A94F2A',
+          hover: '#8B3F21',
+          foreground: '#FFFDF8',
+          soft: '#F4E3D9',
+        },
+        evidence: {
+          DEFAULT: '#A94F2A',
+          soft: '#F4E3D9',
+          border: '#D8A187',
+        },
+        pass: {
+          DEFAULT: '#28735E',
+          soft: '#E3F0EA',
+        },
+        watch: {
+          DEFAULT: '#A56A17',
+          soft: '#F8EED8',
+        },
+        stop: {
+          DEFAULT: '#AE3F3F',
+          soft: '#F8E3E1',
         },
         dust: {
           50: '#FDFBF7',
@@ -28,7 +77,7 @@ export default {
           900: '#1F2937',
           950: '#111827',
         },
-        // Keep legacy utility names mapped to the restrained three-color system.
+        // Legacy utilities keep their HEAD meanings for untouched product-flow components.
         blue: {
           50: '#F1F7F4', 100: '#DCEEE7', 200: '#B9DBCE', 300: '#8DC2AD',
           400: '#5DA48D', 500: '#2F8069', 600: '#14634E', 700: '#0D553F',
@@ -70,26 +119,33 @@ export default {
           forest: '#064E3B',
           cream: '#FDFBF7',
           charcoal: '#1F2937',
-        }
+        },
+      },
+      maxWidth: {
+        reading: '44rem',
+        decision: '68rem',
+        workspace: '88rem',
+      },
+      borderRadius: {
+        field: '0.625rem',
+        card: '0.875rem',
+        panel: '1.125rem',
+        evidence: '1.375rem',
       },
       boxShadow: {
-        lantern: '0 12px 32px -12px rgba(6, 78, 59, 0.24)',
-        dust: '0 2px 12px rgba(31, 41, 55, 0.08)',
+        quiet: '0 1px 2px rgba(32, 37, 35, 0.05)',
+        lift: '0 10px 24px -18px rgba(32, 37, 35, 0.28)',
+        lantern: '0 12px 28px -18px rgba(169, 79, 42, 0.32)',
+        dust: '0 2px 12px rgba(32, 37, 35, 0.08)',
       },
       backgroundImage: {
-        'ghost-noise': 'radial-gradient(rgba(255,255,255,.11) .7px, transparent .7px)',
-      },
-      keyframes: {
-        flicker: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.84' } },
-      },
-      animation: {
-        flicker: 'flicker 3s ease-in-out infinite',
+        'ghost-noise': 'radial-gradient(rgba(255,253,248,.16) .7px, transparent .7px)',
       },
       fontFamily: {
-        display: ['Playfair Display', 'Georgia', 'serif'],
+        display: ['Newsreader', 'Iowan Old Style', 'Baskerville', 'Georgia', 'serif'],
         sans: ['Source Sans 3', 'Source Sans Pro', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        slab: ['Playfair Display', 'Georgia', 'serif'],
-        score: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        slab: ['Newsreader', 'Iowan Old Style', 'Baskerville', 'Georgia', 'serif'],
+        score: ['IBM Plex Mono', 'SFMono-Regular', 'Consolas', 'monospace'],
       },
     },
   },

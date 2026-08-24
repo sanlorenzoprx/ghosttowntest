@@ -1,6 +1,7 @@
 import { authenticateRequest } from './auth';
 import type { Env } from './env';
 import type { EvaluationResult } from '../types/lit';
+import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
 import type {
   ActionItem,
   DayTask,
@@ -18,6 +19,7 @@ import type {
   TruthLabeledClaim,
   WeeklyCheckpoint
 } from '../types/paidTest';
+import type { PrePurchaseResearchSignals, ResearchSignalType } from '../types/researchSignals';
 import {
   DEFAULT_30_DAY_PLAN_DISPLAY_PRICE,
   GHOSTTOWN_30_DAY_PLAN_V1,
@@ -46,7 +48,55 @@ function truth(label: TruthLabel, text: string): TruthLabeledClaim {
 }
 
 function validIntake(value: Partial<PaidTestIntake>): value is PaidTestIntake {
-  return Boolean(value.verdictId?.trim() && value.targetBuyer?.trim() && value.problem?.trim() && value.currentWorkaround?.trim());
+  const verdictId = typeof value.verdictId === 'string' ? value.verdictId.trim() : '';
+  const targetBuyer = typeof value.targetBuyer === 'string' ? value.targetBuyer.trim() : '';
+  if (!Boolean(verdictId && targetBuyer && value.problem?.trim() && value.currentWorkaround?.trim())) return false;
+  return !value.researchSignals || validResearchSignals(value.researchSignals, verdictId, targetBuyer);
+}
+
+function validResearchSignals(value: PrePurchaseResearchSignals, verdictId: string, targetBuyer: string): boolean {
+  if (
+    value.schemaVersion !== 'pre-purchase-research-signals-v1'
+    || value.resultId !== verdictId
+    || value.targetCustomer.trim() !== targetBuyer
+    || value.origin !== 'free_verdict'
+    || !['unverified', 'provider_candidate', 'verified'].includes(value.verificationStatus)
+  ) return false;
+  for (const type of ['commercial', 'audience', 'ecosystem'] as ResearchSignalType[]) {
+    const signal = value[type];
+    if (!signal) continue;
+    if (
+      signal.type !== type
+      || !signal.value?.trim()
+      || signal.value.length > 160
+      || !['user_typed', 'suggestion', 'not_sure'].includes(signal.source)
+      || !['unverified', 'provider_candidate', 'verified'].includes(signal.verificationStatus)
+    ) return false;
+    if (signal.publicUrl) {
+      try {
+        const url = new URL(signal.publicUrl);
+        if (url.protocol !== 'https:' || url.username || url.password) return false;
+      } catch {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function normalizedResearchSignals(value: PrePurchaseResearchSignals | undefined): PrePurchaseResearchSignals | undefined {
+  if (!value) return undefined;
+  const normalized = { ...value, updatedAt: new Date().toISOString() };
+  for (const type of ['commercial', 'audience', 'ecosystem'] as ResearchSignalType[]) {
+    const signal = normalized[type];
+    if (!signal) continue;
+    normalized[type] = {
+      ...signal,
+      value: signal.value.replace(/\s+/g, ' ').trim(),
+      publicUrl: signal.publicUrl?.trim()
+    };
+  }
+  return normalized;
 }
 
 function normalizeEmail(email: string): string {
@@ -72,7 +122,7 @@ async function savedVerdict(env: Env, verdictId: string, email?: string): Promis
   const raw = await env.KV.get(`verdict_${verdictId}`)
     ?? await env.KV.get(`verdict:${verdictId}`)
     ?? (normalizedEmail ? await env.KV.get(`user_result_${normalizedEmail}_${verdictId}`) : null);
-  return raw ? JSON.parse(raw) as EvaluationResult : null;
+  return raw ? hydrateEvaluationResultDecisionV2(JSON.parse(raw) as EvaluationResult) : null;
 }
 
 function stableStringify(value: unknown): string {
@@ -140,7 +190,8 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
       currentWorkaround: intake.currentWorkaround.trim(),
       offerHypothesis: intake.offerHypothesis?.trim(),
       expectedPrice: intake.expectedPrice?.trim(),
-      competitorLinks: intake.competitorLinks?.map(item => item.trim()).filter(Boolean)
+      competitorLinks: intake.competitorLinks?.map(item => item.trim()).filter(Boolean),
+      researchSignals: normalizedResearchSignals(intake.researchSignals)
     },
     createdAt: now,
     updatedAt: now
@@ -191,14 +242,15 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
 }
 
 export function createPaidTestReport(order: PaidTestOrder, verdict: EvaluationResult): PaidTestReport {
+  const decision = hydrateEvaluationResultDecisionV2(verdict).verdictDecisionV2!;
   const buyer = order.intake.targetBuyer;
   const problem = order.intake.problem;
   const workaround = order.intake.currentWorkaround;
-  const price = order.intake.expectedPrice?.trim() || '$29';
+  const price = order.intake.expectedPrice?.trim() || 'a founder-set price before the first ask';
   const headline = `${buyer} can address ${problem} without relying on ${workaround}.`;
   const sections: PaidTestReport['sections'] = [
-    { title: 'Idea Summary', claims: [claim('Inferred', `${verdict.idea.ideaName}: ${verdict.idea.description}`), claim('Inferred', `LIT recommends: ${verdict.deterministicScores.recommendedNextTest}`)] },
-    { title: 'LIT Verdict Summary', claims: [claim('Inferred', `Verdict: ${verdict.deterministicScores.verdictHeadline}`), claim('Inferred', verdict.deterministicScores.oneSentenceAdvice)] },
+    { title: 'Idea Summary', claims: [claim('Inferred', `${verdict.idea.ideaName}: ${verdict.idea.description}`), claim('Inferred', `Canonical first action: ${decision.firstAction.action}`)] },
+    { title: 'LIT Verdict Summary', claims: [claim('Inferred', `Decision: ${decision.decision.replace(/_/g, ' ')}.`), claim('Inferred', decision.confidence.rationale)] },
     { title: 'Buyer Segment', claims: [claim('Inferred', `Start with one narrow segment: ${buyer}.`), claim('Test', `Confirm this segment can name a recent instance of ${problem} and has authority or access to the decision maker.`)] },
     { title: 'Buyer Interview Kit', claims: [
       claim('Test', 'Tell me about the last time this happened.'), claim('Test', 'What triggered you to solve it, and what did you try first?'), claim('Test', `What are you using today instead of a better way to handle ${problem}?`), claim('Test', `What is frustrating or costly about ${workaround}?`), claim('Test', 'Who approves spending for this?'), claim('Test', 'Have you paid for a solution before?'), claim('Test', 'What would need to be true for you to switch?'), claim('Test', `Would you test a paid pilot at ${price}? Why or why not?`),
@@ -276,6 +328,7 @@ function buildDay(dayNumber: number, title: string, objective: string, whyItMatt
 }
 
 export function createExecutionPlan30Day(order: PaidTestOrder, verdict: EvaluationResult): ExecutionPlan30Day {
+  const decision = hydrateEvaluationResultDecisionV2(verdict).verdictDecisionV2!;
   const buyer = safeText(order.intake.targetBuyer, verdict.idea.targetUser || 'the intended buyer');
   const problem = safeText(order.intake.problem, verdict.idea.painfulProblem || 'the stated problem');
   const workaround = safeText(order.intake.currentWorkaround, verdict.idea.currentAlternative || 'the current workaround');
@@ -283,7 +336,7 @@ export function createExecutionPlan30Day(order: PaidTestOrder, verdict: Evaluati
   const priceHypothesis = safeText(order.intake.expectedPrice, 'A test price supplied by the founder or discovered during interviews');
   const ideaName = safeText(verdict.idea.ideaName, 'Untitled startup idea');
   const ideaDescription = safeText(verdict.idea.description, 'No description supplied.');
-  const recommendedNextTest = safeText(verdict.verdict?.recommended_next_test ?? verdict.deterministicScores.recommendedNextTest, 'Run direct buyer discovery before building.');
+  const recommendedNextTest = decision.cheapestFalsification.test;
   const now = order.paidAt ?? order.updatedAt ?? order.createdAt;
   const normalizedInput = {
     verdictId: verdict.resultId,

@@ -1,6 +1,6 @@
 name = "lit-ghost-town-api"
-main = "src/api/index.ts"
-compatibility_date = "2024-01-01"
+main = "src/api/worker.ts"
+compatibility_date = "2026-03-24"
 
 [env.production]
 routes = [
@@ -8,8 +8,19 @@ routes = [
 ]
 
 [env.production.vars]
-AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
-ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+DEPLOYMENT_ENV = "production"
+AI_GATEWAY_ID = "default"
+VERTEX_VERDICT_MODEL = "gemini-3.5-flash-lite"
+VERTEX_SELECTION_MODEL = "gemini-3.5-flash-lite"
+VERTEX_RESEARCH_MODEL = "gemini-3.5-flash"
+VERTEX_BLUEPRINT_REQUIRED = "true"
+VERTEX_PROJECT_ID = "ghosttowntest"
+VERTEX_LOCATION = "us"
+VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"
+VERTEX_WEBSITE_MODEL = "gemini-3.5-flash"
+DISTRIBUTION_FOOTPRINT_ENABLED = "false"
+PAID_BLUEPRINT_RESEARCH_ENABLED = "true"
+DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
 FRONTEND_URL = "https://ghosttowntest.com"
 
 [[env.production.kv_namespaces]]
@@ -19,20 +30,111 @@ id = "289662c8981d421ba85a7ca588640650"
 [env.production.ai]
 binding = "AI"
 
+[env.production.browser]
+binding = "BROWSER"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "ghosttowntest-blueprints"
+database_id = "7d9dfed2-e25d-4a1d-b692-c60709287324"
+migrations_dir = "migrations"
+
 [[env.production.r2_buckets]]
 binding = "VIDEOS"
 bucket_name = "ghosttowntest-public-videos"
 
+[[env.production.r2_buckets]]
+binding = "BLUEPRINTS"
+bucket_name = "ghosttowntest-private-blueprints"
+
+[[env.production.workflows]]
+binding = "LAUNCH_BLUEPRINT_WORKFLOW"
+name = "ghosttown-launch-blueprint"
+class_name = "LaunchBlueprintWorkflow"
+
+# Gate 36 production release was explicitly authorized on 2026-08-22.
+# Keep the paid Blueprint bucket private and never point BLUEPRINTS at the public video bucket.
+# General Distribution Footprint research remains disabled; the paid-only production
+# research path is controlled by PAID_BLUEPRINT_RESEARCH_ENABLED and live Stripe evidence.
+# Production PDF rendering uses the private Browser Run binding; no browser API token is stored.
+#
+# Optional owner-only internal research variable:
+# INTERNAL_RESEARCH_OWNER_EMAILS
+#
+# Required production secrets:
+# VERTEX_SERVICE_ACCOUNT_EMAIL
+# VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY
+# VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID
+# DATAFORSEO_LOGIN
+# DATAFORSEO_PASSWORD
+# PODCAST_INDEX_API_KEY
+# PODCAST_INDEX_API_SECRET
+# YOUTUBE_API_KEY
+
+[env.acceptance]
+workers_dev = true
+
+[env.acceptance.vars]
+DEPLOYMENT_ENV = "acceptance"
+AI_GATEWAY_ID = "default"
+VERTEX_VERDICT_MODEL = "gemini-3.5-flash-lite"
+VERTEX_SELECTION_MODEL = "gemini-3.5-flash-lite"
+VERTEX_RESEARCH_MODEL = "gemini-3.5-flash"
+VERTEX_WEBSITE_MODEL = "gemini-3.5-flash"
+DISTRIBUTION_FOOTPRINT_ENABLED = "false"
+PAID_BLUEPRINT_RESEARCH_ENABLED = "true"
+DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
+VERTEX_BLUEPRINT_REQUIRED = "true"
+VERTEX_PROJECT_ID = "ghosttowntest"
+VERTEX_LOCATION = "us"
+VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"
+FRONTEND_URL = "https://ghosttown-acceptance.pages.dev"
+
+[[env.acceptance.kv_namespaces]]
+binding = "KV"
+id = "849e13521d454361aea286b8e1a5e4c7"
+
+[env.acceptance.ai]
+binding = "AI"
+
+[env.acceptance.browser]
+binding = "BROWSER"
+
+[[env.acceptance.d1_databases]]
+binding = "DB"
+database_name = "ghosttowntest-blueprints-acceptance"
+database_id = "9863d883-3c31-4268-9a98-8392fa3b9f8f"
+migrations_dir = "migrations"
+
+[[env.acceptance.r2_buckets]]
+binding = "BLUEPRINTS"
+bucket_name = "ghosttowntest-private-blueprints-acceptance"
+
+[[env.acceptance.workflows]]
+binding = "LAUNCH_BLUEPRINT_WORKFLOW"
+name = "ghosttown-launch-blueprint-acceptance"
+class_name = "LaunchBlueprintWorkflow"
+
+# Development secrets are intentionally not committed. Put JWT_SECRET,
+# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET and provider credentials in the
+# untracked .dev.vars file used by Wrangler local development.
 [env.development.vars]
-AI_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
-ACTION_PLAN_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+DEPLOYMENT_ENV = "development"
+AI_GATEWAY_ID = "default"
+VERTEX_VERDICT_MODEL = "gemini-3.5-flash-lite"
+VERTEX_SELECTION_MODEL = "gemini-3.5-flash-lite"
+VERTEX_RESEARCH_MODEL = "gemini-3.5-flash"
+VERTEX_LOCATION = "us"
+VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"
+VERTEX_WEBSITE_MODEL = "gemini-3.5-flash"
+DISTRIBUTION_FOOTPRINT_ENABLED = "false"
+PAID_BLUEPRINT_RESEARCH_ENABLED = "false"
+DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
+INTERNAL_RESEARCH_OWNER_EMAILS = "owner@example.com"
 FRONTEND_URL = "http://127.0.0.1:5300"
-JWT_SECRET = "dev-secret-key-change-in-production"
-STRIPE_SECRET_KEY = "sk_test_..."
 STRIPE_PRICE_ID = "price_..."
 STRIPE_PAID_TEST_PRICE_ID = "price_..."
 STRIPE_30_DAY_PLAN_PRICE_ID = "price_..."
-STRIPE_WEBHOOK_SECRET = "whsec_..."
 
 [[env.development.kv_namespaces]]
 binding = "KV"

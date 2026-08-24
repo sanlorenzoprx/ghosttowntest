@@ -10,6 +10,7 @@ import {
   type EvaluationDraft
 } from '../lib/storage';
 import { apiUrl, authHeaders } from '../lib/api';
+import { linkCommercialVerdict, recordCommercialEvent } from '../lib/commercialAttribution';
 
 interface Props {
   idea: IdeaIntake;
@@ -74,6 +75,7 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
     setLoading(true);
     setLoadingStep(0);
     setError(null);
+    void recordCommercialEvent('verdict_started', { content: idea.ideaName });
 
     try {
       const response = await fetch(apiUrl('/api/verdict'), {
@@ -93,6 +95,8 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
       }
 
       const result = await response.json<EvaluationResult>();
+      linkCommercialVerdict(result.resultId);
+      void recordCommercialEvent('verdict_completed', { verdictId: result.resultId, content: idea.ideaName });
       if (!localStorage.getItem('lit_user_token_v1')) incrementTestsUsed();
       clearEvaluationDraft();
       onDraftChange(null);

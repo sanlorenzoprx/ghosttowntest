@@ -9,6 +9,8 @@ import PaywallModal from '../components/PaywallModal';
 import Contact from '../components/Contact';
 import LegalPage, { type LegalPageKind } from '../components/LegalPage';
 import ActionPlanSuccess from '../components/ActionPlanSuccess';
+import InternalGoogleSearchConsole from '../components/InternalGoogleSearchConsole';
+import CommercialMetricsConsole from '../components/CommercialMetricsConsole';
 import { IdeaIntake as IdeaIntakeType, EvaluationResult } from '../types/lit';
 import {
   clearAuthToken,
@@ -22,8 +24,9 @@ import {
 import { apiUrl } from '../lib/api';
 import type { PublicUserData } from '../types/auth';
 import { getFeaturedExampleBySlug, toIdeaIntake } from '../lib/exampleIdeas';
+import { captureCommercialAttribution, recordCommercialEvent } from '../lib/commercialAttribution';
 
-type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'contact' | 'action-plan-success' | LegalPageKind;
+type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | LegalPageKind;
 
 function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/contact') return 'contact';
@@ -32,6 +35,8 @@ function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/refunds' || pathname === '/refund-policy') return 'refund';
   if (pathname === '/disclaimer') return 'disclaimer';
   if (pathname === '/paid-test/success') return 'action-plan-success';
+  if (pathname === '/internal-research') return 'internal-research';
+  if (pathname === '/internal-metrics') return 'internal-metrics';
   return hasExample ? 'intake' : 'landing';
 }
 
@@ -49,12 +54,15 @@ export default function App() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [user, setUser] = useState<PublicUserData | null>(null);
 
-  // Check if user is already logged in
+  useEffect(() => {
+    captureCommercialAttribution();
+    if (window.location.pathname === '/') void recordCommercialEvent('landing_viewed', { dedupeKey: 'landing_viewed' });
+  }, []);
+
   useEffect(() => {
     const token = loadAuthToken();
     if (token) {
       setIsLoggedIn(true);
-      // Verify token with backend
       verifyToken(token);
     }
   }, []);
@@ -97,10 +105,7 @@ export default function App() {
   };
 
   const handleStartTest = () => {
-    if (!hasAvailableTest()) {
-      setShowPaywall(true);
-      return;
-    }
+    if (!hasAvailableTest()) { setShowPaywall(true); return; }
     clearEvaluationDraft();
     setResumeDraft(null);
     updateExampleParam(null);
@@ -110,10 +115,7 @@ export default function App() {
   };
 
   const handleSelectExample = (slug: string) => {
-    if (!hasAvailableTest()) {
-      setShowPaywall(true);
-      return;
-    }
+    if (!hasAvailableTest()) { setShowPaywall(true); return; }
     const example = getFeaturedExampleBySlug(slug);
     if (!example) return;
     clearEvaluationDraft();
@@ -126,10 +128,7 @@ export default function App() {
 
   const handleResume = () => {
     if (!resumeDraft) return;
-    if (!hasAvailableTest()) {
-      setShowPaywall(true);
-      return;
-    }
+    if (!hasAvailableTest()) { setShowPaywall(true); return; }
     updatePath('/');
     updateExampleParam(null);
     setIdea(resumeDraft.idea);
@@ -137,10 +136,7 @@ export default function App() {
   };
 
   const handleIdeaSubmit = (ideaData: IdeaIntakeType) => {
-    if (!hasAvailableTest()) {
-      setShowPaywall(true);
-      return;
-    }
+    if (!hasAvailableTest()) { setShowPaywall(true); return; }
     updatePath('/');
     updateExampleParam(null);
     const draft = saveEvaluationDraft(ideaData, {}, 0);
@@ -186,149 +182,49 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-ghost-paper">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-ghost-paper/95 backdrop-blur">
-        <div className="site-header-inner relative mx-auto flex max-w-6xl items-center justify-center px-4 py-4">
-          <button
-            onClick={handleReset}
-            className="text-center"
-            aria-label="Ghost Town Test home"
-          >
+      <header className="site-header border-b border-gray-200 bg-ghost-paper/95 backdrop-blur">
+        <div className="site-header-inner mx-auto grid max-w-7xl grid-cols-1 items-center gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:grid-cols-[1fr_auto_1fr] lg:gap-4">
+          <div className="hidden lg:block" aria-hidden="true" />
+          <button onClick={handleReset} className="justify-self-center text-center" aria-label="Ghost Town Test home">
             <span className="leading-tight">
-              <span className="block text-[10px] font-bold uppercase tracking-[0.34em] text-ghost-rust sm:text-xs">
-                Leverage / Insight / Timing
-              </span>
-              <span className="brand-wordmark mt-1 block font-display text-3xl font-semibold leading-none text-ghost-ink sm:text-4xl">
-                Ghost Town Test
-              </span>
+              <span className="site-wordmark-kicker block text-[10px] font-bold uppercase tracking-[0.34em] text-ghost-rust sm:text-xs">Leverage / Insight / Timing</span>
+              <span className="brand-wordmark mt-1 block font-display text-3xl font-semibold leading-none text-ghost-ink sm:text-4xl">Ghost Town Test</span>
             </span>
           </button>
-          <div className="site-nav absolute right-4 flex items-center gap-4 sm:right-6">
-            <button
-              type="button"
-              onClick={handleReset}
-              className="rounded border border-ghost-forest px-3 py-1.5 text-sm font-bold text-ghost-forest hover:bg-blue-50"
-              aria-label="Go to Home"
-            >
-              Home
-            </button>
-            <button
-              onClick={() => {
-                setScreen('contact');
-                updatePath('/contact');
-              }}
-              className="text-sm font-bold text-gray-700 hover:text-ghost-rust"
-            >
-              Contact
-            </button>
+          <div className="site-nav flex flex-wrap items-center justify-center gap-x-4 gap-y-2 lg:justify-self-end lg:flex-nowrap lg:justify-end">
+            <button type="button" onClick={handleReset} className="rounded border border-ghost-forest px-3 py-1.5 text-sm font-bold text-ghost-forest hover:bg-blue-50" aria-label="Go to Home">Home</button>
+            <button onClick={() => { setScreen('contact'); updatePath('/contact'); }} className="text-sm font-bold text-gray-700 hover:text-ghost-rust">Contact</button>
             <div className="flex items-center gap-2 text-sm" role="group" aria-label="Language">
-              <button type="button" onClick={() => setLocale('en')} aria-pressed={locale === 'en'} className={`font-semibold ${locale === 'en' ? 'text-ghost-forest underline underline-offset-4' : 'text-gray-500 hover:text-ghost-forest'}`}>
-                English
-              </button>
+              <button type="button" onClick={() => setLocale('en')} aria-pressed={locale === 'en'} className={`font-semibold ${locale === 'en' ? 'text-ghost-forest underline underline-offset-4' : 'text-gray-500 hover:text-ghost-forest'}`}>English</button>
               <span className="text-gray-300" aria-hidden="true">·</span>
-              <button type="button" onClick={() => setLocale('es')} aria-pressed={locale === 'es'} className={`font-semibold ${locale === 'es' ? 'text-ghost-forest underline underline-offset-4' : 'text-gray-500 hover:text-ghost-forest'}`}>
-                Spanish
-              </button>
+              <button type="button" onClick={() => setLocale('es')} aria-pressed={locale === 'es'} className={`font-semibold ${locale === 'es' ? 'text-ghost-forest underline underline-offset-4' : 'text-gray-500 hover:text-ghost-forest'}`}>Spanish</button>
             </div>
             {isLoggedIn ? (
               <>
-                <span className="text-sm text-gray-600">{userEmail}</span>
-                <button
-                  onClick={() => setScreen('dashboard')}
-                  className="text-sm text-blue-600 hover:text-blue-700"
-                >
-                  Dashboard
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="text-sm text-blue-600 hover:text-blue-700"
-                >
-                  Log Out
-                </button>
+                <span className="max-w-48 truncate text-sm text-gray-600" title={userEmail || undefined}>{userEmail}</span>
+                <button onClick={() => { setScreen('dashboard'); updatePath('/'); }} className="text-sm text-blue-600 hover:text-blue-700">Dashboard</button>
+                <button onClick={handleLogout} className="text-sm text-blue-600 hover:text-blue-700">Log Out</button>
               </>
             ) : (
-              <button
-                  onClick={() => {
-                    setAuthMode('login');
-                    setShowLoginModal(true);
-                  }}
-                className="text-sm text-blue-600 hover:text-blue-700"
-              >
-                Log In
-              </button>
+              <button onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="text-sm text-blue-600 hover:text-blue-700">Log In</button>
             )}
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main>
-        {screen === 'landing' && (
-          <Landing
-            onStart={handleStartTest}
-            onSelectExample={handleSelectExample}
-            hasDraft={Boolean(resumeDraft)}
-            onResume={handleResume}
-            isLoggedIn={isLoggedIn}
-            onLoginClick={() => {
-              setAuthMode('login');
-              setShowLoginModal(true);
-            }}
-            locale={locale}
-          />
-        )}
-        {screen === 'intake' && (
-          <IdeaIntake onSubmit={handleIdeaSubmit} initialIdea={idea} />
-        )}
-        {screen === 'questions' && idea && (
-          <QuestionFlow
-            idea={idea}
-            onResult={handleResultReceived}
-            initialDraft={resumeDraft}
-            onDraftChange={setResumeDraft}
-          />
-        )}
-        {screen === 'result' && result && (
-          <ResultReport
-            result={result}
-            onReset={handleReset}
-            isLoggedIn={isLoggedIn}
-            onLoginClick={() => {
-              setAuthMode('signup');
-              setShowLoginModal(true);
-            }}
-            onRewardClaimed={() => {
-              const token = loadAuthToken();
-              if (token) void verifyToken(token);
-            }}
-          />
-        )}
-        {screen === 'dashboard' && isLoggedIn && (
-          <UserDashboard
-            onLogout={handleLogout}
-            onBuy={() => setShowPaywall(true)}
-            onStart={handleStartTest}
-            onOpenResult={savedResult => {
-              setResult(savedResult);
-              setScreen('result');
-            }}
-          />
-        )}
-        {screen === 'contact' && (
-          <Contact onStart={handleStartTest} />
-        )}
-        {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && (
-          <LegalPage kind={screen} />
-        )}
-        {screen === 'action-plan-success' && (
-          <ActionPlanSuccess
-            orderId={new URLSearchParams(window.location.search).get('order_id') || ''}
-            onDone={() => {
-              updatePath('/');
-              setScreen(isLoggedIn ? 'dashboard' : 'landing');
-            }}
-          />
-        )}
+        {screen === 'landing' && <Landing onStart={handleStartTest} onSelectExample={handleSelectExample} hasDraft={Boolean(resumeDraft)} onResume={handleResume} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} locale={locale} />}
+        {screen === 'intake' && <IdeaIntake onSubmit={handleIdeaSubmit} initialIdea={idea} />}
+        {screen === 'questions' && idea && <QuestionFlow idea={idea} onResult={handleResultReceived} initialDraft={resumeDraft} onDraftChange={setResumeDraft} />}
+        {screen === 'result' && result && <ResultReport result={result} onReset={handleReset} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('signup'); setShowLoginModal(true); }} onRewardClaimed={() => { const token = loadAuthToken(); if (token) void verifyToken(token); }} locale={locale} />}
+        {screen === 'dashboard' && isLoggedIn && <UserDashboard onLogout={handleLogout} onBuy={() => setShowPaywall(true)} onStart={handleStartTest} onOpenResult={savedResult => { setResult(savedResult); setScreen('result'); }} />}
+        {screen === 'contact' && <Contact onStart={handleStartTest} />}
+        {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && <LegalPage kind={screen} />}
+        {screen === 'action-plan-success' && <ActionPlanSuccess orderId={new URLSearchParams(window.location.search).get('order_id') || ''} onDone={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
+        {screen === 'internal-research' && isLoggedIn && <InternalGoogleSearchConsole onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
+        {screen === 'internal-research' && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Owner login required</h1><p className="mt-3 text-gray-700">This standalone research console is not part of the customer product.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
+        {screen === 'internal-metrics' && isLoggedIn && <CommercialMetricsConsole onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
+        {screen === 'internal-metrics' && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Owner login required</h1><p className="mt-3 text-gray-700">Commercial metrics are private operating evidence.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
       </main>
 
       <footer className="border-t border-gray-200 bg-ghost-sand px-4 py-8">
@@ -343,26 +239,8 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Login Modal */}
-      {showLoginModal && (
-        <LoginModal
-          onLogin={handleLogin}
-          onClose={() => setShowLoginModal(false)}
-          initialMode={authMode}
-        />
-      )}
-
-      {showPaywall && (
-        <PaywallModal
-          isLoggedIn={isLoggedIn}
-          onLoginClick={() => {
-            setShowPaywall(false);
-            setAuthMode('signup');
-            setShowLoginModal(true);
-          }}
-          onClose={() => setShowPaywall(false)}
-        />
-      )}
+      {showLoginModal && <LoginModal onLogin={handleLogin} onClose={() => setShowLoginModal(false)} initialMode={authMode} />}
+      {showPaywall && <PaywallModal isLoggedIn={isLoggedIn} onLoginClick={() => { setShowPaywall(false); setAuthMode('signup'); setShowLoginModal(true); }} onClose={() => setShowPaywall(false)} />}
     </div>
   );
 }

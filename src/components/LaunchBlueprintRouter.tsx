@@ -1,0 +1,115 @@
+import { useEffect, useState, type ChangeEvent, type MouseEvent } from "react";
+import { apiUrl, authHeaders } from "../lib/api";
+import type { GhostTownLaunchBlueprint } from "../types/launchBlueprint";
+import type { GhostTownLaunchBlueprintV21 } from "../types/launchBlueprintV21";
+import LaunchBlueprintView from "./LaunchBlueprintView";
+import LaunchBlueprintExecutionHomeV21 from "./LaunchBlueprintExecutionHomeV21";
+import LaunchBlueprintCopilotV21 from "./LaunchBlueprintCopilotV21";
+import LaunchBlueprintViewV21, { type BlueprintV21Payload } from "./LaunchBlueprintViewV21";
+import { recordCommercialEvent } from "../lib/commercialAttribution";
+
+export function isBlueprintV21(blueprint: { blueprintVersion?: string }): boolean {
+  return blueprint.blueprintVersion === "2.1";
+}
+
+// Preserve the canonical v2.1 workspace as a directly renderable compatibility
+// surface while the paid customer route now opens through the guided execution home.
+export function BlueprintV21WorkspaceCompatibility({ orderId, onBack, payload }: { orderId: string; onBack: () => void; payload: BlueprintV21Payload }) {
+  return <LaunchBlueprintViewV21 orderId={orderId} onBack={onBack} initialPayload={payload} />;
+}
+
+function RoutedBlueprintV21({ orderId, onBack, payload }: { orderId: string; onBack: () => void; payload: BlueprintV21Payload }) {
+  return <LaunchBlueprintExecutionHomeV21 orderId={orderId} onBack={onBack} initialPayload={payload} />;
+}
+
+export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: string; onBack: () => void }) {
+  const [payload, setPayload] = useState<BlueprintV21Payload | null>(null);
+  const [legacy, setLegacy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [activeDay, setActiveDay] = useState(1);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    setLegacy(false);
+    fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint`), {
+      headers: authHeaders(),
+    })
+      .then(async response => {
+        const body = await response.json<BlueprintV21Payload & { error?: string }>();
+        if (!response.ok || !body.blueprint) throw new Error(body.error || "Launch Blueprint could not be opened");
+        return body;
+      })
+      .then(body => {
+        if (!active) return;
+        if (isBlueprintV21(body.blueprint as GhostTownLaunchBlueprint | GhostTownLaunchBlueprintV21)) {
+          const completed = new Set(body.progress.completedDays || []);
+          setActiveDay(body.blueprint.dailyCalendar.find(day => !completed.has(day.dayNumber))?.dayNumber || 30);
+          setPayload(body);
+        } else {
+          setLegacy(true);
+        }
+      })
+      .catch(caught => {
+        if (active) setError(caught instanceof Error ? caught.message : "Launch Blueprint could not be opened");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [orderId]);
+
+  useEffect(() => {
+    if (!payload) return;
+    void recordCommercialEvent('blueprint_opened', {
+      orderId,
+      verdictId: payload.blueprint.sourceVerdictId,
+      dedupeKey: `blueprint_opened:${orderId}`
+    });
+    const completed = new Set(payload.progress.completedDays || []);
+    const currentDay = payload.blueprint.dailyCalendar.find(day => !completed.has(day.dayNumber))?.dayNumber || 30;
+    setActiveDay(currentDay);
+    void recordCommercialEvent('daily_packet_opened', {
+      orderId,
+      verdictId: payload.blueprint.sourceVerdictId,
+      content: `day:${currentDay}`,
+      dedupeKey: `daily_packet_opened:${orderId}:${currentDay}`
+    });
+  }, [orderId, payload]);
+
+  const recordRenderedDailyPacket = (container: HTMLDivElement) => {
+    if (!payload) return;
+    window.setTimeout(() => {
+      const match = container.textContent?.match(/Today · Day\s+(\d{1,2})/);
+      const dayNumber = match ? Number(match[1]) : 0;
+      if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 30) return;
+      setActiveDay(dayNumber);
+      void recordCommercialEvent('daily_packet_opened', {
+        orderId,
+        verdictId: payload.blueprint.sourceVerdictId,
+        content: `day:${dayNumber}`,
+        dedupeKey: `daily_packet_opened:${orderId}:${dayNumber}`
+      });
+    }, 0);
+  };
+
+  const captureClick = (event: MouseEvent<HTMLDivElement>) => {
+    recordRenderedDailyPacket(event.currentTarget);
+  };
+
+  const captureChange = (event: ChangeEvent<HTMLDivElement>) => {
+    recordRenderedDailyPacket(event.currentTarget);
+  };
+
+  if (loading) {
+    return <div className="mx-auto max-w-4xl p-8 text-center"><div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-ghost-rust/20 border-b-ghost-rust" /><p className="mt-4 text-gray-600">Opening your Launch Blueprint...</p></div>;
+  }
+  if (error) {
+    return <div className="mx-auto max-w-xl p-8 text-center"><p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</p><button onClick={onBack} className="mt-5 font-bold text-ghost-rust">Return to Dashboard</button></div>;
+  }
+  if (payload) return <div onClickCapture={captureClick} onChangeCapture={captureChange}><RoutedBlueprintV21 orderId={orderId} onBack={onBack} payload={payload} /><LaunchBlueprintCopilotV21 orderId={orderId} dayNumber={activeDay} lane={payload.blueprint.businessModelLane.lane} /></div>;
+  if (legacy) return <LaunchBlueprintView orderId={orderId} onBack={onBack} />;
+  return null;
+}

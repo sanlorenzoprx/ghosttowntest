@@ -1,11 +1,24 @@
-import { handleSignup, handleLogin, handleVerify } from './auth';
+import { handleSignup, handleLogin, handleVerify, handleRevokeSessions } from './auth';
 import { handleAnalyticsEvent } from './analytics';
+import { handleCommercialMetrics } from './commercialMetrics';
 import { handleCheckout } from './checkout';
 import { handleStripeWebhook } from './webhook';
 import { handleReferralClaim, handleReferralCreate } from './referral';
 import { handleShareReward } from './shareReward';
 import verdictHandler from './verdict';
-import { handlePaidTestCheckout, handlePaidTestOrders, handlePaidTestPdf, handlePaidTestPlan, handlePaidTestPlanPdf, handlePaidTestReport } from './paidTest';
+import { handlePaidTestOrders, handlePaidTestPdf, handlePaidTestPlan, handlePaidTestPlanPdf, handlePaidTestReport } from './paidTest';
+import { handlePaidTestCheckout } from './paidTestCheckout';
+import {
+  handleLaunchBlueprint,
+  handleLaunchBlueprintJson,
+  handleLaunchBlueprintPdf,
+  handleLaunchBlueprintAssets
+} from './blueprintApi';
+import { handleLaunchBlueprintProgress, handleLaunchBlueprintRetry } from './blueprintApiMeasurement';
+import { handleBlueprintSeeds, handleBlueprintSeedSuggestions } from './blueprintSeeds';
+import { handleInternalGoogleSearch } from './internalGoogleSearch';
+import { handleResearchPreviewSuggestions } from './researchPreview';
+import { handleLaunchSiteOwner, handlePublicLaunchLead, handlePublicLaunchSite } from './launchSite';
 import type { Env } from './env';
 import { handleResultHistory, handleSaveCurrentResult, handleSavedResult } from './resultHistory';
 import {
@@ -16,16 +29,16 @@ import {
   handlePublicVideoUpload
 } from './publicVideoJobs';
 
+export { LaunchBlueprintWorkflow } from './launchBlueprintWorkflow';
+
 /**
- * Main Cloudflare Workers fetch handler
- * Routes requests to appropriate handlers
+ * Main Cloudflare Workers fetch handler.
  */
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
-
     console.log(`${method} ${path}`);
 
     const allowedOrigin = getAllowedOrigin(request, env);
@@ -34,14 +47,9 @@ export default {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     };
     if (allowedOrigin) corsHeaders['Access-Control-Allow-Origin'] = allowedOrigin;
-
-    // Handle CORS preflight
-    if (method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
-    }
+    if (method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
     try {
-      // Read-only service handshake for Shorts Factory. Never exposes credentials.
       if (path === '/api/integrations/shorts-factory/health' && method === 'GET') {
         return new Response(JSON.stringify({
           status: 'ok',
@@ -49,16 +57,9 @@ export default {
           contract_version: 'lit-verdict-v1',
           verdict_endpoint: '/api/verdict',
           authentication: env.LIT_API_KEY?.trim() ? 'bearer_required' : 'not_configured',
-          evaluation: {
-            primary: 'cloudflare_workers_ai',
-            fallback: 'deterministic',
-            provenance_recorded: true
-          },
+          evaluation: { primary: 'cloudflare_workers_ai', fallback: 'deterministic', provenance_recorded: true },
           live_publishing_enabled: false
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
       if (path === '/api/integrations/shorts-factory/video-jobs/next' && method === 'GET') {
@@ -66,28 +67,24 @@ export default {
         applyCors(response, corsHeaders);
         return response;
       }
-
       const videoUploadMatch = path.match(/^\/api\/integrations\/shorts-factory\/video-jobs\/([a-zA-Z0-9_-]+)\/video$/);
       if (videoUploadMatch && method === 'PUT') {
         const response = await handlePublicVideoUpload(request, env, videoUploadMatch[1]);
         applyCors(response, corsHeaders);
         return response;
       }
-
       const videoFailureMatch = path.match(/^\/api\/integrations\/shorts-factory\/video-jobs\/([a-zA-Z0-9_-]+)\/fail$/);
       if (videoFailureMatch && method === 'POST') {
         const response = await handlePublicVideoFailure(request, env, videoFailureMatch[1]);
         applyCors(response, corsHeaders);
         return response;
       }
-
       const videoStatusMatch = path.match(/^\/api\/videos\/([a-zA-Z0-9_-]+)\/status$/);
       if (videoStatusMatch && method === 'GET') {
         const response = await handlePublicVideoStatus(env, videoStatusMatch[1]);
         applyCors(response, corsHeaders);
         return response;
       }
-
       const publicVideoMatch = path.match(/^\/api\/videos\/([a-zA-Z0-9_-]+)\.mp4$/);
       if (publicVideoMatch && method === 'GET') {
         const response = await handlePublicVideo(env, publicVideoMatch[1]);
@@ -95,25 +92,21 @@ export default {
         return response;
       }
 
-      // Verdict endpoint
       if ((path === '/api/verdict' || path === '/api/lit-verdict') && method === 'POST') {
         const response = await verdictHandler(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
-
       if (path === '/api/results' && method === 'GET') {
         const response = await handleResultHistory(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
-
       if (path === '/api/results' && method === 'POST') {
         const response = await handleSaveCurrentResult(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
-
       const savedResultMatch = path.match(/^\/api\/results\/([^/]+)$/);
       if (savedResultMatch && method === 'GET') {
         const response = await handleSavedResult(request, env, savedResultMatch[1]);
@@ -121,40 +114,130 @@ export default {
         return response;
       }
 
-      // Auth endpoints
       if (path === '/api/auth/signup' && method === 'POST') {
         const response = await handleSignup(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
-
       if (path === '/api/auth/login' && method === 'POST') {
         const response = await handleLogin(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
-
       if (path === '/api/auth/verify' && method === 'POST') {
         const response = await handleVerify(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
+      if (path === '/api/auth/revoke-sessions' && method === 'POST') {
+        const response = await handleRevokeSessions(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/internal/google-search' && (method === 'GET' || method === 'POST')) {
+        const response = await handleInternalGoogleSearch(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/internal/commercial-metrics' && method === 'GET') {
+        const response = await handleCommercialMetrics(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
 
-      // Stripe checkout
       if (path === '/api/checkout' && method === 'POST') {
         const response = await handleCheckout(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
-
       if (path === '/api/paid-test/orders' && method === 'GET') {
         const response = await handlePaidTestOrders(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
-
       if (path === '/api/paid-test/checkout' && method === 'POST') {
         const response = await handlePaidTestCheckout(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/research-preview/suggestions' && method === 'POST') {
+        const response = await handleResearchPreviewSuggestions(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      const publicLaunchLeadMatch = path.match(/^\/api\/launch-sites\/([^/]+)\/leads$/);
+      if (publicLaunchLeadMatch && method === 'POST') {
+        const response = await handlePublicLaunchLead(request, env, decodeURIComponent(publicLaunchLeadMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const publicLaunchSiteMatch = path.match(/^\/launch\/([^/]+)$/);
+      if (publicLaunchSiteMatch && method === 'GET') return handlePublicLaunchSite(request, env, decodeURIComponent(publicLaunchSiteMatch[1]));
+
+      const seedSuggestionsMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/seeds\/suggest$/);
+      if (seedSuggestionsMatch && method === 'POST') {
+        const response = await handleBlueprintSeedSuggestions(request, env, seedSuggestionsMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const seedsMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/seeds$/);
+      if (seedsMatch && (method === 'GET' || method === 'POST')) {
+        const response = await handleBlueprintSeeds(request, env, seedsMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const blueprintJsonMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\.json$/);
+      if (blueprintJsonMatch && method === 'GET') {
+        const response = await handleLaunchBlueprintJson(request, env, blueprintJsonMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const blueprintPdfMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\.pdf$/);
+      if (blueprintPdfMatch && method === 'GET') {
+        const response = await handleLaunchBlueprintPdf(request, env, blueprintPdfMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const blueprintAssetsMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint-assets\.zip$/);
+      if (blueprintAssetsMatch && method === 'GET') {
+        const response = await handleLaunchBlueprintAssets(request, env, blueprintAssetsMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const launchSiteOwnerMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/launch-site$/);
+      if (launchSiteOwnerMatch && method === 'GET') {
+        const response = await handleLaunchSiteOwner(request, env, launchSiteOwnerMatch[1], 'get');
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const launchSitePublishMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/launch-site\/(publish|unpublish)$/);
+      if (launchSitePublishMatch && method === 'POST') {
+        const response = await handleLaunchSiteOwner(request, env, launchSitePublishMatch[1], launchSitePublishMatch[2] as 'publish' | 'unpublish');
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const launchSiteLeadsMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/launch-site\/leads(?:\.csv)?$/);
+      if (launchSiteLeadsMatch && method === 'GET') {
+        const response = await handleLaunchSiteOwner(request, env, launchSiteLeadsMatch[1], path.endsWith('.csv') ? 'csv' : 'leads');
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const blueprintProgressMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/progress$/);
+      if (blueprintProgressMatch && (method === 'GET' || method === 'POST')) {
+        const response = await handleLaunchBlueprintProgress(request, env, blueprintProgressMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const blueprintRetryMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/retry$/);
+      if (blueprintRetryMatch && method === 'POST') {
+        const response = await handleLaunchBlueprintRetry(request, env, blueprintRetryMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const blueprintMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint$/);
+      if (blueprintMatch && method === 'GET') {
+        const response = await handleLaunchBlueprint(request, env, blueprintMatch[1]);
         applyCors(response, corsHeaders);
         return response;
       }
@@ -164,7 +247,6 @@ export default {
         applyCors(response, corsHeaders);
         return response;
       }
-
       const paidReportMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/report$/);
       if (paidReportMatch && method === 'GET') {
         const response = await handlePaidTestReport(request, env, paidReportMatch[1]);
@@ -190,45 +272,37 @@ export default {
         return response;
       }
 
-      // Stripe webhook
       if (path === '/api/webhook/stripe' && method === 'POST') {
         const response = await handleStripeWebhook(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
-
-      // Referral claim
       if (path.startsWith('/api/referral/claim') && method === 'GET') {
-        const refParam = url.searchParams.get('ref');
-        const response = await handleReferralClaim(request, env, refParam || '');
+        const response = await handleReferralClaim(request, env, url.searchParams.get('ref') || '');
         applyCors(response, corsHeaders);
         return response;
       }
-
-      // Referral create
       if (path === '/api/referral/create' && method === 'POST') {
         const response = await handleReferralCreate(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
-
       if (path === '/api/share/reward' && method === 'POST') {
         const response = await handleShareReward(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
 
-      // 404
-      return new Response(
-        JSON.stringify({ error: 'Endpoint not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Endpoint not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     } catch (error) {
       console.error('Worker error:', error);
-      return new Response(
-        JSON.stringify({ error: 'Internal server error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Internal server error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
   }
 };
@@ -245,7 +319,14 @@ const LOCAL_ORIGINS = new Set([
 function getAllowedOrigin(request: Request, env: Env): string | undefined {
   const origin = request.headers.get('Origin');
   if (!origin) return undefined;
-  if (LOCAL_ORIGINS.has(origin) || origin === env.FRONTEND_URL?.replace(/\/$/, '')) return origin;
+
+  const configuredFrontend = env.FRONTEND_URL?.replace(/\/$/, '');
+  if (LOCAL_ORIGINS.has(origin) || origin === configuredFrontend) return origin;
+
+  // Acceptance and development fail closed for all non-configured remote origins.
+  // The legacy production aliases are valid only in the production environment.
+  if (env.DEPLOYMENT_ENV !== 'production') return undefined;
+
   try {
     const hostname = new URL(origin).hostname;
     if (
@@ -255,12 +336,11 @@ function getAllowedOrigin(request: Request, env: Env): string | undefined {
       || hostname === 'lit-ghosttown.app'
       || hostname === 'www.lit-ghosttown.app'
       || hostname.endsWith('.ghosttowntest.pages.dev')
-    ) {
-      return origin;
-    }
+    ) return origin;
   } catch {
     return undefined;
   }
+
   return undefined;
 }
 

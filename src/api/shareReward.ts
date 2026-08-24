@@ -24,8 +24,9 @@ export async function handleShareReward(request: Request, env: Env): Promise<Res
       return json({ error: 'A valid result and share link are required' }, 400);
     }
 
+    const normalizedEmail = authenticated.email.trim().toLowerCase();
     const [resultJson, referralJson] = await Promise.all([
-      env.KV.get(`verdict:${resultId}`),
+      env.KV.get(`user_result_${normalizedEmail}_${resultId}`),
       env.KV.get(`referral_${refId}`)
     ]);
     if (!resultJson) return json({ error: 'Assessment result not found' }, 404);

@@ -1,0 +1,48 @@
+{
+  "schema_version": "ghosttown-infrastructure-freeze-policy-v1",
+  "status": "governing",
+  "policy": {
+    "default": "BLOCK_UNLESS_ALLOWED_PURPOSE",
+    "allowed_purposes": [
+      "verdict_quality",
+      "deliverable_quality",
+      "conversion",
+      "measurement",
+      "critical_customer_path_defect",
+      "security_or_data_integrity_required_for_customer_path"
+    ],
+    "presumptively_blocked_change_classes": [
+      "new_orchestration_framework",
+      "new_agent_framework",
+      "new_generic_capability_platform",
+      "new_database_for_architecture_cleanliness_only",
+      "new_queue_for_abstraction_only",
+      "new_ai_provider_without_proven_quality_or_reliability_need",
+      "new_persistence_layer_without_customer_path_need",
+      "new_generalized_acs_architecture",
+      "new_container_without_proven_workload_need",
+      "new_internal_dashboard_unrelated_to_customer_behavior_or_fulfillment",
+      "framework_migration",
+      "wrapper_around_proven_integration"
+    ],
+    "exception_required_fields": [
+      "exception_id",
+      "proposed_change",
+      "customer_or_commercial_problem",
+      "metric_or_output_improved",
+      "why_existing_architecture_cannot_satisfy_it",
+      "minimum_change_required",
+      "alternatives_rejected",
+      "acceptance_test",
+      "rollback_plan",
+      "production_impact"
+    ],
+    "blocked_status": "INFRASTRUCTURE_FREEZE_BLOCKED"
+  },
+  "invariants": {
+    "production_auto_deploy": false,
+    "gate_36_remains_manual": true,
+    "existing_47_gate_ids_must_not_be_renumbered": true,
+    "existing_production_state_must_be_preserved": true
+  }
+}

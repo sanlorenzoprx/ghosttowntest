@@ -1,14 +1,17 @@
 import { EvaluationResult, PublicVideoResult } from '../types/lit';
 import ShareCard from './ShareCard';
-import { saveLatestResult } from '../lib/storage';
+import { loadResearchSignals, saveLatestResult } from '../lib/storage';
 import { useEffect } from 'react';
 import { useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { ReactNode } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 import ActionPlanModal from './ActionPlanModal';
 import PaywallModal from './PaywallModal';
 import type { PaidTestIntake } from '../types/paidTest';
 import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
+import PrePurchaseResearchSignals from './PrePurchaseResearchSignals';
+import type { PrePurchaseResearchSignals as ResearchSignals } from '../types/researchSignals';
+import { buildVerdictDecisionV2 } from '../verdict/verdictDecisionV2';
 
 interface Props {
   result: EvaluationResult;
@@ -16,18 +19,22 @@ interface Props {
   isLoggedIn: boolean;
   onLoginClick: () => void;
   onRewardClaimed: () => void;
+  locale: 'en' | 'es';
 }
 
-export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick, onRewardClaimed }: Props) {
+export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick, onRewardClaimed, locale }: Props) {
   const [paidLoading, setPaidLoading] = useState(false);
   const [paidError, setPaidError] = useState('');
   const [showActionPlanForm, setShowActionPlanForm] = useState(false);
   const [showDeclinedPlanOffer, setShowDeclinedPlanOffer] = useState(false);
   const [video, setVideo] = useState<PublicVideoResult | undefined>(result.video);
+  const [researchSignals, setResearchSignals] = useState<ResearchSignals | null>(() => loadResearchSignals(result.resultId));
   const scores = result.deterministicScores;
-  const verdict = result.verdict;
+  const decisionV2 = result.verdictDecisionV2 ?? buildVerdictDecisionV2({
+    idea: result.idea,
+    scores: result.deterministicScores
+  });
 
-  // Save result to localStorage
   useEffect(() => {
     saveLatestResult(result);
     if (isLoggedIn) {
@@ -41,6 +48,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
   useEffect(() => {
     setVideo(result.video);
+    setResearchSignals(loadResearchSignals(result.resultId));
   }, [result]);
 
   useEffect(() => {
@@ -64,26 +72,6 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
     };
   }, [video?.job_id, video?.status, video?.status_url]);
 
-  const getVerdictColor = (verdict: string) => {
-    switch (verdict) {
-      case 'build_now':
-        return 'text-green-900 bg-green-50 border-green-200';
-      case 'test_first':
-        return 'text-blue-900 bg-blue-50 border-blue-200';
-      case 'niche_down':
-        return 'text-yellow-900 bg-yellow-50 border-yellow-200';
-      case 'change_business_dna':
-        return 'text-orange-900 bg-orange-50 border-orange-200';
-      case 'kill_it_before_it_kills_years':
-        return 'text-red-900 bg-red-50 border-red-200';
-      default:
-        return 'text-gray-900 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const verdictColorClass = getVerdictColor(scores.finalVerdict);
-  const litPercent = Math.round(scores.litScore * 20);
-  const scoreTone = litPercent >= 75 ? 'text-ghost-sage' : litPercent >= 50 ? 'text-amber-700' : 'text-red-700';
   const displayPrice = import.meta.env.VITE_30_DAY_PLAN_DISPLAY_PRICE?.trim() || DEFAULT_30_DAY_PLAN_DISPLAY_PRICE;
 
   const openActionPlanForm = () => {
@@ -95,6 +83,17 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   const startPaidTest = async (intake: PaidTestIntake) => {
     setPaidLoading(true); setPaidError('');
     try {
+      // Establish/confirm this account's owner-scoped verdict before checkout.
+      // The server ignores client verdict content and claims only its own
+      // server-issued verdict instance for this resultId.
+      const claimResponse = await fetch(apiUrl('/api/results'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ result })
+      });
+      if (!claimResponse.ok) {
+        throw new Error('Save this verdict to your account before checkout. Please log in again and retry.');
+      }
       const response = await fetch(apiUrl('/api/paid-test/checkout'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(intake) });
       const data = await response.json<{ sessionUrl?: string; error?: string }>();
       if (!response.ok || !data.sessionUrl) throw new Error(data.error || 'Checkout is not available right now');
@@ -104,23 +103,59 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-28 sm:py-10 sm:pb-10">
-      {/* Main Verdict */}
-      <div data-testid="verdict-card" className={`relative overflow-hidden rounded-sm border p-6 shadow-dust sm:p-8 ${verdictColorClass}`}>
-        <div className="absolute inset-x-0 top-0 h-1 bg-ghost-rust" />
-        <p className="text-xs font-bold uppercase tracking-[0.18em]">Ghost Town risk: {scores.ghostTownRisk}</p>
-        <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-center">
-          <div className="ghost-score-ring grid h-32 w-32 shrink-0 place-items-center rounded-full p-2" style={{ '--score': `${litPercent}%` } as CSSProperties}>
-            <div className="grid h-full w-full place-items-center rounded-full bg-white text-center">
-              <span className={`font-score text-5xl font-black leading-none ${scoreTone}`}>{litPercent}</span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">LIT score</span>
-            </div>
-          </div>
-          <div>
-            <h1 className="font-display text-4xl font-bold text-gray-950">{verdict?.verdict_headline ?? scores.verdictHeadline}</h1>
-            <p className="mt-3 text-lg text-gray-700">{verdict?.one_sentence_advice ?? scores.oneSentenceAdvice}</p>
-          </div>
+      <section data-testid="verdict-decision-v2" className="mb-8 overflow-hidden rounded-2xl border border-ghost-rust/30 bg-white shadow-dust">
+        <div data-testid="verdict-card" className="border-b border-ghost-rust/20 bg-[#fff7f2] p-6 sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Decision</p>
+          <h1 className="mt-2 font-display text-4xl font-bold leading-tight text-gray-950">{decisionV2.decision.replace(/_/g, ' ')}</h1>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-gray-700">{decisionV2.confidence.rationale}</p>
+          <p className="mt-3 text-sm text-gray-600">This tells you what is worth testing next. It is not a prediction that the whole business will succeed.</p>
         </div>
-      </div>
+
+        <div className="grid gap-4 p-6 sm:p-8">
+          <article className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">Biggest unknown</p>
+            <h2 className="mt-2 text-xl font-black text-gray-950">{decisionV2.largestUncertainty.assumption}</h2>
+            <p className="mt-2 leading-7 text-gray-700">{decisionV2.largestUncertainty.whyItMatters}</p>
+          </article>
+
+          <article data-testid="next-step" className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-800">Fastest test</p>
+            <h2 className="mt-2 text-xl font-black text-gray-950">{decisionV2.cheapestFalsification.test}</h2>
+            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Who to test</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.target}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Good result</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.successThreshold}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Stop / revise</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.failureThreshold}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Limit</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.maximumTime} · {decisionV2.cheapestFalsification.maximumCash}</dd></div>
+            </dl>
+          </article>
+
+          <article className="rounded-xl border-2 border-ghost-rust bg-white p-5 shadow-lantern">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-ghost-rust">Do this first</p>
+            <h2 className="mt-2 text-2xl font-black leading-8 text-gray-950">{decisionV2.firstAction.action}</h2>
+          </article>
+        </div>
+
+        <div className="space-y-6 border-t border-gray-200 p-6 text-sm text-gray-800 sm:p-8">
+          <DecisionSection title="What we are testing">
+            <p>{decisionV2.predictionTarget}</p>
+            <dl className="mt-3 grid gap-2 rounded-sm bg-gray-50 p-3 sm:grid-cols-2">
+              <div><dt className="font-bold">Customer</dt><dd>{decisionV2.customer.initialCustomer}</dd></div>
+              <div><dt className="font-bold">Problem</dt><dd>{decisionV2.problem.painfulProblem}</dd></div>
+              <div><dt className="font-bold">Offer</dt><dd>{decisionV2.offerHypothesis.offer}</dd></div>
+              <div><dt className="font-bold">Commitment</dt><dd>{decisionV2.offerHypothesis.commitmentRequested}{decisionV2.offerHypothesis.priceOrCommitmentRange ? ` (${decisionV2.offerHypothesis.priceOrCommitmentRange})` : ''}</dd></div>
+            </dl>
+          </DecisionSection>
+          <DecisionSection title="Confidence"><p><span className="font-bold">{decisionV2.confidence.level}.</span> {decisionV2.confidence.rationale}</p></DecisionSection>
+          <DecisionSection title="Why this may work"><DecisionList items={decisionV2.reasonsFor} /></DecisionSection>
+          <DecisionSection title="Why this may fail"><DecisionList items={decisionV2.reasonsAgainst} /></DecisionSection>
+          <DecisionSection title="What would change this verdict"><DecisionList items={decisionV2.whatWouldChangeTheVerdict} /></DecisionSection>
+          <DecisionSection title="Evidence labels">
+            <ul className="space-y-2">
+              {decisionV2.evidenceLabels.map((label, index) => <li key={`${label.statement}-${index}`} className="rounded-sm border border-gray-200 p-3"><span className="mr-2 text-xs font-bold uppercase tracking-wide text-gray-500">{label.truthLabel}</span>{label.statement}</li>)}
+            </ul>
+          </DecisionSection>
+        </div>
+      </section>
 
       {video && (
         <section className="mb-8 rounded-sm border border-gray-200 bg-gray-950 p-5 text-white shadow-dust">
@@ -148,83 +183,82 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         </section>
       )}
 
-      {/* Scores Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-        <div data-testid="risk-level" className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
-          <div className="text-xs text-gray-600 uppercase font-bold">Ghost Town Risk</div>
-          <div className="text-3xl font-bold text-gray-900 mt-1">{scores.ghostTownScore}/5</div>
-          <div className="text-xs text-gray-500 mt-1">{scores.ghostTownRisk} risk</div>
-        </div>
+      <details data-testid="detailed-analysis" className="mb-8 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-dust">
+        <summary className="cursor-pointer list-none p-5 font-black text-gray-950 focus:outline-none focus:ring-4 focus:ring-ghost-rust/20 sm:p-6">
+          <span className="flex items-center justify-between gap-4">
+            <span>
+              <span className="block text-lg">Detailed analysis</span>
+              <span className="mt-1 block text-sm font-normal text-gray-600">Diagnostic scores and business-model notes</span>
+            </span>
+            <span aria-hidden="true" className="text-2xl text-ghost-rust">＋</span>
+          </span>
+        </summary>
+        <div className="border-t border-gray-200 p-5 sm:p-6">
+          <p className="mb-5 text-sm leading-6 text-gray-600">These diagnostics help explain the decision. They are not a prediction that the business will succeed.</p>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            <div data-testid="risk-level" className="rounded-sm border border-gray-200 bg-gray-50 p-4">
+              <div className="text-xs font-bold uppercase text-gray-600">Ghost Town Risk</div>
+              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.ghostTownScore}/5</div>
+              <div className="mt-1 text-xs text-gray-500">{scores.ghostTownRisk} risk</div>
+            </div>
 
-        <div data-testid="lit-score" className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
-          <div className="text-xs text-gray-600 uppercase font-bold">LIT Score</div>
-          <div className="text-3xl font-bold text-gray-900 mt-1">{scores.litScore}/5</div>
-          <div className="text-xs text-gray-500 mt-1">{scores.litBand}</div>
-        </div>
+            <div data-testid="lit-score" className="rounded-sm border border-gray-200 bg-gray-50 p-4">
+              <div className="text-xs font-bold uppercase text-gray-600">LIT Score</div>
+              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.litScore}/5</div>
+              <div className="mt-1 text-xs text-gray-500">{scores.litBand}</div>
+            </div>
 
-        <div className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
-          <div className="text-xs text-gray-600 uppercase font-bold">Leverage</div>
-          <div className="text-3xl font-bold text-gray-900 mt-1">{scores.leverageScore}/5</div>
-        </div>
+            <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
+              <div className="text-xs font-bold uppercase text-gray-600">Leverage</div>
+              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.leverageScore}/5</div>
+            </div>
 
-        <div className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
-          <div className="text-xs text-gray-600 uppercase font-bold">Insight</div>
-          <div className="text-3xl font-bold text-gray-900 mt-1">{scores.insightScore}/5</div>
-        </div>
+            <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
+              <div className="text-xs font-bold uppercase text-gray-600">Insight</div>
+              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.insightScore}/5</div>
+            </div>
 
-        <div className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
-          <div className="text-xs text-gray-600 uppercase font-bold">Timing</div>
-          <div className="text-3xl font-bold text-gray-900 mt-1">{scores.timingScore}/5</div>
-        </div>
+            <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
+              <div className="text-xs font-bold uppercase text-gray-600">Timing</div>
+              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.timingScore}/5</div>
+            </div>
 
-        <div className="bg-white p-4 rounded-sm border border-gray-200 shadow-dust">
-          <div className="text-xs text-gray-600 uppercase font-bold">High Walls</div>
-          <div className="text-3xl font-bold text-gray-900 mt-1">{scores.highWallsScore}/5</div>
-          <div className="text-xs text-gray-500 mt-1">{scores.highWallsBand}</div>
-        </div>
-      </div>
-
-      {/* Business DNA */}
-      <div className="bg-blue-50 border border-blue-200 p-6 rounded-lg mb-8">
-        <h3 className="font-bold text-blue-900 mb-3">Business DNA: {scores.businessDnaType}</h3>
-        <div className="space-y-2">
-          <div>
-            <p className="text-sm font-bold text-blue-900">The Trap:</p>
-            <p className="text-sm text-blue-800">{scores.businessDnaTrap}</p>
+            <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
+              <div className="text-xs font-bold uppercase text-gray-600">High Walls</div>
+              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.highWallsScore}/5</div>
+              <div className="mt-1 text-xs text-gray-500">{scores.highWallsBand}</div>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-bold text-blue-900">How to Win:</p>
-            <p className="text-sm text-blue-800">{scores.businessDnaWinStrategy}</p>
+
+          <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-5">
+            <h3 className="font-bold text-blue-900">Business DNA: {scores.businessDnaType}</h3>
+            <div className="mt-3 space-y-3">
+              <div>
+                <p className="text-sm font-bold text-blue-900">The Trap:</p>
+                <p className="text-sm text-blue-800">{scores.businessDnaTrap}</p>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-blue-900">How to Win:</p>
+                <p className="text-sm text-blue-800">{scores.businessDnaWinStrategy}</p>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </details>
 
-      {/* Do Not Build Until */}
-      <div className="bg-red-50 border border-red-200 p-6 rounded-lg mb-8">
-        <h3 className="font-bold text-red-900 mb-2">Do Not Build Until</h3>
-        <p className="text-red-800">{verdict?.do_not_build_until ?? scores.doNotBuildUntil}</p>
-      </div>
-
-      {/* Recommended Next Test */}
-      <div data-testid="next-step" className="bg-green-50 border border-green-200 p-6 rounded-lg mb-8">
-        <h3 className="font-bold text-green-900 mb-2">Recommended Next Test</h3>
-        <p className="text-green-800">{verdict?.recommended_next_test ?? scores.recommendedNextTest}</p>
-      </div>
-
-      {/* Biggest Trap */}
-      {verdict?.biggest_trap && (
-        <div className="bg-yellow-50 border border-yellow-200 p-6 rounded-lg mb-8">
-          <h3 className="font-bold text-yellow-900 mb-2">Biggest Trap</h3>
-          <p className="text-yellow-800">{verdict.biggest_trap}</p>
-        </div>
-      )}
-
-      {/* Share Card */}
       <ShareCard
         result={result}
         isLoggedIn={isLoggedIn}
         onLoginClick={onLoginClick}
         onRewardClaimed={onRewardClaimed}
+      />
+
+      <PrePurchaseResearchSignals
+        resultId={result.resultId}
+        idea={result.idea}
+        locale={locale}
+        value={researchSignals}
+        onChange={setResearchSignals}
       />
 
       <section id="thirty-day-plan" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
@@ -234,7 +268,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         <ul className="mt-4 space-y-2 text-sm text-gray-800">
           <li>Thirty daily actions with time budgets, cash limits, evidence, and pass/fail thresholds</li>
           <li>Buyer interviews, alternatives, offer, pricing, landing-page, outreach, and paid-pilot tests</li>
-          <li>Truth-labeled canonical JSON, readable PDF, and account history for repeat download</li>
+          <li>Truth-labeled executable Blueprint, readable PDF, and account history for repeat access</li>
         </ul>
         <p className="mt-4 text-sm text-gray-700">A validation experiment—not a promise of product-market fit, revenue, or certainty.</p>
         {paidError && <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{paidError}</p>}
@@ -243,11 +277,10 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         </button>
       </section>
 
-      {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+      <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
         <button
           onClick={onReset}
-          className="px-6 py-3 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition"
+          className="rounded bg-blue-600 px-6 py-3 font-bold text-white transition hover:bg-blue-700"
         >
           Test Another Idea
         </button>
@@ -270,6 +303,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
             setShowDeclinedPlanOffer(true);
           }}
           onSubmit={intake => void startPaidTest(intake)}
+          researchSignals={researchSignals}
         />
       )}
 
@@ -282,16 +316,23 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         />
       )}
 
-      {/* Metadata */}
-      <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+      <div className="mt-8 border-t border-gray-200 pt-6 text-center">
         <p className="text-xs text-gray-500">
           GhostTown Test verdict{result.cacheHit ? ' (cached report)' : ''}
           {' '}at {new Date(result.generatedAt).toLocaleString()}
         </p>
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="mt-2 text-xs text-gray-400">
           This is a judgment tool to help you decide what to test next. Not a guarantee of success.
         </p>
       </div>
     </div>
   );
+}
+
+function DecisionSection({ title, children }: { title: string; children: ReactNode }) {
+  return <section><h2 className="text-xs font-bold uppercase tracking-[0.14em] text-ghost-rust">{title}</h2><div className="mt-2 leading-6">{children}</div></section>;
+}
+
+function DecisionList({ items }: { items: string[] }) {
+  return <ul className="list-disc space-y-1 pl-5">{items.map(item => <li key={item}>{item}</li>)}</ul>;
 }

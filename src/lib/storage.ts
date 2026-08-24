@@ -1,9 +1,12 @@
 import { EvaluationAnswers, EvaluationResult, IdeaIntake } from '../types/lit';
+import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
+import type { PrePurchaseResearchSignals } from '../types/researchSignals';
 
 const LATEST_RESULT_KEY = 'lit_latest_result_v1';
 const USER_TOKEN_KEY = 'lit_user_token_v1';
 const TESTS_USED_KEY = 'lit_tests_used_v1';
 const EVALUATION_DRAFT_KEY = 'lit_evaluation_draft_v1';
+const RESEARCH_SIGNALS_PREFIX = 'ghosttown_research_signals_v1_';
 
 export interface EvaluationDraft {
   idea: IdeaIntake;
@@ -15,7 +18,7 @@ export interface EvaluationDraft {
 // ============ RESULT STORAGE ============
 export function saveLatestResult(result: EvaluationResult): void {
   try {
-    localStorage.setItem(LATEST_RESULT_KEY, JSON.stringify(result));
+    localStorage.setItem(LATEST_RESULT_KEY, JSON.stringify(hydrateEvaluationResultDecisionV2(result)));
   } catch (error) {
     console.error('Failed to save result:', error);
   }
@@ -24,7 +27,7 @@ export function saveLatestResult(result: EvaluationResult): void {
 export function loadLatestResult(): EvaluationResult | null {
   try {
     const data = localStorage.getItem(LATEST_RESULT_KEY);
-    return data ? JSON.parse(data) : null;
+    return data ? hydrateEvaluationResultDecisionV2(JSON.parse(data) as EvaluationResult) : null;
   } catch (error) {
     console.error('Failed to load result:', error);
     return null;
@@ -80,6 +83,32 @@ export function clearEvaluationDraft(): void {
     localStorage.removeItem(EVALUATION_DRAFT_KEY);
   } catch (error) {
     console.error('Failed to clear evaluation progress:', error);
+  }
+}
+
+export function saveResearchSignals(signals: PrePurchaseResearchSignals): void {
+  try {
+    localStorage.setItem(`${RESEARCH_SIGNALS_PREFIX}${signals.resultId}`, JSON.stringify(signals));
+  } catch (error) {
+    console.error('Failed to save research signals:', error);
+  }
+}
+
+export function loadResearchSignals(resultId: string): PrePurchaseResearchSignals | null {
+  try {
+    const raw = localStorage.getItem(`${RESEARCH_SIGNALS_PREFIX}${resultId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PrePurchaseResearchSignals>;
+    if (
+      parsed.schemaVersion !== 'pre-purchase-research-signals-v1'
+      || parsed.resultId !== resultId
+      || typeof parsed.targetCustomer !== 'string'
+      || parsed.origin !== 'free_verdict'
+    ) return null;
+    return parsed as PrePurchaseResearchSignals;
+  } catch (error) {
+    console.error('Failed to load research signals:', error);
+    return null;
   }
 }
 

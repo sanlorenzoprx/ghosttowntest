@@ -1,0 +1,78 @@
+{
+  "schema_version": "ghosttown-commercial-quality-roadmap-v1",
+  "status": "governing",
+  "source_contract": "docs/GHOSTTOWN_COMMERCIAL_QUALITY_AUTOPILOT_DEVELOPMENT_CONTRACT_V1.md",
+  "story_studio_baseline_contract": "docs/STORY_STUDIO_BASELINE_001_OPERATING_CONTRACT.md",
+  "insert_after_production_gate": 25,
+  "resume_production_at_gate": 26,
+  "production_release_gate": 36,
+  "quality_gates": [
+    {
+      "id": "Q1",
+      "slug": "verdict-decision-v2",
+      "title": "Rebuild the free verdict around bounded decision, uncertainty, falsification, and first action",
+      "purpose": "verdict_quality",
+      "mode": "hook",
+      "hook_env": "ROADMAP_QUALITY_Q1_COMMAND",
+      "requires": ["infrastructure_freeze_pass"],
+      "acceptance": ["bounded_prediction_target","explicit_confidence","reasons_for_and_against","largest_uncertainty","cheap_falsification_test","exact_first_action","what_would_change_verdict","truth_labels","customer_specificity","no_unsupported_whole_business_success_prediction","cross_surface_customer_offer_consistency","tests_pass","typecheck_pass","acceptance_build_pass"]
+    },
+    {
+      "id": "Q2",
+      "slug": "daily-execution-assets",
+      "title": "Create DailyExecutionPacket and DeliverableAsset contracts with usable assets for all 30 days",
+      "purpose": "deliverable_quality",
+      "mode": "hook",
+      "hook_env": "ROADMAP_QUALITY_Q2_COMMAND",
+      "requires": ["Q1"],
+      "acceptance": ["30_of_30_daily_packets","usable_primary_asset_or_justified_non_asset_action_each_day","no_asset_description_when_finished_asset_can_be_generated","success_threshold_each_day","evidence_requirement_each_day","branch_logic_where_required","target_identity_where_required","asset_lineage","copy_open_edit_download_actions_where_applicable","golden_fixture_comparison","tests_pass","typecheck_pass","acceptance_build_pass"]
+    },
+    {
+      "id": "Q3",
+      "slug": "blueprint-quality-document",
+      "title": "Upgrade the highest-value Blueprint sections and premium document presentation",
+      "purpose": "deliverable_quality",
+      "mode": "hook",
+      "hook_env": "ROADMAP_QUALITY_Q3_COMMAND",
+      "requires": ["Q2"],
+      "priority_sections": ["48_hour_launch_card","first_customer","first_offer","first_revenue","customer_access_network","today"],
+      "acceptance": ["section_decision_why_evidence_asset_measurement_adaptation_model","customer_specificity","offer_specificity","first_revenue_execution_ready","access_network_priority_and_first_actions","cross_surface_consistency","customer_download_surface_open_blueprint_plus_pdf_only","internal_json_zip_retained_privately","premium_document_model","tests_pass","typecheck_pass","acceptance_build_pass"]
+    },
+    {
+      "id": "Q4",
+      "slug": "direct-response-launch-site",
+      "title": "Replace generic Launch Site presentation with a direct-response conversion system",
+      "purpose": "conversion",
+      "mode": "hook",
+      "hook_env": "ROADMAP_QUALITY_Q4_COMMAND",
+      "requires": ["Q3"],
+      "acceptance": ["customer_and_offer_match_blueprint","conversion_jobs_present","generic_copy_gate_pass","purposeful_visual_system","mobile_render_pass","desktop_render_pass","lead_flow_pass","publish_unpublish_pass","visual_review_receipt"]
+    },
+    {
+      "id": "Q5",
+      "slug": "commercial-measurement",
+      "title": "Instrument the full commercial and post-purchase execution chain",
+      "purpose": "measurement",
+      "mode": "hook",
+      "hook_env": "ROADMAP_QUALITY_Q5_COMMAND",
+      "requires": ["Q4"],
+      "acceptance": ["source_to_session_attribution","test_started","verdict_completed","checkout_started","purchase_and_revenue","blueprint_opened","daily_packet_opened","day_completed","evidence_recorded","repair_routing_supported","tests_pass"]
+    }
+  ],
+  "post_release_story_studio": {
+    "governing_definition": "CONTENT_FACTORY_PLUS_EXPERIMENTAL_ACQUISITION_SYSTEM",
+    "calibration": [
+      {"gate":39,"slice":"A","contract":"1 verdict x 2 creatives x 1 platform"},
+      {"gate":40,"slice":"B","contract":"3 verdicts x several treatments x 2 platforms"},
+      {"gate":41,"slice":"C","contract":"10 verdicts x 10 treatments = 100 masters"}
+    ],
+    "mandatory_before_baseline": ["show_treatment_portfolio_review","exact_10_treatments_locked","versioned_treatment_registry","machine_readiness_pass"],
+    "baseline_001": {"verdicts":100,"treatments":10,"master_creatives":1000,"commercial_permission_gate_from_30_50_videos":false,"purpose":"large_scale_exploration"},
+    "observation_windows": ["1h","24h","72h","7d"],
+    "after_baseline": {
+      "exploit_percent_approx": 80,
+      "explore_percent_approx": 20,
+      "actions": ["winner_and_segment_classification","winner_mutation","predictive_routing","attributed_97_dollar_sales","repeatable_acquisition_economics"]
+    }
+  }
+}

@@ -3,4 +3,8 @@ dist/
 .wrangler/
 .env
 .env.local
+.dev.vars
+.dev.vars.*
 *.log
+scripts/.blueprint-correction-payload/
+.roadmap-autopilot/
