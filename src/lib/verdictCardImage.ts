@@ -154,7 +154,7 @@ function landscapeSvg(input: SvgInput): string {
     ${textLines(testLines, 852, 374, 27, 19, theme.soft, 700)}
 
     <line x1="64" y1="526" x2="1136" y2="526" stroke="#ffffff" stroke-opacity="0.22"/>
-    <text x="64" y="574" fill="#ffffff" font-size="22" font-weight="800">WHAT WOULD YOU TEST FIRST?</text>
+    <text x="64" y="574" fill="#ffffff" font-size="22" font-weight="800">WHAT SHOULD YOU TEST NEXT?</text>
     <text x="1136" y="574" fill="${theme.accent}" font-size="21" font-weight="800" text-anchor="end">${escapeXml(host)}</text>
   `);
 }
@@ -185,7 +185,7 @@ function squareSvg(input: SvgInput): string {
     ${textLines(testLines, 576, 812, 28, 22, '#ffffff', 700)}
 
     <line x1="72" y1="954" x2="1008" y2="954" stroke="#ffffff" stroke-opacity="0.22"/>
-    <text x="72" y="1010" fill="#ffffff" font-size="23" font-weight="800">WHAT WOULD YOU TEST FIRST?</text>
+    <text x="72" y="1010" fill="#ffffff" font-size="23" font-weight="800">WHAT SHOULD YOU TEST NEXT?</text>
     <text x="1008" y="1010" fill="${theme.accent}" font-size="22" font-weight="800" text-anchor="end">${escapeXml(host)}</text>
   `);
 }
