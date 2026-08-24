@@ -81,7 +81,8 @@ describe('commercial UI acceptance contract', () => {
     expect(checkoutIntake).not.toContain('Your research map is already attached');
     expect(checkoutIntake).toContain('<details');
     expect(checkoutIntake).toContain('Build My 30-Day Interactive Blueprint');
-    expect(offer).toContain('interactive 30-day idea-to-evidence execution system');
+    expect(offer).toContain('Your 30-day plan, one clear next step at a time');
+    expect(offer).toContain('Open GhostTown each day and see what to do next');
   });
 
   it('preselects post-purchase market references instead of making the buyer start from zero', () => {
