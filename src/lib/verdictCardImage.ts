@@ -1,4 +1,4 @@
-import type { BusinessDnaType, EvaluationResult, FinalVerdict } from '../types/lit';
+import type { EvaluationResult, FinalVerdict } from '../types/lit';
 import type { VerdictDecision } from '../verdict/verdictDecisionV2';
 
 export type VerdictCardFormat = 'landscape' | 'square';
@@ -80,12 +80,14 @@ export function createVerdictCardSvg(result: EvaluationResult, options: CardOpti
   const theme = getVerdictCardTheme(result);
   const headline = result.verdictDecisionV2?.decision.replace(/_/g, ' ') ?? result.verdict?.verdict_headline ?? scores.verdictHeadline;
   const advice = result.verdictDecisionV2?.firstAction.action ?? result.verdict?.one_sentence_advice ?? scores.oneSentenceAdvice;
+  const unknown = result.verdictDecisionV2?.largestUncertainty.assumption ?? scores.doNotBuildUntil;
+  const fastestTest = result.verdictDecisionV2?.cheapestFalsification.test ?? scores.recommendedNextTest;
   const ideaName = options.includeIdeaName ? result.idea.ideaName : 'Idea name kept private';
   const host = BRAND_HOST;
 
   return options.format === 'landscape'
-    ? landscapeSvg({ width, height, result, theme, headline, advice, ideaName, host })
-    : squareSvg({ width, height, result, theme, headline, advice, ideaName, host });
+    ? landscapeSvg({ width, height, theme, headline, advice, unknown, fastestTest, ideaName, host })
+    : squareSvg({ width, height, theme, headline, advice, unknown, fastestTest, ideaName, host });
 }
 
 export function getVerdictCardAlt(result: EvaluationResult): string {
@@ -127,11 +129,12 @@ export function svgDataUrl(svg: string): string {
 }
 
 function landscapeSvg(input: SvgInput): string {
-  const { width, height, result, theme, headline, advice, ideaName, host } = input;
+  const { width, height, theme, headline, advice, unknown, fastestTest, ideaName, host } = input;
   const hookLines = wrapText(theme.hook, 28, 2);
   const headlineLines = wrapText(headline, 38, 2);
   const adviceLines = wrapText(advice, 58, 2);
-  const dna = formatDna(result.deterministicScores.businessDnaType);
+  const unknownLines = wrapText(unknown, 28, 4);
+  const testLines = wrapText(fastestTest, 28, 4);
 
   return svgShell(width, height, theme, `
     <text x="64" y="66" fill="#ffffff" font-size="20" font-weight="800" letter-spacing="4">LIT GHOST TOWN TEST</text>
@@ -144,25 +147,25 @@ function landscapeSvg(input: SvgInput): string {
     <text x="64" y="462" fill="${theme.accent}" font-size="17" font-weight="700">${escapeXml(ideaName)}</text>
 
     <rect x="820" y="92" width="316" height="398" rx="28" fill="#ffffff" fill-opacity="0.11" stroke="#ffffff" stroke-opacity="0.18"/>
-    <text x="978" y="166" fill="${theme.soft}" font-size="18" font-weight="800" text-anchor="middle" letter-spacing="2">LIT SCORE</text>
-    <text x="978" y="286" fill="#ffffff" font-size="106" font-weight="900" text-anchor="middle">${result.deterministicScores.litScore}</text>
-    <text x="978" y="326" fill="${theme.accent}" font-size="24" font-weight="800" text-anchor="middle">OUT OF 5</text>
-    <line x1="866" y1="365" x2="1090" y2="365" stroke="#ffffff" stroke-opacity="0.22"/>
-    <text x="978" y="408" fill="${theme.soft}" font-size="16" font-weight="700" text-anchor="middle">BUSINESS DNA</text>
-    <text x="978" y="446" fill="#ffffff" font-size="26" font-weight="900" text-anchor="middle">${escapeXml(dna)}</text>
+    <text x="852" y="138" fill="${theme.accent}" font-size="15" font-weight="800" letter-spacing="2">BIGGEST UNKNOWN</text>
+    ${textLines(unknownLines, 852, 176, 27, 19, '#ffffff', 700)}
+    <line x1="852" y1="298" x2="1104" y2="298" stroke="#ffffff" stroke-opacity="0.22"/>
+    <text x="852" y="336" fill="${theme.accent}" font-size="15" font-weight="800" letter-spacing="2">FASTEST TEST</text>
+    ${textLines(testLines, 852, 374, 27, 19, theme.soft, 700)}
 
     <line x1="64" y1="526" x2="1136" y2="526" stroke="#ffffff" stroke-opacity="0.22"/>
-    <text x="64" y="574" fill="#ffffff" font-size="22" font-weight="800">WOULD YOUR IDEA SURVIVE?</text>
+    <text x="64" y="574" fill="#ffffff" font-size="22" font-weight="800">WHAT WOULD YOU TEST FIRST?</text>
     <text x="1136" y="574" fill="${theme.accent}" font-size="21" font-weight="800" text-anchor="end">${escapeXml(host)}</text>
   `);
 }
 
 function squareSvg(input: SvgInput): string {
-  const { width, height, result, theme, headline, advice, ideaName, host } = input;
+  const { width, height, theme, headline, advice, unknown, fastestTest, ideaName, host } = input;
   const hookLines = wrapText(theme.hook, 26, 2);
   const headlineLines = wrapText(headline, 32, 3);
   const adviceLines = wrapText(advice, 48, 3);
-  const dna = formatDna(result.deterministicScores.businessDnaType);
+  const unknownLines = wrapText(unknown, 28, 3);
+  const testLines = wrapText(fastestTest, 30, 3);
 
   return svgShell(width, height, theme, `
     <text x="72" y="82" fill="#ffffff" font-size="21" font-weight="800" letter-spacing="4">LIT GHOST TOWN TEST</text>
@@ -175,14 +178,14 @@ function squareSvg(input: SvgInput): string {
     <text x="72" y="674" fill="${theme.accent}" font-size="19" font-weight="700">${escapeXml(ideaName)}</text>
 
     <rect x="72" y="724" width="444" height="176" rx="24" fill="#ffffff" fill-opacity="0.11" stroke="#ffffff" stroke-opacity="0.18"/>
-    <text x="108" y="778" fill="${theme.soft}" font-size="17" font-weight="700">LIT SCORE</text>
-    <text x="108" y="856" fill="#ffffff" font-size="72" font-weight="900">${result.deterministicScores.litScore}<tspan font-size="28" fill="${theme.accent}"> / 5</tspan></text>
+    <text x="108" y="768" fill="${theme.accent}" font-size="16" font-weight="800" letter-spacing="2">BIGGEST UNKNOWN</text>
+    ${textLines(unknownLines, 108, 812, 28, 22, '#ffffff', 700)}
     <rect x="540" y="724" width="468" height="176" rx="24" fill="#ffffff" fill-opacity="0.11" stroke="#ffffff" stroke-opacity="0.18"/>
-    <text x="576" y="778" fill="${theme.soft}" font-size="17" font-weight="700">BUSINESS DNA</text>
-    <text x="576" y="848" fill="#ffffff" font-size="35" font-weight="900">${escapeXml(dna)}</text>
+    <text x="576" y="768" fill="${theme.accent}" font-size="16" font-weight="800" letter-spacing="2">FASTEST TEST</text>
+    ${textLines(testLines, 576, 812, 28, 22, '#ffffff', 700)}
 
     <line x1="72" y1="954" x2="1008" y2="954" stroke="#ffffff" stroke-opacity="0.22"/>
-    <text x="72" y="1010" fill="#ffffff" font-size="23" font-weight="800">WOULD YOUR IDEA SURVIVE?</text>
+    <text x="72" y="1010" fill="#ffffff" font-size="23" font-weight="800">WHAT WOULD YOU TEST FIRST?</text>
     <text x="1008" y="1010" fill="${theme.accent}" font-size="22" font-weight="800" text-anchor="end">${escapeXml(host)}</text>
   `);
 }
@@ -190,10 +193,11 @@ function squareSvg(input: SvgInput): string {
 interface SvgInput {
   width: number;
   height: number;
-  result: EvaluationResult;
   theme: CardTheme;
   headline: string;
   advice: string;
+  unknown: string;
+  fastestTest: string;
   ideaName: string;
   host: string;
 }
@@ -247,10 +251,6 @@ function wrapText(text: string, maxCharacters: number, maxLines: number): string
     lines[lines.length - 1] = `${lines[lines.length - 1].replace(/[.,;:]?$/, '')}…`;
   }
   return lines;
-}
-
-function formatDna(dna: BusinessDnaType): string {
-  return dna.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }
 
 function escapeXml(value: string): string {
