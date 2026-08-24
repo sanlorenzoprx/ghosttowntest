@@ -135,7 +135,7 @@ async function prepareSurface(page: Page, surface: string, viewportWidth: number
   }
   if (surface === 'checkout') {
     await page.getByRole('dialog').waitFor();
-    await page.getByRole('button', { name: /Continue to Checkout/i }).waitFor();
+    await page.getByRole('button', { name: /Build My 30-Day Interactive Blueprint/i }).waitFor();
     return;
   }
   if (surface === 'seed-confirmation') {
