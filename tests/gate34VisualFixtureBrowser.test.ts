@@ -125,7 +125,7 @@ async function selectBlueprintTab(page: Page, viewportWidth: number, label: stri
 async function prepareSurface(page: Page, surface: string, viewportWidth: number) {
   if (surface === 'free-verdict') {
     await page.locator('[data-testid="verdict-decision-v2"]').waitFor();
-    await page.getByText('Cheapest way to prove us wrong').waitFor();
+    await page.getByText('Fastest test', { exact: true }).waitFor();
     return;
   }
   if (surface === 'micro-commitments') {
@@ -226,7 +226,7 @@ describe('Gate 34 canonical deterministic UI visual fixtures', () => {
         const runtimeErrors: string[] = [];
         page.on('pageerror', error => runtimeErrors.push(`pageerror: ${error.message}`));
         page.on('console', message => {
-          if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`);
+          if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`));
         });
         await mockApi(page, surface);
         const routeSurface = surface === 'free-verdict' ? 'verdict' : surface;
