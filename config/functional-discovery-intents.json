@@ -1,0 +1,112 @@
+[
+  {
+    "slug": "validate-saas-idea",
+    "title": "Validate a SaaS Idea Before You Build | GhostTown",
+    "headline": "Validate your SaaS idea before you spend months building it.",
+    "description": "Run a free GhostTown verdict on a SaaS idea. Identify the biggest unknown, the fastest real-world test, and what would make the idea worth pursuing.",
+    "intent": "SaaS validation",
+    "customerPrompt": "Who is the first specific business or user that would pay for this SaaS?",
+    "problemPrompt": "What recurring, expensive, or frustrating problem does the SaaS remove?",
+    "alternativePrompt": "What software, spreadsheet, manual process, employee, agency, or workaround do they use now?",
+    "examples": ["B2B workflow software", "vertical SaaS", "AI-enabled SaaS", "creator or prosumer subscription software"]
+  },
+  {
+    "slug": "validate-ai-startup",
+    "title": "Validate an AI Startup Idea | GhostTown",
+    "headline": "Test whether your AI startup solves a problem people will actually pay to remove.",
+    "description": "Evaluate an AI startup idea against customer pain, alternatives, timing, leverage, and the cheapest commitment test you can run now.",
+    "intent": "AI startup validation",
+    "customerPrompt": "Who has the painful workflow before the AI exists?",
+    "problemPrompt": "What measurable job becomes faster, cheaper, safer, or more valuable?",
+    "alternativePrompt": "What human workflow, incumbent software, consultant, or general AI tool already addresses it?",
+    "examples": ["AI workflow automation", "vertical AI", "AI agents", "AI copilots for a specific profession"]
+  },
+  {
+    "slug": "validate-local-business-idea",
+    "title": "Validate a Local Business Idea | GhostTown",
+    "headline": "Find out if your local business idea deserves a real-world test.",
+    "description": "Validate a local business idea by narrowing the first customer, painful problem, current alternative, and fastest low-cost way to test demand.",
+    "intent": "local business validation",
+    "customerPrompt": "Which local customer segment buys first, in what geography?",
+    "problemPrompt": "What urgent local need, inconvenience, risk, or desired outcome creates willingness to pay?",
+    "alternativePrompt": "Which existing local provider, DIY option, referral network, or no-action alternative wins today?",
+    "examples": ["home services", "local health and wellness", "professional services", "specialty retail or experiences"]
+  },
+  {
+    "slug": "validate-ecommerce-idea",
+    "title": "Validate an Ecommerce Product Idea | GhostTown",
+    "headline": "Test your ecommerce idea before inventory, ads, and packaging eat the budget.",
+    "description": "Run a free GhostTown verdict for an ecommerce concept and identify the strongest customer pain, competing alternative, and cheapest purchase-intent test.",
+    "intent": "ecommerce validation",
+    "customerPrompt": "Who wants this enough to switch or buy now?",
+    "problemPrompt": "What desired outcome or pain makes this product meaningfully better than doing nothing?",
+    "alternativePrompt": "What product, marketplace listing, brand, DIY solution, or substitute already gets the purchase?",
+    "examples": ["DTC products", "specialty ecommerce", "bundles and kits", "niche consumer products"]
+  },
+  {
+    "slug": "validate-service-business-idea",
+    "title": "Validate a Service Business Idea | GhostTown",
+    "headline": "Validate the service before you build the agency around it.",
+    "description": "Test a consulting, agency, freelance, or managed-service idea by identifying a specific buyer, costly problem, existing alternative, and first paid commitment test.",
+    "intent": "service business validation",
+    "customerPrompt": "Which buyer has budget authority and a reason to act now?",
+    "problemPrompt": "What outcome are they already spending money, time, or reputation to achieve?",
+    "alternativePrompt": "Do they hire employees, freelancers, agencies, software, or simply tolerate the problem?",
+    "examples": ["consulting", "productized services", "agencies", "managed operations"]
+  },
+  {
+    "slug": "validate-marketplace-idea",
+    "title": "Validate a Marketplace Idea | GhostTown",
+    "headline": "Test one side of your marketplace before trying to manufacture liquidity.",
+    "description": "Evaluate a marketplace idea by isolating the first constrained side, the transaction pain, current alternatives, and a low-cost test of real commitment.",
+    "intent": "marketplace validation",
+    "customerPrompt": "Which side of the marketplace is hardest to acquire and matters first?",
+    "problemPrompt": "What transaction, trust, discovery, coordination, or access problem hurts enough to change behavior?",
+    "alternativePrompt": "Where do buyers and sellers find each other today?",
+    "examples": ["B2B marketplaces", "local marketplaces", "expert networks", "specialty supply-demand platforms"]
+  },
+  {
+    "slug": "validate-app-idea",
+    "title": "Validate an App Idea Before Coding | GhostTown",
+    "headline": "Before you code the app, test whether anyone needs the outcome.",
+    "description": "Validate a mobile or web app idea with a GhostTown verdict focused on the first user, painful problem, alternatives, timing, and cheapest evidence-seeking test.",
+    "intent": "app idea validation",
+    "customerPrompt": "Who would change an existing habit to use this app?",
+    "problemPrompt": "What job or pain is important enough to create repeat use?",
+    "alternativePrompt": "What app, browser workflow, messaging thread, spreadsheet, or offline behavior already works well enough?",
+    "examples": ["consumer apps", "productivity apps", "community apps", "vertical workflow apps"]
+  },
+  {
+    "slug": "validate-side-hustle-idea",
+    "title": "Validate a Side Hustle Idea | GhostTown",
+    "headline": "Test the side hustle before it becomes a second unpaid job.",
+    "description": "Use GhostTown to narrow a side-hustle customer, problem, offer, and fastest test before committing nights, weekends, or meaningful cash.",
+    "intent": "side hustle validation",
+    "customerPrompt": "Who can you reach without building a large audience first?",
+    "problemPrompt": "What will they pay to solve instead of merely saying the idea sounds interesting?",
+    "alternativePrompt": "How do they solve it now, and why would they switch?",
+    "examples": ["digital services", "local services", "micro-SaaS", "niche products"]
+  },
+  {
+    "slug": "should-i-build-this",
+    "title": "Should I Build This Business Idea? | GhostTown",
+    "headline": "Should you build it? First find out what must be true.",
+    "description": "Turn a business idea into a falsifiable customer, problem, offer, and next test. GhostTown helps you decide what to test before deeper build investment.",
+    "intent": "build-or-test decision",
+    "customerPrompt": "Who specifically must care for this to work?",
+    "problemPrompt": "What painful problem or desired outcome makes action rational?",
+    "alternativePrompt": "What wins if your idea never exists?",
+    "examples": ["new startups", "product extensions", "business pivots", "founder ideas still on the whiteboard"]
+  },
+  {
+    "slug": "find-cheapest-startup-test",
+    "title": "Find the Cheapest Test for a Startup Idea | GhostTown",
+    "headline": "Find the cheapest test that could prove your idea wrong—or earn the next investment.",
+    "description": "Use GhostTown to identify the biggest unknown in a startup idea and the fastest bounded test of real customer behavior before building more.",
+    "intent": "cheapest startup test",
+    "customerPrompt": "Whose behavior would provide the strongest evidence?",
+    "problemPrompt": "Which assumption would kill the idea if it is false?",
+    "alternativePrompt": "What behavior today shows the customer is already trying to solve the problem?",
+    "examples": ["pre-sell tests", "concierge tests", "landing-page tests", "direct outreach and commitment tests"]
+  }
+]
