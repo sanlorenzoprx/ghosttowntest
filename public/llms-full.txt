@@ -37,6 +37,23 @@ The handoff URL lets a human review the public verdict projection. If the person
 
 No agent can create a Stripe Checkout session on the user's behalf.
 
+## Functional discovery utilities
+
+GhostTown exposes ten intent-specific web utilities. They are not separate verdict engines. Each utility gathers the user's business context, calls the canonical `/api/v1/free-verdict` adapter, presents any missing assessment questions without guessing, and produces the same secure human handoff when complete.
+
+- SaaS validation: https://ghosttowntest.com/validate-saas-idea
+- AI startup validation: https://ghosttowntest.com/validate-ai-startup
+- Local business validation: https://ghosttowntest.com/validate-local-business-idea
+- Ecommerce validation: https://ghosttowntest.com/validate-ecommerce-idea
+- Service business validation: https://ghosttowntest.com/validate-service-business-idea
+- Marketplace validation: https://ghosttowntest.com/validate-marketplace-idea
+- App idea validation: https://ghosttowntest.com/validate-app-idea
+- Side hustle validation: https://ghosttowntest.com/validate-side-hustle-idea
+- Build-or-test decision: https://ghosttowntest.com/should-i-build-this
+- Cheapest startup test: https://ghosttowntest.com/find-cheapest-startup-test
+
+Every production build emits a Markdown twin at `<utility-url>.md` and a machine-readable route catalog at https://ghosttowntest.com/discovery-manifest.json. The manifest contains a Story Studio URL template with `source`, `campaign`, `platform`, and `creative_id` dimensions so distributed creatives can land on a matching functional page instead of the generic homepage.
+
 ## Commercial attribution
 
 Agent handoffs initialize GhostTown's existing commercial attribution envelope using existing dimensions:
@@ -47,7 +64,7 @@ Agent handoffs initialize GhostTown's existing commercial attribution envelope u
 - publication ID = non-secret handoff ID
 - source verdict ID = canonical verdict ID
 
-The secret handoff token is not written into commercial attribution.
+Functional discovery pages identify themselves to the verdict adapter as `web-intent:<slug>:<source>` clients. Story Studio and other distribution systems may also pass normal GhostTown acquisition parameters in the utility URL. The secret handoff token is never written into commercial attribution.
 
 ## MCP
 
@@ -80,6 +97,10 @@ Tools:
 ## Offer
 
 GhostTown Launch Blueprint is currently $97 USD one time. The canonical application constant remains the source of truth for runtime offer metadata.
+
+## Search crawler access
+
+The public `robots.txt` allows normal web crawlers and explicitly allows `OAI-SearchBot` and `ChatGPT-User`. The sitemap includes all functional discovery utilities.
 
 ## Limits
 
