@@ -54,7 +54,8 @@ describe('Functional Discovery Surface 01', () => {
     expect(generator).toContain("protocol: 'search'");
     expect(generator).toContain("data.status==='needs_input'");
     expect(generator).toContain("data.status==='complete'");
-    expect(generator).toContain('/agent/handoff/');
+    expect(generator).toContain('const handoff=new URL(data.result_url)');
+    expect(generator).toContain('handoff.origin!==SITE_ORIGIN');
     expect(generator).not.toContain("fetch('/api/verdict");
   });
 
