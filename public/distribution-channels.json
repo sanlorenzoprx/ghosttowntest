@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "ghosttown-distribution-channels-v1",
+  "purpose": "Apply one acquisition suffix to any functional URL in /discovery-manifest.json. The same utility serves every channel.",
+  "parameters": ["source", "campaign", "platform", "creative_id", "publication_id", "experiment_id", "distribution_account_id", "share_type"],
+  "channels": {
+    "storyStudio": "?source=story-studio&campaign=functional-discovery-01&platform={platform}&creative_id={creative_id}",
+    "partner": "?source=partner&campaign={partner_id}&platform=partner&publication_id={placement_id}",
+    "directory": "?source=directory&campaign={directory_id}&platform={directory_id}",
+    "newsletter": "?source=newsletter&campaign={newsletter_id}&publication_id={issue_id}",
+    "community": "?source=community&campaign={community_id}&publication_id={post_id}",
+    "social": "?source=social&campaign={campaign_id}&platform={platform}&creative_id={creative_id}"
+  },
+  "revenuePath": "utility -> canonical free verdict -> secure human handoff -> saved verdict -> $97 Launch Blueprint checkout -> Stripe attribution"
+}
