@@ -1,6 +1,7 @@
 import { authenticateRequest } from './auth';
 import type { Env } from './env';
 import { saveUserResult } from './resultHistory';
+import { retireResultClaimToken } from './resultClaim';
 import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
 import type { EvaluationResult } from '../types/lit';
 import type {
@@ -117,6 +118,10 @@ export async function handleAgentHandoffClaim(
   const authoritative = hydrateEvaluationResultDecisionV2(JSON.parse(raw) as EvaluationResult);
   if (authoritative.resultId !== record.verdictId) return json({ error: 'Assessment not found' }, 404);
 
+  // The canonical verdict handler issues its normal anonymous-browser claim
+  // capability internally. ASC never exposes that raw secret, so retire it
+  // before copying the authoritative verdict into human-owned account state.
+  await retireResultClaimToken(env, record.verdictId);
   await saveUserResult(auth.email, authoritative, env);
   await env.KV.delete(`${HANDOFF_PREFIX}${handoffToken}`);
 
