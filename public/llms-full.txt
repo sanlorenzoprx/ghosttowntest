@@ -1,0 +1,86 @@
+# GhostTown — Extended Agent Index
+
+GhostTown is a business-idea validation product. It helps a founder narrow the customer and problem, identify the largest uncertainty, and choose the fastest useful falsification test before making a larger build commitment.
+
+## Canonical verdict semantics
+
+GhostTown's public agent adapter does not create a separate agent verdict. It feeds complete canonical inputs into the same GhostTown verdict handler used by the product.
+
+The adapter may return:
+
+- `needs_input` — required idea fields or assessment answers are missing or invalid.
+- `complete` — the canonical verdict ran successfully and a safe public projection plus human handoff URL was created.
+- `rate_limited` — the public inference budget for that caller has been reached for the current hour.
+- an HTTP error — the canonical verdict path could not complete.
+
+Agents must never infer or fabricate missing assessment answers.
+
+## Public verdict projection
+
+A complete public response includes:
+
+- verdict ID as reference only;
+- bounded verdict decision;
+- summary;
+- key assumptions;
+- primary risks;
+- fastest test;
+- next actions;
+- an expiring human handoff URL;
+- the current GhostTown Launch Blueprint offer.
+
+The verdict ID is not authorization. The handoff uses a separate unguessable capability token.
+
+## Human handoff
+
+The handoff URL lets a human review the public verdict projection. If the person chooses to continue, they must log in and explicitly claim the handoff into their GhostTown account. Only then does the normal saved-result and paid Blueprint path apply.
+
+No agent can create a Stripe Checkout session on the user's behalf.
+
+## Commercial attribution
+
+Agent handoffs initialize GhostTown's existing commercial attribution envelope using existing dimensions:
+
+- source = `agent`
+- platform = agent/client name when known
+- campaign = protocol and tool name
+- publication ID = non-secret handoff ID
+- source verdict ID = canonical verdict ID
+
+The secret handoff token is not written into commercial attribution.
+
+## MCP
+
+Endpoint: `POST https://api.ghosttowntest.com/mcp`
+
+Protocol revision: `2026-07-28`.
+
+The MCP surface is stateless. It supports:
+
+- `server/discover`
+- `tools/list`
+- `tools/call`
+
+Tools:
+
+- `ghosttown.explain`
+- `ghosttown.validate_idea`
+- `ghosttown.get_fastest_test`
+- `ghosttown.get_offer`
+
+`ghosttown.get_offer` only returns offer information and a human URL.
+
+## REST
+
+- `GET /api/v1/product`
+- `POST /api/v1/free-verdict`
+- `POST /api/v1/agent-handoffs/{token}/resolve`
+- `POST /api/v1/agent-handoffs/{token}/claim` — authenticated human action
+
+## Offer
+
+GhostTown Launch Blueprint is currently $97 USD one time. The canonical application constant remains the source of truth for runtime offer metadata.
+
+## Limits
+
+GhostTown does not promise that a business will succeed. It does not provide investment advice. A verdict is a structured view of current evidence and uncertainty intended to drive the next useful test.
