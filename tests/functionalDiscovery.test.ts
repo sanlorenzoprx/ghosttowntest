@@ -17,6 +17,7 @@ interface Intent {
 const root = process.cwd();
 const intents = JSON.parse(fs.readFileSync(path.join(root, 'config', 'functional-discovery-intents.json'), 'utf8')) as Intent[];
 const generator = fs.readFileSync(path.join(root, 'scripts', 'generate-functional-discovery-pages.mjs'), 'utf8');
+const handoff = fs.readFileSync(path.join(root, 'src', 'components', 'AgentHandoff.tsx'), 'utf8');
 const sitemap = fs.readFileSync(path.join(root, 'public', 'sitemap.xml'), 'utf8');
 const robots = fs.readFileSync(path.join(root, 'public', 'robots.txt'), 'utf8');
 
@@ -50,10 +51,10 @@ describe('Functional Discovery Surface 01', () => {
   it('routes every utility through the canonical agent verdict and secure handoff', () => {
     expect(generator).toContain('https://api.ghosttowntest.com/api/v1/free-verdict');
     expect(generator).toContain("protocol: 'search'");
-    expect(generator).toContain('data.status === \'needs_input\'');
-    expect(generator).toContain('data.status === \'complete\'');
+    expect(generator).toContain("data.status==='needs_input'");
+    expect(generator).toContain("data.status==='complete'");
     expect(generator).toContain('/agent/handoff/');
-    expect(generator).not.toContain('/api/verdict');
+    expect(generator).not.toContain("fetch('/api/verdict");
   });
 
   it('publishes crawlable indexes and explicitly allows OpenAI search discovery', () => {
@@ -62,10 +63,19 @@ describe('Functional Discovery Surface 01', () => {
     expect(robots).toContain('Allow: /');
   });
 
-  it('emits Story Studio attribution templates instead of generic homepage links', () => {
-    expect(generator).toContain('storyStudioUrlTemplate');
+  it('supports multiple acquisition channels without duplicating landing pages', () => {
+    for (const channel of ['storyStudio', 'partner', 'directory', 'newsletter', 'community', 'social']) {
+      expect(generator).toContain(`${channel}:`);
+    }
     expect(generator).toContain('source=story-studio');
     expect(generator).toContain('campaign=functional-discovery-01');
     expect(generator).toContain('creative_id={creative_id}');
+  });
+
+  it('forwards discovery attribution into the secure handoff before agent last-touch attribution', () => {
+    expect(generator).toContain("handoff.searchParams.set(key,value)");
+    expect(generator).toContain("handoff.searchParams.set('intent',INTENT)");
+    expect(handoff).toContain('captureCommercialAttribution(window.location.search)');
+    expect(handoff).toContain("params.set('source', value.attribution.source)");
   });
 });
