@@ -14,6 +14,8 @@
     "prebuild": "npm run verify:blueprint",
     "build": "vite build && node scripts/generate-functional-discovery-pages.mjs",
     "preview": "vite preview",
+    "indexnow:submit": "node scripts/submit-indexnow.mjs",
+    "indexnow:dry-run": "node scripts/submit-indexnow.mjs --dry-run",
     "preworker:check": "npm run verify:blueprint",
     "worker:check": "wrangler deploy --dry-run --env development",
     "preworker:check:acceptance": "npm run verify:blueprint",
