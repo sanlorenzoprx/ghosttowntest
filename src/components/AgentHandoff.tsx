@@ -39,6 +39,12 @@ export default function AgentHandoff({ handoffToken, isLoggedIn, onLoginClick, o
   const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
+    // Functional discovery pages forward their acquisition query parameters to
+    // the secure handoff URL. Capture them before the agent handoff becomes the
+    // last touch so Story Studio, partner, directory, newsletter and community
+    // traffic remain the immutable first touch through checkout and revenue.
+    captureCommercialAttribution(window.location.search);
+
     let active = true;
     void fetch(apiUrl(`/api/v1/agent-handoffs/${handoffToken}/resolve`), { method: 'POST' })
       .then(async response => {
