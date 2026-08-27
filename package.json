@@ -12,7 +12,7 @@
     "pretest": "npm run verify:blueprint",
     "test": "npm run test:fast && npm run test:workers-runtime && npm run test:worker-harness && npm run test:provider-contracts && npm run test:platform-guard && npm run test:browser",
     "prebuild": "npm run verify:blueprint",
-    "build": "vite build",
+    "build": "vite build && node scripts/generate-functional-discovery-pages.mjs",
     "preview": "vite preview",
     "preworker:check": "npm run verify:blueprint",
     "worker:check": "wrangler deploy --dry-run --env development",
