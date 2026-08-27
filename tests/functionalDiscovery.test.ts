@@ -49,7 +49,8 @@ describe('Functional Discovery Surface 01', () => {
   });
 
   it('routes every utility through the canonical agent verdict and secure handoff', () => {
-    expect(generator).toContain('https://api.ghosttowntest.com/api/v1/free-verdict');
+    expect(generator).toContain("const API_ORIGIN = 'https://api.ghosttowntest.com';");
+    expect(generator).toContain('`${API_ORIGIN}/api/v1/free-verdict`');
     expect(generator).toContain("protocol: 'search'");
     expect(generator).toContain("data.status==='needs_input'");
     expect(generator).toContain("data.status==='complete'");
