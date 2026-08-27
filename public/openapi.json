@@ -1,0 +1,214 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "GhostTown Agent API",
+    "version": "1.0.0",
+    "description": "Public machine interface for GhostTown business-idea validation. The verdict adapter reuses GhostTown's canonical verdict path and never fabricates missing assessment answers. Purchases require explicit human action."
+  },
+  "servers": [
+    { "url": "https://api.ghosttowntest.com" }
+  ],
+  "paths": {
+    "/api/v1/product": {
+      "get": {
+        "operationId": "getGhostTownProduct",
+        "summary": "Get GhostTown product metadata",
+        "responses": {
+          "200": {
+            "description": "Public product metadata",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProductMetadata" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/free-verdict": {
+      "post": {
+        "operationId": "validateIdea",
+        "summary": "Run or continue the canonical GhostTown free verdict",
+        "description": "Returns needs_input until all canonical GhostTown idea fields and assessment answers are present. Missing answers must be collected from the user rather than inferred.",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentVerdictInput" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Needs more input or completed verdict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/NeedsInput" },
+                    { "$ref": "#/components/schemas/CompleteVerdict" }
+                  ]
+                }
+              }
+            }
+          },
+          "413": { "description": "Request too large" },
+          "429": { "description": "Hourly public inference capacity reached" }
+        }
+      }
+    },
+    "/api/v1/agent-handoffs/{token}/resolve": {
+      "post": {
+        "operationId": "resolveAgentHandoff",
+        "summary": "Resolve an expiring GhostTown agent handoff",
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string", "minLength": 64, "maxLength": 64 } }
+        ],
+        "responses": {
+          "200": { "description": "Safe public verdict projection and non-secret attribution" },
+          "404": { "description": "Handoff not found or expired" }
+        }
+      }
+    },
+    "/api/v1/agent-handoffs/{token}/claim": {
+      "post": {
+        "operationId": "claimAgentHandoff",
+        "summary": "Save an agent verdict to the authenticated human's GhostTown account",
+        "description": "Requires normal GhostTown authentication. The server saves the authoritative stored verdict and retires the handoff capability.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string", "minLength": 64, "maxLength": 64 } }
+        ],
+        "responses": {
+          "200": { "description": "Verdict saved to the authenticated account" },
+          "401": { "description": "Authentication required" },
+          "404": { "description": "Handoff or authoritative verdict not found" }
+        }
+      }
+    },
+    "/mcp": {
+      "post": {
+        "operationId": "ghostTownMcp",
+        "summary": "Stateless MCP endpoint",
+        "description": "Implements the MCP 2026-07-28 stateless HTTP core for server/discover, tools/list and tools/call.",
+        "responses": {
+          "200": { "description": "JSON-RPC result" },
+          "400": { "description": "Invalid JSON-RPC or MCP header mismatch" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer" }
+    },
+    "schemas": {
+      "ProductMetadata": {
+        "type": "object",
+        "required": ["product", "purpose", "free_capability", "paid_offer", "openapi", "mcp", "limitations"],
+        "properties": {
+          "product": { "type": "string" },
+          "purpose": { "type": "string" },
+          "free_capability": { "type": "string" },
+          "paid_offer": { "$ref": "#/components/schemas/Offer" },
+          "openapi": { "type": "string", "format": "uri" },
+          "mcp": { "type": "string", "format": "uri" },
+          "limitations": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "AgentVerdictInput": {
+        "type": "object",
+        "properties": {
+          "idea": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "properties": {
+                  "ideaName": { "type": "string" },
+                  "description": { "type": "string" },
+                  "targetUser": { "type": "string" },
+                  "painfulProblem": { "type": "string" },
+                  "currentAlternative": { "type": "string" },
+                  "motivation": { "type": "string" }
+                },
+                "additionalProperties": true
+              }
+            ]
+          },
+          "customer": { "type": "string" },
+          "problem": { "type": "string" },
+          "alternative": { "type": "string" },
+          "motivation": { "type": "string" },
+          "geography": { "type": "string" },
+          "context": { "type": "string" },
+          "answers": {
+            "type": "object",
+            "additionalProperties": { "oneOf": [{ "type": "number" }, { "type": "string" }] }
+          },
+          "locale": { "type": "string" },
+          "public_content_acknowledged": { "type": "boolean" },
+          "agent": {
+            "type": "object",
+            "properties": {
+              "client": { "type": "string" },
+              "protocol": { "enum": ["api", "mcp", "search", "webmcp", "a2a"] }
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "InputQuestion": {
+        "type": "object",
+        "required": ["field", "prompt"],
+        "properties": {
+          "field": { "type": "string" },
+          "prompt": { "type": "string" },
+          "helper": { "type": "string" },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["label", "value"],
+              "properties": {
+                "label": { "type": "string" },
+                "value": { "type": "number" }
+              }
+            }
+          }
+        }
+      },
+      "NeedsInput": {
+        "type": "object",
+        "required": ["status", "missing", "questions", "continue_with"],
+        "properties": {
+          "status": { "const": "needs_input" },
+          "missing": { "type": "array", "items": { "type": "string" } },
+          "questions": { "type": "array", "items": { "$ref": "#/components/schemas/InputQuestion" } },
+          "continue_with": { "const": "/api/v1/free-verdict" }
+        }
+      },
+      "Offer": {
+        "type": "object",
+        "required": ["offer_id", "name", "price_usd", "currency", "url", "requires_user_action"],
+        "properties": {
+          "offer_id": { "type": "string" },
+          "name": { "type": "string" },
+          "price_usd": { "type": "number" },
+          "currency": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "requires_user_action": { "const": true }
+        }
+      },
+      "CompleteVerdict": {
+        "type": "object",
+        "required": ["status", "verdict_id", "verdict", "summary", "key_assumptions", "primary_risks", "fastest_test", "next_actions", "handoff_id", "result_url", "offer"],
+        "properties": {
+          "status": { "const": "complete" },
+          "verdict_id": { "type": "string" },
+          "verdict": { "type": "string" },
+          "summary": { "type": "string" },
+          "key_assumptions": { "type": "array", "items": { "type": "string" } },
+          "primary_risks": { "type": "array", "items": { "type": "string" } },
+          "fastest_test": { "type": "string" },
+          "next_actions": { "type": "array", "items": { "type": "string" } },
+          "handoff_id": { "type": "string" },
+          "result_url": { "type": "string", "format": "uri" },
+          "offer": { "$ref": "#/components/schemas/Offer" }
+        }
+      }
+    }
+  }
+}
