@@ -21,6 +21,22 @@ The free verdict adapter returns `needs_input` until the same canonical idea fie
 
 Agent-created verdict handoffs are private-by-capability URLs with an expiration. A result ID is not an authorization token.
 
+## Functional discovery utilities
+
+Each utility is a crawlable page that can run the same canonical free verdict and produces a secure human handoff. Each build also emits a Markdown twin at `<url>.md`.
+
+- SaaS validation: https://ghosttowntest.com/validate-saas-idea
+- AI startup validation: https://ghosttowntest.com/validate-ai-startup
+- Local business validation: https://ghosttowntest.com/validate-local-business-idea
+- Ecommerce validation: https://ghosttowntest.com/validate-ecommerce-idea
+- Service business validation: https://ghosttowntest.com/validate-service-business-idea
+- Marketplace validation: https://ghosttowntest.com/validate-marketplace-idea
+- App idea validation: https://ghosttowntest.com/validate-app-idea
+- Side hustle validation: https://ghosttowntest.com/validate-side-hustle-idea
+- Build-or-test decision: https://ghosttowntest.com/should-i-build-this
+- Cheapest startup test: https://ghosttowntest.com/find-cheapest-startup-test
+- Story Studio/distribution route manifest: https://ghosttowntest.com/discovery-manifest.json
+
 ## Paid offer
 
 GhostTown Launch Blueprint — $97 USD one time.
