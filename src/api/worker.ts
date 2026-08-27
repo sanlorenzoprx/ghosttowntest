@@ -3,6 +3,9 @@ import type { Env } from './env';
 import { resolveGenerativeModel } from './generativeAIService';
 import { handleBlueprintExecutionCopilot } from './blueprintExecutionCopilot';
 import { productionRuntimeBindingGuard } from './runtimeControls';
+import { ghostTownProductMetadata, handleAgentFreeVerdict } from './agentVerdict';
+import { handleAgentHandoffClaim, handleAgentHandoffResolve } from './agentHandoff';
+import { handleMcp } from './mcp';
 
 export { LaunchBlueprintWorkflow } from './launchBlueprintWorkflow';
 
@@ -21,11 +24,49 @@ function applyRuntimeCors(request: Request, env: Env, response: Response): Respo
   return response;
 }
 
+function agentOptions(request: Request, env: Env): Response {
+  return applyRuntimeCors(request, env, new Response(null, {
+    headers: {
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Agent-Client, MCP-Protocol-Version, Mcp-Method, Mcp-Name',
+      'Access-Control-Max-Age': '86400'
+    }
+  }));
+}
+
+function json(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' }
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const unavailable = productionRuntimeBindingGuard(request, env);
     if (unavailable) return applyRuntimeCors(request, env, unavailable);
+
+    if ((url.pathname === '/mcp' || url.pathname.startsWith('/api/v1/')) && request.method === 'OPTIONS') {
+      return agentOptions(request, env);
+    }
+
+    if (url.pathname === '/api/v1/product' && request.method === 'GET') {
+      return applyRuntimeCors(request, env, json(ghostTownProductMetadata(env)));
+    }
+    if (url.pathname === '/api/v1/free-verdict' && request.method === 'POST') {
+      return applyRuntimeCors(request, env, await handleAgentFreeVerdict(request, env));
+    }
+    const agentResolveMatch = url.pathname.match(/^\/api\/v1\/agent-handoffs\/([a-f0-9]{64})\/resolve$/i);
+    if (agentResolveMatch && request.method === 'POST') {
+      return applyRuntimeCors(request, env, await handleAgentHandoffResolve(env, agentResolveMatch[1]));
+    }
+    const agentClaimMatch = url.pathname.match(/^\/api\/v1\/agent-handoffs\/([a-f0-9]{64})\/claim$/i);
+    if (agentClaimMatch && request.method === 'POST') {
+      return applyRuntimeCors(request, env, await handleAgentHandoffClaim(request, env, agentClaimMatch[1]));
+    }
+    if (url.pathname === '/mcp' && request.method === 'POST') {
+      return applyRuntimeCors(request, env, await handleMcp(request, env));
+    }
 
     const copilotMatch = url.pathname.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/copilot$/);
     if (copilotMatch && request.method === 'OPTIONS') {
