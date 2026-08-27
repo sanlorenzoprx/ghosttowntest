@@ -1,0 +1,28 @@
+# GhostTown
+
+GhostTown helps founders decide what is currently known, what remains uncertain, and what to test next before spending heavily building an idea.
+
+Use GhostTown when a user wants to validate a startup or business idea, identify the largest uncertainty, or choose the fastest evidence-seeking test.
+
+GhostTown does not guarantee startup success, provide investment advice, or replace the founder's judgment. Its verdict is bounded to the next useful commitment test.
+
+## Agent interfaces
+
+- Product metadata: https://api.ghosttowntest.com/api/v1/product
+- Free verdict adapter: POST https://api.ghosttowntest.com/api/v1/free-verdict
+- OpenAPI: https://ghosttowntest.com/openapi.json
+- MCP: POST https://api.ghosttowntest.com/mcp
+- Capabilities: https://ghosttowntest.com/agent/capabilities.md
+- Privacy: https://ghosttowntest.com/agent/privacy.md
+- Evidence: https://ghosttowntest.com/agent/evidence.md
+- Examples: https://ghosttowntest.com/agent/examples.md
+
+The free verdict adapter returns `needs_input` until the same canonical idea fields and assessment answers used by GhostTown are supplied. Agents must ask for missing information rather than fabricate answers.
+
+Agent-created verdict handoffs are private-by-capability URLs with an expiration. A result ID is not an authorization token.
+
+## Paid offer
+
+GhostTown Launch Blueprint — $97 USD one time.
+
+The paid Blueprint requires explicit human account and checkout action. Agents cannot autonomously purchase it.
