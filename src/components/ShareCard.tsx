@@ -98,7 +98,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
       }
 
       setMessage(reward.message || (reward.rewarded
-        ? `Assessment ${reward.totalFreeAssessments} of 2 is now unlocked.`
+        ? `Free test ${reward.totalFreeAssessments} of 2 is now unlocked.`
         : 'Share completed.'));
       onRewardClaimed();
     } catch (caught) {
