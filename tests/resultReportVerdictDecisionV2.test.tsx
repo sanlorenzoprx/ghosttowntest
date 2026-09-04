@@ -35,7 +35,7 @@ describe('ResultReport VerdictDecisionV2', () => {
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => null } });
     const html = renderToStaticMarkup(<ResultReport result={result} onReset={() => {}} isLoggedIn={false} onLoginClick={() => {}} onRewardClaimed={() => {}} locale="en" />);
 
-    const primaryHeadings = ['Decision', 'Biggest unknown', 'Fastest test', 'Do this first'];
+    const primaryHeadings = ['Your verdict', 'Biggest unknown', 'Best next test', 'Do this first'];
     const primaryPositions = primaryHeadings.map(heading => html.indexOf(heading));
     expect(primaryPositions.every(position => position >= 0)).toBe(true);
     expect(primaryPositions).toEqual([...primaryPositions].sort((left, right) => left - right));
