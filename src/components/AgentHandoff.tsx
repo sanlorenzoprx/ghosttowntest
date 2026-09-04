@@ -146,7 +146,7 @@ export default function AgentHandoff({ handoffToken, isLoggedIn, onLoginClick, o
             <button type="button" disabled={claiming} onClick={() => void claim()} className="rounded-lg bg-ghost-rust px-6 py-3 font-black text-white disabled:opacity-60">
               {claiming ? 'Saving…' : isLoggedIn ? 'Save verdict and see the 30-day plan' : 'Log in to save this verdict'}
             </button>
-            <button type="button" onClick={onHome} className="rounded-lg border border-ghost-forest px-6 py-3 font-black text-ghost-forest">Run GhostTown directly</button>
+            <button type="button" onClick={onHome} className="rounded-lg border border-ghost-forest px-6 py-3 font-black text-ghost-forest">Test an idea in GhostTown</button>
           </div>
         </div>
       </div>
