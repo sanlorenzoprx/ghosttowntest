@@ -137,6 +137,6 @@ describe('commercial UI acceptance contract', () => {
     expect(competitorSeeds).toContain("direct_competitor: 'Same market'");
     expect(competitorSeeds).toContain("adjacent_product: 'Similar or adjacent market'");
     expect(competitorSeeds).toContain('GhostTown already did the first pass.');
-    expect(competitorSeeds).toContain('Use These Resources and Build My Blueprint');
+    expect(competitorSeeds).toContain('Use These Examples and Continue My Blueprint');
   });
 });
