@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 import { captureCommercialAttribution } from '../lib/commercialAttribution';
 import type { EvaluationResult } from '../types/lit';
-import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE } from '../lib/ghosttownOffer';
 
 interface ResolveResponse {
   handoff_id: string;
@@ -38,13 +37,12 @@ export default function AgentHandoff({ handoffToken, isLoggedIn, onLoginClick, o
   const [data, setData] = useState<ResolveResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
-  const displayPrice = import.meta.env.VITE_30_DAY_PLAN_DISPLAY_PRICE?.trim() || DEFAULT_30_DAY_PLAN_DISPLAY_PRICE;
 
   useEffect(() => {
     let active = true;
     void fetch(apiUrl(`/api/v1/agent-handoffs/${handoffToken}/resolve`), { method: 'POST' })
       .then(async response => {
-        if (!response.ok) throw new Error('This shared GhostTown verdict is unavailable or has expired.');
+        if (!response.ok) throw new Error('This agent handoff is unavailable or has expired.');
         return response.json<ResolveResponse>();
       })
       .then(value => {
@@ -91,9 +89,9 @@ export default function AgentHandoff({ handoffToken, isLoggedIn, onLoginClick, o
   if (error && !data) {
     return (
       <section className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <h1 className="font-display text-4xl font-semibold text-ghost-ink">Shared verdict unavailable</h1>
+        <h1 className="font-display text-4xl font-semibold text-ghost-ink">Agent handoff unavailable</h1>
         <p className="mt-4 text-gray-700">{error}</p>
-        <button type="button" onClick={onHome} className="mt-8 rounded-lg bg-ghost-forest px-6 py-3 font-black text-white">Test an idea in GhostTown</button>
+        <button type="button" onClick={onHome} className="mt-8 rounded-lg bg-ghost-forest px-6 py-3 font-black text-white">Run GhostTown directly</button>
       </section>
     );
   }
@@ -106,7 +104,7 @@ export default function AgentHandoff({ handoffToken, isLoggedIn, onLoginClick, o
   return (
     <section className="mx-auto max-w-4xl px-4 py-10 sm:py-16">
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-rust">GhostTown verdict</p>
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-rust">GhostTown agent handoff</p>
         <h1 className="mt-3 font-display text-4xl font-semibold text-ghost-ink">{verdictLabel}</h1>
         <p className="mt-4 text-lg leading-8 text-gray-700">{verdict.summary}</p>
 
@@ -140,13 +138,13 @@ export default function AgentHandoff({ handoffToken, isLoggedIn, onLoginClick, o
         {error && <p className="mt-6 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
 
         <div className="mt-8 border-t border-gray-200 pt-6">
-          <h2 className="text-2xl font-black text-ghost-ink">Want help with the next 30 days?</h2>
-          <p className="mt-2 text-gray-700">The 30-day plan turns this verdict into daily steps, messages, research, and a launch website. The current price is {displayPrice}. Save the verdict to your account before checkout. Only you can choose to buy it.</p>
+          <h2 className="text-2xl font-black text-ghost-ink">Want the full 30-day execution plan?</h2>
+          <p className="mt-2 text-gray-700">The GhostTown Launch Blueprint is $97. Saving this verdict to your account is required before checkout. No agent can purchase it for you.</p>
           <div className="mt-5 flex flex-wrap gap-3">
             <button type="button" disabled={claiming} onClick={() => void claim()} className="rounded-lg bg-ghost-rust px-6 py-3 font-black text-white disabled:opacity-60">
-              {claiming ? 'Saving…' : isLoggedIn ? 'Save verdict and see the 30-day plan' : 'Log in to save this verdict'}
+              {claiming ? 'Saving…' : isLoggedIn ? 'Save verdict and continue' : 'Log in to save and continue'}
             </button>
-            <button type="button" onClick={onHome} className="rounded-lg border border-ghost-forest px-6 py-3 font-black text-ghost-forest">Test an idea in GhostTown</button>
+            <button type="button" onClick={onHome} className="rounded-lg border border-ghost-forest px-6 py-3 font-black text-ghost-forest">Run GhostTown directly</button>
           </div>
         </div>
       </div>
