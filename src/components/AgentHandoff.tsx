@@ -44,7 +44,7 @@ export default function AgentHandoff({ handoffToken, isLoggedIn, onLoginClick, o
     let active = true;
     void fetch(apiUrl(`/api/v1/agent-handoffs/${handoffToken}/resolve`), { method: 'POST' })
       .then(async response => {
-        if (!response.ok) throw new Error('This agent handoff is unavailable or has expired.');
+        if (!response.ok) throw new Error('This shared GhostTown verdict is unavailable or has expired.');
         return response.json<ResolveResponse>();
       })
       .then(value => {
