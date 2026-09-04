@@ -54,7 +54,7 @@ describe('GhostTown Customer Journey Law', () => {
   });
 
   it('preserves the simple acquisition promise', () => {
-    expect(landing).toContain('Test your idea first. See if people want it. Then decide if it’s worth building.');
+    expect(landing).toContain('Test your idea before you spend months building it. See what looks promising, what could kill it, and the most useful test to run next.');
     expect(law).toContain("I have an idea. Let's test it.");
   });
 
@@ -71,6 +71,23 @@ describe('GhostTown Customer Journey Law', () => {
     for (const phrase of bannedPaidCopy) {
       expect(lower).not.toContain(phrase.toLowerCase());
     }
+  });
+
+  it('applies four-part persuasion without hard-coding the Blueprint price into narrative copy', () => {
+    expect(law).toContain('Gain');
+    expect(law).toContain('Relief');
+    expect(law).toContain('Risk');
+    expect(law).toContain('Miss');
+    expect(law).toContain('Price is part of the current offer, not part of GhostTown\'s permanent product story.');
+    expect(landing).toContain('What do I get with the 30-day plan?');
+    expect(landing).not.toContain('What do I get for $97?');
+    expect(landing).not.toContain('The $97 plan comes later');
+  });
+
+  it('makes shared verdicts explain GhostTown without requiring internal diagnostics', () => {
+    expect(law).toContain('I tested a business idea with GhostTown before building it.');
+    expect(law).toContain('#GhostTownTest');
+    expect(law).toContain('The idea name stays private unless the customer chooses to include it.');
   });
 
   it('makes ambiguity itself a release defect', () => {
