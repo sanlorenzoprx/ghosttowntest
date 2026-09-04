@@ -16,7 +16,7 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
   const [needsSeeds, setNeedsSeeds] = useState(false);
   const [pollVersion, setPollVersion] = useState(0);
   const [stage, setStage] = useState(
-    "Confirming payment and opening your paid research intake...",
+    "Confirming payment and getting your 30-day plan started...",
   );
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState("");
@@ -43,7 +43,7 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
           setReady(true);
           setNeedsSeeds(false);
           setStage(
-            "Your evidence-led Launch Blueprint and professional PDF are ready.",
+            "Your 30-day plan and PDF are ready.",
           );
           setError("");
           return;
@@ -55,18 +55,18 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
         if (body.status === "awaiting_seeds" || body.status === "paid") {
           setNeedsSeeds(true);
           setStage(
-            "Payment received. Confirm the competitor footprints GhostTown should research.",
+            "Payment received. Review the examples GhostTown found before it finishes your market research.",
           );
           setError("");
           return;
         }
         if (body.status === "researching")
           setStage(
-            "Mapping competitor backlinks, podcasts, creators, publications, events, and partners...",
+            "Finding where likely customers already pay attention...",
           );
         else if (body.status === "generating")
           setStage(
-            "Generating your offer, media pitches, outreach assets, Launch Site, calendar, PDF, and asset bundle...",
+            "Building your offer, messages, launch website, daily plan, and downloadable files...",
           );
         else if (body.status === "failed") {
           setError(
@@ -121,7 +121,7 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
             onStarted={() => {
               setNeedsSeeds(false);
               setStage(
-                "Mapping competitor media and distribution footprints...",
+                "Finding where likely customers already pay attention...",
               );
               setPollVersion((version) => version + 1);
             }}
@@ -141,13 +141,13 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
         <h1 className="mt-3 font-display text-4xl font-bold text-ghost-ink">
           {ready
             ? "Your GhostTown Launch Blueprint is ready."
-            : "Building your Media & Distribution Network..."}
+            : "Building your 30-day plan..."}
         </h1>
         <p className="mt-4 text-gray-700">{stage}</p>
         {!ready && !error && (
           <div
             className="mx-auto mt-7 h-10 w-10 animate-spin rounded-full border-4 border-ghost-rust/20 border-b-ghost-rust"
-            aria-label="Generating Blueprint"
+            aria-label="Building your 30-day plan"
           />
         )}
         {error && (
@@ -173,7 +173,7 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
           className="mt-6 text-sm font-bold text-blue-700 hover:underline"
         >
           {ready
-            ? "Open executable Blueprint in Dashboard"
+            ? "Open My Interactive Blueprint"
             : "Return to Dashboard"}
         </button>
       </div>

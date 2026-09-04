@@ -58,7 +58,27 @@ Examples:
 | Positioning and offer strategy | Know what to say, who it is for, and what to charge. |
 | Personalized Cloudflare Launch Site Starter | Custom Launch Website |
 
-## 3. Page sequence
+## 3. Four-part persuasion check
+
+Every important commercial section should naturally answer some combination of four questions:
+
+- **Gain:** What does the customer get by acting?
+- **Relief:** What burden, work, uncertainty, or delay disappears?
+- **Risk:** What real cost continues if nothing changes?
+- **Miss:** What better outcome could be lost by waiting or choosing the wrong path?
+
+Do not label these four forces in the UI and do not force four paragraphs under every heading. Use them as a completeness check.
+
+For GhostTown:
+
+- **Gain:** a clear verdict and useful next move;
+- **Relief:** less blind building, research homework, blank-page marketing, and guessing;
+- **Risk:** months and money spent before learning whether buyers care enough to act;
+- **Miss:** a promising idea abandoned because the founder never ran the right test.
+
+The last two must remain truthful and proportionate. No fake scarcity, countdowns, or invented catastrophe.
+
+## 4. Page sequence
 
 Long is acceptable. Dense is not.
 
@@ -86,7 +106,7 @@ Recommended sequence:
 
 Do not force every page to have exactly 17 blocks. Preserve the sequence of questions even when blocks are combined.
 
-## 4. Hero story rule
+## 5. Hero story rule
 
 When the customer problem is emotional or easy to recognize visually, use the hero media to tell the whole story in a few seconds.
 
@@ -109,7 +129,7 @@ The hero sequence may auto-advance, but it must:
 - use short captions;
 - pause longer on the final product-payoff frame.
 
-## 5. Relatability and imagery
+## 6. Relatability and imagery
 
 People should be able to see themselves in the page.
 
@@ -123,7 +143,7 @@ Use a believable range of builders when relevant to the market:
 
 Do not use demographic variety as decoration. Each image should advance the customer story.
 
-## 6. Real customer/founder language
+## 7. Real customer/founder language
 
 Real public complaints can improve credibility when used carefully.
 
@@ -139,7 +159,7 @@ Rules:
 
 Use only a few quotes. The rest of the story should use simple captions.
 
-## 7. Value before price
+## 8. Value before price
 
 Before showing the price, the customer should understand:
 
@@ -152,7 +172,7 @@ Before showing the price, the customer should understand:
 
 For GhostTown, the paid value is not “a PDF.” It is the working launch system behind the PDF, dashboard, assets, and website.
 
-## 8. Name deliverables by customer value
+## 9. Name deliverables by customer value
 
 Do not expose implementation infrastructure in the customer-facing product name unless it is itself valuable to the buyer.
 
@@ -168,7 +188,7 @@ Better:
 
 The internal implementation can continue to use Cloudflare and the canonical `Launch Site` model. Customer-facing naming should describe what the buyer receives.
 
-## 9. Truth and offer safety
+## 10. Truth and offer safety
 
 Hormozi-style offer design may improve:
 
@@ -192,7 +212,7 @@ It must not create:
 
 GhostTown remains a decision aid. It does not guarantee validation, customers, sales, revenue, product-market fit, or business success.
 
-## 10. Conversion checks
+## 11. Conversion checks
 
 Before approving a page, ask:
 
@@ -207,7 +227,7 @@ Before approving a page, ask:
 - Are technical terms translated into customer value?
 - Does mobile preserve the same story and CTA hierarchy?
 
-## 11. Accessibility and motion
+## 12. Accessibility and motion
 
 World-class commercial UI must remain usable.
 
@@ -222,7 +242,7 @@ World-class commercial UI must remain usable.
 - no sticky CTA that hides focused content;
 - no page-level horizontal scrolling at phone widths.
 
-## 12. GhostTown reference implementation
+## 13. GhostTown reference implementation
 
 The GhostTown commercial acquisition branch is the first reference implementation of this guide.
 

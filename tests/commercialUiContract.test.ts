@@ -11,6 +11,12 @@ describe('commercial UI acceptance contract', () => {
   const examples = readSource('src/components/ExampleIdeaGallery.tsx');
   const proof = readSource('src/components/ProofStandard.tsx');
   const dashboard = readSource('src/components/UserDashboard.tsx');
+  const intake = readSource('src/components/IdeaIntake.tsx');
+  const resultReport = readSource('src/components/ResultReport.tsx');
+  const shareCard = readSource('src/components/ShareCard.tsx');
+  const shareCopy = readSource('src/lib/share.ts');
+  const paidSuccess = readSource('src/components/ActionPlanSuccess.tsx');
+  const blueprintView = readSource('src/components/LaunchBlueprintView.tsx');
   const prePurchaseResearch = readSource('src/components/PrePurchaseResearchSignals.tsx');
   const checkoutIntake = readSource('src/components/ActionPlanModal.tsx');
   const competitorSeeds = readSource('src/components/CompetitorSeedStep.tsx');
@@ -85,6 +91,45 @@ describe('commercial UI acceptance contract', () => {
     expect(offer).toContain('Open GhostTown each day and see what to do next');
   });
 
+  it('keeps the product story stable while the current price stays at the buying decision', () => {
+    expect(landing).toContain('What do I get with the 30-day plan?');
+    expect(landing).not.toContain('What do I get for $97?');
+    expect(landing).not.toContain('The $97 plan comes later');
+    expect(landing).toContain('displayPrice');
+    expect(checkoutIntake).toContain('displayPrice');
+  });
+
+  it('uses test, verdict, and next-action language through the customer journey', () => {
+    expect(intake).toContain('Start My Free Test · About 5 Minutes');
+    expect(intake).not.toContain('Start Assessment · About 5 Minutes');
+    expect(resultReport).toContain('Your verdict');
+    expect(resultReport).toContain('Best next test');
+    expect(dashboard).toContain('Previous Tests');
+    expect(dashboard).toContain('Test Another Idea');
+    expect(shareCard).toContain('Share My Verdict & Unlock 1 Free Test');
+  });
+
+  it('keeps post-payment work in customer language instead of implementation language', () => {
+    expect(paidSuccess).toContain('Building your 30-day plan...');
+    expect(paidSuccess).toContain('Open My Interactive Blueprint');
+    expect(paidSuccess).not.toContain('Media & Distribution Network');
+    expect(paidSuccess).not.toContain('Open executable Blueprint in Dashboard');
+
+    expect(blueprintView).toContain('Where to find likely customers');
+    expect(blueprintView).toContain('Review these opportunities');
+    expect(blueprintView).not.toContain('Media & Distribution Network');
+    expect(blueprintView).not.toContain('research.model');
+    expect(blueprintView).not.toContain('owner-only Google research console');
+  });
+
+  it('makes shared verdicts carry the GhostTown promise rather than internal scores', () => {
+    expect(shareCopy).toContain('I tested a business idea with GhostTown before building it.');
+    expect(shareCopy).toContain('#GhostTownTest');
+    expect(shareCopy).not.toContain('**Ghost Town Risk:**');
+    expect(shareCopy).not.toContain('**LIT Score:**');
+    expect(shareCopy).not.toContain('**Business DNA:**');
+  });
+
   it('preselects post-purchase market references instead of making the buyer start from zero', () => {
     expect(competitorSeeds).toContain('defaultSuggestionSelection');
     expect(competitorSeeds).toContain('setSelected(defaultSuggestionSelection(loadedSuggestions))');
@@ -92,6 +137,6 @@ describe('commercial UI acceptance contract', () => {
     expect(competitorSeeds).toContain("direct_competitor: 'Same market'");
     expect(competitorSeeds).toContain("adjacent_product: 'Similar or adjacent market'");
     expect(competitorSeeds).toContain('GhostTown already did the first pass.');
-    expect(competitorSeeds).toContain('Use These Resources and Build My Blueprint');
+    expect(competitorSeeds).toContain('Use These Examples and Continue My Blueprint');
   });
 });

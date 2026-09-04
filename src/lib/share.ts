@@ -7,44 +7,35 @@ export function createShareSummary(
 ): string {
   const scores = result.deterministicScores;
   const decision = result.verdictDecisionV2;
+  const ideaLine = includeIdeaName ? `Idea: ${result.idea.ideaName}\n\n` : '';
+
   if (!decision) {
     const verdict = result.verdict || {
       verdict_headline: scores.verdictHeadline,
       one_sentence_advice: scores.oneSentenceAdvice
     };
-    return `I ran my idea through the LIT Ghost Town Test.
+    return `I tested a business idea with GhostTown before building it.
 
-**Idea:** ${includeIdeaName ? result.idea.ideaName : 'Kept private'}
+${ideaLine}Verdict: ${verdict.verdict_headline}
 
-**Verdict:** ${verdict.verdict_headline}
+Next step: ${verdict.one_sentence_advice}
 
-**Ghost Town Risk:** ${scores.ghostTownScore}/5
-**LIT Score:** ${scores.litScore}/5
-**Business DNA:** ${scores.businessDnaType}
+Test your idea before you spend months building it: ${shareUrl}
 
-**Advice:** ${verdict.one_sentence_advice}
-
-**Next Test:** ${scores.recommendedNextTest}
-
-Test your idea: ${shareUrl}`;
+#GhostTownTest`;
   }
 
-  return `I ran my idea through the LIT Ghost Town Test.
+  return `I tested a business idea with GhostTown before building it.
 
-**Idea:** ${includeIdeaName ? result.idea.ideaName : 'Kept private'}
+${ideaLine}Verdict: ${decision.decision.replace(/_/g, ' ')}
 
-**Decision:** ${decision.decision.replace(/_/g, ' ')}
-**What is being tested:** ${decision.predictionTarget}
+Biggest unknown: ${decision.largestUncertainty.assumption}
 
-**Ghost Town Risk:** ${scores.ghostTownScore}/5
-**LIT Score:** ${scores.litScore}/5
-**Business DNA:** ${scores.businessDnaType}
+Next step: ${decision.firstAction.action}
 
-**First action:** ${decision.firstAction.action}
+Test your idea before you spend months building it: ${shareUrl}
 
-**Commitment ask:** ${decision.offerHypothesis.commitmentRequested}
-
-Test your idea: ${shareUrl}`;
+#GhostTownTest`;
 }
 
 export async function copyToClipboard(text: string): Promise<void> {

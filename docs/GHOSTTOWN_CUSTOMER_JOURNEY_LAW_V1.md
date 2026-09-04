@@ -169,7 +169,9 @@ The PDF is the full map. The Interactive Blueprint is the product the customer w
 
 Primary action:
 
-> **Build My 30-Day Interactive Blueprint — $97**
+> **Build My 30-Day Interactive Blueprint — [current price]**
+
+The amount shown at the buying decision must come from the active configured offer. Do not make a historical dollar amount part of GhostTown's permanent narrative copy.
 
 ### Stage 5 — Checkout
 
@@ -339,6 +341,44 @@ Do not use fake companionship. The value is continuity and useful help, not pret
 ## 10. Persuasion law
 
 Persuasion should make value easier to see, not make truth harder to see.
+
+For every major commercial section, check four forces without turning them into four mechanical paragraphs:
+
+1. **Gain** — What gets better if the customer acts?
+2. **Relief** — What work, confusion, delay, or uncertainty goes away?
+3. **Risk** — What real cost continues if the customer does nothing?
+4. **Miss** — What useful opportunity may be lost by waiting, guessing, or choosing the wrong path?
+
+For GhostTown, the core pattern is:
+
+- gain: know what deserves the next move;
+- relief: avoid doing all the research, blank-page work, and guessing alone;
+- risk: spend months or money without learning whether buyers will act or pay;
+- miss: abandon a promising idea for the wrong reason because the customer never got a useful signal.
+
+Risk and miss must describe plausible existing consequences. Never manufacture fear, urgency, or certainty.
+
+### Price placement rule
+
+Price is part of the current offer, not part of GhostTown's permanent product story.
+
+- Explain value before price.
+- Show the current configured price clearly at the offer and checkout decision.
+- Do not repeat a hard-coded dollar amount through hero copy, FAQs, share copy, or explanatory narrative.
+- A price change must not require rewriting the product promise.
+- Customer-facing price and Stripe checkout configuration must refer to the same active offer.
+
+### Share-copy rule
+
+A shared verdict should also explain GhostTown to the next person.
+
+Default share copy should lead with the plain-language behavior:
+
+> **I tested a business idea with GhostTown before building it.**
+
+Then show the verdict, the biggest unknown when available, and the next step. Do not make a recipient decode LIT scores, Business DNA, model language, or internal diagnostics to understand the share.
+
+The idea name stays private unless the customer chooses to include it. A brand tag such as **#GhostTownTest** may accompany the default share text, but sharing and rewards must not depend on retaining branded copy.
 
 Allowed:
 

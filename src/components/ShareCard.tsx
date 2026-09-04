@@ -71,11 +71,11 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
           const canShareFile = typeof navigator.canShare === 'function'
             && navigator.canShare({ files: [cardFile] });
           await navigator.share(canShareFile ? {
-            title: includeIdeaName ? `My LIT verdict: ${result.idea.ideaName}` : 'My LIT Ghost Town verdict',
+            title: includeIdeaName ? `My GhostTown verdict: ${result.idea.ideaName}` : 'My GhostTown verdict',
             text: summary,
             files: [cardFile]
           } : {
-            title: includeIdeaName ? `My LIT verdict: ${result.idea.ideaName}` : 'My LIT Ghost Town verdict',
+            title: includeIdeaName ? `My GhostTown verdict: ${result.idea.ideaName}` : 'My GhostTown verdict',
             text: summary
           });
         } catch (caught) {
@@ -98,7 +98,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
       }
 
       setMessage(reward.message || (reward.rewarded
-        ? `Assessment ${reward.totalFreeAssessments} of 2 is now unlocked.`
+        ? `Free test ${reward.totalFreeAssessments} of 2 is now unlocked.`
         : 'Share completed.'));
       onRewardClaimed();
     } catch (caught) {
@@ -127,12 +127,12 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
 
   return (
     <section className="rounded-lg border border-blue-200 bg-ghost-sand p-5 sm:p-6">
-      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Share reward</p>
+      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Share what you learned</p>
       <h3 className="mt-2 text-xl font-bold text-blue-950">
-        {isLoggedIn ? 'Share your verdict card to unlock the next assessment' : 'Create an account to join the share reward'}
+        {isLoggedIn ? 'Share your verdict and unlock one more free test' : 'Create an account to unlock one more free test'}
       </h3>
       <p className="mt-2 text-sm leading-relaxed text-blue-800">
-        Your idea name stays private unless you choose to include it. Registered members can unlock one bonus assessment by sharing a completed result.
+        Your idea name stays private unless you choose to include it. Share what GhostTown helped you learn, and you can unlock one more free test.
       </p>
       <div className="mt-4 flex flex-wrap gap-2" aria-label="Supported social sharing destinations">
         {['Instagram', 'TikTok', 'YouTube', 'Facebook'].map(platform => (
@@ -205,8 +205,8 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
           {loading
             ? 'Creating your verdict card...'
             : isLoggedIn
-              ? 'Share to Social Apps & Unlock 1 Assessment'
-              : 'Create Free Account to Unlock More'}
+              ? 'Share My Verdict & Unlock 1 Free Test'
+              : 'Create Free Account to Unlock 1 More Test'}
         </button>
         <button
           type="button"
@@ -218,7 +218,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
         </button>
       </div>
       <p className="mt-3 text-center text-xs text-blue-700">
-        On mobile, choose Instagram, TikTok, YouTube, or Facebook from your share sheet. One bonus reward maximum.
+        On mobile, choose Instagram, TikTok, YouTube, or Facebook from your share sheet. One bonus test maximum.
       </p>
     </section>
   );

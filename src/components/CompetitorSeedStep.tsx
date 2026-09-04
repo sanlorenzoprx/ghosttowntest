@@ -196,20 +196,20 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
     }
   };
 
-  if (loading) return <div className="py-8 text-center"><div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-ghost-rust/20 border-b-ghost-rust" /><p className="mt-4 text-sm text-gray-600">{generating ? 'GhostTown is finding three useful market references for you...' : 'Opening your Blueprint research...'}</p></div>;
+  if (loading) return <div className="py-8 text-center"><div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-ghost-rust/20 border-b-ghost-rust" /><p className="mt-4 text-sm text-gray-600">{generating ? 'GhostTown is finding three useful market references for you...' : 'Opening the examples GhostTown found...'}</p></div>;
 
   return (
     <section className="text-left">
       <div className="text-center">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-rust">Post-purchase market research</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-rust">Your starting examples</p>
         <h2 className="mt-2 text-3xl font-black text-ghost-ink">GhostTown already did the first pass.</h2>
-        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-gray-700">For <strong>{ideaName}</strong>, we preselected the strongest verified starting resources we found. They are useful because they operate in the same market, a similar market, or reveal buyer and distribution patterns that can improve your Blueprint. Review them and replace one only if you know a better fit.</p>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-gray-700">For <strong>{ideaName}</strong>, GhostTown preselected useful examples from the same or a similar market. Review them, keep the ones that fit, or replace one if you know a better example.</p>
       </div>
 
       {error && <p className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p>}
 
       {researchSignals && <section className="mt-7 rounded-xl border border-ghost-forest/20 bg-[#eef3ef] p-5" aria-label="Research confirmation map">
-        <p className="text-xs font-black uppercase tracking-[0.15em] text-ghost-forest">Earlier clues retained as optional context</p>
+        <p className="text-xs font-black uppercase tracking-[0.15em] text-ghost-forest">What GhostTown already knows</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg bg-white p-3"><p className="text-[10px] font-black uppercase text-gray-500">Customer</p><p className="mt-1 text-sm font-bold">{targetCustomer || researchSignals.targetCustomer}</p></div>
           {(['commercial', 'audience', 'ecosystem'] as const).map(type => <div key={type} className="rounded-lg bg-white p-3"><p className="text-[10px] font-black uppercase text-gray-500">{type}</p><p className="mt-1 text-sm font-bold">{researchSignals[type]?.value || 'Not supplied'}</p><p className="mt-1 text-[10px] uppercase text-gray-500">Optional context only</p></div>)}
@@ -223,7 +223,7 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
             <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase text-ghost-rust">{relationshipLabels[item.relationship]}</p><h3 className="mt-1 text-lg font-black text-ghost-ink">{item.name}</h3></div><span className={`flex h-6 w-6 items-center justify-center rounded border-2 text-sm font-black ${active ? 'border-ghost-rust bg-ghost-rust text-white' : 'border-gray-300'}`}>{active ? '✓' : ''}</span></div>
             <p className="mt-2 break-all text-xs font-bold text-blue-700">{item.website}</p>
             <p className="mt-3 text-sm text-gray-700">{item.reason}</p>
-            <p className="mt-3 text-xs font-bold uppercase text-gray-500">GhostTown researched · homepage verified · {item.confidence} confidence</p>
+            <p className="mt-3 text-xs font-bold uppercase text-gray-500">Public source checked · {item.confidence} confidence</p>
           </button>;
         })}
       </div>
@@ -247,14 +247,14 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack }: Props
 
       <div className="mt-6 rounded-xl bg-ghost-ink p-5 text-white">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div><p className="text-xs font-black uppercase tracking-[0.15em] text-ghost-gold">Your starting research set</p><p className="mt-1 text-sm text-white/75">GhostTown preselects up to three verified resources. You can use them immediately or replace one before research starts.</p></div><span className="text-3xl font-black text-ghost-gold">{selectedSeeds.length}/3</span>
+          <div><p className="text-xs font-black uppercase tracking-[0.15em] text-ghost-gold">Your starting examples</p><p className="mt-1 text-sm text-white/75">GhostTown starts you with up to three checked examples. Keep them or replace one before it continues.</p></div><span className="text-3xl font-black text-ghost-gold">{selectedSeeds.length}/3</span>
         </div>
         <div className="mt-4 space-y-2">{selectedSeeds.map(seed => <div key={seed.key} className="flex items-center justify-between gap-3 rounded-lg bg-white/10 p-3"><div><p className="font-black">{seed.name}</p><p className="text-xs text-white/65">{relationshipLabels[seed.relationship]} · {seed.website}</p></div><button type="button" onClick={() => removeSelected(seed.key)} className="text-sm font-black text-ghost-gold">Remove</button></div>)}</div>
       </div>
 
       <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
         {onBack ? <button type="button" onClick={onBack} className="rounded-lg border border-gray-300 px-5 py-3 font-bold text-gray-700">Return to Dashboard</button> : <span />}
-        <button type="button" onClick={() => void startResearch()} disabled={!canSubmit} className="rounded-lg bg-ghost-rust px-6 py-3 font-black text-white disabled:cursor-not-allowed disabled:opacity-45">{submitting ? 'Starting Blueprint research...' : 'Use These Resources and Build My Blueprint'}</button>
+        <button type="button" onClick={() => void startResearch()} disabled={!canSubmit} className="rounded-lg bg-ghost-rust px-6 py-3 font-black text-white disabled:cursor-not-allowed disabled:opacity-45">{submitting ? 'Continuing with these examples...' : 'Use These Examples and Continue My Blueprint'}</button>
       </div>
     </section>
   );

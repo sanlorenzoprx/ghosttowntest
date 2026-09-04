@@ -122,13 +122,13 @@ export default function UserDashboard({
         error?: string;
       }>();
       if (!response.ok || !data.result)
-        throw new Error(data.error || "Assessment could not be opened");
+        throw new Error(data.error || "Test result could not be opened");
       onOpenResult(data.result);
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Assessment could not be opened",
+          : "Test result could not be opened",
       );
     } finally {
       setOpeningResultId("");
@@ -275,7 +275,7 @@ export default function UserDashboard({
             Ready to test another idea?
           </h2>
           <p className="mt-1 text-sm text-white/75">
-            {availableTests} assessment{availableTests === 1 ? "" : "s"}{" "}
+            {availableTests} free test{availableTests === 1 ? "" : "s"}{" "}
             available.
           </p>
         </div>
@@ -284,7 +284,7 @@ export default function UserDashboard({
           onClick={onStart}
           className="min-h-14 rounded-lg bg-ghost-rust px-7 py-4 font-black text-white"
         >
-          Start New Assessment
+          Test Another Idea
         </button>
       </section>
 
@@ -311,10 +311,10 @@ export default function UserDashboard({
       </div>
 
       <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="text-xl font-bold">Previous Assessments</h2>
+        <h2 className="text-xl font-bold">Previous Tests</h2>
         {results.length === 0 ? (
           <p className="mt-3 text-sm text-gray-600">
-            Your completed assessments will appear here.
+            Your completed tests will appear here.
           </p>
         ) : (
           <div className="mt-4 space-y-3">
@@ -329,7 +329,7 @@ export default function UserDashboard({
                     {item.verdictHeadline}
                   </p>
                   <p className="mt-1 text-xs text-gray-500">
-                    LIT {item.litScore}/5 ·{" "}
+                    Idea signal {item.litScore}/5 ·{" "}
                     {new Date(item.generatedAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -355,7 +355,7 @@ export default function UserDashboard({
               Purchased products
             </p>
             <h2 className="mt-1 text-2xl font-black">
-              Launch Blueprints and Media Networks
+              Your 30-Day Plans
             </h2>
           </div>
           <p className="text-xs text-gray-600">
@@ -414,14 +414,12 @@ export default function UserDashboard({
                       </p>
                       {awaitingSeeds && (
                         <p className="mt-2 text-sm font-bold text-blue-800">
-                          Confirm 2–3 competitor or adjacent-product seeds to
-                          start the Media & Distribution Network.
+                          Review the examples GhostTown found so it can finish your market research.
                         </p>
                       )}
                       {working && (
                         <p className="mt-2 text-sm text-amber-700">
-                          GhostTown is mapping podcasts, creators, publications,
-                          events, reviewers, associations, and partners.
+                          GhostTown is finding useful places, people, and examples that can help you reach likely customers.
                         </p>
                       )}
                     </div>
@@ -431,7 +429,7 @@ export default function UserDashboard({
                           onClick={() => setSeedOrderId(plan.orderId)}
                           className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-black text-white"
                         >
-                          Choose research seeds
+                          Review suggested examples
                         </button>
                       )}
                       {isBlueprint && plan.status === "ready" && (
@@ -497,14 +495,14 @@ export default function UserDashboard({
         <div className="mb-8 rounded-lg bg-blue-600 p-8 text-center text-white">
           <h3 className="text-2xl font-bold">Ready to test more ideas?</h3>
           <p className="mb-6 mt-2">
-            Share a result to unlock another assessment, or get 10 more for
+            Share a result to unlock one more free test, or get 10 more for
             $14.97.
           </p>
           <button
             onClick={onBuy}
             className="rounded bg-white px-6 py-3 font-bold text-blue-600"
           >
-            Buy 10 Assessments — $14.97
+            Buy 10 Tests — $14.97
           </button>
         </div>
       )}
