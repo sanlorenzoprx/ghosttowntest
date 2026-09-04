@@ -478,7 +478,7 @@ export default function LaunchBlueprintView({ orderId, onBack }: Props) {
           <div className="space-y-8">
             <section className="rounded-2xl bg-ghost-ink p-7 text-white">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-gold">
-                Media & Distribution Network
+                Where to find likely customers
               </p>
               <h2 className="mt-3 text-3xl font-black">
                 Where comparable businesses already earn attention.
