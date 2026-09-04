@@ -387,23 +387,19 @@ export default function LaunchBlueprintView({ orderId, onBack }: Props) {
             </section>
             <section className="rounded-2xl border border-ghost-rust/30 bg-[#fff7f2] p-6">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-rust">
-                Media & Distribution Network
+                Where to find likely customers
               </p>
               <h2 className="mt-2 text-2xl font-black">
-                Proven attention paths reverse-engineered from comparable
-                brands.
+                Places and people that already reach customers like yours.
               </h2>
               <p className="mt-3 text-gray-700">
-                GhostTown mapped competitor backlinks, podcasts, YouTube
-                creators, publications, events, associations, review sites, and
-                complementary partners. Each target includes a public access
-                path, prepared asset, recommended pitch, and evidence trail.
+                GhostTown found podcasts, creators, publications, events, review sites, associations, and partners that may help you reach likely customers. Each one includes a public way to reach them, what to send, what to say, and why it may fit.
               </p>
               <button
                 onClick={() => setSection("distribution")}
                 className="mt-5 rounded-lg bg-ghost-rust px-5 py-3 font-black text-white"
               >
-                Open the network
+                Review these opportunities
               </button>
             </section>
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -488,10 +484,8 @@ export default function LaunchBlueprintView({ orderId, onBack }: Props) {
                 Where comparable businesses already earn attention.
               </h2>
               <p className="mt-4 max-w-4xl text-white/80">
-                Research completed{" "}
-                {new Date(research.completedAt).toLocaleString()} using{" "}
-                {research.model}. The paid network is independent of the
-                owner-only Google research console.
+                GhostTown finished this research on{" "}
+                {new Date(research.completedAt).toLocaleString()}. Review the places and people it found, then choose where to start.
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
                 {(research.seedDomains || []).map((domain) => (
@@ -499,7 +493,7 @@ export default function LaunchBlueprintView({ orderId, onBack }: Props) {
                     key={domain}
                     className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-bold"
                   >
-                    Seed: {domain}
+                    Starting example: {domain}
                   </span>
                 ))}
               </div>
