@@ -242,7 +242,7 @@ World-class commercial UI must remain usable.
 - no sticky CTA that hides focused content;
 - no page-level horizontal scrolling at phone widths.
 
-## 12. GhostTown reference implementation
+## 13. GhostTown reference implementation
 
 The GhostTown commercial acquisition branch is the first reference implementation of this guide.
 
