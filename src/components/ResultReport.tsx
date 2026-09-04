@@ -105,7 +105,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
     <div className="mx-auto max-w-3xl px-4 py-6 pb-28 sm:py-10 sm:pb-10">
       <section data-testid="verdict-decision-v2" className="mb-8 overflow-hidden rounded-2xl border border-ghost-rust/30 bg-white shadow-dust">
         <div data-testid="verdict-card" className="border-b border-ghost-rust/20 bg-[#fff7f2] p-6 sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Decision</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Your verdict</p>
           <h1 className="mt-2 font-display text-4xl font-bold leading-tight text-gray-950">{decisionV2.decision.replace(/_/g, ' ')}</h1>
           <p className="mt-3 max-w-2xl text-base leading-7 text-gray-700">{decisionV2.confidence.rationale}</p>
           <p className="mt-3 text-sm text-gray-600">This tells you what is worth testing next. It is not a prediction that the whole business will succeed.</p>
@@ -119,12 +119,12 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           </article>
 
           <article data-testid="next-step" className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-800">Fastest test</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-800">Best next test</p>
             <h2 className="mt-2 text-xl font-black text-gray-950">{decisionV2.cheapestFalsification.test}</h2>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
               <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Who to test</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.target}</dd></div>
               <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Good result</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.successThreshold}</dd></div>
-              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Stop / revise</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.failureThreshold}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">If it misses</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.failureThreshold}</dd></div>
               <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Limit</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.maximumTime} · {decisionV2.cheapestFalsification.maximumCash}</dd></div>
             </dl>
           </article>
@@ -159,7 +159,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
       {video && (
         <section className="mb-8 rounded-sm border border-gray-200 bg-gray-950 p-5 text-white shadow-dust">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-gold">Your public short</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-gold">Your shareable video</p>
           {video.status === 'complete' && video.video_url ? (
             <video
               className="mx-auto mt-4 max-h-[70vh] w-full max-w-sm rounded bg-black"
@@ -173,12 +173,12 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           ) : (
             <div className="mt-4 rounded border border-white/15 bg-white/5 p-6 text-center">
               <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-ghost-gold border-t-transparent" />
-              <p className="font-bold">Shorts Factory is preparing the video.</p>
+              <p className="font-bold">GhostTown is preparing the video.</p>
               <p className="mt-2 text-sm text-white/70">Your report is ready now. This panel updates automatically.</p>
             </div>
           )}
           <p className="mt-4 text-xs text-white/60">
-            Public content · eligible for reuse and distribution after media verification.
+            This video may be reused in GhostTown public content as you agreed when you started the test.
           </p>
         </section>
       )}
@@ -263,14 +263,14 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
       <section id="thirty-day-plan" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Your next 30 days</p>
-        <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Turn this verdict into evidence.</h2>
+        <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Turn this verdict into a 30-day plan.</h2>
         <p className="mt-3 text-sm font-bold text-gray-800">{GHOSTTOWN_30_DAY_PLAN_V1.name}</p>
         <ul className="mt-4 space-y-2 text-sm text-gray-800">
-          <li>Thirty daily actions with time budgets, cash limits, evidence, and pass/fail thresholds</li>
-          <li>Buyer interviews, alternatives, offer, pricing, landing-page, outreach, and paid-pilot tests</li>
-          <li>Truth-labeled executable Blueprint, readable PDF, and account history for repeat access</li>
+          <li>See one clear action each day, with a time and spending limit</li>
+          <li>Get customer questions, offer tests, pricing checks, outreach messages, and launch steps</li>
+          <li>Use the Interactive Blueprint day by day, with the full PDF and finished files saved to your account</li>
         </ul>
-        <p className="mt-4 text-sm text-gray-700">A validation experiment—not a promise of product-market fit, revenue, or certainty.</p>
+        <p className="mt-4 text-sm text-gray-700">The plan helps you learn and act. It does not guarantee sales or success.</p>
         {paidError && <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{paidError}</p>}
         <button type="button" aria-label="Start 30-day implementation plan checkout" onClick={openActionPlanForm} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
           {paidLoading ? 'Opening checkout...' : `Unlock the 30-Day Plan - ${displayPrice}`}
