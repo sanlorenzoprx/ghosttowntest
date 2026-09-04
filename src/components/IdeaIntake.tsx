@@ -53,12 +53,12 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
     <div className="mx-auto max-w-2xl px-4 py-6 pb-24 sm:py-8 sm:pb-8">
       <h2 className="text-3xl font-bold mb-2">{initialIdea ? 'Make this idea yours' : 'Tell us about your idea'}</h2>
       <p className="text-gray-600 mb-6">{initialIdea
-        ? 'This starter came preloaded from the gallery. Edit anything before the assessment.'
-        : "Be specific. We'll use this to run the LIT evaluation."}</p>
+        ? 'This starter came preloaded from the gallery. Edit anything before the test.'
+        : "Be specific. We'll use this to test the idea and build your verdict."}</p>
 
       {initialIdea && (
         <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-          <span className="font-bold">Video-ready starter loaded.</span> Your edits stay on this device until you submit the assessment.
+          <span className="font-bold">Example idea loaded.</span> Nothing is sent until you start the test.
         </div>
       )}
       
@@ -152,7 +152,7 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
             placeholder="What's the current workaround or solution?"
             className="min-h-12 w-full rounded border border-gray-300 px-4 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <p className="text-gray-500 text-sm mt-1">Understanding the current state helps us evaluate your advantage</p>
+          <p className="text-gray-500 text-sm mt-1">Knowing what people do today helps us see what your idea must beat</p>
         </div>
 
         {/* Motivation */}
@@ -168,7 +168,7 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
             placeholder="What's your personal motivation? Why now?"
             className="h-24 w-full rounded border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <p className="text-gray-500 text-sm mt-1">This helps us understand if this is passion or proof</p>
+          <p className="text-gray-500 text-sm mt-1">This helps us understand what is driving the idea. It does not make the verdict better or worse.</p>
         </div>
 
         <div className={`rounded-lg border p-4 ${errors.publicContent ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-blue-50'}`}>
@@ -184,9 +184,7 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
               required
             />
             <span className="text-sm text-gray-800">
-              I understand my submitted idea, GhostTown Test report, and generated video are public
-              content that may be reused and distributed by Shorts Factory across current and future channels.
-              Do not include private, confidential, or identifying information.
+              I understand GhostTown may create and distribute public content from this submission, including my verdict and a short video. I will not include private, confidential, or identifying information.
             </span>
           </label>
           {errors.publicContent && <p className="mt-2 text-sm text-red-700">{errors.publicContent}</p>}
@@ -199,7 +197,7 @@ export default function IdeaIntake({ onSubmit, initialIdea }: Props) {
             type="submit"
             className="min-h-12 w-full rounded-lg bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-700 active:bg-blue-800"
           >
-            Start Assessment · About 5 Minutes
+            Start My Free Test · About 5 Minutes
           </button>
           <p className="mt-2 text-center text-xs text-gray-500">No account required. Progress saves automatically.</p>
         </div>
