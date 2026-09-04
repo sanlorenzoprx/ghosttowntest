@@ -45,14 +45,14 @@ export default function LandingCommercial({
   const faq = es
     ? [
         ['¿Qué recibo gratis?', 'Un veredicto claro sobre tu idea, el mayor riesgo que vemos y qué hacer después. No necesitas tarjeta.'],
-        ['¿Qué recibo por $97?', 'Un plan de 30 días hecho para tu idea, con oferta, precio, clientes, mensajes, tareas diarias y un sitio web real para lanzar.'],
+        ['¿Qué recibo con el plan de 30 días?', 'Un plan hecho para tu idea, con oferta, precio, clientes, mensajes, pasos diarios y un sitio web real para lanzar.'],
         ['¿GhostTown garantiza que mi negocio funcionará?', 'No. Nadie puede prometer eso. GhostTown te ayuda a aprender antes de gastar meses y dinero.'],
         ['¿Tengo que construir algo primero?', 'No. La meta es probar primero las partes que pueden matar la idea.'],
         ['¿Puedo volver a descargar mi plan?', 'Sí. Tu plan y tus archivos terminados se guardan en tu cuenta.']
       ]
     : [
         ['What do I get free?', 'A clear verdict on your idea, the biggest risk we see, and what to do next. No credit card needed.'],
-        ['What do I get for $97?', 'A 30-day plan made for your idea, with your offer, price, customer, messages, daily steps, and a real website to launch with.'],
+        ['What do I get with the 30-day plan?', 'A plan made for your idea, with your offer, price, customer, messages, daily steps, and a real website to launch with.'],
         ['Does GhostTown promise my business will work?', 'No. Nobody can promise that. GhostTown helps you learn before you lose months and money.'],
         ['Do I have to build something first?', 'No. The goal is to test the parts that could kill the idea before you build.'],
         ['Can I download my plan again?', 'Yes. Your plan and finished files stay in your account.']
@@ -86,8 +86,8 @@ export default function LandingCommercial({
             </h1>
             <p className="mt-7 max-w-xl text-xl leading-8 text-white/88 sm:text-2xl sm:leading-9">
               {es
-                ? 'Prueba tu idea primero. Mira si la gente la quiere. Luego decide si vale la pena construirla.'
-                : 'Test your idea first. See if people want it. Then decide if it’s worth building.'}
+                ? 'Prueba tu idea antes de pasar meses construyéndola. Mira qué parece prometedor, qué puede hacerla fallar y qué prueba útil debes hacer ahora.'
+                : 'Test your idea before you spend months building it. See what looks promising, what could kill it, and the most useful test to run next.'}
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button type="button" onClick={onStart} className="inline-flex min-h-14 items-center justify-center rounded-full bg-[#D96F3D] px-7 py-3 text-lg font-bold text-white shadow-[0_18px_50px_rgba(217,111,61,0.28)] transition hover:-translate-y-0.5 hover:bg-[#E57B48] focus:outline-none focus:ring-4 focus:ring-white/25">
@@ -123,17 +123,17 @@ export default function LandingCommercial({
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'El problema' : 'The problem'}</p>
             <h2 className="mt-4 max-w-3xl font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">{es ? 'Construir puede sentirse como progreso.' : 'Building can feel like progress.'}</h2>
-            <p className="mt-7 max-w-2xl text-xl leading-9 text-[#3F4944]">{es ? 'Pero puedes trabajar por meses y todavía no saber si alguien lo quiere.' : 'But you can work for months and still not know if anyone wants it.'}</p>
+            <p className="mt-7 max-w-2xl text-xl leading-9 text-[#3F4944]">{es ? 'Puedes construir, pulir y gastar durante meses sin responder la pregunta que importa: ¿la gente correcta hará algo o pagará?' : 'You can build, polish, and spend for months without answering the question that matters: will the right people act or pay?'}</p>
           </div>
           <div className="divide-y divide-[#D2C9BC] border-y border-[#D2C9BC]">
             {(es ? [
-              ['Construyes más', 'Pero más funciones no prueban que alguien pagará.'],
-              ['Gastas en anuncios', 'Pero más visitas no arreglan una oferta débil.'],
-              ['Esperas demasiado', 'Y el costo de estar equivocado sigue creciendo.']
+              ['Construyes más', 'Más trabajo hace la idea más costosa. No hace que la demanda sea más segura.'],
+              ['Gastas en anuncios', 'El tráfico puede mostrar interés. No puede salvar una oferta que la gente no quiere.'],
+              ['Esperas demasiado', 'Cuando descubres la verdad, quizá ya gastaste los meses que querías ahorrar.']
             ] : [
-              ['You build more', 'But more features do not prove someone will pay.'],
-              ['You spend on ads', 'But more visitors do not fix a weak offer.'],
-              ['You wait too long', 'And the cost of being wrong keeps growing.']
+              ['You build more', 'More work makes the idea more expensive. It does not make demand more certain.'],
+              ['You spend on ads', 'Traffic can show interest. It cannot rescue an offer people do not want.'],
+              ['You wait too long', 'By the time you learn the truth, you may have spent the months you meant to save.']
             ]).map(([title, body], index) => (
               <div key={title} className="grid grid-cols-[3rem_1fr] gap-3 py-6"><span className="font-score text-base font-bold text-[#A94F2A]">0{index + 1}</span><div><h3 className="text-xl font-bold">{title}</h3><p className="mt-1 text-lg leading-7 text-[#4B5550]">{body}</p></div></div>
             ))}
@@ -145,7 +145,7 @@ export default function LandingCommercial({
         <div className="mx-auto max-w-[78rem] px-4 py-24 text-center sm:px-6 sm:py-32 lg:px-8">
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'La meta' : 'The goal'}</p>
           <h2 className="mx-auto mt-4 max-w-5xl font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">{es ? 'Saber si vale la pena construirlo.' : 'Know if it’s worth building.'}</h2>
-          <p className="mx-auto mt-7 max-w-3xl text-xl leading-9 text-[#3F4944]">{es ? 'No necesitas otra opinión. Necesitas saber qué se ve bien, qué puede matar la idea y qué hacer después.' : 'You do not need another opinion. You need to know what looks good, what could kill the idea, and what to do next.'}</p>
+          <p className="mx-auto mt-7 max-w-3xl text-xl leading-9 text-[#3F4944]">{es ? 'No necesitas otra opinión. Necesitas una señal clara para seguir, cambiar o parar antes de que la duda se vuelva costosa. Una buena prueba también puede evitar que abandones una idea prometedora por la razón equivocada.' : 'You do not need another opinion. You need a clear signal to keep going, change the idea, or stop before the guess gets expensive. A good test can also keep you from walking away from a promising idea for the wrong reason.'}</p>
         </div>
       </section>
 
@@ -154,7 +154,7 @@ export default function LandingCommercial({
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#E7A178]">{es ? 'Tu prueba gratis' : 'Your free test'}</p>
             <h2 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">{es ? 'Una respuesta que puedes usar.' : 'An answer you can use.'}</h2>
-            <p className="mt-7 text-xl leading-9 text-white/88">{es ? 'GhostTown mira las partes que más importan: ¿hay un problema real? ¿puedes llegar al comprador? ¿pagaría? ¿qué debes hacer después?' : 'GhostTown looks at the parts that matter most: Is the problem real? Can you reach the buyer? Will they pay? What should you do next?'}</p>
+            <p className="mt-7 text-xl leading-9 text-white/88">{es ? 'Tu veredicto te muestra tres cosas: qué parece prometedor, cuál es la mayor duda y qué prueba puede enseñarte algo antes de construir más.' : 'Your verdict shows you three things: what looks promising, the biggest unknown, and the next test that can teach you something before you build more.'}</p>
             <button type="button" onClick={onStart} className="mt-9 inline-flex min-h-14 items-center justify-center rounded-full bg-[#D96F3D] px-7 py-3 text-lg font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#E57B48] focus:outline-none focus:ring-4 focus:ring-white/25">{es ? 'Obtener mi veredicto gratis' : 'Get My Free Verdict'}</button>
           </div>
 
@@ -200,7 +200,7 @@ export default function LandingCommercial({
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Si la idea merece una prueba' : 'If the idea is worth testing'}</p>
             <h2 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">{es ? 'Te damos un plan para lanzarla.' : 'We give you the plan to launch it.'}</h2>
-            <p className="mt-7 text-xl leading-9 text-[#3F4944]">{es ? `Por ${displayPrice}, tu GhostTown Launch Blueprint te dice qué vender, a quién, qué cobrar, qué decir y qué hacer durante los próximos 30 días.` : `For ${displayPrice}, your GhostTown Launch Blueprint tells you what to sell, who to sell it to, what to charge, what to say, and what to do for the next 30 days.`}</p>
+            <p className="mt-7 text-xl leading-9 text-[#3F4944]">{es ? 'Si decides seguir, GhostTown convierte tu veredicto en un plan de trabajo de 30 días: qué vender, a quién, qué cobrar, qué decir y qué hacer después.' : 'If you decide to move forward, GhostTown turns your verdict into a 30-day working plan: what to sell, who to sell it to, what to charge, what to say, and what to do next.'}</p>
           </div>
 
           <div className="mt-16 grid gap-12 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
@@ -221,7 +221,7 @@ export default function LandingCommercial({
                 ]).map(([label, value]) => <div key={label} className="grid gap-1 py-4 sm:grid-cols-[8rem_1fr] sm:gap-5"><dt className="text-base font-bold text-[#F0B28F]">{label}</dt><dd className="text-base leading-7 text-white/88">{value}</dd></div>)}
               </dl>
             </div>
-            <div><p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Menos trabajo en blanco' : 'Less blank-page work'}</p><h3 className="mt-4 font-display text-4xl font-semibold leading-[1.04] tracking-[-0.035em] sm:text-5xl">{es ? 'No te decimos “haz marketing”. Te damos el trabajo.' : 'We do not tell you to “do marketing.” We give you the work.'}</h3><p className="mt-6 text-xl leading-9 text-[#3F4944]">{es ? 'Mensajes, copy de ventas, tareas diarias y un sitio web real ya quedan organizados alrededor de tu idea.' : 'Messages, sales copy, daily steps, and a real website are already organized around your idea.'}</p></div>
+            <div><p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Menos trabajo en blanco' : 'Less blank-page work'}</p><h3 className="mt-4 font-display text-4xl font-semibold leading-[1.04] tracking-[-0.035em] sm:text-5xl">{es ? 'No te decimos “haz marketing”. Te damos el trabajo.' : 'We do not tell you to “do marketing.” We give you the work.'}</h3><p className="mt-6 text-xl leading-9 text-[#3F4944]">{es ? 'Mensajes, copy de ventas, pasos diarios y un sitio web real quedan preparados alrededor de tu idea para que pases menos tiempo frente a una página en blanco y más tiempo probando.' : 'Messages, sales copy, daily steps, and a real launch website are prepared around your idea, so you spend less time staring at blank pages and more time testing.'}</p></div>
           </div>
 
           <div className="mt-16 grid gap-x-10 gap-y-8 border-y border-[#CFC6B8] py-10 md:grid-cols-2">
@@ -280,7 +280,7 @@ export default function LandingCommercial({
       </section>
 
       <section className="bg-[#D96F3D] text-white">
-        <div className="mx-auto max-w-[78rem] px-4 py-20 text-center sm:px-6 sm:py-28 lg:px-8"><p className="text-base font-bold uppercase tracking-[0.15em] text-white/90">{es ? 'Antes de construir' : 'Before you build'}</p><h2 className="mx-auto mt-4 max-w-5xl font-display text-5xl font-semibold leading-[0.98] tracking-[-0.045em] sm:text-7xl">{es ? 'Descubre si vale la pena.' : 'Find out if it’s worth building.'}</h2><p className="mx-auto mt-6 max-w-2xl text-xl leading-9 text-white/95">{es ? 'Una prueba. Un veredicto. Un siguiente paso claro.' : 'One test. One verdict. One clear next step.'}</p><button type="button" onClick={onStart} className="mt-9 inline-flex min-h-14 items-center justify-center rounded-full bg-white px-8 py-3 text-lg font-bold text-[#17201C] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#FFF9F4] focus:outline-none focus:ring-4 focus:ring-white/35">{es ? 'Probar mi idea gratis' : 'Test My Idea Free'}</button><p className="mt-4 text-base font-semibold text-white/90">{es ? 'Sin tarjeta. El plan de $97 viene después, solo si lo quieres.' : 'No credit card. The $97 plan comes later, only if you want it.'}</p></div>
+        <div className="mx-auto max-w-[78rem] px-4 py-20 text-center sm:px-6 sm:py-28 lg:px-8"><p className="text-base font-bold uppercase tracking-[0.15em] text-white/90">{es ? 'Antes de construir' : 'Before you build'}</p><h2 className="mx-auto mt-4 max-w-5xl font-display text-5xl font-semibold leading-[0.98] tracking-[-0.045em] sm:text-7xl">{es ? 'Descubre si vale la pena.' : 'Find out if it’s worth building.'}</h2><p className="mx-auto mt-6 max-w-2xl text-xl leading-9 text-white/95">{es ? 'Una prueba. Un veredicto. Un siguiente paso claro.' : 'One test. One verdict. One clear next step.'}</p><button type="button" onClick={onStart} className="mt-9 inline-flex min-h-14 items-center justify-center rounded-full bg-white px-8 py-3 text-lg font-bold text-[#17201C] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#FFF9F4] focus:outline-none focus:ring-4 focus:ring-white/35">{es ? 'Probar mi idea gratis' : 'Test My Idea Free'}</button><p className="mt-4 text-base font-semibold text-white/90">{es ? 'Sin tarjeta. El plan de 30 días viene después, solo si lo quieres.' : 'No credit card. The 30-day plan comes later, only if you want it.'}</p></div>
       </section>
 
       <div id="ghosttown-commercial-sticky" className="fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-white/97 p-3 shadow-[0_-12px_35px_rgba(17,24,39,0.12)] backdrop-blur sm:hidden"><button type="button" onClick={onStart} className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#17201C] px-5 py-3 text-base font-bold text-white">{es ? 'Probar mi idea gratis' : 'Test My Idea Free'}</button></div>
