@@ -140,6 +140,9 @@ export interface EvaluationResult {
   // Canonical customer-facing decision. Older records are hydrated at read time
   // so existing saved verdicts remain compatible.
   verdictDecisionV2?: import('../verdict/verdictDecisionV2').VerdictDecisionV2;
+  // Evidence-aware decision. V2 remains present for backward compatibility.
+  verdictDecisionV3?: import('../verdict/verdictDecisionV3').VerdictDecisionV3;
+  evidenceScan?: import('./evidence').GhostTownEvidenceScanV1;
 
   // Metadata
   usedAI: boolean;

@@ -32,6 +32,9 @@ import { queuePublicVideo } from './publicVideoJobs';
 import { issueResultClaimToken } from './resultClaim';
 import { generateAI } from './generativeAIService';
 import { buildVerdictDecisionV2, hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
+import { buildVerdictDecisionV3 } from '../verdict/verdictDecisionV3';
+import { runEvidenceScanV1 } from './evidenceScan';
+import type { GhostTownEvidenceScanV1 } from '../types/evidence';
 
 async function runTextModel(env: Env, prompt: string, maxTokens: number): Promise<string> {
   const result = await generateAI(env, {
@@ -42,6 +45,35 @@ async function runTextModel(env: Env, prompt: string, maxTokens: number): Promis
     timeoutMs: 30_000
   });
   return result.text;
+}
+
+async function loadOrRunEvidenceScan(
+  request: Request,
+  env: Env,
+  idea: IdeaIntake,
+  localeValue: unknown
+): Promise<GhostTownEvidenceScanV1> {
+  const locale: 'en' | 'es' = typeof localeValue === 'string' && localeValue.toLowerCase().startsWith('es') ? 'es' : 'en';
+  const scanCacheKey = `evidence-scan:v1:${hashObject({ idea, locale })}`;
+  const cached = await env.KV.get(scanCacheKey);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached) as GhostTownEvidenceScanV1;
+      if (parsed?.schemaVersion === 'ghosttown-evidence-scan-v1' && parsed.fingerprint) return parsed;
+    } catch (error) {
+      console.warn('Evidence Scan cache parse failed; rescanning', error);
+    }
+  }
+
+  const scan = await runEvidenceScanV1(request, env, idea, locale);
+  try {
+    await env.KV.put(scanCacheKey, JSON.stringify(scan), {
+      expirationTtl: scan.status === 'unavailable' ? 300 : 3600
+    });
+  } catch (error) {
+    console.warn('Evidence Scan cache write failed; continuing with live scan', error);
+  }
+  return scan;
 }
 
 function verdictResponse(result: EvaluationResult, claimToken?: string): Response {
@@ -98,8 +130,12 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       });
     }
 
-    const ideaHash = hashObject({ idea, answers });
-    const cacheKey = `verdict:${ideaHash}`;
+    // Evidence intentionally precedes the verdict and is part of verdict cache
+    // identity. A materially different scan therefore cannot silently reuse an
+    // older evidence-backed verdict.
+    const evidenceScan = await loadOrRunEvidenceScan(request, env, idea, payload.locale);
+    const ideaHash = hashObject({ idea, answers, evidenceFingerprint: evidenceScan.fingerprint });
+    const cacheKey = `verdict:v3:${ideaHash}`;
     const cached = await env.KV.get(cacheKey);
     if (cached) {
       try {
@@ -112,6 +148,12 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
           cacheHit: true
         } as EvaluationResult;
         hydrateEvaluationResultDecisionV2(restoredResult);
+        restoredResult.evidenceScan = restoredResult.evidenceScan ?? evidenceScan;
+        restoredResult.verdictDecisionV3 = buildVerdictDecisionV3({
+          idea: restoredResult.idea,
+          scores: restoredResult.deterministicScores,
+          evidenceScan: restoredResult.evidenceScan
+        });
         restoredResult.video = await queuePublicVideo(
           restoredResult,
           typeof payload.locale === 'string' ? payload.locale : 'en-US',
@@ -140,13 +182,13 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
     let usedAI = false;
 
     try {
-      analysis = await analyzeIdea(idea, answers, env);
+      analysis = await analyzeIdea(idea, answers, evidenceScan, env);
       if (!analysis) throw new Error('Analysis failed');
 
-      scores = await scoreIdea(analysis, env);
+      scores = await scoreIdea(analysis, evidenceScan, env);
       if (!scores) throw new Error('Scoring failed');
 
-      verdict = await generateVerdict(idea, analysis, scores, env);
+      verdict = await generateVerdict(idea, analysis, scores, evidenceScan, env);
       if (!verdict) throw new Error('Verdict generation failed');
 
       const validation = validateVerdict(verdict);
@@ -170,11 +212,17 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       scores,
       verdict: usedAI ? verdict : undefined,
       deterministicScores: deterministicResult,
+      evidenceScan,
       usedAI,
       generatedAt: new Date().toISOString(),
       cacheHit: false
     };
     result.verdictDecisionV2 = buildVerdictDecisionV2({ idea, scores: deterministicResult });
+    result.verdictDecisionV3 = buildVerdictDecisionV3({
+      idea,
+      scores: deterministicResult,
+      evidenceScan
+    });
 
     result.video = await queuePublicVideo(
       result,
@@ -235,10 +283,11 @@ function isIdeaIntake(value: unknown): value is IdeaIntake {
 async function analyzeIdea(
   idea: IdeaIntake,
   answers: EvaluationAnswers,
+  evidenceScan: GhostTownEvidenceScanV1,
   env: Env
 ): Promise<IdeaAnalysis | undefined> {
   try {
-    const text = await runTextModel(env, buildAnalyzePrompt(idea, answers), 800);
+    const text = await runTextModel(env, buildAnalyzePrompt(idea, answers, evidenceScan), 800);
     const json = extractJSONFromText(text);
     return json ? json as IdeaAnalysis : undefined;
   } catch (error) {
@@ -247,9 +296,13 @@ async function analyzeIdea(
   }
 }
 
-async function scoreIdea(analysis: IdeaAnalysis, env: Env): Promise<IdeaScores | undefined> {
+async function scoreIdea(
+  analysis: IdeaAnalysis,
+  evidenceScan: GhostTownEvidenceScanV1,
+  env: Env
+): Promise<IdeaScores | undefined> {
   try {
-    const text = await runTextModel(env, buildScorePrompt(analysis), 1000);
+    const text = await runTextModel(env, buildScorePrompt(analysis, evidenceScan), 1000);
     const json = extractJSONFromText(text);
     return json ? json as IdeaScores : undefined;
   } catch (error) {
@@ -262,10 +315,11 @@ async function generateVerdict(
   idea: IdeaIntake,
   analysis: IdeaAnalysis,
   scores: IdeaScores,
+  evidenceScan: GhostTownEvidenceScanV1,
   env: Env
 ): Promise<VerdictData | undefined> {
   try {
-    const text = await runTextModel(env, buildVerdictPrompt(idea, analysis, scores), 600);
+    const text = await runTextModel(env, buildVerdictPrompt(idea, analysis, scores, evidenceScan), 600);
     const json = extractJSONFromText(text);
     return json ? json as VerdictData : undefined;
   } catch (error) {

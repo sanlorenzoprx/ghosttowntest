@@ -56,6 +56,11 @@ function requiredProductionBindings(request: Request): ProductionBindingName[] {
   const path = new URL(request.url).pathname;
   const required = new Set<ProductionBindingName>();
 
+  if (request.method === 'POST' && path === '/api/integrations/story-studio/evidence') {
+    required.add('DB');
+  }
+
+
   // The $97 paid checkout must fail before a Stripe session can be created if
   // the production fulfillment plane is unavailable. This prevents a customer
   // charge from outrunning the DB/R2/Workflow capabilities needed to fulfill it.

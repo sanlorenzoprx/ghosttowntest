@@ -26,7 +26,9 @@ The baseline paid-product thought is:
 
 Write for fast understanding, not sophistication.
 
-Target roughly fifth-to-eighth-grade clarity for core sales, navigation, instructions, reminders, and error messages. Longer explanations may use normal adult language, but they must remain plain and concrete.
+Target fifth-grade clarity for core sales, navigation, instructions, reminders, and error messages. A smart 10- or 11-year-old should understand the main point on the first read. Longer explanations may use normal adult language, but they must remain plain and concrete.
+
+Write source copy so it is easy to translate into every language we publish. Avoid idioms, slang, wordplay, culture-specific jokes, and startup terms that force a translator to guess the meaning.
 
 Prefer:
 
@@ -86,7 +88,7 @@ Bad:
 
 Better:
 
-> GhostTown builds your 30-day plan and helps you follow it one step at a time.
+> GhostTown gives you a 30-day plan and shows you what to do next.
 
 Before approving customer-facing copy, ask:
 
@@ -163,13 +165,13 @@ Core promise:
 
 > **You tested your idea. Now let's help you make it real.**
 >
-> GhostTown builds your 30-day plan and helps you work through it one day at a time.
+> GhostTown gives you a 30-day Evidence Sprint and shows you what to do next.
 
-The PDF is the full map. The Interactive Blueprint is the product the customer works from each day.
+The PDF shows the full plan. GhostTown shows the next action, what result to look for, and what to change when the evidence says the current test is weak.
 
 Primary action:
 
-> **Build My 30-Day Interactive Blueprint — $97**
+> **Start My 30-Day Evidence Sprint — $97**
 
 ### Stage 5 — Checkout
 
@@ -191,6 +193,16 @@ Rule:
 
 Immediately acknowledge payment, show what GhostTown is doing, and give one clear next action. Never leave a paying customer wondering whether anything is happening.
 
+The $97 Evidence Sprint does **not** include a live website, domain, publishing, or payment setup.
+
+When the separate product is shipped and enabled, the immediate optional next decision may be:
+
+> **Want us to get your test live?**
+>
+> **Get My Test Live — $119**
+
+That is a separate purchase. Until it is actually shipped and enabled, documentation may call it upcoming, but the live customer flow must not present it as available.
+
 ### Stage 7 — Research and examples
 
 Customer question:
@@ -201,7 +213,7 @@ Rule:
 
 GhostTown starts the customer with up to three useful examples or resources when available. Prefer the same market, a similar market, or something directly useful to building the plan. The customer may replace them, but should not start from three empty boxes.
 
-### Stage 8 — Blueprint ready
+### Stage 8 — Plan ready
 
 Customer question:
 
@@ -288,7 +300,7 @@ Summarize the strongest signals, what remains unknown, what worked, what did not
 | branch rule | if this happens, do this next |
 | checkpoint | weekly check-in, unless the product name itself is useful |
 
-Product names such as **Interactive Blueprint** and **Execution Copilot** are allowed only when the surrounding copy immediately makes their purpose obvious.
+Product names such as **30-Day Evidence Sprint** and **Execution Copilot** are allowed only when the surrounding copy immediately makes their purpose obvious.
 
 ## 7. One-screen rule
 
@@ -317,7 +329,7 @@ Bad:
 
 Better:
 
-> We could not finish your Blueprint. Your payment and saved work are still on your account. Try again, or contact us if it does not restart.
+> We could not finish your 30-day plan. Your payment and saved work are still on your account. Try again, or contact us if it does not restart.
 
 Never expose stack traces, provider errors, internal IDs, or infrastructure terminology as the main customer message.
 
@@ -402,7 +414,7 @@ visitor
 → paid offer viewed
 → checkout started
 → purchase
-→ Blueprint opened
+→ 30-day plan opened
 → first day opened
 → first action completed
 → first result recorded

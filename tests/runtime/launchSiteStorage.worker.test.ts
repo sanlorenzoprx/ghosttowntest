@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import type { Env } from "../../src/api/env";
 import { handleSignup } from "../../src/api/auth";
 import { handleLaunchSiteOwner, handlePublicLaunchLead } from "../../src/api/launchSite";
+import { loadBlueprintProgress } from "../../src/api/blueprintStore";
 import { launchBlueprintFixture } from "../fixtures/launchBlueprint";
 
 function runtimeEnv(): Env {
@@ -84,6 +85,21 @@ describe("GhostTown Launch Site on real local D1/KV", () => {
 
     const retiredKvRateKeys = await env.KV.list({ prefix: "launch_lead_rate_" });
     expect(retiredKvRateKeys.keys).toHaveLength(0);
+
+    const evidence = await env.DB.prepare(
+      "SELECT event_type, evidence_class, evidence_strength, applied_at FROM observed_evidence_events WHERE order_id = ?"
+    ).bind(blueprint.orderId).first<{ event_type: string; evidence_class: string; evidence_strength: string; applied_at: string | null }>();
+    expect(evidence).toMatchObject({ event_type: "launch_site_lead", evidence_class: "customer", evidence_strength: "early" });
+    expect(evidence?.applied_at).toBeTruthy();
+
+    const progress = await loadBlueprintProgress(runtimeEnv(), blueprint.orderId, owner);
+    expect(progress.metrics.leads).toBe(1);
+    expect(progress.evidenceLedger).toHaveLength(1);
+    expect(progress.evidenceLedger[0]).toMatchObject({
+      contactOrChannel: "buyer@example.com",
+      customerLanguage: "Interested",
+      evidenceStrength: "early"
+    });
   });
 
   it("keeps owner GET mutation-free when no Launch Site exists", async () => {

@@ -107,7 +107,7 @@ function suggestion(provider: ResearchPreviewSuggestion['provider'], label: stri
   };
 }
 
-async function dataForSeoSuggestions(env: Env, query: string, locale: 'en' | 'es'): Promise<ResearchPreviewSuggestion[]> {
+export async function dataForSeoSuggestions(env: Env, query: string, locale: 'en' | 'es'): Promise<ResearchPreviewSuggestion[]> {
   if (!env.DATAFORSEO_LOGIN?.trim() || !env.DATAFORSEO_PASSWORD?.trim()) throw new Error('DataForSEO is not configured');
   const response = await fetchWithTimeout(DATAFORSEO_SERP_ENDPOINT, {
     method: 'POST',
@@ -133,7 +133,7 @@ async function dataForSeoSuggestions(env: Env, query: string, locale: 'en' | 'es
     .filter((item): item is ResearchPreviewSuggestion => Boolean(item));
 }
 
-async function podcastSuggestions(env: Env, query: string): Promise<ResearchPreviewSuggestion[]> {
+export async function podcastSuggestions(env: Env, query: string): Promise<ResearchPreviewSuggestion[]> {
   if (!env.PODCAST_INDEX_API_KEY?.trim() || !env.PODCAST_INDEX_API_SECRET?.trim()) throw new Error('Podcast Index is not configured');
   const authDate = Math.floor(Date.now() / 1000).toString();
   const authorization = await sha1Hex(`${env.PODCAST_INDEX_API_KEY}${env.PODCAST_INDEX_API_SECRET}${authDate}`);
@@ -147,7 +147,7 @@ async function podcastSuggestions(env: Env, query: string): Promise<ResearchPrev
   return (body.feeds || []).filter(feed => feed.dead !== 1).map(feed => suggestion('podcast_index', feed.title || feed.author || '', feed.link || '')).filter((item): item is ResearchPreviewSuggestion => Boolean(item));
 }
 
-async function youtubeSuggestions(env: Env, query: string, locale: 'en' | 'es'): Promise<ResearchPreviewSuggestion[]> {
+export async function youtubeSuggestions(env: Env, query: string, locale: 'en' | 'es'): Promise<ResearchPreviewSuggestion[]> {
   if (!env.YOUTUBE_API_KEY?.trim()) throw new Error('YouTube Data API is not configured');
   const url = new URL(YOUTUBE_ENDPOINT);
   url.searchParams.set('part', 'snippet');
