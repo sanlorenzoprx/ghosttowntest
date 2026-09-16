@@ -31,12 +31,29 @@ export interface ResearchPreviewRequest {
   locale?: 'en' | 'es';
 }
 
+export interface ResearchPreviewRating {
+  value: number;
+  maximum?: number;
+  reviewCount: number;
+}
+
+export interface ResearchPreviewPrice {
+  current?: number;
+  regular?: number;
+  maximum?: number;
+  currency?: string;
+  isRange?: boolean;
+  displayed?: string;
+}
+
 export interface ResearchPreviewSuggestion {
   candidateId: string;
   label: string;
   publicUrl: string;
   provider: 'dataforseo' | 'podcast_index' | 'youtube_api';
   verificationStatus: 'provider_candidate';
+  rating?: ResearchPreviewRating;
+  price?: ResearchPreviewPrice;
 }
 
 export interface ResearchPreviewResponse {

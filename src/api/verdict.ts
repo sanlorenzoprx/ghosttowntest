@@ -54,12 +54,12 @@ async function loadOrRunEvidenceScan(
   localeValue: unknown
 ): Promise<GhostTownEvidenceScanV1> {
   const locale: 'en' | 'es' = typeof localeValue === 'string' && localeValue.toLowerCase().startsWith('es') ? 'es' : 'en';
-  const scanCacheKey = `evidence-scan:v1:${hashObject({ idea, locale })}`;
+  const scanCacheKey = `evidence-scan:v1-seven-layer:${hashObject({ idea, locale })}`;
   const cached = await env.KV.get(scanCacheKey);
   if (cached) {
     try {
       const parsed = JSON.parse(cached) as GhostTownEvidenceScanV1;
-      if (parsed?.schemaVersion === 'ghosttown-evidence-scan-v1' && parsed.fingerprint) return parsed;
+      if (parsed?.schemaVersion === 'ghosttown-evidence-scan-v1' && parsed.modelVersion === 'seven-layer-v1' && parsed.fingerprint) return parsed;
     } catch (error) {
       console.warn('Evidence Scan cache parse failed; rescanning', error);
     }

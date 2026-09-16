@@ -1,8 +1,33 @@
 export type GhostTownEvidenceClass = 'market' | 'customer' | 'commercial';
 export type GhostTownEvidenceStrength = 'weak' | 'early' | 'moderate' | 'strong';
 export type EvidenceScanStatus = 'complete' | 'partial' | 'unavailable';
-export type EvidenceScanCategory = 'competition' | 'demand' | 'access' | 'current_alternative';
+export type EvidenceScanCategory =
+  | 'competition'
+  | 'demand'
+  | 'access'
+  | 'current_alternative'
+  | 'customer_consumption'
+  | 'commercial_consumption'
+  | 'pricing'
+  | 'premium_precedent';
 export type EvidenceScanProvider = 'dataforseo' | 'podcast_index' | 'youtube_api' | 'founder_input';
+export type EvidenceScope = 'external' | 'founder';
+export type DirectEvidenceState = 'observed' | 'not_observed' | 'not_collected';
+
+export interface EvidenceRating {
+  value: number;
+  maximum?: number;
+  reviewCount: number;
+}
+
+export interface EvidencePrice {
+  current?: number;
+  regular?: number;
+  maximum?: number;
+  currency?: string;
+  isRange?: boolean;
+  displayed?: string;
+}
 
 export interface EvidenceScanItem {
   evidenceId: string;
@@ -10,10 +35,13 @@ export interface EvidenceScanItem {
   label: string;
   publicUrl?: string;
   provider: EvidenceScanProvider;
-  evidenceClass: 'market';
-  strength: 'weak';
+  evidenceClass: GhostTownEvidenceClass;
+  evidenceScope?: EvidenceScope;
+  strength: GhostTownEvidenceStrength;
   verificationStatus: 'provider_candidate' | 'founder_supplied';
   note: string;
+  rating?: EvidenceRating;
+  price?: EvidencePrice;
 }
 
 export interface EvidenceProviderReceipt {
@@ -23,8 +51,24 @@ export interface EvidenceProviderReceipt {
   resultCount: number;
   error?: string;
 }
+
+export interface PricingBandSummary {
+  currency: string;
+  count: number;
+  minimum: number;
+  median: number;
+  maximum: number;
+}
+
+export interface DirectEvidenceSummary {
+  count: number;
+  state: DirectEvidenceState;
+  statement: string;
+}
+
 export interface GhostTownEvidenceScanV1 {
   schemaVersion: 'ghosttown-evidence-scan-v1';
+  modelVersion?: 'seven-layer-v1';
   status: EvidenceScanStatus;
   generatedAt: string;
   fingerprint: string;
@@ -38,12 +82,23 @@ export interface GhostTownEvidenceScanV1 {
   demand: EvidenceScanItem[];
   access: EvidenceScanItem[];
   currentAlternatives: EvidenceScanItem[];
+  customerConsumption?: EvidenceScanItem[];
+  commercialConsumption?: EvidenceScanItem[];
+  pricingLandscape?: EvidenceScanItem[];
+  premiumPrecedent?: EvidenceScanItem[];
+  pricingBands?: PricingBandSummary[];
+  directEvidence?: {
+    response: DirectEvidenceSummary;
+    purchase: DirectEvidenceSummary;
+  };
   uncertainty: string[];
   providerReceipts: EvidenceProviderReceipt[];
   evidenceBoundary: {
     market: string;
     customer: string;
     commercial: string;
+    pricing?: string;
+    direct?: string;
   };
 }
 

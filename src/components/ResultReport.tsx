@@ -35,11 +35,15 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
     idea: result.idea,
     scores: result.deterministicScores
   });
-  const decisionV3 = result.verdictDecisionV3 ?? (result.evidenceScan ? buildVerdictDecisionV3({
-    idea: result.idea,
-    scores: result.deterministicScores,
-    evidenceScan: result.evidenceScan
-  }) : undefined);
+  const decisionV3 = result.evidenceScan
+    ? result.verdictDecisionV3?.evidenceModelVersion === 'seven-layer-v1'
+      ? result.verdictDecisionV3
+      : buildVerdictDecisionV3({
+          idea: result.idea,
+          scores: result.deterministicScores,
+          evidenceScan: result.evidenceScan
+        })
+    : undefined;
   const decision = decisionV3 ?? decisionV2;
 
   useEffect(() => {

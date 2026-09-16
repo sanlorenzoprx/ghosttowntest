@@ -48,3 +48,25 @@ describe('pre-purchase provider research preview', () => {
     expect(safePublicHttpsUrl('https://example.com/path')?.hostname).toBe('example.com');
   });
 });
+
+describe('structured external evidence metadata', () => {
+  it('preserves DataForSEO rating/review and price metadata for evidence classification', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      status_code: 20000,
+      tasks: [{ status_code: 20000, result: [{ items: [{
+        type: 'organic',
+        title: 'Premium checkout audit',
+        url: 'https://premium.example.com/audit',
+        rating: { value: 4.8, votes_count: 842, rating_max: 5 },
+        price: { current: 499, currency: 'USD', displayed_price: '$499', is_price_range: false }
+      }] }] }]
+    }), { status: 200 })));
+    const response = await handleResearchPreviewSuggestions(request(), env());
+    const body = await response.json() as { suggestions: Array<Record<string, any>> };
+    expect(response.status).toBe(200);
+    expect(body.suggestions[0]).toMatchObject({
+      rating: { value: 4.8, maximum: 5, reviewCount: 842 },
+      price: { current: 499, currency: 'USD', displayed: '$499', isRange: false }
+    });
+  });
+});
