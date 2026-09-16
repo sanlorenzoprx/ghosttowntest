@@ -4,8 +4,14 @@ import { litQuestions } from './litQuestions';
 
 function evidenceContext(scan?: GhostTownEvidenceScanV1): string {
   if (!scan) return 'No external Evidence Scan was supplied.';
-  const summarize = (items: GhostTownEvidenceScanV1['competition']) => items.slice(0, 5).map(item => `- ${item.label} [${item.provider}]`).join('\n') || '- none';
-  return `GHOSTTOWN EVIDENCE SCAN (${scan.status})\nMarket evidence is not customer-demand proof. Treat provider results as public market signals only.\nCompetition:\n${summarize(scan.competition)}\nDemand/search footprint:\n${summarize(scan.demand)}\nBuyer access surfaces:\n${summarize(scan.access)}\nCurrent alternatives:\n${summarize(scan.currentAlternatives)}\nUncertainty:\n${scan.uncertainty.map(item => `- ${item}`).join('\n')}`;
+  const summarize = (items: GhostTownEvidenceScanV1['competition'] | undefined) => (items ?? []).slice(0, 5).map(item => {
+    const rating = item.rating ? `; rating ${item.rating.value}${item.rating.maximum ? `/${item.rating.maximum}` : ''} from ${item.rating.reviewCount} reviews` : '';
+    const price = item.price ? `; price ${item.price.displayed || [item.price.currency, item.price.current ?? item.price.maximum ?? item.price.regular].filter(value => value !== undefined).join(' ')}` : '';
+    return `- ${item.label} [${item.provider}${rating}${price}]`;
+  }).join('\n') || '- none';
+  const directResponse = scan.directEvidence?.response.statement || 'Direct response to this specific offer has not been collected in the free scan.';
+  const directPurchase = scan.directEvidence?.purchase.statement || 'Direct purchase of this specific offer has not been collected in the free scan.';
+  return `GHOSTTOWN EVIDENCE SCAN (${scan.status})\nEVIDENCE MODEL:\n- Market existence: competitors, search behavior, communities, alternatives, and access surfaces.\n- Customer consumption: public reviews, ratings, comments, and similar post-consumption activity for comparable solutions.\n- Commercial consumption: evidence comparable products/services are commercially consumed; exact price is optional.\n- Pricing landscape: observed price points describe the market but do not set the founder's price.\n- Premium precedent: materially higher observed prices are strategic precedent, not an automatic recommendation.\n- Direct offer response: replies, leads, calls, bookings, or proposal requests to this founder's offer.\n- Direct offer purchase: deposits, paid pilots, accepted paid offers, or payments to this founder.\n\nMarket existence — competition:\n${summarize(scan.competition)}\nMarket existence — search footprint:\n${summarize(scan.demand)}\nMarket existence — buyer access surfaces:\n${summarize(scan.access)}\nCurrent alternatives:\n${summarize(scan.currentAlternatives)}\nExternal customer consumption:\n${summarize(scan.customerConsumption)}\nExternal commercial consumption:\n${summarize(scan.commercialConsumption)}\nPricing landscape:\n${summarize(scan.pricingLandscape)}\nPremium precedent:\n${summarize(scan.premiumPrecedent)}\nDirect offer response:\n- ${directResponse}\nDirect offer purchase:\n- ${directPurchase}\n\nRULES:\nExternal reviews/ratings can support customer-consumption evidence. Comparable commercial review activity or transaction/price context can support commercial-consumption evidence even when the exact price is unknown. Never collapse these external signals into 'no customer evidence.' Also never treat them as proof that this founder's specific positioning, offer, or price will convert. Pricing observations are descriptive; do not recommend the lowest, average, median, highest, or premium price merely because it appears in the sample.\n\nUncertainty:\n${scan.uncertainty.map(item => `- ${item}`).join('\n')}`;
 }
 
 /**
@@ -38,14 +44,14 @@ ${answerSummary}
 
 ${evidenceContext(scan)}
 
-TASK: Extract the key analytical signals. Use external scan results only as market context. Do not convert search visibility, competitors, channels, or audience surfaces into claims that customers will buy.
+TASK: Extract the key analytical signals using the seven-layer evidence model. Market-existence signals are weaker than external customer-consumption and commercial-consumption evidence. Reviews/ratings can support category-level customer consumption; commercial review activity or transaction/price context can support category-level commercial consumption even if exact price is unknown. Keep both separate from direct response or purchase of this founder's specific offer.
 
 Respond ONLY with JSON (no markdown, no explanation):
 {
   "market_need": "1-2 sentences on how urgent/real the need is",
   "unfair_advantage": "What unique advantage does this founder have? (or 'None identified')",
   "timing_readiness": "Is the market ready for this NOW? Why or why not?",
-  "founder_conviction": "Is this driven by customer demand or personal passion?",
+  "founder_conviction": "Separate founder conviction from external category evidence and direct-offer evidence. Do not call external category evidence direct demand.",
   "competitive_landscape": "How crowded is this space? Are there competitors?",
   "red_flags": ["flag 1", "flag 2", "flag 3 (or empty array)"]
 }
@@ -66,7 +72,7 @@ ${JSON.stringify(analysis, null, 2)}
 
 ${evidenceContext(scan)}
 
-TASK: Score each dimension on a 1–5 scale. External market signals may inform competition, timing, and reachability context but must not be treated as customer or commercial proof.
+TASK: Score each dimension on a 1–5 scale using the seven-layer evidence model. External reviews/ratings may support customer-consumption evidence and comparable commercial activity may support commercial-consumption evidence. Neither proves this founder's specific offer will convert. Observed prices describe the landscape only; never derive an automatic recommended price from low, average, median, high, or premium observations.
 
 Respond ONLY with JSON (no markdown):
 {
@@ -118,7 +124,7 @@ ${JSON.stringify(scores, null, 2)}
 
 ${evidenceContext(scan)}
 
-TASK: Generate a sharp, memorable verdict. Explicitly distinguish founder claims, market evidence, customer evidence, and commercial evidence. Never infer demand or willingness to pay from market evidence alone.
+TASK: Generate a sharp, memorable verdict. Explicitly distinguish market existence, external customer consumption, external commercial consumption, pricing landscape, premium precedent, direct offer response, and direct offer purchase. Reviews/ratings can support real category-level customer consumption, and commercial review/transaction context can support category-level buying precedent without an exact price. Do not mislabel those external signals as zero customer/buying evidence. Also do not claim they prove this founder's specific positioning, offer, or price will convert. Pricing is descriptive evidence, not an automatic pricing recommendation.
 
 Respond ONLY with JSON (no markdown):
 {

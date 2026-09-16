@@ -13,9 +13,33 @@ const YOUTUBE_ENDPOINT = 'https://www.googleapis.com/youtube/v3/search';
 const MAX_SUGGESTIONS = 6;
 const PRIVATE_HEADERS = { 'Cache-Control': 'private, no-store', 'Content-Type': 'application/json' };
 
+interface DataForSeoRating {
+  value?: number;
+  votes_count?: number;
+  rating_max?: number;
+}
+
+interface DataForSeoPrice {
+  current?: number;
+  regular?: number;
+  max_value?: number;
+  currency?: string;
+  is_price_range?: boolean;
+  displayed_price?: string;
+}
+
+interface DataForSeoItem {
+  type?: string;
+  title?: string;
+  url?: string;
+  domain?: string;
+  rating?: DataForSeoRating | null;
+  price?: DataForSeoPrice | null;
+}
+
 interface DataForSeoSerpResponse {
   status_code?: number;
-  tasks?: Array<{ status_code?: number; status_message?: string; result?: Array<{ items?: Array<{ type?: string; title?: string; url?: string; domain?: string }> }> }>;
+  tasks?: Array<{ status_code?: number; status_message?: string; result?: Array<{ items?: DataForSeoItem[] }> }>;
 }
 
 interface PodcastIndexResponse {
@@ -94,7 +118,17 @@ function candidateId(provider: ResearchPreviewSuggestion['provider'], publicUrl:
   return `preview_${provider}_${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 
-function suggestion(provider: ResearchPreviewSuggestion['provider'], label: string, rawUrl: string): ResearchPreviewSuggestion | null {
+function finiteNonNegative(value: unknown): number | undefined {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+function suggestion(
+  provider: ResearchPreviewSuggestion['provider'],
+  label: string,
+  rawUrl: string,
+  metadata: Pick<ResearchPreviewSuggestion, 'rating' | 'price'> = {}
+): ResearchPreviewSuggestion | null {
   const publicUrl = safePublicHttpsUrl(rawUrl);
   const normalizedLabel = clean(label, 160);
   if (!publicUrl || !normalizedLabel) return null;
@@ -103,8 +137,36 @@ function suggestion(provider: ResearchPreviewSuggestion['provider'], label: stri
     label: normalizedLabel,
     publicUrl: publicUrl.toString(),
     provider,
-    verificationStatus: 'provider_candidate'
+    verificationStatus: 'provider_candidate',
+    ...(metadata.rating ? { rating: metadata.rating } : {}),
+    ...(metadata.price ? { price: metadata.price } : {})
   };
+}
+
+function dataForSeoSuggestion(item: DataForSeoItem): ResearchPreviewSuggestion | null {
+  const ratingValue = finiteNonNegative(item.rating?.value);
+  const reviewCount = finiteNonNegative(item.rating?.votes_count);
+  const ratingMaximum = finiteNonNegative(item.rating?.rating_max);
+  const current = finiteNonNegative(item.price?.current);
+  const regular = finiteNonNegative(item.price?.regular);
+  const maximum = finiteNonNegative(item.price?.max_value);
+  const currency = clean(item.price?.currency, 12) || undefined;
+  const displayed = clean(item.price?.displayed_price, 80) || undefined;
+  return suggestion('dataforseo', item.title || item.domain || '', item.url || '', {
+    ...(ratingValue !== undefined && reviewCount !== undefined && reviewCount > 0 ? {
+      rating: { value: ratingValue, ...(ratingMaximum !== undefined ? { maximum: ratingMaximum } : {}), reviewCount }
+    } : {}),
+    ...(current !== undefined || regular !== undefined || maximum !== undefined || displayed ? {
+      price: {
+        ...(current !== undefined ? { current } : {}),
+        ...(regular !== undefined ? { regular } : {}),
+        ...(maximum !== undefined ? { maximum } : {}),
+        ...(currency ? { currency } : {}),
+        ...(typeof item.price?.is_price_range === 'boolean' ? { isRange: item.price.is_price_range } : {}),
+        ...(displayed ? { displayed } : {})
+      }
+    } : {})
+  });
 }
 
 export async function dataForSeoSuggestions(env: Env, query: string, locale: 'en' | 'es'): Promise<ResearchPreviewSuggestion[]> {
@@ -129,7 +191,7 @@ export async function dataForSeoSuggestions(env: Env, query: string, locale: 'en
   if (!response.ok || body.status_code !== 20000 || task?.status_code !== 20000) throw new Error(task?.status_message || `DataForSEO returned HTTP ${response.status}`);
   return (task.result?.flatMap(result => result.items || []) || [])
     .filter(item => item.type === 'organic')
-    .map(item => suggestion('dataforseo', item.title || item.domain || '', item.url || ''))
+    .map(item => dataForSeoSuggestion(item))
     .filter((item): item is ResearchPreviewSuggestion => Boolean(item));
 }
 
