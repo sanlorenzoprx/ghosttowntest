@@ -52,10 +52,8 @@ jobs:
       - name: Build application
         run: npm run build
 
-      - name: Install transient Playwright renderer
-        run: |
-          npm install --no-save --package-lock=false playwright@1.55.0
-          npx playwright install --with-deps chromium
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Start built application
         run: |
