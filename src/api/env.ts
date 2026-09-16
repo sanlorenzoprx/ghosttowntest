@@ -61,6 +61,7 @@ export interface Env {
   FRONTEND_URL?: string;
   DEPLOYMENT_ENV?: 'production' | 'acceptance' | 'development';
   LIT_API_KEY?: string;
+  STORY_STUDIO_EVIDENCE_API_KEY?: string;
   GEMINI_API_KEY?: string;
   DATAFORSEO_LOGIN?: string;
   DATAFORSEO_PASSWORD?: string;

@@ -18,6 +18,7 @@ import { handleLaunchBlueprintProgress, handleLaunchBlueprintRetry } from './blu
 import { handleBlueprintSeeds, handleBlueprintSeedSuggestions } from './blueprintSeeds';
 import { handleInternalGoogleSearch } from './internalGoogleSearch';
 import { handleResearchPreviewSuggestions } from './researchPreview';
+import { handleStoryStudioEvidence } from './evidenceIngestion';
 import { handleLaunchSiteOwner, handlePublicLaunchLead, handlePublicLaunchSite } from './launchSite';
 import type { Env } from './env';
 import { handleResultHistory, handleSaveCurrentResult, handleSavedResult } from './resultHistory';
@@ -88,6 +89,12 @@ export default {
       const publicVideoMatch = path.match(/^\/api\/videos\/([a-zA-Z0-9_-]+)\.mp4$/);
       if (publicVideoMatch && method === 'GET') {
         const response = await handlePublicVideo(env, publicVideoMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      if (path === '/api/integrations/story-studio/evidence' && method === 'POST') {
+        const response = await handleStoryStudioEvidence(request, env);
         applyCors(response, corsHeaders);
         return response;
       }

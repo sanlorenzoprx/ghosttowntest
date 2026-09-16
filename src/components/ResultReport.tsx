@@ -9,9 +9,10 @@ import ActionPlanModal from './ActionPlanModal';
 import PaywallModal from './PaywallModal';
 import type { PaidTestIntake } from '../types/paidTest';
 import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
-import PrePurchaseResearchSignals from './PrePurchaseResearchSignals';
 import type { PrePurchaseResearchSignals as ResearchSignals } from '../types/researchSignals';
 import { buildVerdictDecisionV2 } from '../verdict/verdictDecisionV2';
+import { buildVerdictDecisionV3 } from '../verdict/verdictDecisionV3';
+import EvidenceScanPanel from './EvidenceScanPanel';
 
 interface Props {
   result: EvaluationResult;
@@ -22,7 +23,7 @@ interface Props {
   locale: 'en' | 'es';
 }
 
-export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick, onRewardClaimed, locale }: Props) {
+export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick, onRewardClaimed }: Props) {
   const [paidLoading, setPaidLoading] = useState(false);
   const [paidError, setPaidError] = useState('');
   const [showActionPlanForm, setShowActionPlanForm] = useState(false);
@@ -34,6 +35,12 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
     idea: result.idea,
     scores: result.deterministicScores
   });
+  const decisionV3 = result.verdictDecisionV3 ?? (result.evidenceScan ? buildVerdictDecisionV3({
+    idea: result.idea,
+    scores: result.deterministicScores,
+    evidenceScan: result.evidenceScan
+  }) : undefined);
+  const decision = decisionV3 ?? decisionV2;
 
   useEffect(() => {
     saveLatestResult(result);
@@ -103,55 +110,56 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-28 sm:py-10 sm:pb-10">
-      <section data-testid="verdict-decision-v2" className="mb-8 overflow-hidden rounded-2xl border border-ghost-rust/30 bg-white shadow-dust">
+      {result.evidenceScan && decisionV3 && <EvidenceScanPanel scan={result.evidenceScan} decision={decisionV3} />}
+      <section data-testid="verdict-decision-v2" data-verdict-version={decisionV3 ? 'v3' : 'v2'} className="mb-8 overflow-hidden rounded-2xl border border-ghost-rust/30 bg-white shadow-dust">
         <div data-testid="verdict-card" className="border-b border-ghost-rust/20 bg-[#fff7f2] p-6 sm:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Decision</p>
-          <h1 className="mt-2 font-display text-4xl font-bold leading-tight text-gray-950">{decisionV2.decision.replace(/_/g, ' ')}</h1>
-          <p className="mt-3 max-w-2xl text-base leading-7 text-gray-700">{decisionV2.confidence.rationale}</p>
+          <h1 className="mt-2 font-display text-4xl font-bold leading-tight text-gray-950">{decision.decision.replace(/_/g, ' ')}</h1>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-gray-700">{decision.confidence.rationale}</p>
           <p className="mt-3 text-sm text-gray-600">This tells you what is worth testing next. It is not a prediction that the whole business will succeed.</p>
         </div>
 
         <div className="grid gap-4 p-6 sm:p-8">
           <article className="rounded-xl border border-amber-200 bg-amber-50 p-5">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">Biggest unknown</p>
-            <h2 className="mt-2 text-xl font-black text-gray-950">{decisionV2.largestUncertainty.assumption}</h2>
-            <p className="mt-2 leading-7 text-gray-700">{decisionV2.largestUncertainty.whyItMatters}</p>
+            <h2 className="mt-2 text-xl font-black text-gray-950">{decision.largestUncertainty.assumption}</h2>
+            <p className="mt-2 leading-7 text-gray-700">{decision.largestUncertainty.whyItMatters}</p>
           </article>
 
           <article data-testid="next-step" className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-800">Fastest test</p>
-            <h2 className="mt-2 text-xl font-black text-gray-950">{decisionV2.cheapestFalsification.test}</h2>
+            <h2 className="mt-2 text-xl font-black text-gray-950">{decision.cheapestFalsification.test}</h2>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Who to test</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.target}</dd></div>
-              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Good result</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.successThreshold}</dd></div>
-              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Stop / revise</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.failureThreshold}</dd></div>
-              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Limit</dt><dd className="mt-1 text-gray-700">{decisionV2.cheapestFalsification.maximumTime} · {decisionV2.cheapestFalsification.maximumCash}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Who to test</dt><dd className="mt-1 text-gray-700">{decision.cheapestFalsification.target}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Good result</dt><dd className="mt-1 text-gray-700">{decision.cheapestFalsification.successThreshold}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Stop / revise</dt><dd className="mt-1 text-gray-700">{decision.cheapestFalsification.failureThreshold}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Limit</dt><dd className="mt-1 text-gray-700">{decision.cheapestFalsification.maximumTime} · {decision.cheapestFalsification.maximumCash}</dd></div>
             </dl>
           </article>
 
           <article className="rounded-xl border-2 border-ghost-rust bg-white p-5 shadow-lantern">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-ghost-rust">Do this first</p>
-            <h2 className="mt-2 text-2xl font-black leading-8 text-gray-950">{decisionV2.firstAction.action}</h2>
+            <h2 className="mt-2 text-2xl font-black leading-8 text-gray-950">{decision.firstAction.action}</h2>
           </article>
         </div>
 
         <div className="space-y-6 border-t border-gray-200 p-6 text-sm text-gray-800 sm:p-8">
           <DecisionSection title="What we are testing">
-            <p>{decisionV2.predictionTarget}</p>
+            <p>{decision.predictionTarget}</p>
             <dl className="mt-3 grid gap-2 rounded-sm bg-gray-50 p-3 sm:grid-cols-2">
-              <div><dt className="font-bold">Customer</dt><dd>{decisionV2.customer.initialCustomer}</dd></div>
-              <div><dt className="font-bold">Problem</dt><dd>{decisionV2.problem.painfulProblem}</dd></div>
-              <div><dt className="font-bold">Offer</dt><dd>{decisionV2.offerHypothesis.offer}</dd></div>
-              <div><dt className="font-bold">Commitment</dt><dd>{decisionV2.offerHypothesis.commitmentRequested}{decisionV2.offerHypothesis.priceOrCommitmentRange ? ` (${decisionV2.offerHypothesis.priceOrCommitmentRange})` : ''}</dd></div>
+              <div><dt className="font-bold">Customer</dt><dd>{decision.customer.initialCustomer}</dd></div>
+              <div><dt className="font-bold">Problem</dt><dd>{decision.problem.painfulProblem}</dd></div>
+              <div><dt className="font-bold">Offer</dt><dd>{decision.offerHypothesis.offer}</dd></div>
+              <div><dt className="font-bold">Commitment</dt><dd>{decision.offerHypothesis.commitmentRequested}{decision.offerHypothesis.priceOrCommitmentRange ? ` (${decision.offerHypothesis.priceOrCommitmentRange})` : ''}</dd></div>
             </dl>
           </DecisionSection>
-          <DecisionSection title="Confidence"><p><span className="font-bold">{decisionV2.confidence.level}.</span> {decisionV2.confidence.rationale}</p></DecisionSection>
-          <DecisionSection title="Why this may work"><DecisionList items={decisionV2.reasonsFor} /></DecisionSection>
-          <DecisionSection title="Why this may fail"><DecisionList items={decisionV2.reasonsAgainst} /></DecisionSection>
-          <DecisionSection title="What would change this verdict"><DecisionList items={decisionV2.whatWouldChangeTheVerdict} /></DecisionSection>
+          <DecisionSection title="Confidence"><p><span className="font-bold">{decision.confidence.level}.</span> {decision.confidence.rationale}</p></DecisionSection>
+          <DecisionSection title="Why this may work"><DecisionList items={decision.reasonsFor} /></DecisionSection>
+          <DecisionSection title="Why this may fail"><DecisionList items={decision.reasonsAgainst} /></DecisionSection>
+          <DecisionSection title="What would change this verdict"><DecisionList items={decision.whatWouldChangeTheVerdict} /></DecisionSection>
           <DecisionSection title="Evidence labels">
             <ul className="space-y-2">
-              {decisionV2.evidenceLabels.map((label, index) => <li key={`${label.statement}-${index}`} className="rounded-sm border border-gray-200 p-3"><span className="mr-2 text-xs font-bold uppercase tracking-wide text-gray-500">{label.truthLabel}</span>{label.statement}</li>)}
+              {decision.evidenceLabels.map((label, index) => <li key={`${label.statement}-${index}`} className="rounded-sm border border-gray-200 p-3"><span className="mr-2 text-xs font-bold uppercase tracking-wide text-gray-500">{label.truthLabel}</span>{label.statement}</li>)}
             </ul>
           </DecisionSection>
         </div>
@@ -253,27 +261,21 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         onRewardClaimed={onRewardClaimed}
       />
 
-      <PrePurchaseResearchSignals
-        resultId={result.resultId}
-        idea={result.idea}
-        locale={locale}
-        value={researchSignals}
-        onChange={setResearchSignals}
-      />
-
       <section id="thirty-day-plan" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Your next 30 days</p>
-        <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Turn this verdict into evidence.</h2>
-        <p className="mt-3 text-sm font-bold text-gray-800">{GHOSTTOWN_30_DAY_PLAN_V1.name}</p>
-        <ul className="mt-4 space-y-2 text-sm text-gray-800">
-          <li>Thirty daily actions with time budgets, cash limits, evidence, and pass/fail thresholds</li>
-          <li>Buyer interviews, alternatives, offer, pricing, landing-page, outreach, and paid-pilot tests</li>
-          <li>Truth-labeled executable Blueprint, readable PDF, and account history for repeat access</li>
-        </ul>
-        <p className="mt-4 text-sm text-gray-700">A validation experiment—not a promise of product-market fit, revenue, or certainty.</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">30-Day Evidence Sprint</p>
+        <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Know what to do with your idea 30 days from now.</h2>
+        <p className="mt-3 text-sm leading-6 text-gray-700">{GHOSTTOWN_30_DAY_PLAN_V1.subtitle}</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <PersuasionCard label="Know what to do" text={GHOSTTOWN_30_DAY_PLAN_V1.persuasion.gain} />
+          <PersuasionCard label="Stop guessing" text={GHOSTTOWN_30_DAY_PLAN_V1.persuasion.relief} />
+          <PersuasionCard label="Do not lose another month" text={GHOSTTOWN_30_DAY_PLAN_V1.persuasion.risk} />
+          <PersuasionCard label="Do not quit for the wrong reason" text={GHOSTTOWN_30_DAY_PLAN_V1.persuasion.miss} />
+        </div>
+        <p className="mt-4 rounded-lg border border-ghost-forest/20 bg-white p-4 text-sm font-bold text-ghost-ink"><span className="text-ghost-forest">Start now:</span> {GHOSTTOWN_30_DAY_PLAN_V1.persuasion.immediatePayoff}</p>
+        <p className="mt-4 text-xs leading-5 text-gray-600">{GHOSTTOWN_30_DAY_PLAN_V1.persuasion.truthBoundary}</p>
         {paidError && <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{paidError}</p>}
-        <button type="button" aria-label="Start 30-day implementation plan checkout" onClick={openActionPlanForm} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
-          {paidLoading ? 'Opening checkout...' : `Unlock the 30-Day Plan - ${displayPrice}`}
+        <button type="button" aria-label="Start 30-Day Evidence Sprint checkout" onClick={openActionPlanForm} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
+          {paidLoading ? 'Opening checkout...' : `Run the 30-Day Evidence Sprint - ${displayPrice}`}
         </button>
       </section>
 
@@ -287,8 +289,8 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ghost-rust/20 bg-[#fff7f2]/95 p-3 backdrop-blur sm:hidden">
-        <button type="button" aria-label="Start 30-day implementation plan checkout" onClick={openActionPlanForm} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
-          {paidLoading ? 'Opening checkout...' : `Get the 30-Day Plan - ${displayPrice}`}
+        <button type="button" aria-label="Start 30-Day Evidence Sprint checkout" onClick={openActionPlanForm} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
+          {paidLoading ? 'Opening checkout...' : `Run the Evidence Sprint - ${displayPrice}`}
         </button>
       </div>
 
@@ -327,6 +329,10 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       </div>
     </div>
   );
+}
+
+function PersuasionCard({ label, text }: { label: string; text: string }) {
+  return <article className="rounded-lg border border-ghost-rust/15 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-ghost-rust">{label}</p><p className="mt-2 text-sm leading-6 text-gray-700">{text}</p></article>;
 }
 
 function DecisionSection({ title, children }: { title: string; children: ReactNode }) {

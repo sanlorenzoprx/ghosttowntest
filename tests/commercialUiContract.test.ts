@@ -13,6 +13,7 @@ describe('commercial UI acceptance contract', () => {
   const dashboard = readSource('src/components/UserDashboard.tsx');
   const prePurchaseResearch = readSource('src/components/PrePurchaseResearchSignals.tsx');
   const checkoutIntake = readSource('src/components/ActionPlanModal.tsx');
+  const evidenceScan = readSource('src/api/evidenceScan.ts');
   const competitorSeeds = readSource('src/components/CompetitorSeedStep.tsx');
   const offer = readSource('src/lib/ghosttownOffer.ts');
 
@@ -73,16 +74,19 @@ describe('commercial UI acceptance contract', () => {
     expect(dashboard).toContain('window.clearInterval(timer)');
   });
 
-  it('keeps research homework behind purchase and makes the paid value explicit', () => {
+  it('does the research for the customer before the verdict and keeps the paid value simple', () => {
     expect(prePurchaseResearch).toContain('return null');
     expect(checkoutIntake).toContain('We do the research');
-    expect(checkoutIntake).toContain('You do not need to hunt for competitors, podcasts, communities, or examples before you pay.');
-    expect(checkoutIntake).toContain('GhostTown does that work and starts you with useful examples after purchase.');
+    expect(evidenceScan).toContain('runEvidenceScanV1');
+    expect(checkoutIntake).toContain('You do not need to search for competitors or places to find buyers.');
+    expect(checkoutIntake).toContain('GhostTown starts that work before your verdict and keeps going during the Sprint.');
     expect(checkoutIntake).not.toContain('Your research map is already attached');
     expect(checkoutIntake).toContain('<details');
-    expect(checkoutIntake).toContain('Build My 30-Day Interactive Blueprint');
+    expect(checkoutIntake).toContain('Start My 30-Day Evidence Sprint');
     expect(offer).toContain('Your 30-day plan, one clear next step at a time');
     expect(offer).toContain('Open GhostTown each day and see what to do next');
+    expect(offer).toContain('The Sprint does not include a live website, domain, publishing, or payment setup.');
+    expect(offer).not.toContain('Get a real launch website built around your idea and offer');
   });
 
   it('preselects post-purchase market references instead of making the buyer start from zero', () => {

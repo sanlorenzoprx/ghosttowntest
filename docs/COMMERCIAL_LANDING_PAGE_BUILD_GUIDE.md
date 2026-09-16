@@ -150,7 +150,7 @@ Before showing the price, the customer should understand:
 - how those assets connect to the outcome;
 - what the first useful action looks like.
 
-For GhostTown, the paid value is not “a PDF.” It is the working launch system behind the PDF, dashboard, assets, and website.
+For GhostTown, the $97 paid value is not “a PDF.” It is the 30-Day Evidence Sprint: the plan, daily next steps, research, messages, evidence ledger, and decision rules that tell the customer what to test and what the result means. A live customer-facing site is not part of the $97 Sprint.
 
 ## 8. Name deliverables by customer value
 
@@ -162,11 +162,20 @@ Bad:
 
 Better:
 
-> **Custom Launch Website**
+> **Get My Test Live — $119**
 >
-> A real website built around your idea, your offer, and the customer you want to reach.
+> Turn the test from your Sprint into a live page you can send to real customers.
 
-The internal implementation can continue to use Cloudflare and the canonical `Launch Site` model. Customer-facing naming should describe what the buyer receives.
+This is a separate product from the $97 Evidence Sprint. The internal implementation can reuse Cloudflare and the canonical `Launch Site` model, but customer-facing naming should describe the outcome rather than the infrastructure.
+
+### GhostTown commercial product boundary
+
+| Step | Customer value | Product boundary |
+|---|---|---|
+| Free | Evidence Scan + Verdict | See what outside market signs exist, what is still unproven, and whether the idea is clear enough to test. |
+| $97 | 30-Day Evidence Sprint | Decide **what to test**, what to do next, and what evidence means keep going, revise, pause, or stop. No live website, domain, publishing, or payment setup is included. |
+| $119 | Get My Test Live | Turn the Sprint test into a live customer-facing lead-generation page. This remains **upcoming** until the product is actually shipped and enabled. |
+| Separate upsell | Story Studio | Help more people find the test. Distribution is separate from deciding what to test and separate from manufacturing the live page. |
 
 ## 9. Truth and offer safety
 

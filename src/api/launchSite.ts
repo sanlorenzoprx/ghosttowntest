@@ -2,6 +2,7 @@ import type { Env } from "./env";
 import { ownedLaunchBlueprintOrder } from "./blueprintApi";
 import { loadBlueprintRecord } from "./blueprintStore";
 import { consumeHourlyRateLimit } from "./runtimeControls";
+import { ingestObservedEvidenceEvent } from "./evidenceIngestion";
 import type { GhostTownLaunchBlueprint } from "../types/launchBlueprint";
 
 export type LaunchSiteStatus = "draft" | "published" | "unpublished";
@@ -502,12 +503,13 @@ export async function handlePublicLaunchLead(
     );
 
   const now = new Date().toISOString();
+  const leadId = `lead_${crypto.randomUUID()}`;
   await db(env)
     .prepare(
       "INSERT INTO launch_site_leads (lead_id, site_id, email, name, message, source_path, consent_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(
-      `lead_${crypto.randomUUID()}`,
+      leadId,
       loaded.site.site_id,
       email,
       name || null,
@@ -517,6 +519,24 @@ export async function handlePublicLaunchLead(
       now,
     )
     .run();
+
+  try {
+    await ingestObservedEvidenceEvent(env, {
+      eventId: `launch_site:${leadId}`,
+      orderId: loaded.site.order_id,
+      eventType: 'launch_site_lead',
+      occurredAt: now,
+      source: 'launch_site',
+      contactOrChannel: email,
+      summary: message ? `Launch Site lead submitted with explicit consent: ${message}` : 'Launch Site lead submitted with explicit consent.',
+      customerLanguage: message || undefined,
+      sourceReference: leadId
+    });
+  } catch (error) {
+    // Lead capture is the primary transaction. A projection failure must not
+    // discard the lead; the durable lead row remains available for repair.
+    console.warn('Launch Site lead evidence projection failed', { leadId, error });
+  }
   return privateJson(
     { ok: true, message: loaded.blueprint.landingPageCopy.thankYouPageCopy },
     201,

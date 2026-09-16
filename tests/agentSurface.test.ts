@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { handleAgentFreeVerdict, ghostTownProductMetadata } from '../src/api/agentVerdict';
 import { handleMcp } from '../src/api/mcp';
 import type { Env } from '../src/api/env';
+import { GHOSTTOWN_30_DAY_PLAN_V1 } from '../src/lib/ghosttownOffer';
 
 describe('ASC-01 GhostTown agent surface', () => {
   it('returns needs_input instead of fabricating missing canonical verdict data', async () => {
@@ -39,7 +40,7 @@ describe('ASC-01 GhostTown agent surface', () => {
 
   it('reuses the canonical GhostTown $97 offer metadata', () => {
     const metadata = ghostTownProductMetadata({ FRONTEND_URL: 'https://ghosttowntest.com' } as Env);
-    expect(metadata.paid_offer.name).toBe('GhostTown Launch Blueprint');
+    expect(metadata.paid_offer.name).toBe(GHOSTTOWN_30_DAY_PLAN_V1.name);
     expect(metadata.paid_offer.price_usd).toBe(97);
     expect(metadata.paid_offer.requires_user_action).toBe(true);
   });

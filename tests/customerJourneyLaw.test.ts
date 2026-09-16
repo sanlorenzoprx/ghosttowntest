@@ -29,7 +29,8 @@ describe('GhostTown Customer Journey Law', () => {
   it('makes plain language and low mental effort governing customer-facing rules', () => {
     expect(law).toContain('The customer should never have to translate GhostTown.');
     expect(law).toContain('GhostTown may be complex underneath. It must feel simple on top.');
-    expect(law).toContain('Target roughly fifth-to-eighth-grade clarity');
+    expect(law).toContain('Target fifth-grade clarity');
+    expect(law).toContain('easy to translate into every language we publish');
     expect(law).toContain('Plain does not mean childish or patronizing. It means low mental effort.');
   });
 
@@ -42,7 +43,7 @@ describe('GhostTown Customer Journey Law', () => {
       'Stage 5 — Checkout',
       'Stage 6 — After payment',
       'Stage 7 — Research and examples',
-      'Stage 8 — Blueprint ready',
+      'Stage 8 — Plan ready',
       'Stage 9 — Daily use',
       'Stage 10 — Reminders',
       'Stage 11 — AI help',
@@ -60,10 +61,13 @@ describe('GhostTown Customer Journey Law', () => {
 
   it('makes the paid offer about help doing the work, not startup jargon', () => {
     expect(checkout).toContain('You tested your idea. Now let’s help you make it real.');
-    expect(checkout).toContain('The PDF shows the whole 30-day plan. Your Interactive Blueprint shows what to do today.');
-    expect(checkout).toContain('Build My 30-Day Interactive Blueprint — ${ctaPrice}');
+    expect(checkout).toContain('The PDF shows the whole 30-day plan. GhostTown shows what to do today.');
+    expect(checkout).toContain('Start My 30-Day Evidence Sprint — ${ctaPrice}');
     expect(offer).toContain('Open GhostTown each day and see what to do next');
     expect(offer).toContain('Tell GhostTown what happened and get help deciding what to do next');
+    expect(offer).toContain('The Sprint does not include a live website, domain, publishing, or payment setup.');
+    expect(law).toContain('Get My Test Live');
+    expect(law).toContain('does **not** include a live website, domain, publishing, or payment setup');
   });
 
   it('keeps known internal and meta-language out of paid customer copy', () => {
@@ -80,7 +84,7 @@ describe('GhostTown Customer Journey Law', () => {
     expect(law).toContain('If the answer is unclear, rewrite or delete it.');
     expect(law).toContain('benefit test');
     expect(law).toContain('> GhostTown helps you take the next step without making you learn our language first.');
-    expect(law).toContain('> GhostTown builds your 30-day plan and helps you follow it one step at a time.');
+    expect(law).toContain('> GhostTown gives you a 30-day plan and shows you what to do next.');
     expect(law.split('without making you learn our language first').length - 1).toBe(1);
   });
 

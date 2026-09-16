@@ -49,29 +49,33 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
               <p className="text-xs font-bold uppercase tracking-wider text-ghost-rust">{displayPrice} one-time purchase</p>
               <h2 id="action-plan-title" className="mt-1 text-2xl font-bold text-gray-950">You tested your idea. Now let’s help you make it real.</h2>
               <p className="mt-2 text-sm leading-6 text-gray-700">
-                For {displayPrice}, GhostTown builds your 30-day plan and helps you work through it one day at a time.
+                For {displayPrice}, GhostTown gives you a 30-day plan. Each day tells you what to do. You tell us what happened. We help you decide what to do next.
               </p>
             </div>
-            <button type="button" onClick={onClose} disabled={loading} className="shrink-0 rounded-lg px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100" aria-label="Close Launch Blueprint form">Close</button>
+            <button type="button" onClick={onClose} disabled={loading} className="shrink-0 rounded-lg px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100" aria-label="Close checkout">Close</button>
           </div>
 
           <section className="mt-6 rounded-xl border border-ghost-rust/20 bg-[#fff7f2] p-5">
             <h3 className="font-black text-ghost-ink">Your plan will not sit in a folder.</h3>
             <p className="mt-2 text-sm leading-6 text-gray-700">
-              The PDF shows the whole 30-day plan. Your Interactive Blueprint shows what to do today. We remind you what comes next. Tell GhostTown what happened, and we help you decide the next move.
+              The PDF shows the whole 30-day plan. GhostTown shows what to do today. We remind you what comes next. Tell GhostTown what happened, and we help you decide what to do next.
             </p>
             <ul className="mt-4 grid gap-2 text-sm text-gray-800 sm:grid-cols-2">
               {GHOSTTOWN_30_DAY_PLAN_V1.customerPromise.map(item => <li key={item} className="flex gap-2"><span className="font-black text-ghost-rust">✓</span><span>{item}</span></li>)}
             </ul>
-            <p className="mt-4 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">The PDF is the full map. Your Interactive Blueprint helps you take the next step.</p>
-            <p className="mt-3 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">{GHOSTTOWN_30_DAY_PLAN_V1.launchSiteInvariant}</p>
+            <p className="mt-4 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">The PDF shows the full plan. GhostTown shows your next step.</p>
+            <p className="mt-3 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">{GHOSTTOWN_30_DAY_PLAN_V1.scopeBoundary}</p>
           </section>
 
           <section className="mt-6 rounded-xl border border-ghost-forest/20 bg-[#eef3ef] p-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-ghost-forest">We do the research</p>
-            <p className="mt-2 text-sm leading-6 text-gray-700">You do not need to hunt for competitors, podcasts, communities, or examples before you pay. GhostTown does that work and starts you with useful examples after purchase.</p>
+            <p className="mt-2 text-sm leading-6 text-gray-700">You do not need to search for competitors or places to find buyers. GhostTown starts that work before your verdict and keeps going during the Sprint.</p>
           </section>
 
+          <section className="mt-6 rounded-xl border border-ghost-forest/20 bg-[#eef3ef] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-ghost-forest">Start now</p>
+            <p className="mt-2 text-sm leading-6 text-gray-700">Your first step is ready right away. You get one clear test, what to do in the next 48 hours, and what result means keep going or change something.</p>
+          </section>
           <div className="mt-6 space-y-5">
             <Field label="Who do you want to help first?" value={targetBuyer} onChange={setTargetBuyer} placeholder="Example: local salon owners" />
             <Field label="What problem do they have?" value={problem} onChange={setProblem} placeholder="Describe the problem in your own words" multiline />
@@ -96,7 +100,7 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
           <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button type="button" onClick={onClose} disabled={loading} className="rounded-lg border border-gray-300 px-5 py-3 font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
             <button type="submit" disabled={loading || !targetBuyer.trim() || !problem.trim() || !currentWorkaround.trim()} className="rounded-lg bg-ghost-rust px-5 py-3 font-bold text-white hover:bg-[#96360d] disabled:opacity-50">
-              {loading ? 'Opening secure checkout...' : `Build My 30-Day Interactive Blueprint — ${ctaPrice}`}
+              {loading ? 'Opening secure checkout...' : `Start My 30-Day Evidence Sprint — ${ctaPrice}`}
             </button>
           </div>
         </form>
