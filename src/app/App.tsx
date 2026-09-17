@@ -4,6 +4,8 @@ import IdeaIntake from '../components/IdeaIntake';
 import QuestionFlow from '../components/QuestionFlow';
 import ResultReport from '../components/ResultReport';
 import UserDashboard from '../components/UserDashboard';
+import GetMeLiveWorkspace from '../components/GetMeLiveWorkspace';
+import GetMeLiveLanding from '../components/GetMeLiveLanding';
 import LoginModal from '../components/LoginModal';
 import PaywallModal from '../components/PaywallModal';
 import Contact from '../components/Contact';
@@ -26,7 +28,7 @@ import type { PublicUserData } from '../types/auth';
 import { getFeaturedExampleBySlug, toIdeaIntake } from '../lib/exampleIdeas';
 import { captureCommercialAttribution, recordCommercialEvent } from '../lib/commercialAttribution';
 
-type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | LegalPageKind;
+type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'get-me-live' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | LegalPageKind;
 
 function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/contact') return 'contact';
@@ -35,11 +37,11 @@ function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/refunds' || pathname === '/refund-policy') return 'refund';
   if (pathname === '/disclaimer') return 'disclaimer';
   if (pathname === '/paid-test/success') return 'action-plan-success';
+  if (pathname.startsWith('/get-me-live')) return 'get-me-live';
   if (pathname === '/internal-research') return 'internal-research';
   if (pathname === '/internal-metrics') return 'internal-metrics';
   return hasExample ? 'intake' : 'landing';
 }
-
 export default function App() {
   const [locale, setLocale] = useState<'en' | 'es'>(() => localStorage.getItem('lit_locale') === 'es' ? 'es' : 'en');
   const [initialExample] = useState(() => getFeaturedExampleBySlug(new URLSearchParams(window.location.search).get('example')));
@@ -64,6 +66,13 @@ export default function App() {
     if (token) {
       setIsLoggedIn(true);
       verifyToken(token);
+    }
+  }, []);
+
+  useEffect(() => {
+    const orderId = new URLSearchParams(window.location.search).get('order_id');
+    if (window.location.pathname === '/get-me-live' && orderId) {
+      window.history.replaceState({}, '', `/get-me-live/setup${window.location.search}${window.location.hash}`);
     }
   }, []);
 
@@ -180,6 +189,11 @@ export default function App() {
     updatePath('/');
   };
 
+  const getMeLiveParams = new URLSearchParams(window.location.search);
+  const getMeLiveOrderId = getMeLiveParams.get('order_id') || '';
+  const getMeLiveSetup = window.location.pathname.startsWith('/get-me-live/setup') || Boolean(getMeLiveOrderId);
+  const getMeLiveSourceSprintOrderId = getMeLiveParams.get('source_sprint_order_id') || '';
+
   return (
     <div className="min-h-screen bg-ghost-paper">
       <header className="site-header border-b border-gray-200 bg-ghost-paper/95 backdrop-blur">
@@ -218,6 +232,9 @@ export default function App() {
         {screen === 'questions' && idea && <QuestionFlow idea={idea} onResult={handleResultReceived} initialDraft={resumeDraft} onDraftChange={setResumeDraft} />}
         {screen === 'result' && result && <ResultReport result={result} onReset={handleReset} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('signup'); setShowLoginModal(true); }} onRewardClaimed={() => { const token = loadAuthToken(); if (token) void verifyToken(token); }} locale={locale} />}
         {screen === 'dashboard' && isLoggedIn && <UserDashboard onLogout={handleLogout} onBuy={() => setShowPaywall(true)} onStart={handleStartTest} onOpenResult={savedResult => { setResult(savedResult); setScreen('result'); }} />}
+        {screen === 'get-me-live' && !getMeLiveSetup && <GetMeLiveLanding sourceSprintOrderId={getMeLiveSourceSprintOrderId} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} onBack={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
+        {screen === 'get-me-live' && getMeLiveSetup && isLoggedIn && <GetMeLiveWorkspace orderId={getMeLiveOrderId} onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
+        {screen === 'get-me-live' && getMeLiveSetup && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Log in to open your Get Me Live page</h1><p className="mt-3 text-gray-700">Use the email from checkout. Your work is saved.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
         {screen === 'contact' && <Contact onStart={handleStartTest} />}
         {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && <LegalPage kind={screen} />}
         {screen === 'action-plan-success' && <ActionPlanSuccess orderId={new URLSearchParams(window.location.search).get('order_id') || ''} onDone={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
@@ -251,7 +268,6 @@ function updateExampleParam(slug: string | null): void {
   else url.searchParams.delete('example');
   window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 }
-
 function updatePath(pathname: string): void {
   const url = new URL(window.location.href);
   if (url.pathname === pathname) return;

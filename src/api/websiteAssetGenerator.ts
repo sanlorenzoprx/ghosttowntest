@@ -17,6 +17,12 @@ function safeHttps(value: string | null | undefined): string | null {
   }
 }
 
+function safeRenderedAsset(value: string): boolean {
+  if (safeHttps(value)) return true;
+  if (/^data:image\/(?:png|jpeg|webp|gif|svg\+xml);base64,[a-zA-Z0-9+/=]+$/.test(value)) return true;
+  return /^\/assets\/[a-zA-Z0-9._-]+$/.test(value);
+}
+
 /**
  * Conservative default: reuse only an explicit HTTPS logo already present in
  * the approved Blueprint. Generated/licensed imagery can be supplied later by
@@ -43,7 +49,7 @@ export function assertWebsiteAssets(assets: WebsiteAsset[]): void {
   for (const asset of assets) {
     if (!asset.assetId.trim() || ids.has(asset.assetId)) throw new Error('Website assets require unique non-empty asset IDs.');
     ids.add(asset.assetId);
-    if (!safeHttps(asset.publicUrl)) throw new Error(`Website asset ${asset.assetId} is not an approved HTTPS asset URL.`);
+    if (!safeRenderedAsset(asset.publicUrl)) throw new Error(`Website asset ${asset.assetId} does not have an approved image location.`);
     if (!asset.altText.trim()) throw new Error(`Website asset ${asset.assetId} requires alt text.`);
     if (!asset.sourceReference.trim()) throw new Error(`Website asset ${asset.assetId} requires a provenance reference.`);
   }

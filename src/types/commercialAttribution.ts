@@ -12,7 +12,18 @@ export type CommercialEventName =
   | 'daily_packet_opened'
   | 'day_completed'
   | 'evidence_recorded'
-  | 'blueprint_retry_requested';
+  | 'blueprint_retry_requested'
+  | 'get_me_live_offer_viewed'
+  | 'get_me_live_cta_clicked'
+  | 'get_me_live_checkout_started'
+  | 'get_me_live_purchase_completed'
+  | 'get_me_live_setup_started'
+  | 'get_me_live_preview_created'
+  | 'get_me_live_publish_clicked'
+  | 'get_me_live_live_completed'
+  | 'get_me_live_lead_captured'
+  | 'get_me_live_payment_connected'
+  | 'get_me_live_customer_payment';
 
 export interface CommercialAttributionTouch {
   capturedAt: string;

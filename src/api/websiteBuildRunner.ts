@@ -14,7 +14,9 @@ function safeHref(value: string): string {
   if (source.startsWith('#')) return source.replace(/[^#a-zA-Z0-9_-]/g, '');
   try {
     const url = new URL(source);
-    return ['https:', 'mailto:', 'tel:'].includes(url.protocol) ? url.toString() : '#contact';
+    if (['https:', 'mailto:', 'tel:'].includes(url.protocol)) return url.toString();
+    if (url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) return url.toString();
+    return '#contact';
   } catch {
     return '#contact';
   }
@@ -278,7 +280,7 @@ function cssSource(spec: CustomWebsiteSpec): string {
   --surface: ${t.surface};
   --text: ${t.text};
   --muted: ${t.muted};
-  --accent: ${t.accent};
+  --accent: ${(spec as CustomWebsiteSpec & { primaryColor?: string }).primaryColor || t.accent};
   --accent-text: ${t.accentText};
   --dark: ${t.dark};
   --line: ${t.line};
@@ -434,4 +436,116 @@ export async function buildCustomWebsite(
     assets,
     files
   };
+}
+
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function staticItems(section: CustomWebsiteSpec['sections'][number]): string {
+  if (!section.items?.length) return '';
+  if (section.component === 'faq') {
+    return `<div class="faq-list">${section.items.map(item => `<details><summary>${escapeHtml(item.title)}</summary><p>${escapeHtml(item.body)}</p></details>`).join('')}</div>`;
+  }
+  return `<div class="item-grid">${section.items.map(item => `<article><h3>${escapeHtml(item.title)}</h3>${item.body ? `<p>${escapeHtml(item.body)}</p>` : ''}</article>`).join('')}</div>`;
+}
+
+function staticCtas(section: CustomWebsiteSpec['sections'][number], primaryActionUrl: string, secondaryActionUrl: string): string {
+  if (!section.primaryCtaLabel && !section.secondaryCtaLabel) return '';
+  return `<div class="actions">${section.primaryCtaLabel ? `<a class="button primary" href="${escapeHtml(safeHref(primaryActionUrl))}">${escapeHtml(section.primaryCtaLabel)}</a>` : ''}${section.secondaryCtaLabel ? `<a class="button secondary" href="${escapeHtml(safeHref(secondaryActionUrl || primaryActionUrl))}">${escapeHtml(section.secondaryCtaLabel)}</a>` : ''}</div>`;
+}
+function renderCustomWebsiteStaticHtmlBase(
+  spec: CustomWebsiteSpec,
+  options: {
+    assets?: WebsiteAsset[];
+    primaryActionUrl?: string;
+    secondaryActionUrl?: string;
+    leadActionUrl?: string;
+    leadMagnet?: { title: string; url: string };
+    canonicalUrl?: string;
+    socialImageUrl?: string;
+    attributionUrl?: string;
+    showFriendShare?: boolean;
+    activityUrl?: string;
+  } = {}
+): string {
+  assertWebsiteComponentContract(spec);
+  const assets = options.assets || [];
+  assertWebsiteAssets(assets);
+  const primaryActionUrl = options.primaryActionUrl || '#contact';
+  const secondaryActionUrl = options.secondaryActionUrl || primaryActionUrl;
+  const logo = assets.find(asset => asset.role === 'logo');
+  const hero = assets.find(asset => asset.role === 'hero_image');
+
+  const sections = spec.sections.map((section, index) => {
+    if (section.component === 'hero') {
+      return `<section id="${escapeHtml(section.sectionId)}" class="hero-section" data-component="hero"><div class="section-inner hero-grid"><div class="hero-copy">${logo ? `<img class="brand-logo" src="${escapeHtml(logo.publicUrl)}" alt="${escapeHtml(logo.altText)}">` : `<p class="brand-name">${escapeHtml(spec.businessName)}</p>`}${section.eyebrow ? `<p class="eyebrow">${escapeHtml(section.eyebrow)}</p>` : ''}<h1>${escapeHtml(section.heading)}</h1>${section.body ? `<p class="lede hero-lede">${escapeHtml(section.body)}</p>` : ''}${staticCtas(section, primaryActionUrl, secondaryActionUrl)}<p class="truth-line">Validation-stage offer · Claims remain evidence-bound.</p></div><div class="hero-visual">${hero ? `<img src="${escapeHtml(hero.publicUrl)}" alt="${escapeHtml(hero.altText)}">` : `<div class="hero-proof-card"><span>Built from evidence gathered before launch</span><strong>${escapeHtml(spec.businessName)}</strong><small>Offer · Positioning · Price · Proof boundaries · Next action</small></div>`}</div></div></section>`;
+    }
+    if (section.component === 'lead_capture' && options.leadActionUrl) {
+      return `<section id="${escapeHtml(section.sectionId)}" class="content-section" data-component="lead_capture"><div class="section-inner section-grid"><div class="section-copy"><p class="eyebrow">${escapeHtml(section.eyebrow || 'Next step')}</p><h2>${escapeHtml(section.heading)}</h2><p class="lede">${escapeHtml(section.body)}</p></div><form class="lead-form" method="post" action="${escapeHtml(options.leadActionUrl)}"><label>Name<input name="name" autocomplete="name" required maxlength="120"></label><label>Email<input name="email" type="email" autocomplete="email" required maxlength="254"></label><label>Message<textarea name="message" rows="4" maxlength="2000"></textarea></label><label class="consent"><input name="consent" type="checkbox" value="yes" required> I agree to be contacted about this offer.</label><button class="button primary" type="submit">${escapeHtml(section.primaryCtaLabel || 'I am interested')}</button></form></div></section>`;
+    }
+    if (section.component === 'footer') {
+      return `<footer id="${escapeHtml(section.sectionId)}" data-component="footer"><div class="section-inner footer-grid"><div><p class="eyebrow">${escapeHtml(section.eyebrow)}</p><h2>${escapeHtml(section.heading)}</h2><p class="lede">${escapeHtml(section.body)}</p></div>${staticItems(section)}</div></footer>`;
+    }
+    return `<section id="${escapeHtml(section.sectionId)}" data-component="${escapeHtml(section.component)}" class="${index % 2 === 0 ? 'content-section alternate' : 'content-section'}"><div class="section-inner section-grid"><div class="section-copy">${section.eyebrow ? `<p class="eyebrow">${escapeHtml(section.eyebrow)}</p>` : ''}<h2>${escapeHtml(section.heading)}</h2>${section.body ? `<p class="lede">${escapeHtml(section.body)}</p>` : ''}${staticCtas(section, primaryActionUrl, secondaryActionUrl)}</div>${staticItems(section)}</div></section>`;
+  }).join('');
+
+  const nav = spec.sections
+    .filter(section => ['solution', 'how_it_works', 'pricing', 'faq'].includes(section.component))
+    .map(section => `<a href="#${escapeHtml(section.sectionId)}">${escapeHtml(section.eyebrow || section.heading)}</a>`)
+    .join('');
+
+  return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="description" content="${escapeHtml(spec.metadataDescription)}"><title>${escapeHtml(spec.metadataTitle)}</title><style>${cssSource(spec)}.lead-form{display:grid;gap:16px}.lead-form label{display:grid;gap:7px;font-weight:800}.lead-form input,.lead-form textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:13px 14px;font:inherit;background:var(--surface);color:var(--text)}.lead-form .consent{grid-template-columns:auto 1fr;align-items:start;font-weight:600}.lead-form .consent input{width:auto;margin-top:6px}</style></head><body><div class="site-shell template-${escapeHtml(spec.templateId)}" data-style-preset="${escapeHtml(spec.stylePreset)}"><a class="skip-link" href="#hero">Skip to content</a><header class="site-header"><a class="site-wordmark" href="#hero">${escapeHtml(spec.businessName)}</a><nav aria-label="Primary navigation">${nav}</nav><a class="header-cta" href="${escapeHtml(safeHref(primaryActionUrl))}">Get started</a></header><main>${sections}</main></div></body></html>`;
+}
+
+export function renderCustomWebsiteStaticHtml(
+  spec: CustomWebsiteSpec,
+  options: {
+    assets?: WebsiteAsset[];
+    primaryActionUrl?: string;
+    secondaryActionUrl?: string;
+    leadActionUrl?: string;
+    leadMagnet?: { title: string; url: string };
+    canonicalUrl?: string;
+    socialImageUrl?: string;
+    attributionUrl?: string;
+    showFriendShare?: boolean;
+    activityUrl?: string;
+  } = {}
+): string {
+  let html = renderCustomWebsiteStaticHtmlBase(spec, options);
+  const canonical = options.canonicalUrl
+    ? `<link rel="canonical" href="${escapeHtml(options.canonicalUrl)}"><meta property="og:url" content="${escapeHtml(options.canonicalUrl)}">`
+    : '';
+  const social = options.socialImageUrl
+    ? `<meta property="og:image" content="${escapeHtml(options.socialImageUrl)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${escapeHtml(options.socialImageUrl)}">`
+    : '<meta name="twitter:card" content="summary">';
+  html = html.replace('<title>', `<meta property="og:type" content="website"><meta property="og:title" content="${escapeHtml(spec.metadataTitle)}"><meta property="og:description" content="${escapeHtml(spec.metadataDescription)}">${canonical}${social}<title>`);
+  html = html.replace('.lead-form input,.lead-form textarea{width:100%;border:1px solid var(--line);', '.lead-form input,.lead-form textarea{width:100%;border:2px solid var(--text);');
+  if (options.leadMagnet) {
+    html = html.replace('<form class="lead-form"', `<a class="lead-magnet" href="${escapeHtml(options.leadMagnet.url)}" download>${escapeHtml(options.leadMagnet.title)}</a><form class="lead-form"`);
+  }
+  if (options.attributionUrl) {
+    html = html.replace('</footer>', `<a class="ghosttown-credit" href="${escapeHtml(options.attributionUrl)}">Built with GhostTown</a></footer>`);
+  }
+  const extraCss = '<style>.lead-magnet,.ghosttown-credit{display:inline-block;margin-top:20px;font-weight:800}.ghosttown-credit{margin-left:20px;font-size:.78rem;color:rgba(255,255,255,.7)}.friend-share{position:fixed;right:18px;bottom:18px;z-index:80;display:grid;gap:8px;max-width:330px;padding:18px;border-radius:16px;background:var(--surface);color:var(--text);box-shadow:0 18px 60px rgba(0,0,0,.22)}.friend-share[hidden]{display:none}.friend-share button{min-height:44px;border:0;border-radius:999px;background:var(--accent);color:var(--accent-text);font-weight:850}</style>';
+  html = html.replace('</head>', `${extraCss}</head>`);
+  if (options.showFriendShare) {
+    const activity = options.activityUrl ? `fetch('${escapeHtml(options.activityUrl)}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'share'}),keepalive:true}).catch(()=>{});` : '';
+    const share = `<aside id="friend-share" class="friend-share" hidden><strong>Thanks. Your message was sent.</strong><span>Know someone who might like this?</span><button type="button" id="friend-share-button">Share this page</button></aside><script>(()=>{const p=new URLSearchParams(location.search);if(p.get('lead')!=='received')return;const box=document.getElementById('friend-share');const button=document.getElementById('friend-share-button');if(!box||!button)return;box.hidden=false;button.addEventListener('click',async()=>{${activity}const data={title:document.title,text:'Thought you might like this.',url:location.origin+location.pathname};if(navigator.share){try{await navigator.share(data);return}catch{}}try{await navigator.clipboard.writeText(data.url);button.textContent='Link copied'}catch{}})})()</script>`;
+    html = html.replace('</body>', `${share}</body>`);
+  }
+  if (options.activityUrl) {
+    html = html.replace('</body>', `<script>fetch('${escapeHtml(options.activityUrl)}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'visit'}),keepalive:true}).catch(()=>{})</script></body>`);
+  }
+  return html
+    .replace(/Validation-stage offer[^<]*Claims remain evidence-bound\./g, 'A clear offer with a simple next step.')
+    .replace(/Built from evidence gathered before launch/g, 'Ready for real customers')
+    .replace(/Offer[^<]*Positioning[^<]*Price[^<]*Proof boundaries[^<]*Next action/g, 'Offer · Price · What happens next');
 }
