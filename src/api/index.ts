@@ -20,6 +20,37 @@ import { handleInternalGoogleSearch } from './internalGoogleSearch';
 import { handleResearchPreviewSuggestions } from './researchPreview';
 import { handleStoryStudioEvidence } from './evidenceIngestion';
 import { handleLaunchSiteOwner, handlePublicLaunchLead, handlePublicLaunchSite } from './launchSite';
+import {
+  handleGetMeLiveCheckout,
+  handleGetMeLiveOrders,
+  handleGetMeLiveOrder,
+  handleGetMeLiveConfig,
+  handleGetMeLiveAssets,
+  handleGetMeLiveAssetRead,
+  handleGetMeLiveAssetDelete,
+  handleGetMeLiveAssetOrder,
+  handleGetMeLiveActivity,
+  handleGetMeLiveNameOptions,
+  handleGetMeLiveSharePack,
+  handleGetMeLiveSprintShareDraft,
+  handleGetMeLivePreview,
+  handleGetMeLiveCloudflareConnect,
+  handleGetMeLiveCloudflareDisconnect,
+  handleGetMeLiveCloudflareCallback,
+  handleGetMeLiveCloudflareAccounts,
+  handleGetMeLiveDomainSearch,
+  handleGetMeLiveDomainRegister,
+  handleGetMeLiveDomainStatus,
+  handleGetMeLiveEmailSetup,
+  handleGetMeLiveStripeConnect,
+  handleGetMeLiveStripeStatus,
+  handleGetMeLivePublish,
+  handleGetMeLiveLeads,
+  handleGetMeLiveStoryStudioHandoff,
+  handlePublicGetMeLiveActivity,
+  handlePublicGetMeLiveLead,
+  handlePublicGetMeLiveBuy
+} from './getMeLive';
 import type { Env } from './env';
 import { handleResultHistory, handleSaveCurrentResult, handleSavedResult } from './resultHistory';
 import {
@@ -44,7 +75,7 @@ export default {
 
     const allowedOrigin = getAllowedOrigin(request, env);
     const corsHeaders: Record<string, string> = {
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     };
     if (allowedOrigin) corsHeaders['Access-Control-Allow-Origin'] = allowedOrigin;
@@ -167,8 +198,142 @@ export default {
         applyCors(response, corsHeaders);
         return response;
       }
+      if (path === '/api/get-me-live/checkout' && method === 'POST') {
+        const response = await handleGetMeLiveCheckout(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/get-me-live/orders' && method === 'GET') {
+        const response = await handleGetMeLiveOrders(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/get-me-live/cloudflare/callback' && method === 'GET') {
+        return handleGetMeLiveCloudflareCallback(request, env);
+      }
+
       if (path === '/api/research-preview/suggestions' && method === 'POST') {
         const response = await handleResearchPreviewSuggestions(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+
+      const getMeLiveSprintShareMatch = path.match(/^\/api\/get-me-live\/sprints\/([^/]+)\/share-draft$/);
+      if (getMeLiveSprintShareMatch && (method === 'GET' || method === 'POST')) { const response = await handleGetMeLiveSprintShareDraft(request, env, decodeURIComponent(getMeLiveSprintShareMatch[1])); applyCors(response, corsHeaders); return response; }
+      const getMeLiveOrderMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)$/);
+      if (getMeLiveOrderMatch && method === 'GET') {
+        const response = await handleGetMeLiveOrder(request, env, decodeURIComponent(getMeLiveOrderMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveConfigMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/config$/);
+      if (getMeLiveConfigMatch && (method === 'POST' || method === 'PUT' || method === 'GET')) {
+        const response = await handleGetMeLiveConfig(request, env, decodeURIComponent(getMeLiveConfigMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveNameOptionsMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/name-options$/);
+      if (getMeLiveNameOptionsMatch && method === 'POST') { const response = await handleGetMeLiveNameOptions(request, env, decodeURIComponent(getMeLiveNameOptionsMatch[1])); applyCors(response, corsHeaders); return response; }
+      const getMeLiveAssetsMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/assets$/);
+      if (getMeLiveAssetsMatch && method === 'POST') { const response = await handleGetMeLiveAssets(request, env, decodeURIComponent(getMeLiveAssetsMatch[1])); applyCors(response, corsHeaders); return response; }
+      const getMeLiveAssetOrderMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/assets\/order$/);
+      if (getMeLiveAssetOrderMatch && method === 'PUT') { const response = await handleGetMeLiveAssetOrder(request, env, decodeURIComponent(getMeLiveAssetOrderMatch[1])); applyCors(response, corsHeaders); return response; }
+      const getMeLiveAssetMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/assets\/([^/]+)$/);
+      if (getMeLiveAssetMatch && method === 'GET') { const response = await handleGetMeLiveAssetRead(request, env, decodeURIComponent(getMeLiveAssetMatch[1]), decodeURIComponent(getMeLiveAssetMatch[2])); applyCors(response, corsHeaders); return response; }
+      if (getMeLiveAssetMatch && method === 'DELETE') { const response = await handleGetMeLiveAssetDelete(request, env, decodeURIComponent(getMeLiveAssetMatch[1]), decodeURIComponent(getMeLiveAssetMatch[2])); applyCors(response, corsHeaders); return response; }
+      const getMeLiveSharePackMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/share-pack$/);
+      if (getMeLiveSharePackMatch && (method === 'GET' || method === 'POST')) { const response = await handleGetMeLiveSharePack(request, env, decodeURIComponent(getMeLiveSharePackMatch[1])); applyCors(response, corsHeaders); return response; }
+      const getMeLiveActivityMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/activity$/);
+      if (getMeLiveActivityMatch && method === 'GET') { const response = await handleGetMeLiveActivity(request, env, decodeURIComponent(getMeLiveActivityMatch[1])); applyCors(response, corsHeaders); return response; }
+      const getMeLivePreviewMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/preview$/);
+      if (getMeLivePreviewMatch && (method === 'POST' || method === 'GET')) {
+        const response = await handleGetMeLivePreview(request, env, decodeURIComponent(getMeLivePreviewMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveCloudflareConnectMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/cloudflare\/connect$/);
+      if (getMeLiveCloudflareConnectMatch && method === 'GET') {
+        const response = await handleGetMeLiveCloudflareConnect(request, env, decodeURIComponent(getMeLiveCloudflareConnectMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveCloudflareDisconnectMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/cloudflare\/disconnect$/);
+      if (getMeLiveCloudflareDisconnectMatch && method === 'POST') {
+        const response = await handleGetMeLiveCloudflareDisconnect(request, env, decodeURIComponent(getMeLiveCloudflareDisconnectMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveCloudflareAccountsMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/cloudflare\/accounts$/);
+      if (getMeLiveCloudflareAccountsMatch && method === 'GET') {
+        const response = await handleGetMeLiveCloudflareAccounts(request, env, decodeURIComponent(getMeLiveCloudflareAccountsMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveDomainSearchMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/domains\/search$/);
+      if (getMeLiveDomainSearchMatch && method === 'POST') {
+        const response = await handleGetMeLiveDomainSearch(request, env, decodeURIComponent(getMeLiveDomainSearchMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveDomainRegisterMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/domains\/register$/);
+      if (getMeLiveDomainRegisterMatch && method === 'POST') {
+        const response = await handleGetMeLiveDomainRegister(request, env, decodeURIComponent(getMeLiveDomainRegisterMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveDomainStatusMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/domains\/status$/);
+      if (getMeLiveDomainStatusMatch && method === 'GET') {
+        const response = await handleGetMeLiveDomainStatus(request, env, decodeURIComponent(getMeLiveDomainStatusMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveEmailSetupMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/email\/setup$/);
+      if (getMeLiveEmailSetupMatch && method === 'POST') {
+        const response = await handleGetMeLiveEmailSetup(request, env, decodeURIComponent(getMeLiveEmailSetupMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveStripeConnectMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/stripe\/connect$/);
+      if (getMeLiveStripeConnectMatch && method === 'POST') {
+        const response = await handleGetMeLiveStripeConnect(request, env, decodeURIComponent(getMeLiveStripeConnectMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveStripeStatusMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/stripe\/status$/);
+      if (getMeLiveStripeStatusMatch && method === 'GET') {
+        const response = await handleGetMeLiveStripeStatus(request, env, decodeURIComponent(getMeLiveStripeStatusMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLivePublishMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/publish$/);
+      if (getMeLivePublishMatch && method === 'POST') {
+        const response = await handleGetMeLivePublish(request, env, decodeURIComponent(getMeLivePublishMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveStoryMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/story-studio-handoff$/);
+      if (getMeLiveStoryMatch && method === 'GET') {
+        const response = await handleGetMeLiveStoryStudioHandoff(request, env, decodeURIComponent(getMeLiveStoryMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveLeadsMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/leads$/);
+      if (getMeLiveLeadsMatch && method === 'GET') {
+        const response = await handleGetMeLiveLeads(request, env, decodeURIComponent(getMeLiveLeadsMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const publicGetMeLiveActivityMatch = path.match(/^\/api\/get-me-live\/sites\/([^/]+)\/activity$/);
+      if (publicGetMeLiveActivityMatch && method === 'POST') { const response = await handlePublicGetMeLiveActivity(request, env, decodeURIComponent(publicGetMeLiveActivityMatch[1])); applyCors(response, corsHeaders); return response; }
+      const publicGetMeLiveLeadMatch = path.match(/^\/api\/get-me-live\/sites\/([^/]+)\/leads$/);
+      if (publicGetMeLiveLeadMatch && method === 'POST') {
+        const response = await handlePublicGetMeLiveLead(request, env, decodeURIComponent(publicGetMeLiveLeadMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const publicGetMeLiveBuyMatch = path.match(/^\/api\/get-me-live\/sites\/([^/]+)\/buy$/);
+      if (publicGetMeLiveBuyMatch && (method === 'GET' || method === 'POST')) {
+        const response = await handlePublicGetMeLiveBuy(request, env, decodeURIComponent(publicGetMeLiveBuyMatch[1]));
         applyCors(response, corsHeaders);
         return response;
       }

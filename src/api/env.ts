@@ -62,6 +62,7 @@ export interface Env {
   DEPLOYMENT_ENV?: 'production' | 'acceptance' | 'development';
   LIT_API_KEY?: string;
   STORY_STUDIO_EVIDENCE_API_KEY?: string;
+  STORY_STUDIO_URL?: string;
   GEMINI_API_KEY?: string;
   DATAFORSEO_LOGIN?: string;
   DATAFORSEO_PASSWORD?: string;
@@ -79,5 +80,10 @@ export interface Env {
   STRIPE_PRICE_ID: string;
   STRIPE_PAID_TEST_PRICE_ID?: string;
   STRIPE_30_DAY_PLAN_PRICE_ID?: string;
+  STRIPE_GET_ME_LIVE_PRICE_ID?: string;
+  CLOUDFLARE_OAUTH_CLIENT_ID?: string;
+  CLOUDFLARE_OAUTH_CLIENT_SECRET?: string;
+  CLOUDFLARE_OAUTH_SCOPES?: string;
   STRIPE_WEBHOOK_SECRET: string;
+  STRIPE_CONNECT_WEBHOOK_SECRET?: string;
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { apiUrl, authHeaders } from "../lib/api";
 import CompetitorSeedStep from "./CompetitorSeedStep";
+import GetMeLiveUpsell from "./GetMeLiveUpsell";
+import SprintShareMoment from "./SprintShareMoment";
 
 interface Props {
   orderId: string;
@@ -157,6 +159,8 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
         )}
         {ready && (
           <>
+            <SprintShareMoment sourceSprintOrderId={orderId} />
+            <GetMeLiveUpsell sourceSprintOrderId={orderId} />
             <div className="mt-7 grid gap-3">
               <button
                 onClick={() => void download()}

@@ -16,6 +16,10 @@ describe("GhostTown real local D1 migration contract", () => {
     expect(names).toContain("launch_blueprint_progress");
     expect(names).toContain("launch_sites");
     expect(names).toContain("launch_site_leads");
+    expect(names).toContain("get_me_live_orders");
+    expect(names).toContain("get_me_live_assets");
+    expect(names).toContain("get_me_live_share_drafts");
+    expect(names).toContain("get_me_live_activity_counts");
 
     expect(await columns("launch_blueprints")).toEqual(expect.arrayContaining([
       "order_id", "owner_id", "source_verdict_id", "schema_version",

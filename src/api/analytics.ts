@@ -5,7 +5,11 @@ import type { CommercialAttributionTouch, CommercialEventName, CommercialShareTy
 const allowedEvents = new Set<CommercialEventName>([
   'landing_viewed', 'qualified_click', 'verdict_started', 'verdict_completed',
   'paid_plan_viewed', 'checkout_started', 'download_clicked', 'blueprint_opened',
-  'daily_packet_opened', 'day_completed', 'evidence_recorded', 'blueprint_retry_requested'
+  'daily_packet_opened', 'day_completed', 'evidence_recorded', 'blueprint_retry_requested',
+  'get_me_live_offer_viewed', 'get_me_live_cta_clicked', 'get_me_live_checkout_started',
+  'get_me_live_purchase_completed', 'get_me_live_setup_started', 'get_me_live_preview_created',
+  'get_me_live_publish_clicked', 'get_me_live_live_completed', 'get_me_live_lead_captured',
+  'get_me_live_payment_connected', 'get_me_live_customer_payment'
 ]);
 const allowedShareTypes = new Set<CommercialShareType>(['factory', 'customer', 'earned']);
 const EVENT_TTL_SECONDS = 86400 * 180;

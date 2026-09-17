@@ -1,8 +1,10 @@
 import { UserData } from '../types/auth';
 import { recordVerifiedPurchase } from './commercialMetrics';
+import { recordCommercialFunnelEvent } from './analytics';
 import { fulfillPaidTestOrder } from './paidTest';
 import { isLaunchBlueprintCheckout, markLaunchBlueprintAwaitingSeeds } from './blueprintFulfillment';
 import type { Env } from './env';
+import { fulfillGetMeLiveOrder, recordGetMeLiveExperimentPayment } from './getMeLive';
 
 /**
  * Verify the Stripe-Signature HMAC and reject stale replay attempts.
@@ -64,13 +66,18 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
   try {
     const body = await request.text();
     const signature = request.headers.get('stripe-signature') || '';
-    if (!await verifyWebhookSignature(body, signature, env.STRIPE_WEBHOOK_SECRET)) {
+    const primarySignatureValid = await verifyWebhookSignature(body, signature, env.STRIPE_WEBHOOK_SECRET);
+    const connectSignatureValid = !primarySignatureValid && env.STRIPE_CONNECT_WEBHOOK_SECRET
+      ? await verifyWebhookSignature(body, signature, env.STRIPE_CONNECT_WEBHOOK_SECRET)
+      : false;
+    if (!primarySignatureValid && !connectSignatureValid) {
       return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
 
     const event = JSON.parse(body) as {
       id?: string;
       type?: string;
+      account?: string;
       data?: { object?: Record<string, unknown> };
     };
     if (!event.id || !event.type || !event.data?.object) {
@@ -82,11 +89,33 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
       return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    if (event.type === 'checkout.session.completed') {
+    if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
       const session = event.data.object;
-      const paidTestOrderId = typeof session.metadata === 'object' && session.metadata
-        ? (session.metadata as Record<string, unknown>).paid_test_order_id
+      const metadata = typeof session.metadata === 'object' && session.metadata
+        ? session.metadata as Record<string, unknown>
+        : {};
+
+      const getMeLiveOrderId = metadata.fulfillment_type === 'get_me_live_v1'
+        ? metadata.get_me_live_order_id
         : undefined;
+      if (typeof getMeLiveOrderId === 'string' && getMeLiveOrderId) {
+        if (session.payment_status !== 'paid') {
+          await env.KV.put(eventKey, JSON.stringify({ receivedAt: new Date().toISOString(), orderId: getMeLiveOrderId, status: 'payment_pending', artifactType: 'get_me_live_v1' }), { expirationTtl: 86400 * 90 });
+          return new Response(JSON.stringify({ received: true, getMeLive: 'payment_pending' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+        const order = await fulfillGetMeLiveOrder(env, getMeLiveOrderId, session);
+        await recordCommercialFunnelEvent(env, "get_me_live_purchase_completed", { ownerId: order.ownerId, orderId: order.orderId, source: "stripe", content: order.sourceSprintOrderId }).catch(() => undefined);
+        await env.KV.put(eventKey, JSON.stringify({ receivedAt: new Date().toISOString(), orderId: order.orderId, status: order.status, artifactType: 'get_me_live_v1' }), { expirationTtl: 86400 * 90 });
+        return new Response(JSON.stringify({ received: true, getMeLive: order.status, orderId: order.orderId }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      if (typeof metadata.get_me_live_experiment_order_id === 'string' && metadata.get_me_live_experiment_order_id) {
+        const recorded = await recordGetMeLiveExperimentPayment(env, event.id, session, event.account);
+        await env.KV.put(eventKey, JSON.stringify({ receivedAt: new Date().toISOString(), experimentPayment: recorded }), { expirationTtl: 86400 * 90 });
+        return new Response(JSON.stringify({ received: true, experimentPayment: recorded }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      const paidTestOrderId = metadata.paid_test_order_id;
       if (typeof paidTestOrderId === 'string' && paidTestOrderId) {
         if (isLaunchBlueprintCheckout(session)) {
           const order = await markLaunchBlueprintAwaitingSeeds(env, paidTestOrderId, session, event.id);
@@ -127,7 +156,6 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
         return new Response(JSON.stringify({ received: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
 
-      const metadata = typeof session.metadata === 'object' && session.metadata ? session.metadata as Record<string, unknown> : {};
       const purchasedCredits = metadata.purchase_type === 'assessment_pack'
         ? Math.max(0, Number(metadata.test_credits) || 10)
         : 10;

@@ -4,6 +4,7 @@ import { apiUrl, authHeaders } from "../lib/api";
 import type { EvaluationResult } from "../types/lit";
 import LaunchBlueprintRouter from "./LaunchBlueprintRouter";
 import CompetitorSeedStep from "./CompetitorSeedStep";
+import GetMeLiveUpsell from "./GetMeLiveUpsell";
 
 interface ResultSummary {
   resultId: string;
@@ -35,6 +36,14 @@ interface PaidOrderSummary {
   planVersion?: string;
 }
 
+interface GetMeLiveSummary {
+  orderId: string; sourceSprintOrderId: string; status: string; businessName?: string;
+  publicUrl?: string; customDomain?: string; leadCount: number;
+  salesCount?: number; salesValueCents?: number; visitCount?: number; shareCount?: number; recentActivity?: string;
+  emailStatus: 'ready' | 'pending' | 'not_started'; paymentStatus: 'ready' | 'pending' | 'not_requested';
+  cloudflareConnected: boolean; createdAt: string; updatedAt: string;
+}
+
 interface Props {
   onLogout: () => void;
   onBuy: () => void;
@@ -59,6 +68,13 @@ export default function UserDashboard({
   const [openBlueprintOrderId, setOpenBlueprintOrderId] = useState("");
   const [seedOrderId, setSeedOrderId] = useState("");
   const [retryingOrderId, setRetryingOrderId] = useState("");
+  const [getMeLiveOrders, setGetMeLiveOrders] = useState<GetMeLiveSummary[]>([]);
+
+  const loadGetMeLive = () =>
+    fetch(apiUrl("/api/get-me-live/orders"), { headers: authHeaders() })
+      .then(response => response.ok ? response.json<{ orders?: GetMeLiveSummary[] }>() : Promise.reject())
+      .then(data => setGetMeLiveOrders(data.orders ?? []))
+      .catch(() => setGetMeLiveOrders([]));
 
   const loadPaidPlans = () =>
     fetch(apiUrl("/api/paid-test/orders"), { headers: authHeaders() })
@@ -96,6 +112,7 @@ export default function UserDashboard({
       .then((data) => setResults(data.results ?? []))
       .catch(() => setResults([]));
     void loadPaidPlans();
+    void loadGetMeLive();
   }, []);
 
   useEffect(() => {
@@ -468,11 +485,17 @@ export default function UserDashboard({
                       )}
                     </div>
                   </div>
+                  {isBlueprint && plan.status === "ready" && <div className="mt-4"><GetMeLiveUpsell sourceSprintOrderId={plan.orderId} compact /></div>}
                 </article>
               );
             })}
           </div>
         )}
+      </section>
+
+      <section className="mb-8 rounded-xl border border-emerald-200 bg-emerald-50/60 p-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Get Me Live</p><h2 className="mt-1 text-2xl font-black">Your live businesses</h2></div><p className="text-xs text-gray-600">Saved to your account</p></div>
+        {getMeLiveOrders.length === 0 ? <p className="mt-4 text-sm text-gray-600">Your customer page and activity will appear here after you start Get Me Live.</p> : <div className="mt-5 space-y-3">{getMeLiveOrders.map(item => { const liveUrl = item.customDomain ? `https://${item.customDomain}` : item.publicUrl; const live = item.status === "live"; return <article key={item.orderId} className="rounded-xl border border-emerald-200 bg-white p-5"><div className="flex flex-col gap-4"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-black">{item.businessName || "Your business"}</h3><span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black uppercase text-emerald-900">{live ? "Live" : "In progress"}</span></div>{liveUrl && <a href={liveUrl} target="_blank" rel="noreferrer" className="mt-2 block break-all text-sm font-bold text-ghost-rust underline">{liveUrl}</a>}<p className="mt-3 text-sm font-bold text-gray-800">{item.recentActivity || (item.leadCount > 0 ? "Someone is interested" : live ? "Your page is ready for customers" : "Keep making your choices")}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => window.location.assign(`/get-me-live/setup?order_id=${encodeURIComponent(item.orderId)}${live ? "&step=review" : ""}`)} className="rounded-lg bg-ghost-rust px-4 py-3 text-sm font-black text-white">{live ? "Make Changes" : "Keep Going"}</button>{liveUrl && <button type="button" onClick={() => void (navigator.share ? navigator.share({ title: item.businessName || "My business", url: liveUrl }) : navigator.clipboard.writeText(liveUrl))} className="rounded-lg border-2 border-ghost-ink px-4 py-3 text-sm font-black">Share Page</button>}</div></div><div className="grid gap-2 text-sm sm:grid-cols-3"><div className="rounded-xl bg-gray-50 p-3"><strong className="text-xl">{item.leadCount}</strong><span className="block text-gray-600">People interested</span></div>{item.paymentStatus !== "not_requested" && <div className="rounded-xl bg-gray-50 p-3"><strong className="text-xl">{item.salesCount || 0}</strong><span className="block text-gray-600">Sales</span></div>}{Boolean(item.salesValueCents) && <div className="rounded-xl bg-gray-50 p-3"><strong className="text-xl">${((item.salesValueCents || 0) / 100).toFixed(2)}</strong><span className="block text-gray-600">Sales value</span></div>}</div></div></article>; })}</div>}
       </section>
 
       <div className="mb-8 rounded-lg border border-blue-200 bg-blue-50 p-6">

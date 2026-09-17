@@ -1,0 +1,1243 @@
+import { authenticateRequest } from './auth';
+import { recordCommercialFunnelEvent } from './analytics';
+import { ownedLaunchBlueprintOrder } from './blueprintApi';
+import { loadBlueprintRecord } from './blueprintStore';
+import { ingestObservedEvidenceEvent } from './evidenceIngestion';
+import type { Env } from './env';
+import {
+  GHOSTTOWN_GET_ME_LIVE_V1,
+  DEFAULT_GET_ME_LIVE_DISPLAY_PRICE
+} from '../lib/getMeLiveOffer';
+import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
+import type {
+  GetMeLiveAsset,
+  GetMeLiveConfiguration,
+  GetMeLiveLeadMagnet,
+  GetMeLiveOrder,
+  GetMeLiveProviderState,
+  GetMeLiveShareDraft,
+  GetMeLiveShareDraftType
+} from '../types/getMeLive';
+import { manufactureCustomWebsite } from './websiteCreationService';
+import { buildCustomWebsite, renderCustomWebsiteStaticHtml } from './websiteBuildRunner';
+import type { WebsiteAsset } from '../types/customWebsite';
+import {
+  createGetMeLiveOrder,
+  countGetMeLiveLeads,
+  getGetMeLiveActivity,
+  incrementGetMeLiveActivity,
+  listGetMeLiveAssets,
+  loadGetMeLiveAsset,
+  loadGetMeLiveBySprint,
+  loadGetMeLiveAssetBytes,
+  loadGetMeLiveOrder,
+  loadGetMeLivePreview,
+  listGetMeLiveShareDrafts,
+  listGetMeLiveLeads,
+  listGetMeLiveOrders,
+  markGetMeLiveAssetPublished,
+  orderGetMeLiveAssets,
+  removeGetMeLiveAsset,
+  saveGetMeLiveAsset,
+  saveGetMeLiveLead,
+  saveGetMeLivePreview,
+  saveGetMeLiveShareDraft,
+  updateGetMeLiveOrder
+} from './getMeLiveStore';
+import {
+  addCloudflarePagesDomain,
+  checkCloudflareDomain,
+  completeCloudflareAuthorization,
+  configureCloudflareEmailRouting,
+  createCloudflareAuthorizationUrl,
+  createConnectedCheckoutSession,
+  createStripeConnectedMerchant,
+  createStripeOnboardingLink,
+  deployCloudflarePagesHtml,
+  disconnectCloudflareAuthorization,
+  findCloudflareZone,
+  getCloudflareRegistrationStatus,
+  loadCloudflareAuthorizationState,
+  listCloudflareAccounts,
+  registerCloudflareDomain,
+  retrieveStripeConnectedMerchant,
+  searchCloudflareDomains
+} from './getMeLiveProviders';
+
+const json = (body: unknown, status = 200, headers: HeadersInit = {}) => new Response(JSON.stringify(body), {
+  status,
+  headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', ...headers }
+});
+
+function id(prefix: string): string {
+  return `${prefix}_${crypto.randomUUID()}`;
+}
+
+function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function configuredPriceId(env: Env): string {
+  return env.STRIPE_GET_ME_LIVE_PRICE_ID?.trim() || '';
+}
+
+function stripeIntegrationIdentifier(): string {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+  const random = crypto.getRandomValues(new Uint8Array(8));
+  return `ghosttown_gml_${Array.from(random, value => alphabet[value % alphabet.length]).join('')}`;
+}
+
+function emptyProviderState(): GetMeLiveProviderState {
+  return { cloudflareConnected: false, stripeConnected: false, businessEmailVerified: false, domainReady: false };
+}
+async function ownedGetMeLiveOrder(request: Request, env: Env, orderId: string): Promise<GetMeLiveOrder | Response> {
+  const auth = await authenticateRequest(request, env);
+  if (!auth) return json({ error: 'Authentication required' }, 401);
+  const order = await loadGetMeLiveOrder(env, orderId);
+  if (!order || normalizeEmail(order.ownerId) !== normalizeEmail(auth.email)) {
+    return json({ error: 'Get Me Live order not found' }, 404);
+  }
+  return order;
+}
+
+function businessNameSuggestions(blueprint: GhostTownLaunchBlueprint): string[] {
+  const stop = new Set(['the','and','for','with','from','that','this','your','their','into','service','services','solution','solutions']);
+  const words = (value: string) => value.replace(/[^a-zA-Z0-9 ]/g, ' ').split(/\s+/).filter(word => word.length > 3 && !stop.has(word.toLowerCase()));
+  const offer = words(blueprint.offer.offerName);
+  const outcome = words(blueprint.offer.desiredOutcome);
+  const customer = words(blueprint.offer.targetCustomer);
+  const problem = words(blueprint.offer.painfulProblem);
+  const candidates = [[outcome[0], 'Path'], [offer[0], 'Works'], [customer[0], outcome[0]], [problem[0], 'Clear'], [outcome[0], 'Bridge'], [offer[0], 'Studio']]
+    .map(parts => parts.filter(Boolean).join(' ')).filter(name => name.length >= 4);
+  return [...new Set(candidates)].slice(0, 6);
+}
+
+function defaultConfiguration(blueprint: GhostTownLaunchBlueprint, ownerEmail: string): GetMeLiveConfiguration {
+  return {
+    schemaVersion: 'get-me-live-config-v1',
+    brand: {
+      businessName: blueprint.launchSite.site.businessName || blueprint.offer.offerName,
+      stylePreset: 'clean_saas',
+      templateId: 'ghosttown_conversion'
+    },
+    offer: {
+      intent: 'interest',
+      headline: blueprint.landingPageCopy.headline || blueprint.launchSite.offer.headline,
+      offer: blueprint.offer.offerName,
+      price: blueprint.offer.initialTestPrice,
+      ctaLabel: 'I am interested'
+    },
+    contact: {
+      contactEmail: blueprint.launchSite.site.contactEmail || ownerEmail,
+      leadDestinationEmail: ownerEmail,
+      businessEmailLocalPart: 'hello'
+    },
+    domain: {},
+    payments: { enabled: false }
+  };
+}
+
+function safeText(value: unknown, max: number, fallback = ''): string {
+  return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) || fallback : fallback;
+}
+
+function normalizeLeadMagnet(value: unknown): string | GetMeLiveLeadMagnet | undefined {
+  if (typeof value === 'string') return safeText(value, 300) || undefined;
+  if (!value || typeof value !== 'object') return undefined;
+  const candidate = value as Partial<GetMeLiveLeadMagnet>;
+  const title = safeText(candidate.title, 160);
+  if (!title) return undefined;
+  const kind = candidate.kind === 'asset' ? 'asset' : 'legacy';
+  return {
+    kind,
+    title,
+    assetId: safeText(candidate.assetId, 120) || undefined,
+    url: safeText(candidate.url, 500) || undefined
+  };
+}
+
+function normalizeConfiguration(value: GetMeLiveConfiguration): GetMeLiveConfiguration {
+  const styles = new Set(['warm_editorial', 'clean_saas', 'local_trust', 'premium_service', 'bold_validation']);
+  const templates = new Set(['ghosttown_conversion', 'memories_story_editorial']);
+  if (value.schemaVersion !== 'get-me-live-config-v1') throw new Error('Unsupported Get Me Live configuration');
+  if (!['interest', 'buy', 'decide_later'].includes(value.offer?.intent)) throw new Error('Choose what customers should do');
+  const businessName = safeText(value.brand?.businessName, 120);
+  const contactEmail = safeText(value.contact?.contactEmail, 254).toLowerCase();
+  const destination = safeText(value.contact?.leadDestinationEmail, 254).toLowerCase();
+  if (!businessName) throw new Error('Choose a business name');
+  if (!contactEmail.includes('@') || !destination.includes('@')) throw new Error('Add valid contact and lead destination emails');
+  const stylePreset = styles.has(value.brand.stylePreset) ? value.brand.stylePreset : 'clean_saas';
+  const templateId = value.brand.templateId && templates.has(value.brand.templateId) ? value.brand.templateId : undefined;
+  return {
+    schemaVersion: 'get-me-live-config-v1',
+    brand: {
+      businessName,
+      stylePreset,
+      templateId,
+      primaryColor: safeText(value.brand.primaryColor, 20) || undefined,
+      logoUrl: safeText(value.brand.logoUrl, 500) || undefined,
+      imageUrls: value.brand.imageUrls?.slice(0, 6).map(item => safeText(item, 500)).filter(Boolean),
+      logoAssetId: safeText(value.brand.logoAssetId, 120) || undefined,
+      imageAssetIds: value.brand.imageAssetIds?.slice(0, 8).map(item => safeText(item, 120)).filter(Boolean),
+      mainImageAssetId: safeText(value.brand.mainImageAssetId, 120) || undefined
+    },
+    offer: {
+      intent: value.offer.intent,
+      headline: safeText(value.offer.headline, 180) || undefined,
+      offer: safeText(value.offer.offer, 180) || undefined,
+      price: safeText(value.offer.price, 80) || undefined,
+      ctaLabel: safeText(value.offer.ctaLabel, 80) || undefined,
+      leadMagnet: normalizeLeadMagnet(value.offer.leadMagnet)
+    },
+    contact: {
+      contactEmail,
+      leadDestinationEmail: destination,
+      businessEmailLocalPart: safeText(value.contact.businessEmailLocalPart, 40, 'hello').toLowerCase().replace(/[^a-z0-9._-]/g, '') || 'hello'
+    },
+    domain: {
+      requestedName: safeText(value.domain?.requestedName, 120) || undefined,
+      selectedDomain: safeText(value.domain?.selectedDomain, 253).toLowerCase() || undefined,
+      registrationPrice: safeText(value.domain?.registrationPrice, 40) || undefined,
+      registrationCurrency: safeText(value.domain?.registrationCurrency, 10) || undefined,
+      registrationConfirmedAt: value.domain?.registrationConfirmedAt,
+      cloudflareAccountId: safeText(value.domain?.cloudflareAccountId, 80) || undefined,
+      cloudflareZoneId: safeText(value.domain?.cloudflareZoneId, 80) || undefined,
+      pagesProjectName: safeText(value.domain?.pagesProjectName, 63) || undefined
+    },
+    payments: {
+      enabled: value.offer.intent === 'buy' ? true : Boolean(value.payments?.enabled),
+      stripeConnectedAccountId: safeText(value.payments?.stripeConnectedAccountId, 80) || undefined,
+      detailsSubmitted: Boolean(value.payments?.detailsSubmitted),
+      chargesEnabled: Boolean(value.payments?.chargesEnabled),
+      payoutsEnabled: Boolean(value.payments?.payoutsEnabled)
+    }
+  };
+}
+
+function overlayBlueprint(source: GhostTownLaunchBlueprint, config: GetMeLiveConfiguration): GhostTownLaunchBlueprint {
+  const blueprint = structuredClone(source);
+  blueprint.launchSite.site.businessName = config.brand.businessName;
+  blueprint.launchSite.site.contactEmail = config.contact.contactEmail;
+  blueprint.launchSite.leadCapture.destination = config.contact.leadDestinationEmail;
+  if (config.offer.offer) blueprint.offer.offerName = config.offer.offer;
+  if (config.offer.price) blueprint.offer.initialTestPrice = config.offer.price;
+  if (config.offer.headline) {
+    blueprint.landingPageCopy.headline = config.offer.headline;
+    blueprint.launchSite.offer.headline = config.offer.headline;
+  }
+  if (config.offer.ctaLabel) {
+    blueprint.landingPageCopy.primaryCallToAction = config.offer.ctaLabel;
+    blueprint.launchSite.offer.callToAction = config.offer.ctaLabel;
+  }
+  return blueprint;
+}
+export async function handleGetMeLiveCheckout(request: Request, env: Env): Promise<Response> {
+  const auth = await authenticateRequest(request, env);
+  if (!auth) return json({ error: 'Please log in before Get Me Live checkout' }, 401);
+  const body = await request.json<{ sourceSprintOrderId?: string }>().catch(() => ({} as { sourceSprintOrderId?: string }));
+  const sourceSprintOrderId = safeText(body.sourceSprintOrderId, 120);
+  if (!sourceSprintOrderId) return json({ error: 'Choose the Evidence Sprint you want to get live' }, 400);
+  const source = await ownedLaunchBlueprintOrder(request, env, sourceSprintOrderId, true);
+  if (source instanceof Response) return source;
+  const record = await loadBlueprintRecord(env, sourceSprintOrderId);
+  if (!record) return json({ error: 'The source Evidence Sprint is not ready' }, 409);
+  const priceId = configuredPriceId(env);
+  if (!priceId) return json({ error: 'Get Me Live checkout is not configured yet' }, 503);
+
+  const ownerId = normalizeEmail(auth.email);
+  let order = await loadGetMeLiveBySprint(env, ownerId, sourceSprintOrderId);
+  if (order && (order.paidAt || ['configuring', 'preview_ready', 'provider_setup', 'ready_to_publish', 'publishing', 'live'].includes(order.status))) {
+    return json({ orderId: order.orderId, alreadyPurchased: true, nextUrl: `/get-me-live/setup?order_id=${encodeURIComponent(order.orderId)}` });
+  }
+  const now = new Date().toISOString();
+  if (!order) {
+    order = {
+      orderId: id('gml'), ownerId, sourceSprintOrderId,
+      sourceBlueprintId: record.blueprint.blueprintId,
+      offerId: GHOSTTOWN_GET_ME_LIVE_V1.offerId,
+      offerVersion: GHOSTTOWN_GET_ME_LIVE_V1.version,
+      stripePriceId: priceId,
+      status: 'pending', providerState: emptyProviderState(),
+      createdAt: now, updatedAt: now
+    };
+    await createGetMeLiveOrder(env, order);
+  }
+  const frontendUrl = env.FRONTEND_URL?.replace(/\/$/, '') || new URL(request.url).origin;
+  const fields = new URLSearchParams({
+    'line_items[0][price]': priceId,
+    'line_items[0][quantity]': '1',
+    mode: 'payment',
+    integration_identifier: stripeIntegrationIdentifier(),
+    customer_email: ownerId,
+    client_reference_id: order.orderId,
+    'metadata[get_me_live_order_id]': order.orderId,
+    'metadata[source_sprint_order_id]': sourceSprintOrderId,
+    'metadata[source_blueprint_id]': record.blueprint.blueprintId,
+    'metadata[owner_id]': ownerId,
+    'metadata[offer_id]': GHOSTTOWN_GET_ME_LIVE_V1.offerId,
+    'metadata[offer_version]': GHOSTTOWN_GET_ME_LIVE_V1.version,
+    'metadata[fulfillment_type]': 'get_me_live_v1',
+    success_url: `${frontendUrl}/get-me-live/setup?order_id=${encodeURIComponent(order.orderId)}&checkout=success`,
+    cancel_url: `${frontendUrl}/get-me-live?source_sprint_order_id=${encodeURIComponent(sourceSprintOrderId)}&checkout=cancelled`
+  });
+  const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: fields.toString()
+  });
+  const session = await response.json() as { id?: string; url?: string; error?: { message?: string } };
+  if (!response.ok || !session.id || !session.url) {
+    return json({ error: session.error?.message || 'Get Me Live checkout could not be opened' }, 502);
+  }
+  order.stripeCheckoutSessionId = session.id;
+  order.status = 'checkout_created';
+  order.updatedAt = new Date().toISOString();
+  await updateGetMeLiveOrder(env, order);
+  return json({ sessionUrl: session.url, orderId: order.orderId, displayPrice: DEFAULT_GET_ME_LIVE_DISPLAY_PRICE });
+}
+
+export async function fulfillGetMeLiveOrder(
+  env: Env,
+  orderId: string,
+  session: Record<string, unknown>
+): Promise<GetMeLiveOrder> {
+  const order = await loadGetMeLiveOrder(env, orderId);
+  if (!order) throw new Error('Get Me Live order not found');
+  const metadata = typeof session.metadata === 'object' && session.metadata ? session.metadata as Record<string, unknown> : {};
+  if (
+    metadata.offer_id !== GHOSTTOWN_GET_ME_LIVE_V1.offerId
+    || metadata.offer_version !== GHOSTTOWN_GET_ME_LIVE_V1.version
+    || metadata.fulfillment_type !== 'get_me_live_v1'
+    || metadata.get_me_live_order_id !== order.orderId
+  ) {
+    throw new Error('Get Me Live checkout metadata does not match the offer contract');
+  }
+  if (
+    metadata.source_sprint_order_id !== order.sourceSprintOrderId
+    || metadata.source_blueprint_id !== order.sourceBlueprintId
+    || metadata.owner_id !== order.ownerId
+  ) {
+    throw new Error('Get Me Live checkout ownership does not match the durable order');
+  }
+  if (session.payment_status !== 'paid') throw new Error('Get Me Live checkout is not paid');
+  order.stripePaymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : order.stripePaymentIntentId;
+  if (!order.configuration) {
+    const record = await loadBlueprintRecord(env, order.sourceSprintOrderId);
+    if (!record || record.blueprint.blueprintId !== order.sourceBlueprintId) throw new Error('Source Evidence Sprint is unavailable');
+    order.configuration = defaultConfiguration(record.blueprint, order.ownerId);
+  }
+  order.status = 'configuring';
+  order.paidAt = order.paidAt || new Date().toISOString();
+  order.updatedAt = new Date().toISOString();
+  await updateGetMeLiveOrder(env, order);
+  return order;
+}
+
+export async function handleGetMeLiveOrders(request: Request, env: Env): Promise<Response> {
+  const auth = await authenticateRequest(request, env);
+  if (!auth) return json({ error: 'Authentication required' }, 401);
+  const orders = await listGetMeLiveOrders(env, normalizeEmail(auth.email));
+  const summaries = await Promise.all(orders.map(async order => {
+    const [leadCount, activity] = await Promise.all([
+      countGetMeLiveLeads(env, order.orderId),
+      getGetMeLiveActivity(env, order.orderId, order.sourceSprintOrderId)
+    ]);
+    return {
+      orderId: order.orderId, sourceSprintOrderId: order.sourceSprintOrderId, status: order.status,
+      businessName: order.configuration?.brand.businessName, publicUrl: order.publicUrl, customDomain: order.customDomain,
+      leadCount, salesCount: activity.sales, salesValueCents: activity.revenueCents,
+      visitCount: activity.visits, shareCount: activity.shares,
+      recentActivity: activity.sales > 0 ? 'You made a sale' : leadCount > 0 ? 'Someone is interested' : order.status === 'live' ? 'Your page is ready for customers' : 'Your page is being prepared',
+      emailStatus: order.providerState.businessEmailVerified ? 'ready' : order.configuration?.domain.selectedDomain ? 'pending' : 'not_started',
+      paymentStatus: order.providerState.stripeConnected ? 'ready' : order.configuration?.offer.intent === 'buy' ? 'pending' : 'not_requested',
+      cloudflareConnected: order.providerState.cloudflareConnected, createdAt: order.createdAt, updatedAt: order.updatedAt
+    };
+  }));
+  return json({ orders: summaries });
+}
+
+export async function handleGetMeLiveOrder(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const record = await loadBlueprintRecord(env, owned.sourceSprintOrderId);
+  if (!record) return json({ error: 'Source Evidence Sprint is unavailable' }, 409);
+  const configuration = owned.configuration || defaultConfiguration(record.blueprint, owned.ownerId);
+  const [leads, assets, activity] = await Promise.all([
+    owned.status === 'live' ? listGetMeLiveLeads(env, owned.orderId) : Promise.resolve([]),
+    listGetMeLiveAssets(env, owned.orderId),
+    getGetMeLiveActivity(env, owned.orderId, owned.sourceSprintOrderId)
+  ]);
+  return json({ order: { ...owned, preview: undefined }, configuration, leads, assets, activity, nameSuggestions: businessNameSuggestions(record.blueprint) });
+}
+export async function handleGetMeLiveConfig(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.paidAt) return json({ error: 'Get Me Live must be purchased before setup' }, 402);
+  if (request.method === 'GET') {
+    const record = await loadBlueprintRecord(env, owned.sourceSprintOrderId);
+    if (!record) return json({ error: 'Source Evidence Sprint is unavailable' }, 409);
+    return json({ configuration: owned.configuration || defaultConfiguration(record.blueprint, owned.ownerId) });
+  }
+  if (request.method !== 'POST' && request.method !== 'PUT') return json({ error: 'Method not allowed' }, 405);
+  try {
+    const body = await request.json<GetMeLiveConfiguration>();
+    owned.configuration = normalizeConfiguration(body);
+    if (owned.status !== 'live') owned.status = 'configuring';
+    owned.updatedAt = new Date().toISOString();
+    await updateGetMeLiveOrder(env, owned);
+    return json({ configuration: owned.configuration, status: owned.status });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Configuration is invalid' }, 400);
+  }
+}
+
+function applyConfigToSpec<T extends { stylePreset: string; templateId: string; businessName: string; sections: Array<any> }>(
+  spec: T,
+  config: GetMeLiveConfiguration
+): T {
+  const next = structuredClone(spec);
+  next.businessName = config.brand.businessName;
+  next.stylePreset = config.brand.stylePreset;
+  if (config.brand.templateId) next.templateId = config.brand.templateId;
+  for (const section of next.sections) {
+    if (section.component === 'hero' && config.offer.headline) section.heading = config.offer.headline;
+    if (section.component === 'pricing') {
+      if (config.offer.price) section.heading = config.offer.price;
+      if (config.offer.offer) section.body = config.offer.offer;
+    }
+    if (section.component === 'lead_capture' && config.offer.ctaLabel) {
+      section.heading = config.offer.ctaLabel;
+      section.primaryCtaLabel = config.offer.ctaLabel;
+    }
+  }
+  return next;
+}
+function bytesToBase64(bytes: Uint8Array): string {
+  let output = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    output += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(output);
+}
+
+function cleanFilename(value: string, fallback: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 120) || fallback;
+}
+
+function logoSvg(name: string, choice: string): string {
+  const palettes: Record<string, [string, string]> = {
+    forest: ['#12372A', '#F9F3E8'],
+    sunset: ['#B6422E', '#FFF7F2'],
+    night: ['#243447', '#F7D774']
+  };
+  const [background, foreground] = palettes[choice] || palettes.forest;
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join('') || 'G';
+  const safeInitials = initials.replace(/[^A-Z0-9]/g, '');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="240" viewBox="0 0 640 240"><rect width="640" height="240" rx="36" fill="${background}"/><circle cx="120" cy="120" r="72" fill="${foreground}" opacity=".16"/><text x="120" y="145" text-anchor="middle" font-family="Arial,sans-serif" font-size="76" font-weight="800" fill="${foreground}">${safeInitials}</text><text x="220" y="137" font-family="Arial,sans-serif" font-size="42" font-weight="700" fill="${foreground}">${name.replace(/[<>&"']/g, '').slice(0, 22)}</text></svg>`;
+}
+
+export async function handleGetMeLiveAssets(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.paidAt || !owned.configuration) return json({ error: 'Open your purchased setup first' }, 409);
+  try {
+    const contentType = request.headers.get('content-type') || '';
+    let kind: GetMeLiveAsset['kind'];
+    let filename: string;
+    let mediaType: string;
+    let bytes: ArrayBuffer;
+    let generated = false;
+    if (contentType.includes('application/json')) {
+      const body = await request.json<{ kind?: string; choice?: string }>();
+      if (body.kind !== 'logo') return json({ error: 'Choose a logo style' }, 400);
+      kind = 'logo';
+      generated = true;
+      mediaType = 'image/svg+xml';
+      filename = `logo-${safeText(body.choice, 24, 'forest')}.svg`;
+      bytes = new TextEncoder().encode(logoSvg(owned.configuration.brand.businessName, safeText(body.choice, 24, 'forest'))).buffer;
+    } else {
+      const form = await request.formData();
+      const rawKind = String(form.get('kind') || '');
+      if (!['logo', 'photo', 'lead_magnet'].includes(rawKind)) return json({ error: 'Choose a logo, photo, or PDF' }, 400);
+      kind = rawKind as GetMeLiveAsset['kind'];
+      const file = form.get('file');
+      if (!(file instanceof File)) return json({ error: 'Choose a file to upload' }, 400);
+      filename = cleanFilename(file.name, kind === 'lead_magnet' ? 'free-guide.pdf' : 'image');
+      mediaType = file.type.toLowerCase();
+      const allowed = kind === 'lead_magnet'
+        ? new Set(['application/pdf'])
+        : new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml']);
+      const limit = kind === 'lead_magnet' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+      if (!allowed.has(mediaType)) return json({ error: kind === 'lead_magnet' ? 'Upload a PDF file' : 'Upload a PNG, JPG, WebP, GIF, or SVG image' }, 415);
+      if (file.size <= 0 || file.size > limit) return json({ error: `Keep this file under ${kind === 'lead_magnet' ? '10' : '5'} MB` }, 413);
+      bytes = await file.arrayBuffer();
+    }
+    const current = await listGetMeLiveAssets(env, orderId);
+    if (kind === 'photo' && current.filter(asset => asset.kind === 'photo').length >= 8) return json({ error: 'You can add up to eight photos' }, 409);
+    const assetId = id('gml_asset');
+    const position = current.filter(asset => asset.kind === kind).length;
+    const asset = await saveGetMeLiveAsset(env, {
+      assetId, orderId, kind, filename, contentType: mediaType, byteSize: bytes.byteLength,
+      position, isMain: kind === 'photo' && !current.some(item => item.kind === 'photo'), generated, bytes
+    });
+    if (kind === 'logo') owned.configuration.brand.logoAssetId = assetId;
+    if (kind === 'photo') {
+      owned.configuration.brand.imageAssetIds = [...(owned.configuration.brand.imageAssetIds || []), assetId];
+      owned.configuration.brand.mainImageAssetId ||= assetId;
+    }
+    if (kind === 'lead_magnet') {
+      owned.configuration.offer.leadMagnet = { kind: 'asset', title: filename.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' '), assetId };
+    }
+    owned.updatedAt = new Date().toISOString();
+    await updateGetMeLiveOrder(env, owned);
+    return json({ asset, configuration: owned.configuration }, 201);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'The file could not be saved' }, 400);
+  }
+}
+
+export async function handleGetMeLiveAssetRead(request: Request, env: Env, orderId: string, assetId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const asset = await loadGetMeLiveAsset(env, orderId, assetId);
+  if (!asset) return new Response('File not found', { status: 404 });
+  const bytes = await loadGetMeLiveAssetBytes(env, orderId, assetId);
+  if (!bytes) return new Response('File not found', { status: 404 });
+  return new Response(bytes, {
+    status: 200,
+    headers: {
+      'Content-Type': asset.contentType,
+      'Content-Disposition': `inline; filename="${cleanFilename(asset.filename, 'file')}"`,
+      'Cache-Control': 'private, no-store'
+    }
+  });
+}
+
+export async function handleGetMeLiveActivity(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  return json({ activity: await getGetMeLiveActivity(env, orderId, owned.sourceSprintOrderId) });
+}
+
+export async function handleGetMeLiveAssetDelete(request: Request, env: Env, orderId: string, assetId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.configuration) return json({ error: 'Setup is not ready' }, 409);
+  const asset = await listGetMeLiveAssets(env, orderId).then(items => items.find(item => item.assetId === assetId));
+  if (!asset) return json({ error: 'File not found' }, 404);
+  await removeGetMeLiveAsset(env, orderId, assetId);
+  if (owned.configuration.brand.logoAssetId === assetId) owned.configuration.brand.logoAssetId = undefined;
+  owned.configuration.brand.imageAssetIds = owned.configuration.brand.imageAssetIds?.filter(idValue => idValue !== assetId);
+  if (owned.configuration.brand.mainImageAssetId === assetId) owned.configuration.brand.mainImageAssetId = owned.configuration.brand.imageAssetIds?.[0];
+  if (typeof owned.configuration.offer.leadMagnet === 'object' && owned.configuration.offer.leadMagnet.assetId === assetId) owned.configuration.offer.leadMagnet = undefined;
+  owned.updatedAt = new Date().toISOString();
+  await updateGetMeLiveOrder(env, owned);
+  return json({ removed: true, configuration: owned.configuration });
+}
+
+export async function handleGetMeLiveAssetOrder(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.configuration) return json({ error: 'Setup is not ready' }, 409);
+  const body = await request.json<{ assetIds?: string[]; mainAssetId?: string }>().catch(() => ({} as { assetIds?: string[]; mainAssetId?: string }));
+  const assetIds = (body.assetIds || []).map(value => safeText(value, 120)).filter(Boolean);
+  try {
+    await orderGetMeLiveAssets(env, orderId, assetIds, safeText(body.mainAssetId, 120) || undefined);
+    owned.configuration.brand.imageAssetIds = assetIds;
+    owned.configuration.brand.mainImageAssetId = safeText(body.mainAssetId, 120) || assetIds[0];
+    owned.updatedAt = new Date().toISOString();
+    await updateGetMeLiveOrder(env, owned);
+    return json({ assets: await listGetMeLiveAssets(env, orderId), configuration: owned.configuration });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Photo order could not be saved' }, 400);
+  }
+}
+
+async function configuredAssets(
+  env: Env,
+  orderId: string,
+  config: GetMeLiveConfiguration,
+  blueprint: GhostTownLaunchBlueprint,
+  published = false
+): Promise<WebsiteAsset[]> {
+  const assets: WebsiteAsset[] = [];
+  const add = (urlValue: string | undefined, role: 'logo' | 'hero_image' | 'supporting_image', index = 0) => {
+    if (!urlValue) return;
+    try {
+      const url = new URL(urlValue);
+      if (url.protocol !== 'https:' || url.username || url.password) return;
+      assets.push({
+        assetId: `gml_${role}_${index}`,
+        role,
+        origin: 'licensed',
+        publicUrl: url.toString(),
+        altText: role === 'logo' ? `${config.brand.businessName} logo` : `${config.brand.businessName} image`,
+        sourceReference: `get-me-live:${blueprint.blueprintId}:customer-supplied`
+      });
+    } catch { /* invalid customer asset URLs are ignored until corrected */ }
+  };
+  add(config.brand.logoUrl, 'logo');
+  config.brand.imageUrls?.forEach((url, index) => add(url, index === 0 ? 'hero_image' : 'supporting_image', index));
+  const stored = await listGetMeLiveAssets(env, orderId);
+  const selectedLogo = config.brand.logoAssetId
+    ? stored.find(asset => asset.kind === 'logo' && asset.assetId === config.brand.logoAssetId)
+    : undefined;
+  const photos = stored.filter(asset => asset.kind === 'photo').sort((a, b) => a.position - b.position);
+  const selectedPhotos = config.brand.imageAssetIds !== undefined
+    ? config.brand.imageAssetIds.map(assetId => photos.find(asset => asset.assetId === assetId)).filter((asset): asset is GetMeLiveAsset => Boolean(asset))
+    : photos;
+  if (selectedLogo) assets.splice(0, assets.length, ...assets.filter(asset => asset.role !== 'logo'));
+  if (selectedPhotos.length) assets.splice(0, assets.length, ...assets.filter(asset => asset.role === 'logo'));
+  const appendStored = async (asset: GetMeLiveAsset, role: 'logo' | 'hero_image' | 'supporting_image', index: number) => {
+    const bytes = await loadGetMeLiveAssetBytes(env, orderId, asset.assetId);
+    if (!bytes) return;
+    const extension = asset.contentType === 'image/svg+xml' ? 'svg' : asset.contentType.split('/')[1]?.replace('jpeg', 'jpg') || 'bin';
+    const path = asset.publishedPath || `/assets/${asset.assetId}.${extension}`;
+    assets.push({
+      assetId: asset.assetId,
+      role,
+      origin: asset.generated ? 'generated' : 'licensed',
+      publicUrl: published ? path : `data:${asset.contentType};base64,${bytesToBase64(new Uint8Array(bytes))}`,
+      altText: role === 'logo' ? `${config.brand.businessName} logo` : `${config.brand.businessName} photo ${index + 1}`,
+      sourceReference: `get-me-live:${orderId}:asset:${asset.assetId}`
+    });
+  };
+  if (selectedLogo) await appendStored(selectedLogo, 'logo', 0);
+  for (let index = 0; index < selectedPhotos.length; index += 1) {
+    const asset = selectedPhotos[index];
+    const isMain = asset.assetId === config.brand.mainImageAssetId || (!config.brand.mainImageAssetId && index === 0);
+    await appendStored(asset, isMain ? 'hero_image' : 'supporting_image', index);
+  }
+  return assets;
+}
+
+export async function handleGetMeLivePreview(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.paidAt) return json({ error: 'Get Me Live must be purchased before preview' }, 402);
+  if (request.method === 'GET') {
+    const stored = await loadGetMeLivePreview(env, orderId);
+    return stored ? new Response(stored.html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-store' } }) : json({ error: 'Preview has not been generated yet' }, 404);
+  }
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  const record = await loadBlueprintRecord(env, owned.sourceSprintOrderId);
+  if (!record) return json({ error: 'Source Evidence Sprint is unavailable' }, 409);
+  const config = owned.configuration || defaultConfiguration(record.blueprint, owned.ownerId);
+  owned.configuration = config;
+  const sourceBlueprint = overlayBlueprint(record.blueprint, config);
+  const customAssets = await configuredAssets(env, orderId, config, sourceBlueprint);
+  const manufactured = await manufactureCustomWebsite(env, sourceBlueprint, customAssets.length ? {
+    allowDeployment: false,
+    assetGenerator: { async generate() { return customAssets; } }
+  } : { allowDeployment: false });
+  const spec = applyConfigToSpec(manufactured.spec, config);
+  (spec as typeof spec & { primaryColor?: string }).primaryColor = config.brand.primaryColor;
+  if (config.offer.leadMagnet) {
+    const capture = spec.sections.find(section => section.component === 'lead_capture');
+    const title = typeof config.offer.leadMagnet === 'string' ? config.offer.leadMagnet : config.offer.leadMagnet.title;
+    if (capture) capture.body = `${capture.body} Free resource: ${title}`.trim();
+  }
+  const origin = new URL(request.url).origin;
+  const leadActionUrl = `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/leads`;
+  const buyActionUrl = `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/buy`;
+  const primaryActionUrl = config.offer.intent === 'buy' ? buyActionUrl : '#contact';
+  const assets = manufactured.assets;
+  const build = await buildCustomWebsite(spec, { primaryActionUrl, secondaryActionUrl: '#contact', assets });
+  const html = renderCustomWebsiteStaticHtml(spec, {
+    assets,
+    primaryActionUrl,
+    secondaryActionUrl: '#contact',
+    leadActionUrl,
+    leadMagnet: typeof config.offer.leadMagnet === 'object' && config.offer.leadMagnet.assetId
+      ? { title: config.offer.leadMagnet.title, url: '#' }
+      : undefined,
+    attributionUrl: `${origin}/get-me-live?from=customer-site`,
+    showFriendShare: true
+  });
+  const preview = {
+    ...manufactured,
+    spec,
+    build,
+    receipt: {
+      ...manufactured.receipt,
+      templateId: build.templateId,
+      buildId: build.buildId,
+      runtime: build.runtime,
+      assetCount: assets.length,
+      deployed: false as const,
+      productionAutoDeploy: false as const
+    }
+  };
+  await saveGetMeLivePreview(env, orderId, preview, html);
+  if (owned.status !== 'live') owned.status = 'preview_ready';
+  owned.updatedAt = new Date().toISOString();
+  await updateGetMeLiveOrder(env, owned);
+  await recordCommercialFunnelEvent(env, "get_me_live_preview_created", { ownerId: owned.ownerId, orderId: owned.orderId, source: "get_me_live" }).catch(() => undefined);
+  return json({ status: owned.status, buildId: build.buildId, templateId: build.templateId });
+}
+export async function handleGetMeLiveCloudflareConnect(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.paidAt) return json({ error: 'Get Me Live must be purchased first' }, 402);
+  const redirectUri = `${new URL(request.url).origin}/api/get-me-live/cloudflare/callback`;
+  try {
+    const authUrl = await createCloudflareAuthorizationUrl(env, { orderId, ownerId: owned.ownerId, redirectUri });
+    return json({ authUrl });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Cloudflare connection is unavailable' }, 503);
+  }
+}
+
+export async function handleGetMeLiveCloudflareDisconnect(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  await disconnectCloudflareAuthorization(env, orderId);
+  owned.providerState.cloudflareConnected = false;
+  owned.providerState.cloudflareScopes = undefined;
+  owned.updatedAt = new Date().toISOString();
+  if (owned.status !== 'live') owned.status = 'provider_setup';
+  await updateGetMeLiveOrder(env, owned);
+  return json({ disconnected: true });
+}
+
+export async function handleGetMeLiveCloudflareCallback(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code') || '';
+  const state = url.searchParams.get('state') || '';
+  const frontend = env.FRONTEND_URL?.replace(/\/$/, '') || url.origin;
+  const savedState = await loadCloudflareAuthorizationState(env, state);
+  const setupUrl = savedState ? `${frontend}/get-me-live/setup?order_id=${encodeURIComponent(savedState.orderId)}` : `${frontend}/get-me-live`;
+  if (url.searchParams.get('error')) {
+    return Response.redirect(`${setupUrl}${setupUrl.includes('?') ? '&' : '?'}cloudflare=error&message=${encodeURIComponent('Cloudflare was not connected. You can try again.')}`, 302);
+  }
+  if (!code || !state) {
+    return Response.redirect(`${setupUrl}${setupUrl.includes('?') ? '&' : '?'}cloudflare=error&message=${encodeURIComponent('Cloudflare did not finish connecting. Please try again.')}`, 302);
+  }
+  try {
+    const connected = await completeCloudflareAuthorization(env, { code, state });
+    const order = await loadGetMeLiveOrder(env, connected.orderId);
+    if (!order || order.ownerId !== connected.ownerId) throw new Error('Get Me Live Cloudflare ownership mismatch');
+    order.providerState.cloudflareConnected = true;
+    order.providerState.cloudflareScopes = env.CLOUDFLARE_OAUTH_SCOPES?.split(/[\s,]+/).filter(Boolean);
+    order.status = order.status === 'live' ? 'live' : 'provider_setup';
+    order.updatedAt = new Date().toISOString();
+    await updateGetMeLiveOrder(env, order);
+    return Response.redirect(`${frontend}/get-me-live/setup?order_id=${encodeURIComponent(order.orderId)}&cloudflare=connected&step=domain`, 302);
+  } catch {
+    return Response.redirect(`${setupUrl}${setupUrl.includes('?') ? '&' : '?'}cloudflare=error&message=${encodeURIComponent('Cloudflare could not connect. Please try again.')}`, 302);
+  }
+}
+
+export async function handleGetMeLiveCloudflareAccounts(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  try { return json({ accounts: await listCloudflareAccounts(env, orderId) }); }
+  catch (error) { return json({ error: error instanceof Error ? error.message : 'Cloudflare accounts unavailable' }, 409); }
+}
+export async function handleGetMeLiveDomainSearch(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const body = await request.json<{ accountId?: string; query?: string }>().catch(() => ({} as { accountId?: string; query?: string }));
+  const accountId = safeText(body.accountId, 80);
+  const query = safeText(body.query, 120);
+  if (!accountId || !query) return json({ error: 'Choose a Cloudflare account and enter a business name' }, 400);
+  try {
+    const domains = await searchCloudflareDomains(env, orderId, accountId, query, 9);
+    return json({ domains });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Domain search failed' }, 502);
+  }
+}
+
+export async function handleGetMeLiveNameOptions(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.providerState.cloudflareConnected) return json({ error: 'Connect Cloudflare before checking names' }, 409);
+  const record = await loadBlueprintRecord(env, owned.sourceSprintOrderId);
+  if (!record) return json({ error: 'Your Sprint starting point is not ready' }, 409);
+  const body = await request.json<{ accountId?: string }>().catch(() => ({} as { accountId?: string }));
+  const accountId = safeText(body.accountId, 80) || owned.configuration?.domain.cloudflareAccountId || '';
+  if (!accountId) return json({ error: 'Choose where your page will live first' }, 400);
+  const names = businessNameSuggestions(record.blueprint);
+  const options = await Promise.all(names.map(async name => {
+    const domain = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 52)}.com`;
+    try {
+      const checked = await checkCloudflareDomain(env, orderId, accountId, domain);
+      return { name, domain: checked };
+    } catch {
+      return { name, domain: { name: domain, registrable: false, reason: 'Could not be checked. Try again.' } };
+    }
+  }));
+  return json({ options });
+}
+
+export async function handleGetMeLiveDomainRegister(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.configuration) return json({ error: 'Save your Get Me Live setup first' }, 409);
+  const body = await request.json<{ accountId?: string; domain?: string; shownPrice?: string; shownCurrency?: string; confirmed?: boolean }>().catch(() => ({} as { accountId?: string; domain?: string; shownPrice?: string; shownCurrency?: string; confirmed?: boolean }));
+  const accountId = safeText(body.accountId, 80);
+  const domain = safeText(body.domain, 253).toLowerCase();
+  const shownPrice = safeText(body.shownPrice, 40);
+  const shownCurrency = safeText(body.shownCurrency, 10).toUpperCase();
+  if (!accountId || !domain || !shownPrice || !shownCurrency || body.confirmed !== true) {
+    return json({ error: 'Confirm the exact domain and shown price before buying it' }, 400);
+  }
+  try {
+    const registration = await registerCloudflareDomain(env, orderId, accountId, domain, { registrationCost: shownPrice, currency: shownCurrency });
+    owned.configuration.domain.cloudflareAccountId = accountId;
+    owned.configuration.domain.selectedDomain = registration.domainName;
+    owned.configuration.domain.registrationConfirmedAt = new Date().toISOString();
+    const zone = registration.ready ? await findCloudflareZone(env, orderId, accountId, registration.domainName) : null;
+    if (zone) owned.configuration.domain.cloudflareZoneId = zone.id;
+    owned.configuration.domain.registrationPrice = registration.registrationCost;
+    owned.configuration.domain.registrationCurrency = registration.currency;
+    owned.providerState.domainReady = registration.ready && Boolean(zone);
+    owned.updatedAt = new Date().toISOString();
+    await updateGetMeLiveOrder(env, owned);
+    const status = registration.ready ? 200 : 202;
+    return json({ domain: registration.domainName, status: registration.status, workflowState: registration.workflowState, ready: owned.providerState.domainReady, zoneId: zone?.id, actionRequired: registration.actionRequired }, status);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Domain registration failed' }, 502);
+  }
+}
+export async function handleGetMeLiveDomainStatus(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const config = owned.configuration;
+  const accountId = config?.domain.cloudflareAccountId;
+  const domain = config?.domain.selectedDomain;
+  if (!config || !accountId || !domain) return json({ error: 'Choose a domain first' }, 409);
+  try {
+    const registration = await getCloudflareRegistrationStatus(env, orderId, accountId, domain);
+    const zone = registration.ready ? await findCloudflareZone(env, orderId, accountId, domain) : null;
+    if (zone) config.domain.cloudflareZoneId = zone.id;
+    owned.providerState.domainReady = registration.ready && Boolean(zone);
+    owned.updatedAt = new Date().toISOString();
+    await updateGetMeLiveOrder(env, owned);
+    return json({ domain, status: registration.status, workflowState: registration.workflowState, ready: owned.providerState.domainReady, zoneId: zone?.id, actionRequired: registration.actionRequired }, owned.providerState.domainReady ? 200 : 202);
+  } catch (error) { return json({ error: error instanceof Error ? error.message : 'Domain status failed' }, 502); }
+}
+
+export async function handleGetMeLiveEmailSetup(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const config = owned.configuration;
+  if (!config?.domain.cloudflareAccountId || !config.domain.selectedDomain) {
+    return json({ error: 'Connect or register your domain before business email setup' }, 409);
+  }
+  try {
+    let zoneId = config.domain.cloudflareZoneId;
+    if (!zoneId) {
+      const zone = await findCloudflareZone(env, orderId, config.domain.cloudflareAccountId, config.domain.selectedDomain);
+      zoneId = zone?.id;
+      if (zoneId) config.domain.cloudflareZoneId = zoneId;
+    }
+    if (!zoneId) return json({ error: 'Cloudflare DNS zone is not ready yet. Try again after domain activation.' }, 425);
+    const routed = await configureCloudflareEmailRouting(env, orderId, {
+      accountId: config.domain.cloudflareAccountId,
+      zoneId,
+      domain: config.domain.selectedDomain,
+      localPart: config.contact.businessEmailLocalPart || 'hello',
+      destinationEmail: config.contact.leadDestinationEmail
+    });
+    owned.providerState.businessEmailVerified = routed.verified;
+    owned.updatedAt = new Date().toISOString();
+    await updateGetMeLiveOrder(env, owned);
+    return json({ businessEmail: routed.businessEmail, verified: routed.verified, actionRequired: routed.verified ? undefined : 'Verify the destination email Cloudflare sent you, then run setup again.' }, routed.verified ? 200 : 202);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Business email setup failed' }, 502);
+  }
+}
+
+export async function handleGetMeLiveStripeConnect(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.configuration) return json({ error: 'Save your Get Me Live setup first' }, 409);
+  const body = await request.json<{ country?: string }>().catch(() => ({} as { country?: string }));
+  try {
+    let accountId = owned.configuration.payments.stripeConnectedAccountId;
+    if (!accountId) {
+      const account = await createStripeConnectedMerchant(env, { email: owned.ownerId, country: safeText(body.country, 2).toUpperCase() || undefined });
+      accountId = account.id;
+      owned.configuration.payments.stripeConnectedAccountId = accountId;
+      owned.updatedAt = new Date().toISOString();
+      await updateGetMeLiveOrder(env, owned);
+    }
+    const frontend = env.FRONTEND_URL?.replace(/\/$/, '') || new URL(request.url).origin;
+    const returnUrl = `${frontend}/get-me-live/setup?order_id=${encodeURIComponent(orderId)}&stripe=return`;
+    const refreshUrl = `${frontend}/get-me-live/setup?order_id=${encodeURIComponent(orderId)}&stripe=refresh`;
+    const onboardingUrl = await createStripeOnboardingLink(env, { accountId, returnUrl, refreshUrl });
+    return json({ onboardingUrl, accountId });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Stripe connection failed' }, 502);
+  }
+}
+
+export async function handleGetMeLiveStripeStatus(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const accountId = owned.configuration?.payments.stripeConnectedAccountId;
+  if (!accountId) return json({ connected: false });
+  try {
+    const wasConnected = owned.providerState.stripeConnected;
+    const account = await retrieveStripeConnectedMerchant(env, accountId);
+    const cardStatus = account.configuration?.merchant?.capabilities?.card_payments?.status;
+    const payoutStatus = account.configuration?.merchant?.capabilities?.stripe_balance?.payouts?.status;
+    const chargesReady = cardStatus ? cardStatus === 'active' : account.charges_enabled === true;
+    const payoutsReady = payoutStatus ? payoutStatus === 'active' : account.payouts_enabled === true;
+    if (owned.configuration) {
+      owned.configuration.payments.detailsSubmitted = chargesReady;
+      owned.configuration.payments.chargesEnabled = chargesReady;
+      owned.configuration.payments.payoutsEnabled = payoutsReady;
+    }
+    owned.providerState.stripeConnected = chargesReady;
+    owned.updatedAt = new Date().toISOString();
+    await updateGetMeLiveOrder(env, owned);
+    if (!wasConnected && owned.providerState.stripeConnected) await recordCommercialFunnelEvent(env, "get_me_live_payment_connected", { ownerId: owned.ownerId, orderId: owned.orderId, source: "get_me_live" }).catch(() => undefined);
+    return json({ connected: owned.providerState.stripeConnected, accountId, detailsSubmitted: chargesReady, chargesEnabled: chargesReady, payoutsEnabled: payoutsReady });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Stripe status failed' }, 502);
+  }
+}
+function projectNameFor(orderId: string): string {
+  return `gt-${orderId.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(-46)}`.slice(0, 63);
+}
+
+function extensionFor(contentType: string): string {
+  return ({
+    'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif',
+    'image/svg+xml': 'svg', 'application/pdf': 'pdf'
+  } as Record<string, string>)[contentType] || 'bin';
+}
+
+function socialSvg(config: GetMeLiveConfiguration, liveUrl: string): string {
+  const clean = (value: string) => value.replace(/[<>&"']/g, '').slice(0, 90);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="#12251f"/><circle cx="1040" cy="100" r="260" fill="#d96f3d" opacity=".22"/><circle cx="140" cy="650" r="300" fill="#468269" opacity=".28"/><text x="88" y="155" fill="#f7d774" font-family="Arial,sans-serif" font-size="30" font-weight="800">${clean(config.brand.businessName)}</text><text x="88" y="270" fill="#ffffff" font-family="Arial,sans-serif" font-size="62" font-weight="800">${clean(config.offer.headline || config.offer.offer || 'See what is ready for you')}</text><text x="88" y="520" fill="#d9e3de" font-family="Arial,sans-serif" font-size="27">${clean(liveUrl.replace(/^https?:\/\//, ''))}</text></svg>`;
+}
+
+export async function handleGetMeLivePublish(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.paidAt || !owned.configuration) return json({ error: 'Finish your Get Me Live setup before publishing' }, 409);
+  if (!owned.providerState.cloudflareConnected || !owned.configuration.domain.cloudflareAccountId) {
+    return json({ error: 'Connect Cloudflare and choose an account before publishing' }, 409);
+  }
+  const stored = await loadGetMeLivePreview(env, orderId);
+  if (!stored) return json({ error: 'Generate and review your page before publishing' }, 409);
+
+  const config = owned.configuration;
+  const accountId = config.domain.cloudflareAccountId!;
+  const projectName = config.domain.pagesProjectName || projectNameFor(orderId);
+  const expectedLiveUrl = config.domain.selectedDomain && owned.providerState.domainReady
+    ? `https://${config.domain.selectedDomain}`
+    : `https://${projectName}.pages.dev`;
+  const storedAssets = await listGetMeLiveAssets(env, orderId);
+  const deployedFiles: Array<{ path: string; contentType: string; bytes: ArrayBuffer }> = [];
+  for (const asset of storedAssets) {
+    const bytes = await loadGetMeLiveAssetBytes(env, orderId, asset.assetId);
+    if (!bytes) return json({ error: `The file ${asset.filename} is missing. Upload it again before going live.` }, 409);
+    const path = `assets/${asset.assetId}.${extensionFor(asset.contentType)}`;
+    deployedFiles.push({ path, contentType: asset.contentType, bytes });
+  }
+  const social = new TextEncoder().encode(socialSvg(config, expectedLiveUrl));
+  deployedFiles.push({ path: 'og.svg', contentType: 'image/svg+xml', bytes: social.buffer });
+  const publishedAssets = stored.preview.assets.map(asset => {
+    const uploaded = storedAssets.find(item => item.assetId === asset.assetId);
+    return uploaded ? { ...asset, publicUrl: `/assets/${uploaded.assetId}.${extensionFor(uploaded.contentType)}` } : asset;
+  });
+  const leadMagnetValue = typeof config.offer.leadMagnet === 'object' ? config.offer.leadMagnet : undefined;
+  const leadMagnetAsset = leadMagnetValue?.assetId
+    ? storedAssets.find(asset => asset.assetId === leadMagnetValue.assetId)
+    : undefined;
+  const leadMagnetConfig = leadMagnetValue?.assetId && leadMagnetAsset
+    ? { title: leadMagnetValue.title, url: `/assets/${leadMagnetValue.assetId}.${extensionFor(leadMagnetAsset.contentType)}` }
+    : undefined;
+  const origin = new URL(request.url).origin;
+  const leadActionUrl = `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/leads`;
+  const buyActionUrl = `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/buy`;
+  const paymentReady = config.offer.intent === 'buy' && owned.providerState.stripeConnected && config.payments.chargesEnabled;
+  const publicHtml = renderCustomWebsiteStaticHtml(stored.preview.spec, {
+    assets: publishedAssets,
+    primaryActionUrl: paymentReady ? buyActionUrl : '#contact',
+    secondaryActionUrl: '#contact',
+    leadActionUrl,
+    leadMagnet: leadMagnetConfig,
+    canonicalUrl: expectedLiveUrl,
+    socialImageUrl: `${expectedLiveUrl}/og.svg`,
+    attributionUrl: `${env.FRONTEND_URL?.replace(/\/$/, '') || origin}/get-me-live?from=customer-site`,
+    showFriendShare: true,
+    activityUrl: `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/activity`
+  });
+
+  if (!env.BROWSER) return json({ error: 'Browser verification is unavailable; publication is blocked' }, 503);
+  const browser = await env.BROWSER.quickAction('pdf', { html: publicHtml, pdfOptions: { printBackground: true } });
+  if (!browser.ok) return json({ error: 'Your page did not pass the final browser render check' }, 409);
+
+  owned.status = 'publishing';
+  owned.updatedAt = new Date().toISOString();
+  await updateGetMeLiveOrder(env, owned);
+  try {
+    const deployment = await deployCloudflarePagesHtml(env, orderId, accountId, projectName, publicHtml, deployedFiles);
+    config.domain.pagesProjectName = projectName;
+    let customDomain: string | undefined;
+    const selectedDomain = config.domain.selectedDomain;
+    if (selectedDomain && owned.providerState.domainReady) {
+      const attached = await addCloudflarePagesDomain(env, orderId, accountId, projectName, selectedDomain);
+      customDomain = attached.name;
+    }
+    owned.publicUrl = deployment.publicUrl;
+    owned.customDomain = customDomain;
+    owned.status = 'live';
+    owned.publishedAt = new Date().toISOString();
+    owned.updatedAt = owned.publishedAt;
+    owned.deploymentReceipt = {
+      deploymentId: deployment.deploymentId,
+      buildId: stored.preview.build.buildId,
+      publicUrl: deployment.publicUrl,
+      customDomain,
+      publishedAt: owned.publishedAt
+    };
+    owned.failure = undefined;
+    for (const asset of storedAssets) {
+      await markGetMeLiveAssetPublished(env, orderId, asset.assetId, `/assets/${asset.assetId}.${extensionFor(asset.contentType)}`);
+    }
+    await saveGetMeLivePreview(env, orderId, stored.preview, publicHtml);
+    await updateGetMeLiveOrder(env, owned);
+    await recordCommercialFunnelEvent(env, "get_me_live_live_completed", { ownerId: owned.ownerId, orderId: owned.orderId, source: "get_me_live", content: owned.customDomain || owned.publicUrl }).catch(() => undefined);
+    return json({
+      status: owned.status,
+      publicUrl: owned.publicUrl,
+      customDomain: owned.customDomain,
+      deploymentId: deployment.deploymentId,
+      paymentMode: config.offer.intent === 'buy' && !paymentReady ? 'lead_until_stripe_ready' : paymentReady ? 'connected_checkout' : 'lead',
+      businessEmailReady: owned.providerState.businessEmailVerified
+    });
+  } catch (error) {
+    owned.status = 'failed';
+    owned.failure = error instanceof Error ? error.message : 'Publication failed';
+    owned.updatedAt = new Date().toISOString();
+    await updateGetMeLiveOrder(env, owned);
+    return json({ error: owned.failure }, 502);
+  }
+}
+
+function launchShareTexts(order: GetMeLiveOrder): string[] {
+  const config = order.configuration!;
+  const liveUrl = order.customDomain ? `https://${order.customDomain}` : order.publicUrl || '';
+  const offer = config.offer.offer || config.brand.businessName;
+  return [
+    `${config.brand.businessName} is live. ${config.offer.headline || `Take a look at ${offer}.`} ${liveUrl}`,
+    `I turned an idea into a real page for customers. See ${offer} from ${config.brand.businessName}: ${liveUrl}`,
+    `Know someone who could use ${offer}? Here is the page: ${liveUrl}`
+  ];
+}
+
+async function ensureOrderShareDrafts(env: Env, order: GetMeLiveOrder): Promise<GetMeLiveShareDraft[]> {
+  const existing = await listGetMeLiveShareDrafts(env, {
+    ownerId: order.ownerId, sourceSprintOrderId: order.sourceSprintOrderId, orderId: order.orderId, draftType: 'launch'
+  });
+  if (existing.length) return existing;
+  const createdAt = new Date().toISOString();
+  const drafts = launchShareTexts(order).map((text, position): GetMeLiveShareDraft => ({
+    draftId: id('gml_share'), ownerId: order.ownerId, sourceSprintOrderId: order.sourceSprintOrderId,
+    getMeLiveOrderId: order.orderId, draftType: 'launch', position,
+    generatedText: text, editedText: text, createdAt
+  }));
+  for (const draft of drafts) await saveGetMeLiveShareDraft(env, draft);
+  return drafts;
+}
+
+export async function handleGetMeLiveSharePack(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (owned.status !== 'live' || !owned.configuration || !owned.publicUrl) return json({ error: 'Go live before opening your share pack' }, 409);
+  let drafts = await ensureOrderShareDrafts(env, owned);
+  if (request.method === 'POST') {
+    const body = await request.json<{ draftId?: string; text?: string; action?: 'save' | 'approve' | 'shared' }>().catch(() => ({} as { draftId?: string; text?: string; action?: 'save' | 'approve' | 'shared' }));
+    const draft = drafts.find(item => item.draftId === body.draftId);
+    if (!draft) return json({ error: 'Share draft not found' }, 404);
+    draft.editedText = safeText(body.text, 600, draft.editedText);
+    if (body.action === 'approve' || body.action === 'shared') draft.approvedAt = new Date().toISOString();
+    if (body.action === 'shared') {
+      draft.sharedAt = new Date().toISOString();
+      await incrementGetMeLiveActivity(env, orderId, 'share');
+    }
+    await saveGetMeLiveShareDraft(env, draft);
+    drafts = drafts.map(item => item.draftId === draft.draftId ? draft : item);
+  }
+  const activity = await getGetMeLiveActivity(env, orderId, owned.sourceSprintOrderId);
+  const liveUrl = owned.customDomain ? `https://${owned.customDomain}` : owned.publicUrl;
+  const milestoneType: GetMeLiveShareDraftType | undefined = activity.sales > 0 ? 'milestone_sale' : (await countGetMeLiveLeads(env, orderId)) > 0 ? 'milestone_lead' : undefined;
+  const milestoneText = milestoneType === 'milestone_sale'
+    ? `A customer bought from ${owned.configuration.brand.businessName}. Small step, real progress. ${liveUrl}`
+    : milestoneType === 'milestone_lead'
+      ? `Someone raised their hand for ${owned.configuration.offer.offer || owned.configuration.brand.businessName}. The page is doing its job. ${liveUrl}`
+      : undefined;
+  return json({ drafts, liveUrl, socialImageUrl: `${liveUrl}/og.svg`, milestone: milestoneText ? { type: milestoneType, text: milestoneText } : undefined });
+}
+
+export async function handleGetMeLiveSprintShareDraft(request: Request, env: Env, sourceSprintOrderId: string): Promise<Response> {
+  const auth = await authenticateRequest(request, env);
+  if (!auth) return json({ error: 'Please log in first' }, 401);
+  const source = await ownedLaunchBlueprintOrder(request, env, sourceSprintOrderId, true);
+  if (source instanceof Response) return source;
+  const record = await loadBlueprintRecord(env, sourceSprintOrderId);
+  if (!record) return json({ error: 'Your Sprint is not ready yet' }, 409);
+  const ownerId = normalizeEmail(auth.email);
+  let drafts = await listGetMeLiveShareDrafts(env, { ownerId, sourceSprintOrderId, draftType: 'sprint' });
+  if (!drafts.length) {
+    const text = `I finished a GhostTown Sprint for ${record.blueprint.offer.offerName}. Next I am testing whether real customers want it.`;
+    const draft: GetMeLiveShareDraft = {
+      draftId: id('gml_share'), ownerId, sourceSprintOrderId, draftType: 'sprint', position: 0,
+      generatedText: text, editedText: text, createdAt: new Date().toISOString()
+    };
+    await saveGetMeLiveShareDraft(env, draft);
+    drafts = [draft];
+  }
+  if (request.method === 'POST') {
+    const body = await request.json<{ text?: string; action?: 'save' | 'approve' | 'shared' }>().catch(() => ({} as { text?: string; action?: 'save' | 'approve' | 'shared' }));
+    const draft = drafts[0];
+    draft.editedText = safeText(body.text, 600, draft.editedText);
+    if (body.action === 'approve' || body.action === 'shared') draft.approvedAt = new Date().toISOString();
+    if (body.action === 'shared') draft.sharedAt = new Date().toISOString();
+    await saveGetMeLiveShareDraft(env, draft);
+    drafts = [draft];
+  }
+  return json({ draft: drafts[0] });
+}
+
+export async function handlePublicGetMeLiveActivity(request: Request, env: Env, orderId: string): Promise<Response> {
+  const order = await loadGetMeLiveOrder(env, orderId);
+  if (!order || order.status !== 'live') return new Response(null, { status: 204 });
+  const body = request.method === 'POST'
+    ? await request.json<{ kind?: string }>().catch(() => ({} as { kind?: string }))
+    : { kind: 'visit' };
+  await incrementGetMeLiveActivity(env, orderId, body.kind === 'share' ? 'share' : 'visit');
+  return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
+}
+
+export async function handleGetMeLiveStoryStudioHandoff(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.configuration || owned.status !== 'live') return json({ error: 'Go live before opening Story Studio' }, 409);
+  const leadCount = await countGetMeLiveLeads(env, orderId);
+  const liveUrl = owned.customDomain ? `https://${owned.customDomain}` : owned.publicUrl;
+  return json({ handoff: {
+    schemaVersion: 'ghosttown-story-studio-handoff-v1',
+    sourceSprintOrderId: owned.sourceSprintOrderId, sourceBlueprintId: owned.sourceBlueprintId, getMeLiveOrderId: owned.orderId,
+    business: { name: owned.configuration.brand.businessName, offer: owned.configuration.offer.offer, intent: owned.configuration.offer.intent, liveUrl },
+    activity: { interestedPeople: leadCount, canonicalSprintEvidenceOrderId: owned.sourceSprintOrderId, note: 'GhostTown will carry your customer activity forward.' },
+    storyStudioUrl: env.STORY_STUDIO_URL?.trim() || undefined
+  } });
+}
+
+export async function handleGetMeLiveLeads(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  return json({ leads: await listGetMeLiveLeads(env, orderId) });
+}
+export async function handlePublicGetMeLiveLead(request: Request, env: Env, orderId: string): Promise<Response> {
+  const order = await loadGetMeLiveOrder(env, orderId);
+  if (!order || order.status !== 'live') return new Response('Page not found', { status: 404 });
+  let body: { name?: string; email?: string; message?: string; consent?: string | boolean } = {};
+  const contentType = request.headers.get('content-type') || '';
+  try {
+    if (contentType.includes('application/json')) body = await request.json<typeof body>();
+    else {
+      const form = await request.formData();
+      body = {
+        name: String(form.get('name') || ''), email: String(form.get('email') || ''),
+        message: String(form.get('message') || ''), consent: String(form.get('consent') || '')
+      };
+    }
+  } catch { return new Response('Please check the form and try again.', { status: 400 }); }
+  const name = safeText(body.name, 120);
+  const email = safeText(body.email, 254).toLowerCase();
+  const message = safeText(body.message, 2000);
+  const consented = body.consent === true || ['yes', 'true', 'on'].includes(String(body.consent).toLowerCase());
+  if (!name || !email.includes('@') || !consented) return new Response('Name, email, and contact permission are required.', { status: 400 });
+
+  const leadId = id('gml_lead');
+  const now = new Date().toISOString();
+  const consentText = 'I agree to be contacted about this offer.';
+  await saveGetMeLiveLead(env, { leadId, orderId, name, email, message, consentText, sourcePath: new URL(request.url).pathname, createdAt: now });
+  try {
+    await ingestObservedEvidenceEvent(env, {
+      eventId: leadId,
+      orderId: order.sourceSprintOrderId,
+      eventType: 'launch_site_lead',
+      occurredAt: now,
+      source: 'launch_site',
+      contactOrChannel: email,
+      summary: message ? `Get Me Live lead submitted with consent: ${message}` : 'Get Me Live lead submitted with consent.',
+      customerLanguage: message || undefined,
+      sourceReference: `get-me-live:${orderId}`
+    });
+  } catch (error) {
+    console.warn('Get Me Live lead evidence projection failed', { leadId, error });
+  }
+  await recordCommercialFunnelEvent(env, "get_me_live_lead_captured", { orderId: order.sourceSprintOrderId, source: "get_me_live", content: orderId }).catch(() => undefined);
+  if (contentType.includes('application/json')) return json({ received: true, leadId }, 201, { 'Cache-Control': 'no-store' });
+  const destination = order.customDomain ? `https://${order.customDomain}` : order.publicUrl;
+  return Response.redirect(`${destination || '/'}${destination?.includes('?') ? '&' : '?'}lead=received`, 303);
+}
+
+export async function handlePublicGetMeLiveBuy(_request: Request, env: Env, orderId: string): Promise<Response> {
+  const order = await loadGetMeLiveOrder(env, orderId);
+  if (!order || order.status !== 'live' || !order.configuration) return new Response('Page not found', { status: 404 });
+  const config = order.configuration;
+  const accountId = config.payments.stripeConnectedAccountId;
+  if (config.offer.intent !== 'buy' || !accountId || !config.payments.chargesEnabled || !order.providerState.stripeConnected) {
+    const destination = order.customDomain ? `https://${order.customDomain}` : order.publicUrl;
+    return Response.redirect(`${destination || '/'}${destination?.includes('?') ? '&' : '?'}payment=not-ready`, 303);
+  }
+  if (!config.offer.price) return new Response('This offer does not have a payment price yet.', { status: 409 });
+  const site = order.customDomain ? `https://${order.customDomain}` : order.publicUrl;
+  if (!site) return new Response('Page is not published yet.', { status: 409 });
+  try {
+    const session = await createConnectedCheckoutSession(env, {
+      accountId,
+      productName: config.offer.offer || config.brand.businessName,
+      price: config.offer.price,
+      successUrl: `${site}${site.includes('?') ? '&' : '?'}payment=success`,
+      cancelUrl: `${site}${site.includes('?') ? '&' : '?'}payment=cancelled`,
+      getMeLiveOrderId: orderId,
+      sourceSprintOrderId: order.sourceSprintOrderId
+    });
+    return Response.redirect(session.url, 303);
+  } catch (error) {
+    console.error('Get Me Live connected checkout failed', error);
+    return new Response('Payment checkout is temporarily unavailable. Please contact the business directly.', { status: 502 });
+  }
+}
+
+export async function recordGetMeLiveExperimentPayment(
+  env: Env,
+  eventId: string,
+  session: Record<string, unknown>,
+  connectedAccountId?: string
+): Promise<boolean> {
+  const metadata = typeof session.metadata === 'object' && session.metadata ? session.metadata as Record<string, unknown> : {};
+  const orderId = typeof metadata.get_me_live_experiment_order_id === 'string' ? metadata.get_me_live_experiment_order_id : '';
+  if (!orderId) return false;
+  const order = await loadGetMeLiveOrder(env, orderId);
+  if (!order || metadata.source_sprint_order_id !== order.sourceSprintOrderId) throw new Error('Get Me Live experiment payment lineage mismatch');
+  const expectedAccountId = order.configuration?.payments.stripeConnectedAccountId;
+  if (!expectedAccountId || (connectedAccountId && connectedAccountId !== expectedAccountId)) throw new Error('Get Me Live experiment payment connected-account mismatch');
+  if (session.payment_status !== 'paid') return false;
+  const amountTotal = typeof session.amount_total === 'number' && Number.isFinite(session.amount_total) ? Math.max(0, Math.round(session.amount_total)) : 0;
+  await ingestObservedEvidenceEvent(env, {
+    eventId: `stripe_${eventId}`,
+    orderId: order.sourceSprintOrderId,
+    eventType: 'payment',
+    occurredAt: new Date().toISOString(),
+    source: 'stripe',
+    summary: `A real customer completed payment through the Get Me Live offer${amountTotal ? ` for $${(amountTotal / 100).toFixed(2)}` : ''}.`,
+    commitmentReceived: 'payment',
+    revenueCents: amountTotal || undefined,
+    sourceReference: `get-me-live:${orderId}:stripe:${String(session.id || eventId)}`
+  });
+  await recordCommercialFunnelEvent(env, "get_me_live_customer_payment", { ownerId: order.ownerId, orderId: order.sourceSprintOrderId, source: "get_me_live", content: orderId }).catch(() => undefined);
+  return true;
+}

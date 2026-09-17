@@ -29,14 +29,15 @@
     "roadmap:freeze": "node scripts/roadmap-infrastructure-freeze.mjs",
     "roadmap:pre-gate36-corrections": "node scripts/roadmap-pre-gate36-correction-pass.mjs",
     "audit:simplehash-retirement": "node scripts/simplehash-retirement-audit.mjs",
-    "test:fast": "vitest run --exclude tests/q4LaunchSiteBrowser.test.ts --exclude tests/gate34VisualFixtureBrowser.test.ts --exclude \"tests/runtime/**\"",
-    "test:browser": "vitest run tests/q4LaunchSiteBrowser.test.ts tests/gate34VisualFixtureBrowser.test.ts --no-file-parallelism",
+    "test:fast": "vitest run --exclude tests/q4LaunchSiteBrowser.test.ts --exclude tests/gate34VisualFixtureBrowser.test.ts --exclude tests/getMeLiveBrowser.test.ts --exclude \"tests/runtime/**\"",
+    "test:browser": "vitest run tests/q4LaunchSiteBrowser.test.ts tests/gate34VisualFixtureBrowser.test.ts tests/getMeLiveBrowser.test.ts --no-file-parallelism",
     "test:workers-runtime": "npm run verify:blueprint && vitest run --config vitest.worker.config.ts",
     "test:worker-harness": "npm run verify:blueprint && vitest run --config vitest.harness.config.ts",
     "test:provider-contracts": "node scripts/check-provider-contract-isolation.mjs",
     "test:platform-guard": "node scripts/check-platform-test-emulators.mjs",
     "test-runtime:status": "node scripts/test-runtime-migration-autopilot.mjs --status",
-    "test-runtime:autopilot": "node scripts/test-runtime-migration-autopilot.mjs"
+    "test-runtime:autopilot": "node scripts/test-runtime-migration-autopilot.mjs",
+    "test:get-me-live": "vitest run tests/getMeLiveContract.test.ts tests/getMeLiveProviders.test.ts tests/getMeLiveFulfillment.test.ts --no-file-parallelism --pool=threads --maxWorkers=1"
   },
   "dependencies": {
     "react": "^18.2.0",
