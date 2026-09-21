@@ -21,6 +21,7 @@ export interface Env {
   INTERNAL_RESEARCH_OWNER_EMAILS?: string;
   FRONTEND_URL?: string;
   LIT_API_KEY?: string;
+  SHORTS_FACTORY_RESEARCH_API_KEY?: string;
   GEMINI_API_KEY?: string;
   DATAFORSEO_LOGIN?: string;
   DATAFORSEO_PASSWORD?: string;

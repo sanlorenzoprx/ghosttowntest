@@ -17,6 +17,7 @@ import {
 import { handleBlueprintSeeds, handleBlueprintSeedSuggestions } from './blueprintSeeds';
 import { handleInternalGoogleSearch } from './internalGoogleSearch';
 import { handleResearchPreviewSuggestions } from './researchPreview';
+import { handleShortsFactoryYouTubeDiscovery } from './youtubeVideoDiscovery';
 import { handleLaunchSiteOwner, handlePublicLaunchLead, handlePublicLaunchSite } from './launchSite';
 import type { Env } from './env';
 import { handleResultHistory, handleSaveCurrentResult, handleSavedResult } from './resultHistory';
@@ -59,6 +60,12 @@ export default {
           evaluation: { primary: 'cloudflare_workers_ai', fallback: 'deterministic', provenance_recorded: true },
           live_publishing_enabled: false
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      if (path === '/api/integrations/shorts-factory/youtube-discovery' && method === 'POST') {
+        const response = await handleShortsFactoryYouTubeDiscovery(request, env);
+        applyCors(response, corsHeaders);
+        return response;
       }
 
       if (path === '/api/integrations/shorts-factory/video-jobs/next' && method === 'GET') {
