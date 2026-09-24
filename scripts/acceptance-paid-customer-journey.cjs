@@ -81,8 +81,11 @@ const testCardNumber = process.env.STRIPE_TEST_CARD_NUMBER || '4242424242424242'
 
     // Stripe Checkout initially presents payment-method choices. Select Card first,
     // then fill Stripe's current hosted card form using accessible labels.
-    const cardMethod = page.getByText('Card', { exact: true }).first();
-    if (await cardMethod.isVisible().catch(() => false)) await cardMethod.click();
+    const payWithCard = page.getByRole('button', { name: /Pay with card/i }).first();
+    if (await payWithCard.isVisible().catch(() => false)) {
+      const expanded = await payWithCard.getAttribute('aria-expanded').catch(() => null);
+      if (expanded !== 'true') await payWithCard.click();
+    }
 
     const cardNumber = page.getByLabel(/Card number/i).or(page.locator('input[autocomplete="cc-number"]')).first();
     await cardNumber.waitFor({ state: 'visible', timeout: 15000 });
