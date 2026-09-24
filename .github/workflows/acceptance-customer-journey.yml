@@ -8,6 +8,7 @@ on:
       - ".github/workflows/acceptance-customer-journey.yml"
       - "scripts/acceptance-customer-journey.cjs"
       - "scripts/acceptance-paid-customer-journey.cjs"
+      - "src/**"
   workflow_dispatch:
   schedule:
     - cron: "17 10 * * 1-5"
@@ -20,8 +21,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  deploy-acceptance:
+    name: Deploy exact SHA to acceptance
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      sha: ${{ steps.version.outputs.sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Record exact SHA
+        id: version
+        shell: bash
+        run: |
+          echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Deploying acceptance SHA ${GITHUB_SHA}"
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build exact SHA
+        run: npm run build
+        env:
+          VITE_API_URL: "https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev"
+          VITE_30_DAY_PLAN_DISPLAY_PRICE: "$97.00"
+          VITE_BUILD_SHA: "${{ github.sha }}"
+      - name: Deploy frontend to Cloudflare acceptance only
+        run: npx wrangler pages deploy dist --project-name ghosttown-acceptance --branch main --commit-hash "${{ github.sha }}"
+        env:
+          CLOUDFLARE_API_TOKEN: "${{ secrets.CLOUDFLARE_API_TOKEN }}"
+          CLOUDFLARE_ACCOUNT_ID: "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+
   customer-journey:
     name: ${{ matrix.label }}
+    needs: deploy-acceptance
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
