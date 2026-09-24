@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - ".github/workflows/acceptance-customer-journey.yml"
-      - "scripts/acceptance-customer-journey.cjs"
+      - "scripts/acceptance-customer-journey.cjs"\n      - "scripts/acceptance-paid-customer-journey.cjs"
   workflow_dispatch:
   schedule:
     - cron: "17 10 * * 1-5"
@@ -79,5 +79,40 @@ jobs:
         with:
           name: acceptance-${{ matrix.slug }}
           path: artifacts/customer-journey/${{ matrix.slug }}
+          if-no-files-found: warn
+          retention-days: 7
+
+  paid-customer-journey:
+    name: Desktop Chrome paid journey
+    needs: customer-journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run paid acceptance customer journey
+        run: node scripts/acceptance-paid-customer-journey.cjs
+        env:
+          CI: "true"
+          GHOSTTOWN_ACCEPTANCE_URL: "https://ghosttown-acceptance.pages.dev/"
+          STRIPE_TEST_CARD_NUMBER: "${{ secrets.STRIPE_TEST_CARD_NUMBER }}"
+          STRIPE_TEST_EXPIRY: "${{ secrets.STRIPE_TEST_EXPIRY }}"
+          STRIPE_TEST_CVC: "${{ secrets.STRIPE_TEST_CVC }}"
+          STRIPE_TEST_POSTAL: "${{ secrets.STRIPE_TEST_POSTAL }}"
+      - name: Upload paid journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-paid-desktop
+          path: artifacts/paid-customer-journey
           if-no-files-found: warn
           retention-days: 7
