@@ -1,6 +1,12 @@
 name: Acceptance Customer Journey
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/acceptance-customer-journey.yml"
+      - "scripts/acceptance-customer-journey.cjs"
   workflow_dispatch:
   schedule:
     - cron: "17 10 * * 1-5"
@@ -9,8 +15,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: acceptance-customer-journey
-  cancel-in-progress: false
+  group: acceptance-customer-journey-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   customer-journey:
