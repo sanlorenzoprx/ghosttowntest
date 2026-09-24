@@ -79,12 +79,19 @@ const testCardNumber = process.env.STRIPE_TEST_CARD_NUMBER || '4242424242424242'
     const bodyText = await page.locator('body').innerText();
     if (!/test/i.test(bodyText)) throw new Error('SAFETY: Stripe TEST mode was not visibly confirmed; payment was not attempted.');
 
-    await page.locator('input[name="cardNumber"], input[autocomplete="cc-number"]').first().fill(testCardNumber);
-    await page.locator('input[name="cardExpiry"], input[autocomplete="cc-exp"]').first().fill(process.env.STRIPE_TEST_EXPIRY || '1234');
-    await page.locator('input[name="cardCvc"], input[autocomplete="cc-csc"]').first().fill(process.env.STRIPE_TEST_CVC || '123');
-    const cardholder = page.locator('input[name="billingName"], input[autocomplete="cc-name"]').first();
+    // Stripe Checkout initially presents payment-method choices. Select Card first,
+    // then fill Stripe's current hosted card form using accessible labels.
+    const cardMethod = page.getByText('Card', { exact: true }).first();
+    if (await cardMethod.isVisible().catch(() => false)) await cardMethod.click();
+
+    const cardNumber = page.getByLabel(/Card number/i).or(page.locator('input[autocomplete="cc-number"]')).first();
+    await cardNumber.waitFor({ state: 'visible', timeout: 15000 });
+    await cardNumber.fill(testCardNumber);
+    await page.getByLabel(/Expiration|Expiry/i).or(page.locator('input[autocomplete="cc-exp"]')).first().fill(process.env.STRIPE_TEST_EXPIRY || '1234');
+    await page.getByLabel(/CVC|Security code/i).or(page.locator('input[autocomplete="cc-csc"]')).first().fill(process.env.STRIPE_TEST_CVC || '123');
+    const cardholder = page.getByLabel(/Cardholder name|Name on card/i).or(page.locator('input[autocomplete="cc-name"]')).first();
     if (await cardholder.isVisible().catch(() => false)) await cardholder.fill('John Brown');
-    const postal = page.locator('input[name="billingPostalCode"], input[autocomplete="postal-code"]').first();
+    const postal = page.getByLabel(/ZIP|Postal/i).or(page.locator('input[autocomplete="postal-code"]')).first();
     if (await postal.isVisible().catch(() => false)) await postal.fill(process.env.STRIPE_TEST_POSTAL || '00745');
     await page.getByRole('button', { name: /Pay|Subscribe|Complete|Purchase/i }).last().click();
 
