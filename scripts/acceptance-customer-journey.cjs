@@ -1,17 +1,28 @@
-const { chromium } = require('playwright');
+const { chromium, webkit, devices } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
 
 const baseUrl = process.env.GHOSTTOWN_ACCEPTANCE_URL || 'https://ghosttown-acceptance.pages.dev/';
-const out = process.env.JOURNEY_ARTIFACT_DIR || 'artifacts/customer-journey';
+const deviceProfile = process.env.DEVICE_PROFILE || 'iPhone 13';
+const browserEngine = process.env.BROWSER_ENGINE || (deviceProfile.startsWith('iPhone') || deviceProfile.startsWith('iPad') ? 'webkit' : 'chromium');
+const artifactSlug = (process.env.ARTIFACT_SLUG || deviceProfile).replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+const out = process.env.JOURNEY_ARTIFACT_DIR || path.join('artifacts/customer-journey', artifactSlug);
 fs.mkdirSync(out, { recursive: true });
 
+const browserType = browserEngine === 'webkit' ? webkit : chromium;
+const desktopProfile = {
+  viewport: { width: 1366, height: 768 },
+  screen: { width: 1366, height: 768 },
+  isMobile: false,
+  hasTouch: false
+};
+const profile = deviceProfile === 'Desktop 1366' ? desktopProfile : devices[deviceProfile];
+if (!profile) throw new Error('Unknown Playwright device profile: ' + deviceProfile);
+
 (async () => {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await browserType.launch({ headless: true });
   const context = await browser.newContext({
-    viewport: { width: 375, height: 667 },
-    isMobile: true,
-    hasTouch: true,
+    ...profile,
     recordVideo: { dir: path.join(out, 'video') }
   });
   const page = await context.newPage();
@@ -28,7 +39,7 @@ fs.mkdirSync(out, { recursive: true });
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await shot('home');
     await page.getByRole('button', { name: /Test My Idea Free/i }).first().click();
-    await page.locator('#ideaName').fill('Cloud Acceptance Journey ' + Date.now());
+    await page.locator('#ideaName').fill('Cloud Acceptance ' + artifactSlug + ' ' + Date.now());
     await page.locator('#description').fill('A service that helps neighborhood businesses test demand before spending money to launch.');
     await page.locator('#targetUser').fill('Independent neighborhood business owners');
     await page.locator('#painfulProblem').fill('They spend money launching before knowing what customers will buy.');
@@ -59,6 +70,8 @@ fs.mkdirSync(out, { recursive: true });
 
     console.log(JSON.stringify({
       status: 'PASS_TO_ACCOUNT_GATE',
+      deviceProfile,
+      browserEngine,
       url: page.url(),
       consoleErrors: errors
     }, null, 2));
