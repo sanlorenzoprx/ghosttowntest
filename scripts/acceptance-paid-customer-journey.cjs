@@ -7,7 +7,7 @@ const out = process.env.JOURNEY_ARTIFACT_DIR || 'artifacts/paid-customer-journey
 const stamp = Date.now();
 const email = `ghosttown.acceptance+${stamp}@example.com`;
 const password = `GtTest-${stamp}-A!`;
-const testCardNumber = process.env.STRIPE_TEST_CARD_NUMBER || '';
+const testCardNumber = process.env.STRIPE_TEST_CARD_NUMBER || '4242424242424242';
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -76,15 +76,16 @@ const testCardNumber = process.env.STRIPE_TEST_CARD_NUMBER || '';
     await page.waitForURL(url => url.hostname === 'checkout.stripe.com', { timeout: 30000 });
     await shot('stripe-checkout');
 
-    if (!testCardNumber) throw new Error('TEST_CONFIG: STRIPE_TEST_CARD_NUMBER GitHub secret is required to continue the TEST checkout.');
     const bodyText = await page.locator('body').innerText();
     if (!/test/i.test(bodyText)) throw new Error('SAFETY: Stripe TEST mode was not visibly confirmed; payment was not attempted.');
 
     await page.locator('input[name="cardNumber"], input[autocomplete="cc-number"]').first().fill(testCardNumber);
     await page.locator('input[name="cardExpiry"], input[autocomplete="cc-exp"]').first().fill(process.env.STRIPE_TEST_EXPIRY || '1234');
     await page.locator('input[name="cardCvc"], input[autocomplete="cc-csc"]').first().fill(process.env.STRIPE_TEST_CVC || '123');
+    const cardholder = page.locator('input[name="billingName"], input[autocomplete="cc-name"]').first();
+    if (await cardholder.isVisible().catch(() => false)) await cardholder.fill('John Brown');
     const postal = page.locator('input[name="billingPostalCode"], input[autocomplete="postal-code"]').first();
-    if (await postal.isVisible().catch(() => false)) await postal.fill(process.env.STRIPE_TEST_POSTAL || '00901');
+    if (await postal.isVisible().catch(() => false)) await postal.fill(process.env.STRIPE_TEST_POSTAL || '00745');
     await page.getByRole('button', { name: /Pay|Subscribe|Complete|Purchase/i }).last().click();
 
     await page.waitForURL(url => url.hostname !== 'checkout.stripe.com', { timeout: 60000 });
