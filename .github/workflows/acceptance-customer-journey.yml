@@ -20,9 +20,33 @@ concurrency:
 
 jobs:
   customer-journey:
-    name: clean customer to paid boundary
+    name: ${{ matrix.label }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: iPhone Safari
+            device: iPhone 13
+            engine: webkit
+            slug: iphone-safari
+          - label: Large iPhone Safari
+            device: iPhone 13 Pro Max
+            engine: webkit
+            slug: iphone-large-safari
+          - label: Android Chrome
+            device: Pixel 5
+            engine: chromium
+            slug: android-chrome
+          - label: iPad Safari
+            device: iPad Mini
+            engine: webkit
+            slug: ipad-safari
+          - label: Desktop Chrome
+            device: Desktop 1366
+            engine: chromium
+            slug: desktop-chrome
 
     steps:
       - name: Check out repository
@@ -37,20 +61,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run clean acceptance customer journey
         run: node scripts/acceptance-customer-journey.cjs
         env:
           CI: "true"
           GHOSTTOWN_ACCEPTANCE_URL: "https://ghosttown-acceptance.pages.dev/"
+          DEVICE_PROFILE: "${{ matrix.device }}"
+          BROWSER_ENGINE: "${{ matrix.engine }}"
+          ARTIFACT_SLUG: "${{ matrix.slug }}"
 
       - name: Upload customer journey evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: acceptance-customer-journey
-          path: artifacts/customer-journey
+          name: acceptance-${{ matrix.slug }}
+          path: artifacts/customer-journey/${{ matrix.slug }}
           if-no-files-found: warn
           retention-days: 7
