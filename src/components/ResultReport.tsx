@@ -1,7 +1,7 @@
 import { EvaluationResult, PublicVideoResult } from '../types/lit';
 import ShareCard from './ShareCard';
 import { loadResearchSignals, saveLatestResult } from '../lib/storage';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
@@ -13,6 +13,7 @@ import type { PrePurchaseResearchSignals as ResearchSignals } from '../types/res
 import { buildVerdictDecisionV2 } from '../verdict/verdictDecisionV2';
 import { buildVerdictDecisionV3 } from '../verdict/verdictDecisionV3';
 import EvidenceScanPanel from './EvidenceScanPanel';
+import { createResultOwnershipCoordinator } from '../lib/resultOwnership';
 
 interface Props {
   result: EvaluationResult;
@@ -30,6 +31,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   const [showDeclinedPlanOffer, setShowDeclinedPlanOffer] = useState(false);
   const [video, setVideo] = useState<PublicVideoResult | undefined>(result.video);
   const [researchSignals, setResearchSignals] = useState<ResearchSignals | null>(() => loadResearchSignals(result.resultId));
+  const ownershipCoordinator = useRef(createResultOwnershipCoordinator());
   const scores = result.deterministicScores;
   const decisionV2 = result.verdictDecisionV2 ?? buildVerdictDecisionV2({
     idea: result.idea,
@@ -46,15 +48,15 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
     : undefined;
   const decision = decisionV3 ?? decisionV2;
 
+  const ensureResultOwned = () => ownershipCoordinator.current.ensureOwned(result.resultId, () => fetch(apiUrl('/api/results'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ result })
+  }));
+
   useEffect(() => {
     saveLatestResult(result);
-    if (isLoggedIn) {
-      void fetch(apiUrl('/api/results'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ result })
-      });
-    }
+    if (isLoggedIn) void ensureResultOwned();
   }, [isLoggedIn, result]);
 
   useEffect(() => {
@@ -97,12 +99,8 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       // Establish/confirm this account's owner-scoped verdict before checkout.
       // The server ignores client verdict content and claims only its own
       // server-issued verdict instance for this resultId.
-      const claimResponse = await fetch(apiUrl('/api/results'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ result })
-      });
-      if (!claimResponse.ok) {
+      const resultOwned = await ensureResultOwned();
+      if (!resultOwned) {
         throw new Error('Save this verdict to your account before checkout. Please log in again and retry.');
       }
       const response = await fetch(apiUrl('/api/paid-test/checkout'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(intake) });
