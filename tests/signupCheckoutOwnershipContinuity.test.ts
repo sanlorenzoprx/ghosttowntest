@@ -19,10 +19,15 @@ describe('signup to paid checkout verdict ownership continuity', () => {
     expect(claim).toHaveBeenCalledTimes(1);
   });
 
-  it('does not treat a failed ownership claim as checkout-ready', async () => {
+  it('retries after an anonymous pre-signup claim fails, then caches authenticated ownership', async () => {
     const coordinator = createResultOwnershipCoordinator();
-    const claim = vi.fn(async () => new Response(JSON.stringify({ error: 'Assessment not found' }), { status: 404 }));
+    const claim = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ saved: true }), { status: 200 }));
 
     await expect(coordinator.ensureOwned('verdict-2', claim)).resolves.toBe(false);
+    await expect(coordinator.ensureOwned('verdict-2', claim)).resolves.toBe(true);
+    await expect(coordinator.ensureOwned('verdict-2', claim)).resolves.toBe(true);
+    expect(claim).toHaveBeenCalledTimes(2);
   });
 });
