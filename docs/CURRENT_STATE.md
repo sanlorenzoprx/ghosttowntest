@@ -8,8 +8,8 @@ Purpose: evidence-backed handoff after the fresh acceptance customer-journey pas
 - Repository: `sanlorenzoprx/ghosttowntest`
 - Branch: `main`
 - Product checkpoint: `ed5add0` — `fix: harden Get Me Live launch and customer proof`
-- `origin/main` was `6b9a9d8` at the time of this checkpoint.
-- The product checkpoint is local until explicitly pushed.
+- Product checkpoint `ed5add0` and documentation checkpoint `e57b7c9` were pushed to `origin/main`.
+- Remote verification confirmed local `HEAD`, `origin/main`, and GitHub `refs/heads/main` all resolved to `e57b7c989fe9a3ae83f4a493671472c78a2fc07a` before the next self-contained-app slice began.
 - Production route code no longer contains the local `/journey-preview` prototype.
 - Local Playwright debug/auth material is ignored through `.phase1-playwright/`.
 
@@ -17,7 +17,9 @@ Purpose: evidence-backed handoff after the fresh acceptance customer-journey pas
 
 The intended customer journey is:
 
-**Free Verdict → 30-Day Sprint → Get Me Live → First Video**
+**Free Verdict → 30-Day Sprint → Get Me Live → Post-launch customer activity**
+
+GhostTown is intentionally self-contained at this boundary. StoryFactory is a future optional extension, not a current customer dependency.
 
 The detailed product/handoff logic is preserved in:
 
@@ -66,7 +68,7 @@ Observed acceptance proof:
 - owner view shows page visits, people interested, shares, sales and sales value;
 - Launch Share Pack opens and provides three prepared posts;
 - milestone content is generated;
-- Story Studio handoff is available;
+- GhostTown remains useful after launch through customer activity, direct lead follow-up, sharing and release verification;
 - no HTTP errors were observed in the final Playwright post-launch proof.
 
 ## Release receipt
@@ -97,7 +99,7 @@ Worker:
 
 Frontend:
 - canonical acceptance URL: `https://ghosttown-acceptance.pages.dev`
-- latest verified Pages deployment created during this checkpoint: `85f574ef.ghosttown-acceptance.pages.dev`
+- latest verified Pages deployment for the self-contained Get Me Live slice: `6e410814.ghosttown-acceptance.pages.dev`
 
 Live SureDose acceptance page:
 - `https://gt-gml-180b5e67-ef3e-4b9b-90cc-5cb8a9228ff5.pages.dev`
@@ -105,9 +107,11 @@ Live SureDose acceptance page:
 ## Verification completed
 
 Focused Get Me Live verification:
-- 11/11 focused contract/provider tests passed.
+- 12/12 focused contract/provider tests passed.
 - TypeScript `tsc --noEmit` passed.
 - Production Vite build passed.
+- Durable runtime-credential E2E passed against the live acceptance page and release receipt.
+- Final mobile Playwright proof showed customer activity, self-contained next steps, release receipt, live-page link, no Story Studio UI, and zero HTTP errors.
 - `git diff --check` passed.
 - Staged diff audit found zero Stripe secrets, bearer tokens, JWTs, private keys, saved auth tokens or Windows user paths.
 - Final Playwright post-launch proof successfully downloaded and parsed the release receipt.
@@ -121,11 +125,12 @@ Policy:
 - keep the whole directory out of Git;
 - do not commit browser profiles or saved authentication state;
 - preserve locally while this acceptance work is still useful;
-- later extract only durable, credential-free journeys into a normal committed E2E test directory such as `tests/e2e/`.
+- durable, credential-free acceptance coverage now lives under `tests/e2e/`;
+- runtime authentication is supplied through environment variables rather than committed browser state.
 
 ## Reconciled prototype work
 
-The former local `CustomerJourneyPreview.tsx` prototype was useful for clarifying the four-stage commercial path, but it was mock UI rather than real product state.
+The former local `CustomerJourneyPreview.tsx` prototype was useful for clarifying the product path, but it was mock UI rather than real product state.
 
 Decision:
 - remove it from the production router;
@@ -134,15 +139,13 @@ Decision:
 
 ## Known boundaries / deferred work
 
-- The fully realized **First Video** bridge is still the next major product handoff: GhostTown should eventually receive the completed StoryFactory video and status rather than stopping at “Open Story Studio.”
-- Durable Playwright customer-journey tests still need to be extracted from the local acceptance scripts.
+- StoryFactory integration is deliberately deferred. A dormant backend handoff contract may remain for future compatibility, but the current GhostTown customer UI must not depend on or advertise StoryFactory.
 - Real domain purchase and irreversible production changes remain human-authorized actions.
 - Real customer Stripe payment testing is not required for the current acceptance checkpoint; the manual Stripe test completed separately and should not be conflated with the Playwright button-position issue.
 
 ## Immediate next queue
 
-1. Commit this current-state/documentation reconciliation separately from the product checkpoint.
-2. Push the product and documentation checkpoints when ready.
-3. Extract a small durable E2E customer-journey suite from the local Playwright proof without committing auth/session material.
-4. Build the real **Get Me Live → First Video** handoff so one completed StoryFactory video returns into the GhostTown customer journey.
-5. Then run a focused acceptance proof of that fourth stage rather than restarting the already-proven journey from scratch.
+1. Keep GhostTown self-contained through the full post-launch loop: live page, leads, activity, sharing and release receipt.
+2. Run the durable `tests/e2e/` acceptance proof using runtime-only credentials when a live acceptance re-proof is needed.
+3. Keep the future StoryFactory handoff dormant until StoryFactory is ready, then integrate through the preserved contract rather than redesigning the GhostTown journey.
+4. Continue GhostTown product hardening from observed customer friction instead of restarting already-proven phases.

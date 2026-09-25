@@ -37,7 +37,8 @@
     "test:platform-guard": "node scripts/check-platform-test-emulators.mjs",
     "test-runtime:status": "node scripts/test-runtime-migration-autopilot.mjs --status",
     "test-runtime:autopilot": "node scripts/test-runtime-migration-autopilot.mjs",
-    "test:get-me-live": "vitest run tests/getMeLiveContract.test.ts tests/getMeLiveProviders.test.ts tests/getMeLiveFulfillment.test.ts --no-file-parallelism --pool=threads --maxWorkers=1"
+    "test:get-me-live": "vitest run tests/getMeLiveContract.test.ts tests/getMeLiveProviders.test.ts tests/getMeLiveFulfillment.test.ts --no-file-parallelism --pool=threads --maxWorkers=1",
+    "test:e2e": "node tests/e2e/get-me-live-acceptance.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",

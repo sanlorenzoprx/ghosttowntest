@@ -57,6 +57,16 @@ describe('Get Me Live safety and lineage contracts', () => {
     expect(workspace).toContain('Download receipt');
   });
 
+  it('keeps GhostTown self-contained while preserving the dormant future StoryFactory handoff contract', async () => {
+    const workspace = await read('src/components/GetMeLiveWorkspace.tsx');
+    expect(workspace).not.toContain('Open Story Studio');
+    expect(workspace).not.toContain('Story Studio can use the work you already made');
+    expect(workspace).toContain('data.order.providerState.cloudflareConnected && data.order.status !== "live"');
+    const source = await read('src/api/getMeLive.ts');
+    expect(source).toContain("schemaVersion: 'ghosttown-story-studio-handoff-v1'");
+    expect(source).toContain('STORY_STUDIO_URL');
+  });
+
   it('records the complete activation funnel without treating infrastructure as customer evidence', async () => {
     const analytics = await read('src/api/analytics.ts');
     const events = ['get_me_live_offer_viewed','get_me_live_cta_clicked','get_me_live_checkout_started','get_me_live_purchase_completed','get_me_live_setup_started','get_me_live_preview_created','get_me_live_publish_clicked','get_me_live_live_completed','get_me_live_lead_captured','get_me_live_payment_connected','get_me_live_customer_payment'];

@@ -7,11 +7,11 @@ Status: Product/design reference only. This document is not a production route o
 
 This reference preserves the useful product logic that was previously explored in the local `CustomerJourneyPreview` prototype without coupling a mock page to the production application router.
 
-The customer should experience GhostTown as one continuous path:
+GhostTown should be complete as a self-contained product path:
 
-**Free Verdict → 30-Day Sprint → Get Me Live → First Video**
+**Free Verdict → 30-Day Sprint → Get Me Live → Post-launch customer activity**
 
-Each product should earn the next one through customer evidence rather than through an arbitrary upsell.
+Each paid step should earn the next one through customer evidence rather than through an arbitrary upsell. StoryFactory is a future optional extension, not a dependency of the current GhostTown product.
 
 ## Stage 1 — Free Verdict
 
@@ -71,25 +71,15 @@ Current proven acceptance behavior:
 - Launch Share Pack is available;
 - release receipt verifies the deployed page, lead capture and activity tracking.
 
-Natural handoff:
+Natural continuation inside GhostTown:
 
-**Get Me Live produces a real offer, real page and early customer language. The First Video should use that evidence rather than inventing a fresh marketing story.**
+**Get Me Live stays useful after publication: review customer activity, follow up with interested people, share the live page, and re-check the release receipt.**
 
-## Stage 4 — First Video / StoryFactory
+## Future optional extension — StoryFactory
 
-Customer question:
+StoryFactory is deliberately not part of the current customer journey. GhostTown must remain useful and complete without it.
 
-> How do I get more of the right people to notice this?
-
-Intended product promise:
-- create one finished customer-facing video first;
-- use the real offer, customer language and evidence from the prior GhostTown stages;
-- connect the CTA to the live page;
-- return the finished media and status into the GhostTown customer journey.
-
-Current boundary:
-
-The Story Studio handoff exists, but the fully realized bridge should return the completed first video to GhostTown instead of ending at an external/open-Studio handoff.
+A dormant backend handoff contract may be preserved so a future StoryFactory integration can consume the live offer, Sprint lineage, canonical live URL and customer activity without redesigning GhostTown. The customer UI should not advertise or depend on that integration until StoryFactory itself is ready.
 
 ## Product rule
 
@@ -98,7 +88,9 @@ The customer journey should remain evidence-linked:
 1. Verdict identifies uncertainty.
 2. Sprint turns uncertainty into tests.
 3. Get Me Live exposes the tested offer to real customers.
-4. First Video amplifies the real offer using evidence gathered before it.
+4. Post-launch activity helps the owner act on real customer response.
+
+A future StoryFactory extension may later amplify the real offer using that evidence, but it is outside the current GhostTown product boundary.
 
 Do not replace this with four disconnected products or a mock journey page in production.
 
