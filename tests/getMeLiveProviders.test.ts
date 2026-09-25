@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createConnectedCheckoutSession, getCloudflareRegistrationStatus, registerCloudflareDomain, searchCloudflareDomains } from '../src/api/getMeLiveProviders';
+import { createConnectedCheckoutSession, getCloudflareRegistrationStatus, listCloudflareAccounts, registerCloudflareDomain, searchCloudflareDomains } from '../src/api/getMeLiveProviders';
 import type { Env } from '../src/api/env';
 
 function env(orderId?: string): Env {
@@ -21,6 +21,19 @@ function env(orderId?: string): Env {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Get Me Live provider contracts', () => {
+  it('resolves Cloudflare accounts from the memberships scope used by OAuth', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      expect(String(input)).toContain('/memberships?per_page=50');
+      return new Response(JSON.stringify({ success: true, result: [
+        { account: { id: 'acct_1', name: 'Zayas House LLC' } },
+        { account: { id: 'acct_1', name: 'Zayas House LLC' } }
+      ] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }));
+    await expect(listCloudflareAccounts(env('gml_accounts'), 'gml_accounts')).resolves.toEqual([
+      { id: 'acct_1', name: 'Zayas House LLC' }
+    ]);
+  });
+
   it('normalizes Cloudflare domain search results through the connected OAuth token', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);

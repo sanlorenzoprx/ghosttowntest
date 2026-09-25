@@ -7,14 +7,14 @@ const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 
 describe('Get Me Live product contract', () => {
   it('keeps the premium offer explicit and provider-fee safe', () => {
     expect(GHOSTTOWN_GET_ME_LIVE_V1.offerId).toBe('ghosttown_get_me_live_v1');
-    expect(GHOSTTOWN_GET_ME_LIVE_V1.referenceAmountCents).toBe(11900);
-    expect(DEFAULT_GET_ME_LIVE_DISPLAY_PRICE).toBe('$119.00');
+    expect(GHOSTTOWN_GET_ME_LIVE_V1.referenceAmountCents).toBe(29700);
+    expect(DEFAULT_GET_ME_LIVE_DISPLAY_PRICE).toBe('$297.00');
     expect(GHOSTTOWN_GET_ME_LIVE_V1.scopeBoundary).toMatch(/provider|third-party/i);
   });
 
   it('exposes the complete owner and public route surface', async () => {
     const source = await read('src/api/index.ts');
-    for (const handler of ['handleGetMeLiveCheckout','handleGetMeLiveOrders','handleGetMeLiveConfig','handleGetMeLivePreview','handleGetMeLiveCloudflareConnect','handleGetMeLiveCloudflareDisconnect','handleGetMeLiveCloudflareAccounts','handleGetMeLiveDomainSearch','handleGetMeLiveDomainRegister','handleGetMeLiveEmailSetup','handleGetMeLiveStripeConnect','handleGetMeLiveStripeStatus','handleGetMeLivePublish','handleGetMeLiveLeads','handleGetMeLiveStoryStudioHandoff','handlePublicGetMeLiveLead','handlePublicGetMeLiveBuy']) {
+    for (const handler of ['handleGetMeLiveCheckout','handleGetMeLiveOrders','handleGetMeLiveConfig','handleGetMeLivePreview','handleGetMeLiveCloudflareConnect','handleGetMeLiveCloudflareDisconnect','handleGetMeLiveCloudflareAccounts','handleGetMeLiveDomainSearch','handleGetMeLiveDomainRegister','handleGetMeLiveEmailSetup','handleGetMeLiveStripeConnect','handleGetMeLiveStripeStatus','handleGetMeLivePublish','handleGetMeLiveLeads','handleGetMeLiveReleaseReceipt','handleGetMeLiveStoryStudioHandoff','handlePublicGetMeLiveLead','handlePublicGetMeLiveBuy']) {
       expect(source).toContain(handler);
     }
   });
@@ -38,6 +38,23 @@ describe('Get Me Live safety and lineage contracts', () => {
     expect(webhook).toContain('get_me_live_experiment_order_id');
     expect(webhook).toContain('STRIPE_CONNECT_WEBHOOK_SECRET');
     expect(webhook).toContain('recordGetMeLiveExperimentPayment');
+  });
+
+  it('keeps an already-published customer site usable if a later republish fails', async () => {
+    const source = await read('src/api/getMeLive.ts');
+    expect(source).toContain('hasPublishedGetMeLiveSite');
+    expect(source).toContain("owned.status = hadPublishedSite ? 'live' : 'failed'");
+    expect(source).toContain('const destination = getMeLiveSiteUrl(order)');
+    expect(source).toContain("return `https://${projectName}.pages.dev`");
+    expect(source).toContain('function redirect(location: string');
+    expect(source).not.toContain('Response.redirect(');
+    expect(source).toContain("schemaVersion: 'ghosttown-get-me-live-release-receipt-v1'");
+    const index = await read('src/api/index.ts');
+    expect(index).toContain('/release-receipt$/');
+    const workspace = await read('src/components/GetMeLiveWorkspace.tsx');
+    expect(workspace).toContain('Customer activity');
+    expect(workspace).toContain('Release receipt');
+    expect(workspace).toContain('Download receipt');
   });
 
   it('records the complete activation funnel without treating infrastructure as customer evidence', async () => {

@@ -90,6 +90,32 @@ export interface GetMeLiveDeploymentReceipt {
   publishedAt: string;
 }
 
+export interface GetMeLiveReleaseReceipt {
+  schemaVersion: 'ghosttown-get-me-live-release-receipt-v1';
+  orderId: string;
+  sourceSprintOrderId: string;
+  sourceBlueprintId?: string;
+  offerId: 'ghosttown_get_me_live_v1';
+  offerVersion: '1.0';
+  provider: 'cloudflare_pages';
+  pagesProjectName: string;
+  deploymentId: string;
+  buildId: string;
+  liveUrl: string;
+  customDomain?: string;
+  publishedAt: string;
+  checkedAt: string;
+  checks: {
+    durableDeploymentRecorded: boolean;
+    customerPageReachable: boolean;
+    customerPageHttpStatus?: number;
+    leadCaptureConfigured: boolean;
+    activityTrackingConfigured: boolean;
+    cloudflareConnected: boolean;
+    paymentMode: 'interest' | 'connected_checkout' | 'lead_until_stripe_ready';
+  };
+}
+
 export interface GetMeLiveOrder {
   orderId: string;
   ownerId: string;

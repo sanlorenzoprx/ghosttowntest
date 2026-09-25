@@ -15,11 +15,11 @@ export const GHOSTTOWN_GET_ME_LIVE_V1 = {
     'A tested Cloudflare deployment with a release receipt'
   ],
   scopeBoundary: 'Domain registration fees, Stripe processing fees, and third-party subscriptions are billed by their providers. GhostTown never promises sales or automatic payment eligibility.',
-  referenceAmountCents: 11900,
+  referenceAmountCents: 29700,
   currency: 'usd',
   stripePriceEnv: 'STRIPE_GET_ME_LIVE_PRICE_ID',
   displayPriceEnv: 'VITE_GET_ME_LIVE_DISPLAY_PRICE',
   active: true
 } as const;
 
-export const DEFAULT_GET_ME_LIVE_DISPLAY_PRICE = '$119.00';
+export const DEFAULT_GET_ME_LIVE_DISPLAY_PRICE = '$297.00';

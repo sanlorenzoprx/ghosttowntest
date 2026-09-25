@@ -89,15 +89,22 @@ export async function runVertexStructuredStage<T>(
     timeoutMs?: number;
   }
 ): Promise<VertexStructuredStageResult<T>> {
-  const { data, result } = await generateAIJson<T>(env, {
-    task: 'blueprint',
-    systemInstruction: options.systemInstruction,
-    prompt: options.prompt,
-    responseSchema: options.responseSchema,
-    temperature: options.temperature ?? 0.1,
-    maxOutputTokens: options.maxOutputTokens ?? 8192,
-    timeoutMs: options.timeoutMs ?? 45_000
-  });
+  let generated: Awaited<ReturnType<typeof generateAIJson<T>>>;
+  try {
+    generated = await generateAIJson<T>(env, {
+      task: 'blueprint',
+      systemInstruction: options.systemInstruction,
+      prompt: options.prompt,
+      responseSchema: options.responseSchema,
+      temperature: options.temperature ?? 0.1,
+      maxOutputTokens: options.maxOutputTokens ?? 8192,
+      timeoutMs: options.timeoutMs ?? 45_000
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Vertex Blueprint stage ${options.stage} failed: ${message}`);
+  }
+  const { data, result } = generated;
   return {
     data,
     receipt: {

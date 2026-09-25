@@ -46,6 +46,7 @@ import {
   handleGetMeLiveStripeStatus,
   handleGetMeLivePublish,
   handleGetMeLiveLeads,
+  handleGetMeLiveReleaseReceipt,
   handleGetMeLiveStoryStudioHandoff,
   handlePublicGetMeLiveActivity,
   handlePublicGetMeLiveLead,
@@ -320,6 +321,12 @@ export default {
       const getMeLiveLeadsMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/leads$/);
       if (getMeLiveLeadsMatch && method === 'GET') {
         const response = await handleGetMeLiveLeads(request, env, decodeURIComponent(getMeLiveLeadsMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveReleaseReceiptMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/release-receipt$/);
+      if (getMeLiveReleaseReceiptMatch && method === 'GET') {
+        const response = await handleGetMeLiveReleaseReceipt(request, env, decodeURIComponent(getMeLiveReleaseReceiptMatch[1]));
         applyCors(response, corsHeaders);
         return response;
       }

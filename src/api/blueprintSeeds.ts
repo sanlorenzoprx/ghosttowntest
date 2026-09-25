@@ -67,7 +67,11 @@ function publicWebsite(value: unknown): URL | null {
   const raw = text(value);
   if (!raw) return null;
   try {
-    const candidate = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    // Older persisted suggestions may contain an http:// URL even though they were
+    // previously presented to the customer as verified. Upgrade those public URLs
+    // to HTTPS before applying the normal safety and reachability checks.
+    const normalized = /^http:\/\//i.test(raw) ? raw.replace(/^http:\/\//i, 'https://') : raw;
+    const candidate = new URL(/^https?:\/\//i.test(normalized) ? normalized : `https://${normalized}`);
     const hostname = candidate.hostname.toLowerCase();
     if (candidate.protocol !== 'https:' || candidate.username || candidate.password) return null;
     if (!hostname || hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.internal')) return null;

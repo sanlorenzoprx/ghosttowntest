@@ -15,6 +15,7 @@ import type {
   GetMeLiveLeadMagnet,
   GetMeLiveOrder,
   GetMeLiveProviderState,
+  GetMeLiveReleaseReceipt,
   GetMeLiveShareDraft,
   GetMeLiveShareDraftType
 } from '../types/getMeLive';
@@ -69,6 +70,10 @@ const json = (body: unknown, status = 200, headers: HeadersInit = {}) => new Res
   headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', ...headers }
 });
 
+function redirect(location: string, status = 302): Response {
+  return new Response(null, { status, headers: { Location: location, 'Cache-Control': 'no-store' } });
+}
+
 function id(prefix: string): string {
   return `${prefix}_${crypto.randomUUID()}`;
 }
@@ -79,6 +84,24 @@ function normalizeEmail(value: string): string {
 
 function configuredPriceId(env: Env): string {
   return env.STRIPE_GET_ME_LIVE_PRICE_ID?.trim() || '';
+}
+
+function getMeLiveSiteUrl(order: GetMeLiveOrder): string | undefined {
+  if (order.customDomain) return `https://${order.customDomain}`;
+  const projectName = order.configuration?.domain.pagesProjectName || projectNameFor(order.orderId);
+  if (projectName) return `https://${projectName}.pages.dev`;
+  return order.publicUrl;
+}
+
+function hasPublishedGetMeLiveSite(order: GetMeLiveOrder): boolean {
+  return Boolean(order.customDomain || order.publicUrl || order.publishedAt || order.deploymentReceipt?.publicUrl);
+}
+
+function getMeLivePaymentMode(order: GetMeLiveOrder): GetMeLiveReleaseReceipt['checks']['paymentMode'] {
+  const config = order.configuration;
+  if (config?.offer.intent !== 'buy') return 'interest';
+  if (order.providerState.stripeConnected && config.payments.chargesEnabled) return 'connected_checkout';
+  return 'lead_until_stripe_ready';
 }
 
 function stripeIntegrationIdentifier(): string {
@@ -343,11 +366,11 @@ export async function handleGetMeLiveOrders(request: Request, env: Env): Promise
       getGetMeLiveActivity(env, order.orderId, order.sourceSprintOrderId)
     ]);
     return {
-      orderId: order.orderId, sourceSprintOrderId: order.sourceSprintOrderId, status: order.status,
+      orderId: order.orderId, sourceSprintOrderId: order.sourceSprintOrderId, status: hasPublishedGetMeLiveSite(order) ? 'live' : order.status,
       businessName: order.configuration?.brand.businessName, publicUrl: order.publicUrl, customDomain: order.customDomain,
       leadCount, salesCount: activity.sales, salesValueCents: activity.revenueCents,
       visitCount: activity.visits, shareCount: activity.shares,
-      recentActivity: activity.sales > 0 ? 'You made a sale' : leadCount > 0 ? 'Someone is interested' : order.status === 'live' ? 'Your page is ready for customers' : 'Your page is being prepared',
+      recentActivity: activity.sales > 0 ? 'You made a sale' : leadCount > 0 ? 'Someone is interested' : hasPublishedGetMeLiveSite(order) ? 'Your page is ready for customers' : 'Your page is being prepared',
       emailStatus: order.providerState.businessEmailVerified ? 'ready' : order.configuration?.domain.selectedDomain ? 'pending' : 'not_started',
       paymentStatus: order.providerState.stripeConnected ? 'ready' : order.configuration?.offer.intent === 'buy' ? 'pending' : 'not_requested',
       cloudflareConnected: order.providerState.cloudflareConnected, createdAt: order.createdAt, updatedAt: order.updatedAt
@@ -363,11 +386,11 @@ export async function handleGetMeLiveOrder(request: Request, env: Env, orderId: 
   if (!record) return json({ error: 'Source Evidence Sprint is unavailable' }, 409);
   const configuration = owned.configuration || defaultConfiguration(record.blueprint, owned.ownerId);
   const [leads, assets, activity] = await Promise.all([
-    owned.status === 'live' ? listGetMeLiveLeads(env, owned.orderId) : Promise.resolve([]),
+    hasPublishedGetMeLiveSite(owned) ? listGetMeLiveLeads(env, owned.orderId) : Promise.resolve([]),
     listGetMeLiveAssets(env, owned.orderId),
     getGetMeLiveActivity(env, owned.orderId, owned.sourceSprintOrderId)
   ]);
-  return json({ order: { ...owned, preview: undefined }, configuration, leads, assets, activity, nameSuggestions: businessNameSuggestions(record.blueprint) });
+  return json({ order: { ...owned, status: hasPublishedGetMeLiveSite(owned) ? 'live' : owned.status, preview: undefined }, configuration, leads, assets, activity, nameSuggestions: businessNameSuggestions(record.blueprint) });
 }
 export async function handleGetMeLiveConfig(request: Request, env: Env, orderId: string): Promise<Response> {
   const owned = await ownedGetMeLiveOrder(request, env, orderId);
@@ -382,7 +405,7 @@ export async function handleGetMeLiveConfig(request: Request, env: Env, orderId:
   try {
     const body = await request.json<GetMeLiveConfiguration>();
     owned.configuration = normalizeConfiguration(body);
-    if (owned.status !== 'live') owned.status = 'configuring';
+    owned.status = hasPublishedGetMeLiveSite(owned) ? 'live' : 'configuring';
     owned.updatedAt = new Date().toISOString();
     await updateGetMeLiveOrder(env, owned);
     return json({ configuration: owned.configuration, status: owned.status });
@@ -669,7 +692,7 @@ export async function handleGetMeLivePreview(request: Request, env: Env, orderId
     }
   };
   await saveGetMeLivePreview(env, orderId, preview, html);
-  if (owned.status !== 'live') owned.status = 'preview_ready';
+  owned.status = hasPublishedGetMeLiveSite(owned) ? 'live' : 'preview_ready';
   owned.updatedAt = new Date().toISOString();
   await updateGetMeLiveOrder(env, owned);
   await recordCommercialFunnelEvent(env, "get_me_live_preview_created", { ownerId: owned.ownerId, orderId: owned.orderId, source: "get_me_live" }).catch(() => undefined);
@@ -695,7 +718,7 @@ export async function handleGetMeLiveCloudflareDisconnect(request: Request, env:
   owned.providerState.cloudflareConnected = false;
   owned.providerState.cloudflareScopes = undefined;
   owned.updatedAt = new Date().toISOString();
-  if (owned.status !== 'live') owned.status = 'provider_setup';
+  owned.status = hasPublishedGetMeLiveSite(owned) ? 'live' : 'provider_setup';
   await updateGetMeLiveOrder(env, owned);
   return json({ disconnected: true });
 }
@@ -708,10 +731,10 @@ export async function handleGetMeLiveCloudflareCallback(request: Request, env: E
   const savedState = await loadCloudflareAuthorizationState(env, state);
   const setupUrl = savedState ? `${frontend}/get-me-live/setup?order_id=${encodeURIComponent(savedState.orderId)}` : `${frontend}/get-me-live`;
   if (url.searchParams.get('error')) {
-    return Response.redirect(`${setupUrl}${setupUrl.includes('?') ? '&' : '?'}cloudflare=error&message=${encodeURIComponent('Cloudflare was not connected. You can try again.')}`, 302);
+    return redirect(`${setupUrl}${setupUrl.includes('?') ? '&' : '?'}cloudflare=error&message=${encodeURIComponent('Cloudflare was not connected. You can try again.')}`, 302);
   }
   if (!code || !state) {
-    return Response.redirect(`${setupUrl}${setupUrl.includes('?') ? '&' : '?'}cloudflare=error&message=${encodeURIComponent('Cloudflare did not finish connecting. Please try again.')}`, 302);
+    return redirect(`${setupUrl}${setupUrl.includes('?') ? '&' : '?'}cloudflare=error&message=${encodeURIComponent('Cloudflare did not finish connecting. Please try again.')}`, 302);
   }
   try {
     const connected = await completeCloudflareAuthorization(env, { code, state });
@@ -719,12 +742,12 @@ export async function handleGetMeLiveCloudflareCallback(request: Request, env: E
     if (!order || order.ownerId !== connected.ownerId) throw new Error('Get Me Live Cloudflare ownership mismatch');
     order.providerState.cloudflareConnected = true;
     order.providerState.cloudflareScopes = env.CLOUDFLARE_OAUTH_SCOPES?.split(/[\s,]+/).filter(Boolean);
-    order.status = order.status === 'live' ? 'live' : 'provider_setup';
+    order.status = hasPublishedGetMeLiveSite(order) ? 'live' : 'provider_setup';
     order.updatedAt = new Date().toISOString();
     await updateGetMeLiveOrder(env, order);
-    return Response.redirect(`${frontend}/get-me-live/setup?order_id=${encodeURIComponent(order.orderId)}&cloudflare=connected&step=domain`, 302);
+    return redirect(`${frontend}/get-me-live/setup?order_id=${encodeURIComponent(order.orderId)}&cloudflare=connected&step=domain`, 302);
   } catch {
-    return Response.redirect(`${setupUrl}${setupUrl.includes('?') ? '&' : '?'}cloudflare=error&message=${encodeURIComponent('Cloudflare could not connect. Please try again.')}`, 302);
+    return redirect(`${setupUrl}${setupUrl.includes('?') ? '&' : '?'}cloudflare=error&message=${encodeURIComponent('Cloudflare could not connect. Please try again.')}`, 302);
   }
 }
 
@@ -974,6 +997,7 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
   const browser = await env.BROWSER.quickAction('pdf', { html: publicHtml, pdfOptions: { printBackground: true } });
   if (!browser.ok) return json({ error: 'Your page did not pass the final browser render check' }, 409);
 
+  const hadPublishedSite = hasPublishedGetMeLiveSite(owned);
   owned.status = 'publishing';
   owned.updatedAt = new Date().toISOString();
   await updateGetMeLiveOrder(env, owned);
@@ -1014,7 +1038,7 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
       businessEmailReady: owned.providerState.businessEmailVerified
     });
   } catch (error) {
-    owned.status = 'failed';
+    owned.status = hadPublishedSite ? 'live' : 'failed';
     owned.failure = error instanceof Error ? error.message : 'Publication failed';
     owned.updatedAt = new Date().toISOString();
     await updateGetMeLiveOrder(env, owned);
@@ -1024,7 +1048,7 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
 
 function launchShareTexts(order: GetMeLiveOrder): string[] {
   const config = order.configuration!;
-  const liveUrl = order.customDomain ? `https://${order.customDomain}` : order.publicUrl || '';
+  const liveUrl = getMeLiveSiteUrl(order) || '';
   const offer = config.offer.offer || config.brand.businessName;
   return [
     `${config.brand.businessName} is live. ${config.offer.headline || `Take a look at ${offer}.`} ${liveUrl}`,
@@ -1051,7 +1075,7 @@ async function ensureOrderShareDrafts(env: Env, order: GetMeLiveOrder): Promise<
 export async function handleGetMeLiveSharePack(request: Request, env: Env, orderId: string): Promise<Response> {
   const owned = await ownedGetMeLiveOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
-  if (owned.status !== 'live' || !owned.configuration || !owned.publicUrl) return json({ error: 'Go live before opening your share pack' }, 409);
+  if (!hasPublishedGetMeLiveSite(owned) || !owned.configuration) return json({ error: 'Go live before opening your share pack' }, 409);
   let drafts = await ensureOrderShareDrafts(env, owned);
   if (request.method === 'POST') {
     const body = await request.json<{ draftId?: string; text?: string; action?: 'save' | 'approve' | 'shared' }>().catch(() => ({} as { draftId?: string; text?: string; action?: 'save' | 'approve' | 'shared' }));
@@ -1067,7 +1091,7 @@ export async function handleGetMeLiveSharePack(request: Request, env: Env, order
     drafts = drafts.map(item => item.draftId === draft.draftId ? draft : item);
   }
   const activity = await getGetMeLiveActivity(env, orderId, owned.sourceSprintOrderId);
-  const liveUrl = owned.customDomain ? `https://${owned.customDomain}` : owned.publicUrl;
+  const liveUrl = getMeLiveSiteUrl(owned);
   const milestoneType: GetMeLiveShareDraftType | undefined = activity.sales > 0 ? 'milestone_sale' : (await countGetMeLiveLeads(env, orderId)) > 0 ? 'milestone_lead' : undefined;
   const milestoneText = milestoneType === 'milestone_sale'
     ? `A customer bought from ${owned.configuration.brand.businessName}. Small step, real progress. ${liveUrl}`
@@ -1109,7 +1133,7 @@ export async function handleGetMeLiveSprintShareDraft(request: Request, env: Env
 
 export async function handlePublicGetMeLiveActivity(request: Request, env: Env, orderId: string): Promise<Response> {
   const order = await loadGetMeLiveOrder(env, orderId);
-  if (!order || order.status !== 'live') return new Response(null, { status: 204 });
+  if (!order || !hasPublishedGetMeLiveSite(order)) return new Response(null, { status: 204 });
   const body = request.method === 'POST'
     ? await request.json<{ kind?: string }>().catch(() => ({} as { kind?: string }))
     : { kind: 'visit' };
@@ -1120,9 +1144,9 @@ export async function handlePublicGetMeLiveActivity(request: Request, env: Env, 
 export async function handleGetMeLiveStoryStudioHandoff(request: Request, env: Env, orderId: string): Promise<Response> {
   const owned = await ownedGetMeLiveOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
-  if (!owned.configuration || owned.status !== 'live') return json({ error: 'Go live before opening Story Studio' }, 409);
+  if (!owned.configuration || !hasPublishedGetMeLiveSite(owned)) return json({ error: 'Go live before opening Story Studio' }, 409);
   const leadCount = await countGetMeLiveLeads(env, orderId);
-  const liveUrl = owned.customDomain ? `https://${owned.customDomain}` : owned.publicUrl;
+  const liveUrl = getMeLiveSiteUrl(owned);
   return json({ handoff: {
     schemaVersion: 'ghosttown-story-studio-handoff-v1',
     sourceSprintOrderId: owned.sourceSprintOrderId, sourceBlueprintId: owned.sourceBlueprintId, getMeLiveOrderId: owned.orderId,
@@ -1132,6 +1156,63 @@ export async function handleGetMeLiveStoryStudioHandoff(request: Request, env: E
   } });
 }
 
+export async function handleGetMeLiveReleaseReceipt(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.configuration || !hasPublishedGetMeLiveSite(owned)) return json({ error: 'Go live before opening your release receipt' }, 409);
+  const deployment = owned.deploymentReceipt;
+  if (!deployment) return json({ error: 'A deployment receipt was not recorded for this launch' }, 409);
+
+  const liveUrl = getMeLiveSiteUrl(owned);
+  if (!liveUrl) return json({ error: 'The live page address is unavailable' }, 409);
+  let customerPageReachable = false;
+  let customerPageHttpStatus: number | undefined;
+  let leadCaptureConfigured = false;
+  let activityTrackingConfigured = false;
+  try {
+    const response = await fetch(liveUrl, { method: 'GET', redirect: 'follow', headers: { 'Cache-Control': 'no-cache' } });
+    customerPageHttpStatus = response.status;
+    customerPageReachable = response.ok;
+    if (response.ok && (response.headers.get('content-type') || '').includes('text/html')) {
+      const html = await response.text();
+      const routeBase = `/api/get-me-live/sites/${encodeURIComponent(orderId)}`;
+      leadCaptureConfigured = html.includes(`${routeBase}/leads`);
+      activityTrackingConfigured = html.includes(`${routeBase}/activity`);
+    } else {
+      await response.body?.cancel();
+    }
+  } catch {
+    customerPageReachable = false;
+  }
+
+  const receipt: GetMeLiveReleaseReceipt = {
+    schemaVersion: 'ghosttown-get-me-live-release-receipt-v1',
+    orderId: owned.orderId,
+    sourceSprintOrderId: owned.sourceSprintOrderId,
+    sourceBlueprintId: owned.sourceBlueprintId,
+    offerId: owned.offerId,
+    offerVersion: owned.offerVersion,
+    provider: 'cloudflare_pages',
+    pagesProjectName: owned.configuration.domain.pagesProjectName || projectNameFor(owned.orderId),
+    deploymentId: deployment.deploymentId,
+    buildId: deployment.buildId,
+    liveUrl,
+    customDomain: owned.customDomain,
+    publishedAt: owned.publishedAt || deployment.publishedAt,
+    checkedAt: new Date().toISOString(),
+    checks: {
+      durableDeploymentRecorded: true,
+      customerPageReachable,
+      customerPageHttpStatus,
+      leadCaptureConfigured,
+      activityTrackingConfigured,
+      cloudflareConnected: owned.providerState.cloudflareConnected,
+      paymentMode: getMeLivePaymentMode(owned)
+    }
+  };
+  return json({ receipt });
+}
+
 export async function handleGetMeLiveLeads(request: Request, env: Env, orderId: string): Promise<Response> {
   const owned = await ownedGetMeLiveOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
@@ -1139,7 +1220,7 @@ export async function handleGetMeLiveLeads(request: Request, env: Env, orderId: 
 }
 export async function handlePublicGetMeLiveLead(request: Request, env: Env, orderId: string): Promise<Response> {
   const order = await loadGetMeLiveOrder(env, orderId);
-  if (!order || order.status !== 'live') return new Response('Page not found', { status: 404 });
+  if (!order || !hasPublishedGetMeLiveSite(order)) return new Response('Page not found', { status: 404 });
   let body: { name?: string; email?: string; message?: string; consent?: string | boolean } = {};
   const contentType = request.headers.get('content-type') || '';
   try {
@@ -1179,21 +1260,21 @@ export async function handlePublicGetMeLiveLead(request: Request, env: Env, orde
   }
   await recordCommercialFunnelEvent(env, "get_me_live_lead_captured", { orderId: order.sourceSprintOrderId, source: "get_me_live", content: orderId }).catch(() => undefined);
   if (contentType.includes('application/json')) return json({ received: true, leadId }, 201, { 'Cache-Control': 'no-store' });
-  const destination = order.customDomain ? `https://${order.customDomain}` : order.publicUrl;
-  return Response.redirect(`${destination || '/'}${destination?.includes('?') ? '&' : '?'}lead=received`, 303);
+  const destination = getMeLiveSiteUrl(order);
+  return redirect(`${destination || '/'}${destination?.includes('?') ? '&' : '?'}lead=received`, 303);
 }
 
 export async function handlePublicGetMeLiveBuy(_request: Request, env: Env, orderId: string): Promise<Response> {
   const order = await loadGetMeLiveOrder(env, orderId);
-  if (!order || order.status !== 'live' || !order.configuration) return new Response('Page not found', { status: 404 });
+  if (!order || !hasPublishedGetMeLiveSite(order) || !order.configuration) return new Response('Page not found', { status: 404 });
   const config = order.configuration;
   const accountId = config.payments.stripeConnectedAccountId;
   if (config.offer.intent !== 'buy' || !accountId || !config.payments.chargesEnabled || !order.providerState.stripeConnected) {
-    const destination = order.customDomain ? `https://${order.customDomain}` : order.publicUrl;
-    return Response.redirect(`${destination || '/'}${destination?.includes('?') ? '&' : '?'}payment=not-ready`, 303);
+    const destination = getMeLiveSiteUrl(order);
+    return redirect(`${destination || '/'}${destination?.includes('?') ? '&' : '?'}payment=not-ready`, 303);
   }
   if (!config.offer.price) return new Response('This offer does not have a payment price yet.', { status: 409 });
-  const site = order.customDomain ? `https://${order.customDomain}` : order.publicUrl;
+  const site = getMeLiveSiteUrl(order);
   if (!site) return new Response('Page is not published yet.', { status: 409 });
   try {
     const session = await createConnectedCheckoutSession(env, {
@@ -1205,7 +1286,7 @@ export async function handlePublicGetMeLiveBuy(_request: Request, env: Env, orde
       getMeLiveOrderId: orderId,
       sourceSprintOrderId: order.sourceSprintOrderId
     });
-    return Response.redirect(session.url, 303);
+    return redirect(session.url, 303);
   } catch (error) {
     console.error('Get Me Live connected checkout failed', error);
     return new Response('Payment checkout is temporarily unavailable. Please contact the business directly.', { status: 502 });

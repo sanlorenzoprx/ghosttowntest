@@ -77,6 +77,16 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const syncScreenToLocation = () => {
+      const example = getFeaturedExampleBySlug(new URLSearchParams(window.location.search).get('example'));
+      setScreen(screenForPath(window.location.pathname, Boolean(example)));
+    };
+    syncScreenToLocation();
+    window.addEventListener('popstate', syncScreenToLocation);
+    return () => window.removeEventListener('popstate', syncScreenToLocation);
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('lit_locale', locale);
     document.documentElement.lang = locale;
   }, [locale]);
@@ -191,7 +201,7 @@ export default function App() {
 
   const getMeLiveParams = new URLSearchParams(window.location.search);
   const getMeLiveOrderId = getMeLiveParams.get('order_id') || '';
-  const getMeLiveSetup = window.location.pathname.startsWith('/get-me-live/setup') || Boolean(getMeLiveOrderId);
+  const getMeLiveSetup = screen === 'get-me-live' && (window.location.pathname.startsWith('/get-me-live/setup') || Boolean(getMeLiveOrderId));
   const getMeLiveSourceSprintOrderId = getMeLiveParams.get('source_sprint_order_id') || '';
 
   return (

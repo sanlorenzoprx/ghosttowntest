@@ -89,7 +89,7 @@ const SECTION_SCHEMA: GenerativeAIResponseSchema = {
     eyebrow: { type: 'STRING' },
     heading: { type: 'STRING' },
     body: { type: 'STRING' },
-    items: { type: 'ARRAY', items: ITEM_SCHEMA, maxItems: 12 },
+    items: { type: 'ARRAY', items: ITEM_SCHEMA },
     primaryCtaLabel: { type: 'STRING' },
     secondaryCtaLabel: { type: 'STRING' }
   },
@@ -104,7 +104,7 @@ const WEBSITE_SCHEMA: GenerativeAIResponseSchema = {
     metadataDescription: { type: 'STRING' },
     templateId: { type: 'STRING', enum: TEMPLATE_IDS },
     stylePreset: { type: 'STRING', enum: STYLE_PRESETS },
-    sections: { type: 'ARRAY', items: SECTION_SCHEMA, minItems: 6, maxItems: 10 }
+    sections: { type: 'ARRAY', items: SECTION_SCHEMA }
   },
   required: ['businessName', 'metadataTitle', 'metadataDescription', 'templateId', 'stylePreset', 'sections']
 };

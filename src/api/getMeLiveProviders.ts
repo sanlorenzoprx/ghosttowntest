@@ -158,7 +158,16 @@ export async function disconnectCloudflareAuthorization(env: Env, orderId: strin
 }
 
 export async function listCloudflareAccounts(env: Env, orderId: string): Promise<Array<{ id: string; name: string }>> {
-  return cloudflareApi<Array<{ id: string; name: string }>>(env, orderId, '/accounts?per_page=50');
+  const memberships = await cloudflareApi<Array<{ account?: { id?: string; name?: string } }>>(
+    env,
+    orderId,
+    '/memberships?per_page=50'
+  );
+  const accounts = memberships
+    .map(membership => membership.account)
+    .filter((account): account is { id: string; name?: string } => Boolean(account?.id))
+    .map(account => ({ id: account.id, name: account.name?.trim() || account.id }));
+  return [...new Map(accounts.map(account => [account.id, account])).values()];
 }
 
 export async function searchCloudflareDomains(
@@ -343,6 +352,7 @@ export async function deployCloudflarePagesHtml(
       metadata: { contentType: file.contentType }
     })));
   }
+  await pagesAssetRequest(jwt, '/pages/assets/upsert-hashes', { hashes: [...new Set(hashed.map(file => file.hash))] });
   const token = await cloudflareAccessToken(env, orderId);
   const form = new FormData();
   form.set('manifest', JSON.stringify(Object.fromEntries(hashed.map(file => [file.path, file.hash]))));
@@ -361,9 +371,7 @@ export async function deployCloudflarePagesHtml(
   if (!response.ok || payload.success === false || !payload.result?.id) {
     throw new Error(payload.errors?.map(item => item.message).filter(Boolean).join('; ') || 'Cloudflare Pages deployment failed');
   }
-  const publicUrl = payload.result.url
-    ? `https://${payload.result.url.replace(/^https?:\/\//, '')}`
-    : `https://${projectName}.pages.dev`;
+  const publicUrl = `https://${projectName}.pages.dev`;
   return { deploymentId: payload.result.id, publicUrl };
 }
 
