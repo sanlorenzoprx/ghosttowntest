@@ -2,6 +2,7 @@ import verdictHandler from './verdict';
 import type { Env } from './env';
 import { consumeHourlyRateLimit } from './runtimeControls';
 import { litQuestions } from '../lib/litQuestions';
+import { localizeAssessmentQuestion, localizedIdeaPrompt, normalizeAgentLocale, publicContentPrompt } from '../lib/agentQuestionLocalization';
 import { GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
 import type { EvaluationAnswers, EvaluationResult, IdeaIntake } from '../types/lit';
 import type {
@@ -72,30 +73,32 @@ function validAnswer(questionId: string, answers: EvaluationAnswers): boolean {
 }
 
 function missingInputs(input: AgentVerdictInput, idea: Partial<IdeaIntake>): AgentNeedsInputResponse | null {
+  const locale = normalizeAgentLocale(input.locale);
   const missing: string[] = [];
   const questions: AgentInputQuestion[] = [];
   for (const field of Object.keys(IDEA_QUESTIONS) as Array<keyof typeof IDEA_QUESTIONS>) {
     if (!text(idea[field])) {
       missing.push(field);
-      questions.push({ field, prompt: IDEA_QUESTIONS[field] });
+      questions.push({ field, prompt: localizedIdeaPrompt(field, IDEA_QUESTIONS[field], locale) });
     }
   }
   if (input.public_content_acknowledged !== true) {
     missing.push('public_content_acknowledged');
     questions.push({
       field: 'public_content_acknowledged',
-      prompt: 'Confirm that the submitted business-idea content may be processed by GhostTown as public-facing verdict input.'
+      prompt: publicContentPrompt(locale)
     });
   }
   const answers = input.answers && typeof input.answers === 'object' ? input.answers : {};
   for (const question of litQuestions) {
     if (!validAnswer(question.id, answers)) {
+      const localized = localizeAssessmentQuestion(question, locale);
       missing.push(question.id);
       questions.push({
         field: question.id,
-        prompt: question.question,
-        helper: question.helper,
-        options: question.options.map(option => ({ label: option.label, value: option.value }))
+        prompt: localized.question,
+        helper: localized.helper,
+        options: localized.options.map(option => ({ label: option.label, value: option.value }))
       });
     }
   }

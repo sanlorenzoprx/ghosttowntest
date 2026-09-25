@@ -35,7 +35,7 @@ The response is:
   "handoff_id": "...",
   "result_url": "https://ghosttowntest.com/agent/handoff/...",
   "offer": {
-    "name": "GhostTown Launch Blueprint",
+    "name": "GhostTown 30-Day Evidence Sprint",
     "price_usd": 97,
     "requires_user_action": true
   }

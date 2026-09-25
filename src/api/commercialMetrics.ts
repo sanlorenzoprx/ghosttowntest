@@ -4,17 +4,21 @@ import type { Env } from './env';
 const FUNNEL_EVENTS = [
   'landing_viewed', 'qualified_click', 'verdict_started', 'verdict_completed', 'paid_plan_viewed',
   'checkout_started', 'download_clicked', 'blueprint_opened', 'daily_packet_opened', 'day_completed',
-  'evidence_recorded', 'blueprint_retry_requested'
+  'evidence_recorded', 'blueprint_retry_requested',
+  'get_me_live_offer_viewed', 'get_me_live_cta_clicked', 'get_me_live_checkout_started',
+  'get_me_live_purchase_completed', 'get_me_live_setup_started', 'get_me_live_preview_created',
+  'get_me_live_publish_clicked', 'get_me_live_live_completed', 'get_me_live_lead_captured',
+  'get_me_live_payment_connected', 'get_me_live_customer_payment'
 ] as const;
 type FunnelEventName = typeof FUNNEL_EVENTS[number];
 
 type AttributionTouch = {
-  capturedAt?: string; experimentId?: string; sourceVerdictId?: string; creativeId?: string;
+  capturedAt?: string; experimentId?: string; sourceVerdictId?: string; intentId?: string; creativeId?: string;
   publicationId?: string; platform?: string; accountId?: string; campaign?: string; source?: string;
   shareType?: 'factory' | 'customer' | 'earned';
 };
 type AcquisitionAttribution = {
-  attributionToken?: string; experimentId?: string; sourceVerdictId?: string; creativeId?: string;
+  attributionToken?: string; experimentId?: string; sourceVerdictId?: string; intentId?: string; creativeId?: string;
   publicationId?: string; platform?: string; accountId?: string; campaign?: string; source?: string;
   shareType?: 'factory' | 'customer' | 'earned'; visitorId?: string; ghosttownSessionId?: string;
   firstTouch?: AttributionTouch; lastTouch?: AttributionTouch;
@@ -65,6 +69,7 @@ function touchFromMetadata(metadata: Record<string, unknown>, prefix: 'first_tou
   return {
     experimentId: clean(metadata[`${prefix}_experiment_id`]),
     sourceVerdictId: clean(metadata[`${prefix}_source_verdict_id`]),
+    intentId: clean(metadata[`${prefix}_intent_id`]),
     creativeId: clean(metadata[`${prefix}_creative_id`]),
     publicationId: clean(metadata[`${prefix}_publication_id`]),
     platform: clean(metadata[`${prefix}_platform`], 40),
@@ -80,7 +85,7 @@ function attributionFromMetadata(metadata: Record<string, unknown>): Acquisition
   const legacyShare = cleanShareType(metadata.share_type);
   return {
     attributionToken: clean(metadata.attribution_token), experimentId: clean(metadata.experiment_id),
-    sourceVerdictId: clean(metadata.source_verdict_id), creativeId: clean(metadata.creative_id),
+    sourceVerdictId: clean(metadata.source_verdict_id), intentId: clean(metadata.intent_id), creativeId: clean(metadata.creative_id),
     publicationId: clean(metadata.publication_id), platform: clean(metadata.platform, 40),
     accountId: clean(metadata.distribution_account_id), campaign: clean(metadata.campaign), source: clean(metadata.source),
     shareType: legacyShare, visitorId: clean(metadata.visitor_id), ghosttownSessionId: clean(metadata.ghosttown_session_id),
@@ -128,6 +133,14 @@ function addPublicationRevenue(map: Map<string, { purchases: number; revenueMino
 function publicationRows(map: Map<string, { purchases: number; revenueMinor: number; currency?: string }>) {
   return Array.from(map.entries()).map(([publicationId, value]) => ({ publicationId, ...value })).sort((a, b) => b.revenueMinor - a.revenueMinor);
 }
+function addIntentRevenue(map: Map<string, { purchases: number; revenueMinor: number; currency?: string }>, intentId: string | undefined, purchase: StoredPurchaseEvent): void {
+  if (!intentId) return;
+  const current = map.get(intentId) || { purchases: 0, revenueMinor: 0, currency: purchase.currency };
+  current.purchases += 1;
+  current.revenueMinor += purchase.amountTotal || 0;
+  current.currency ||= purchase.currency;
+  map.set(intentId, current);
+}
 
 export async function buildCommercialMetrics(env: Env, days = DEFAULT_LOOKBACK_DAYS, now = new Date()): Promise<Record<string, unknown>> {
   const boundedDays = Math.min(MAX_LOOKBACK_DAYS, Math.max(1, Math.floor(days)));
@@ -140,6 +153,8 @@ export async function buildCommercialMetrics(env: Env, days = DEFAULT_LOOKBACK_D
   const sources = new Map<string, number>();
   const firstTouchPublications = new Map<string, { purchases: number; revenueMinor: number; currency?: string }>();
   const lastTouchPublications = new Map<string, { purchases: number; revenueMinor: number; currency?: string }>();
+  const intentEvents = new Map<string, Partial<Record<FunnelEventName, number>>>();
+  const intentPurchases = new Map<string, { purchases: number; revenueMinor: number; currency?: string }>();
   const visitors = new Set<string>();
   const sessions = new Set<string>();
   let acceptedEvents = 0;
@@ -148,7 +163,16 @@ export async function buildCommercialMetrics(env: Env, days = DEFAULT_LOOKBACK_D
     const createdAt = validDate(event.createdAt);
     if (!createdAt || createdAt < cutoff || createdAt > now) continue;
     acceptedEvents += 1;
-    if (FUNNEL_EVENTS.includes(event.eventName as FunnelEventName)) counts[event.eventName as FunnelEventName] += 1;
+    if (FUNNEL_EVENTS.includes(event.eventName as FunnelEventName)) {
+      const eventName = event.eventName as FunnelEventName;
+      counts[eventName] += 1;
+      const intentId = event.intentId || event.firstTouch?.intentId;
+      if (intentId) {
+        const row = intentEvents.get(intentId) || {};
+        row[eventName] = (row[eventName] || 0) + 1;
+        intentEvents.set(intentId, row);
+      }
+    }
     const source = event.source?.trim().slice(0, 120);
     if (source) sources.set(source, (sources.get(source) || 0) + 1);
     if (event.visitorId) visitors.add(event.visitorId);
@@ -169,6 +193,7 @@ export async function buildCommercialMetrics(env: Env, days = DEFAULT_LOOKBACK_D
     if (typeof purchase.amountTotal === 'number' && purchase.currency) revenueByCurrency[purchase.currency] = (revenueByCurrency[purchase.currency] || 0) + purchase.amountTotal;
     addPublicationRevenue(firstTouchPublications, purchase.firstTouch?.publicationId || purchase.publicationId, purchase);
     addPublicationRevenue(lastTouchPublications, purchase.lastTouch?.publicationId || purchase.publicationId, purchase);
+    addIntentRevenue(intentPurchases, purchase.firstTouch?.intentId || purchase.intentId, purchase);
   }
 
   return {
@@ -190,11 +215,13 @@ export async function buildCommercialMetrics(env: Env, days = DEFAULT_LOOKBACK_D
     publicationRevenue: publicationRows(firstTouchPublications),
     firstTouchPublicationRevenue: publicationRows(firstTouchPublications),
     lastTouchPublicationRevenue: publicationRows(lastTouchPublications),
+    intentFunnel: Array.from(intentEvents.entries()).map(([intentId, eventCounts]) => ({ intentId, eventCounts })),
+    intentRevenue: Array.from(intentPurchases.entries()).map(([intentId, value]) => ({ intentId, ...value })).sort((a, b) => b.revenueMinor - a.revenueMinor),
     topSources: Array.from(sources.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10).map(([source, eventCount]) => ({ source, eventCount })),
     metricContract: {
       terminal: ['revenue_per_1000_impressions', 'cost_per_paid_blueprint'],
-      attribution: ['first_touch', 'last_touch'],
-      note: 'Stripe webhook-confirmed revenue is joined to both first-touch acquisition and last-touch return attribution. Story Studio supplies impression and experiment-cost denominators.'
+      attribution: ['first_touch', 'last_touch', 'intent_id'],
+      note: 'Stripe webhook-confirmed revenue is joined to first-touch acquisition intent and last-touch return attribution. Story Studio supplies impression and experiment-cost denominators.'
     }
   };
 }

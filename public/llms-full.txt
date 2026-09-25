@@ -27,13 +27,13 @@ A complete public response includes:
 - fastest test;
 - next actions;
 - an expiring human handoff URL;
-- the current GhostTown Launch Blueprint offer.
+- the current GhostTown 30-Day Evidence Sprint offer.
 
 The verdict ID is not authorization. The handoff uses a separate unguessable capability token.
 
 ## Human handoff
 
-The handoff URL lets a human review the public verdict projection. If the person chooses to continue, they must log in and explicitly claim the handoff into their GhostTown account. Only then does the normal saved-result and paid Blueprint path apply.
+The handoff URL lets a human review the public verdict projection. If the person chooses to continue, they must log in and explicitly claim the handoff into their GhostTown account. Only then does the normal saved-result and paid 30-Day Evidence Sprint path apply.
 
 No agent can create a Stripe Checkout session on the user's behalf.
 
@@ -79,7 +79,7 @@ Tools:
 
 ## Offer
 
-GhostTown Launch Blueprint is currently $97 USD one time. The canonical application constant remains the source of truth for runtime offer metadata.
+GhostTown 30-Day Evidence Sprint is currently $97 USD one time. The canonical application constant remains the source of truth for runtime offer metadata.
 
 ## Limits
 

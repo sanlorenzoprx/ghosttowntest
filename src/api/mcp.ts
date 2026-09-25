@@ -74,7 +74,7 @@ const TOOLS = [
   },
   {
     name: 'ghosttown.get_offer',
-    description: 'Return the current GhostTown Launch Blueprint offer. This never creates a Stripe Checkout session and always requires human action.',
+    description: 'Return the current GhostTown 30-Day Evidence Sprint offer. This never creates a Stripe Checkout session and always requires human action.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false }
   }
 ] as const;

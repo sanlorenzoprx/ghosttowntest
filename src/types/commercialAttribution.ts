@@ -29,6 +29,7 @@ export interface CommercialAttributionTouch {
   capturedAt: string;
   experimentId?: string;
   sourceVerdictId?: string;
+  intentId?: string;
   creativeId?: string;
   publicationId?: string;
   platform?: string;
@@ -48,6 +49,7 @@ export interface CommercialAttributionEnvelope {
   /** Compatibility projection of firstTouch for existing Story Studio joins. */
   experimentId?: string;
   sourceVerdictId?: string;
+  intentId?: string;
   creativeId?: string;
   publicationId?: string;
   platform?: string;

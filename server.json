@@ -1,0 +1,13 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.sanlorenzoprx/ghosttown",
+  "title": "GhostTown — Validate a Business Idea",
+  "description": "Validate a startup or business idea, identify the largest uncertainty, find the fastest useful test, and hand the result to a human for the GhostTown 30-Day Evidence Sprint.",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.ghosttowntest.com/mcp"
+    }
+  ]
+}

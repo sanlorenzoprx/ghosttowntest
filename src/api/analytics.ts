@@ -27,6 +27,7 @@ function cleanTouch(value: unknown): CommercialAttributionTouch | undefined {
     capturedAt: clean(source.capturedAt) || new Date().toISOString(),
     experimentId: clean(source.experimentId),
     sourceVerdictId: clean(source.sourceVerdictId),
+    intentId: clean(source.intentId),
     creativeId: clean(source.creativeId),
     publicationId: clean(source.publicationId),
     platform: clean(source.platform, 40),
@@ -40,7 +41,7 @@ function cleanTouch(value: unknown): CommercialAttributionTouch | undefined {
 
 export interface CommercialFunnelEventInput {
   ownerId?: string; orderId?: string; verdictId?: string; source?: string; content?: string;
-  attributionToken?: string; experimentId?: string; sourceVerdictId?: string; creativeId?: string;
+  attributionToken?: string; experimentId?: string; sourceVerdictId?: string; intentId?: string; creativeId?: string;
   publicationId?: string; platform?: string; accountId?: string; campaign?: string;
   shareType?: CommercialShareType; visitorId?: string; ghosttownSessionId?: string;
   firstTouch?: CommercialAttributionTouch; lastTouch?: CommercialAttributionTouch;
@@ -54,7 +55,7 @@ export async function recordCommercialFunnelEvent(env: Env, eventName: Commercia
     eventName,
     ownerId: clean(input.ownerId), orderId: clean(input.orderId, 120), verdictId: clean(input.verdictId, 120),
     source: clean(input.source, 120), content: clean(input.content, 120), attributionToken: clean(input.attributionToken),
-    experimentId: clean(input.experimentId), sourceVerdictId: clean(input.sourceVerdictId), creativeId: clean(input.creativeId),
+    experimentId: clean(input.experimentId), sourceVerdictId: clean(input.sourceVerdictId), intentId: clean(input.intentId), creativeId: clean(input.creativeId),
     publicationId: clean(input.publicationId), platform: clean(input.platform, 40), accountId: clean(input.accountId),
     campaign: clean(input.campaign), shareType, visitorId: clean(input.visitorId), ghosttownSessionId: clean(input.ghosttownSessionId),
     firstTouch: cleanTouch(input.firstTouch), lastTouch: cleanTouch(input.lastTouch), createdAt: now

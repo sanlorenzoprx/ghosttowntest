@@ -39,6 +39,9 @@ export default function AgentHandoff({ handoffToken, isLoggedIn, onLoginClick, o
   const [claiming, setClaiming] = useState(false);
 
   useEffect(() => {
+    // Preserve discovery intent/source/creative from the handoff URL before the
+    // agent resolver records its own last-touch attribution.
+    captureCommercialAttribution(window.location.search);
     let active = true;
     void fetch(apiUrl(`/api/v1/agent-handoffs/${handoffToken}/resolve`), { method: 'POST' })
       .then(async response => {
@@ -139,7 +142,7 @@ export default function AgentHandoff({ handoffToken, isLoggedIn, onLoginClick, o
 
         <div className="mt-8 border-t border-gray-200 pt-6">
           <h2 className="text-2xl font-black text-ghost-ink">Want the full 30-day execution plan?</h2>
-          <p className="mt-2 text-gray-700">The GhostTown Launch Blueprint is $97. Saving this verdict to your account is required before checkout. No agent can purchase it for you.</p>
+          <p className="mt-2 text-gray-700">The GhostTown 30-Day Evidence Sprint is $97. Saving this verdict to your account is required before checkout. No agent can purchase it for you.</p>
           <div className="mt-5 flex flex-wrap gap-3">
             <button type="button" disabled={claiming} onClick={() => void claim()} className="rounded-lg bg-ghost-rust px-6 py-3 font-black text-white disabled:opacity-60">
               {claiming ? 'Saving…' : isLoggedIn ? 'Save verdict and continue' : 'Log in to save and continue'}

@@ -23,6 +23,7 @@ function sanitizeTouch(value: unknown, fallbackAt: string, fallbackSourceVerdict
     capturedAt: clean(source.capturedAt) || fallbackAt,
     experimentId: clean(source.experimentId),
     sourceVerdictId: clean(source.sourceVerdictId) || clean(fallbackSourceVerdictId, 120),
+    intentId: clean(source.intentId),
     creativeId: clean(source.creativeId),
     publicationId: clean(source.publicationId),
     platform: clean(source.platform, 40),
@@ -31,7 +32,7 @@ function sanitizeTouch(value: unknown, fallbackAt: string, fallbackSourceVerdict
     source: clean(source.source),
     shareType: cleanShareType(source.shareType)
   };
-  const hasDimension = Boolean(touch.experimentId || touch.sourceVerdictId || touch.creativeId || touch.publicationId || touch.platform || touch.accountId || touch.campaign || touch.source || touch.shareType);
+  const hasDimension = Boolean(touch.experimentId || touch.sourceVerdictId || touch.intentId || touch.creativeId || touch.publicationId || touch.platform || touch.accountId || touch.campaign || touch.source || touch.shareType);
   return hasDimension ? touch : undefined;
 }
 
@@ -40,6 +41,7 @@ function legacyTouch(source: Record<string, unknown>, capturedAt: string, fallba
     capturedAt,
     experimentId: clean(source.experimentId),
     sourceVerdictId: clean(source.sourceVerdictId) || clean(fallbackSourceVerdictId, 120),
+    intentId: clean(source.intentId),
     creativeId: clean(source.creativeId),
     publicationId: clean(source.publicationId),
     platform: clean(source.platform, 40),
@@ -76,6 +78,7 @@ export function sanitizeCommercialAttribution(value: unknown, fallbackVerdictId?
     lastTouchAt: lastTouch.capturedAt,
     experimentId: firstTouch.experimentId,
     sourceVerdictId: firstTouch.sourceVerdictId,
+    intentId: firstTouch.intentId,
     creativeId: firstTouch.creativeId,
     publicationId: firstTouch.publicationId,
     platform: firstTouch.platform,
@@ -93,6 +96,7 @@ function setTouchMetadata(fields: URLSearchParams, prefix: 'first_touch' | 'last
   if (!touch) return;
   if (touch.experimentId) fields.set(`metadata[${prefix}_experiment_id]`, touch.experimentId);
   if (touch.sourceVerdictId) fields.set(`metadata[${prefix}_source_verdict_id]`, touch.sourceVerdictId);
+  if (touch.intentId) fields.set(`metadata[${prefix}_intent_id]`, touch.intentId);
   if (touch.creativeId) fields.set(`metadata[${prefix}_creative_id]`, touch.creativeId);
   if (touch.publicationId) fields.set(`metadata[${prefix}_publication_id]`, touch.publicationId);
   if (touch.platform) fields.set(`metadata[${prefix}_platform]`, touch.platform);
@@ -107,6 +111,7 @@ export function appendStripeAttributionMetadata(fields: URLSearchParams, attribu
   if (attribution?.attributionToken) fields.set('metadata[attribution_token]', attribution.attributionToken);
   if (attribution?.experimentId) fields.set('metadata[experiment_id]', attribution.experimentId);
   if (sourceVerdictId) fields.set('metadata[source_verdict_id]', sourceVerdictId);
+  if (attribution?.intentId) fields.set('metadata[intent_id]', attribution.intentId);
   if (attribution?.creativeId) fields.set('metadata[creative_id]', attribution.creativeId);
   if (attribution?.publicationId) fields.set('metadata[publication_id]', attribution.publicationId);
   if (attribution?.platform) fields.set('metadata[platform]', attribution.platform);
@@ -125,6 +130,7 @@ export function commercialEventAttribution(attribution: CommercialAttributionEnv
     attributionToken: attribution.attributionToken,
     experimentId: attribution.experimentId,
     sourceVerdictId: attribution.sourceVerdictId,
+    intentId: attribution.intentId,
     creativeId: attribution.creativeId,
     publicationId: attribution.publicationId,
     platform: attribution.platform,

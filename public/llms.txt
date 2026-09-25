@@ -23,6 +23,6 @@ Agent-created verdict handoffs are private-by-capability URLs with an expiration
 
 ## Paid offer
 
-GhostTown Launch Blueprint — $97 USD one time.
+GhostTown 30-Day Evidence Sprint — $97 USD one time.
 
-The paid Blueprint requires explicit human account and checkout action. Agents cannot autonomously purchase it.
+The paid Sprint requires explicit human account and checkout action. Agents cannot autonomously purchase it.
