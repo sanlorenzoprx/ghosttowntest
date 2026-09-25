@@ -20,4 +20,4 @@ A handoff can be saved into an account only after normal GhostTown authenticatio
 
 ## Paid data
 
-Public ASC routes do not expose private Launch Blueprint artifacts, paid order data, Stripe secrets, account sessions, or owner-only research/metrics.
+Public ASC routes do not expose private 30-Day Evidence Sprint/Blueprint artifacts, paid order data, Stripe secrets, account sessions, or owner-only research/metrics.

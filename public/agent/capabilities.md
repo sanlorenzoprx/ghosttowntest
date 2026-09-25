@@ -31,4 +31,4 @@ Tools:
 
 ## Human-action boundary
 
-No public agent capability can autonomously buy the GhostTown Launch Blueprint. Checkout remains an authenticated human action in the existing application.
+No public agent capability can autonomously buy the GhostTown 30-Day Evidence Sprint. Checkout remains an authenticated human action in the existing application.

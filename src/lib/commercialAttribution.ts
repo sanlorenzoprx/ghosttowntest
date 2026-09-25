@@ -38,10 +38,10 @@ function safeSessionSet(key: string, value: string): void {
   try { sessionStorage.setItem(key, value); } catch { /* analytics must never block the product */ }
 }
 
-function sessionId(): string {
+function sessionId(incoming?: string): string {
   const current = clean(safeSessionGet(SESSION_KEY));
   if (current) return current;
-  const created = randomId('gts');
+  const created = clean(incoming) || randomId('gts');
   safeSessionSet(SESSION_KEY, created);
   return created;
 }
@@ -74,6 +74,7 @@ function urlTouch(search: string): Omit<CommercialAttributionTouch, 'capturedAt'
   return {
     experimentId: parameter(params, 'experiment_id', 'experimentId'),
     sourceVerdictId: parameter(params, 'source_verdict_id', 'sourceVerdictId'),
+    intentId: parameter(params, 'intent', 'intent_id', 'intentId'),
     creativeId: parameter(params, 'creative_id', 'creativeId'),
     publicationId: parameter(params, 'publication_id', 'publicationId'),
     platform: parameter(params, 'platform'),
@@ -85,7 +86,7 @@ function urlTouch(search: string): Omit<CommercialAttributionTouch, 'capturedAt'
 }
 
 function hasTouch(value: Partial<CommercialAttributionTouch>): boolean {
-  return Boolean(value.experimentId || value.sourceVerdictId || value.creativeId || value.publicationId || value.platform || value.accountId || value.campaign || value.source || value.shareType);
+  return Boolean(value.experimentId || value.sourceVerdictId || value.intentId || value.creativeId || value.publicationId || value.platform || value.accountId || value.campaign || value.source || value.shareType);
 }
 
 function sanitizeTouch(value: unknown, fallbackAt: string): CommercialAttributionTouch | undefined {
@@ -95,6 +96,7 @@ function sanitizeTouch(value: unknown, fallbackAt: string): CommercialAttributio
     capturedAt: clean(source.capturedAt) || fallbackAt,
     experimentId: clean(source.experimentId),
     sourceVerdictId: clean(source.sourceVerdictId),
+    intentId: clean(source.intentId),
     creativeId: clean(source.creativeId),
     publicationId: clean(source.publicationId),
     platform: clean(source.platform, 40),
@@ -111,6 +113,7 @@ function legacyTouch(prior: Partial<CommercialAttributionEnvelope>, capturedAt: 
     capturedAt,
     experimentId: clean(prior.experimentId),
     sourceVerdictId: clean(prior.sourceVerdictId),
+    intentId: clean(prior.intentId),
     creativeId: clean(prior.creativeId),
     publicationId: clean(prior.publicationId),
     platform: clean(prior.platform, 40),
@@ -143,12 +146,13 @@ export function captureCommercialAttribution(search = typeof window !== 'undefin
   const envelope: CommercialAttributionEnvelope = {
     schemaVersion: 'ghosttown-commercial-attribution-v1',
     attributionToken: stableToken,
-    visitorId: clean(prior.visitorId) || randomId('gtv'),
-    ghosttownSessionId: sessionId(),
+    visitorId: clean(prior.visitorId) || parameter(params, 'visitor_id', 'visitorId') || randomId('gtv'),
+    ghosttownSessionId: sessionId(parameter(params, 'ghosttown_session_id', 'ghosttownSessionId')),
     firstTouchAt: firstTouch.capturedAt,
     lastTouchAt: lastTouch.capturedAt,
     experimentId: firstTouch.experimentId,
     sourceVerdictId: firstTouch.sourceVerdictId,
+    intentId: firstTouch.intentId,
     creativeId: firstTouch.creativeId,
     publicationId: firstTouch.publicationId,
     platform: firstTouch.platform,
@@ -207,6 +211,7 @@ export async function recordCommercialEvent(eventName: CommercialEventName, cont
         attributionToken: attribution.attributionToken,
         experimentId: attribution.experimentId,
         sourceVerdictId: attribution.sourceVerdictId,
+        intentId: attribution.intentId,
         creativeId: attribution.creativeId,
         publicationId: attribution.publicationId,
         platform: attribution.platform,

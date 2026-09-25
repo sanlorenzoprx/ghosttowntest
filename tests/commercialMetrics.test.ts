@@ -22,21 +22,21 @@ describe('commercial metrics', () => {
     const lineage = { attributionToken: 'gta-1', visitorId: 'gtv-1', ghosttownSessionId: 'gts-1' };
     const events = [
       ['landing_viewed', 'youtube'], ['landing_viewed', 'youtube'], ['verdict_started', 'youtube'],
-      ['verdict_completed', 'youtube'], ['checkout_started', 'youtube']
+      ['verdict_completed', 'youtube'], ['checkout_started', 'youtube'], ['get_me_live_live_completed', 'youtube']
     ];
     for (let index = 0; index < events.length; index += 1) {
       const [eventName, source] = events[index];
-      await kv.put(`analytics_event_${index}`, JSON.stringify({ eventName, source, createdAt, ...lineage }));
+      await kv.put(`analytics_event_${index}`, JSON.stringify({ eventName, source, intentId: 'ai-startup-validation', firstTouch: { intentId: 'ai-startup-validation' }, createdAt, ...lineage }));
     }
 
     await recordVerifiedPurchase(env, 'evt_paid_1', {
       amount_total: 9700,
       currency: 'USD',
       metadata: {
-        attribution_token: 'gta-1', source_verdict_id: 'verdict-source-1',
+        attribution_token: 'gta-1', source_verdict_id: 'verdict-source-1', intent_id: 'ai-startup-validation',
         creative_id: 'creative-A', publication_id: 'publication-A', platform: 'youtube', source: 'youtube',
         visitor_id: 'gtv-1', ghosttown_session_id: 'gts-1',
-        first_touch_experiment_id: 'baseline-001', first_touch_source_verdict_id: 'verdict-source-1',
+        first_touch_experiment_id: 'baseline-001', first_touch_source_verdict_id: 'verdict-source-1', first_touch_intent_id: 'ai-startup-validation',
         first_touch_creative_id: 'creative-A', first_touch_publication_id: 'publication-A', first_touch_platform: 'youtube', first_touch_source: 'youtube',
         last_touch_experiment_id: 'baseline-001', last_touch_source_verdict_id: 'verdict-source-1',
         last_touch_creative_id: 'creative-B', last_touch_publication_id: 'publication-B', last_touch_platform: 'facebook', last_touch_source: 'customer-share'
@@ -48,17 +48,19 @@ describe('commercial metrics', () => {
     await kv.put(purchaseKey, JSON.stringify(purchase));
 
     const metrics = await buildCommercialMetrics(env, 30, now) as any;
-    expect(metrics.funnel).toMatchObject({ landing_viewed: 2, verdict_started: 1, verdict_completed: 1, checkout_started: 1, purchase_completed: 1 });
+    expect(metrics.funnel).toMatchObject({ landing_viewed: 2, verdict_started: 1, verdict_completed: 1, checkout_started: 1, get_me_live_live_completed: 1, purchase_completed: 1 });
     expect(metrics.conversion).toMatchObject({ landing_to_verdict_start: 0.5, verdict_start_to_complete: 1, verdict_complete_to_checkout: 1, checkout_to_verified_purchase: 1, landing_to_verified_purchase: 0.5 });
     expect(metrics.verifiedPurchases).toEqual({ count: 1, revenueMinorUnitsByCurrency: { usd: 9700 }, authority: 'stripe_webhook' });
     expect(metrics.attributionCoverage).toEqual({
-      uniqueVisitors: 1, uniqueSessions: 1, attributedEvents: 5, totalEvents: 5,
+      uniqueVisitors: 1, uniqueSessions: 1, attributedEvents: 6, totalEvents: 6,
       attributedVerifiedPurchases: 1, dualTouchPurchases: 1, verifiedPurchases: 1
     });
     expect(metrics.firstTouchPublicationRevenue[0]).toMatchObject({ publicationId: 'publication-A', purchases: 1, revenueMinor: 9700, currency: 'usd' });
     expect(metrics.lastTouchPublicationRevenue[0]).toMatchObject({ publicationId: 'publication-B', purchases: 1, revenueMinor: 9700, currency: 'usd' });
     expect(metrics.publicationRevenue).toEqual(metrics.firstTouchPublicationRevenue);
-    expect(metrics.topSources[0]).toEqual({ source: 'youtube', eventCount: 5 });
+    expect(metrics.topSources[0]).toEqual({ source: 'youtube', eventCount: 6 });
+    expect(metrics.intentFunnel[0]).toMatchObject({ intentId: 'ai-startup-validation', eventCounts: { verdict_started: 1, verdict_completed: 1, get_me_live_live_completed: 1 } });
+    expect(metrics.intentRevenue[0]).toMatchObject({ intentId: 'ai-startup-validation', purchases: 1, revenueMinor: 9700, currency: 'usd' });
   });
 
   it('keeps Stripe event replays idempotent in the commercial ledger', async () => {
