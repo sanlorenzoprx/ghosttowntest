@@ -36,10 +36,44 @@ function order(): PaidTestOrder {
 
 function result(): CustomerAccessResearchResult {
   const researchDate = '2026-08-07';
-  const channels = Array.from({ length: 10 }, (_, index) => ({
-    channelId: 'channel-' + (index + 1), community: 'Channel ' + (index + 1), platform: index < 3 ? 'Podcast' : index < 6 ? 'YouTube' : 'Publication', publicUrl: 'https://example.com/channel-' + (index + 1), relevance: 'Relevant audience.', activity: 'active' as const, participationRules: 'Use public rules.', recommendedApproach: 'Contribute usefully.', usefulTopic: 'Family game choice.', risk: 'Access can change.', firstAction: 'Review the public route.', confidence: 'high' as const, researchDate, sourceIds: ['source-' + (index + 1)], targetType: index < 3 ? 'podcast' as const : index < 6 ? 'youtube_creator' as const : 'newsletter_or_publication' as const, accessPath: 'Public contact route', preparedAsset: 'Prepared educational asset', outreachScriptId: 'script-07-interview_invitation'
-  }));
-  const sources = channels.map((channel, index) => ({ sourceId: 'source-' + (index + 1), title: 'Source ' + (index + 1), url: 'https://example.com/source-' + (index + 1), publisher: 'Fixture', accessedAt: generatedAt, supports: [channel.channelId] }));
+  const channels = Array.from({ length: 10 }, (_, index) => {
+    const targetType = index < 5 ? 'community' as const
+      : index < 7 ? 'review_site' as const
+        : index < 9 ? 'youtube_creator' as const
+          : 'complementary_partner' as const;
+    const evidenceRole = index < 5 ? 'customer_access' as const
+      : index < 7 ? 'market_evidence' as const
+        : index < 9 ? 'media_pr' as const
+          : 'partnership' as const;
+    return {
+      channelId: 'channel-' + (index + 1),
+      community: 'Channel ' + (index + 1),
+      platform: index < 5 ? 'Community' : index < 7 ? 'Review site' : index < 9 ? 'YouTube' : 'Partner',
+      publicUrl: 'https://example.com/channel-' + (index + 1),
+      relevance: 'Relevant audience.',
+      activity: 'active' as const,
+      participationRules: 'Use public rules.',
+      recommendedApproach: 'Contribute usefully.',
+      usefulTopic: 'Family game choice.',
+      risk: 'Access can change.',
+      firstAction: 'Review the public route.',
+      confidence: 'high' as const,
+      researchDate,
+      evidenceDate: '2026-08-01T12:00:00.000Z',
+      evidenceDateSource: 'provider_activity' as const,
+      evidenceRecency: 'current' as const,
+      currentActivityStatus: 'verified_current' as const,
+      currentActivityVerifiedAt: generatedAt,
+      currentActivityEvidence: 'Fixture provider independently observed current activity on 2026-08-01.',
+      sourceIds: ['source-' + (index + 1)],
+      targetType,
+      evidenceRole,
+      accessPath: 'Public contact route',
+      preparedAsset: 'Prepared educational asset',
+      outreachScriptId: evidenceRole === 'partnership' ? 'script-06-referral_partner' : evidenceRole === 'customer_access' ? 'script-03-community_member' : 'script-07-interview_invitation'
+    };
+  });
+  const sources = channels.map((channel, index) => ({ sourceId: 'source-' + (index + 1), title: 'Source ' + (index + 1), url: 'https://example.com/source-' + (index + 1), publisher: 'Fixture', accessedAt: generatedAt, evidenceDate: '2026-08-01T12:00:00.000Z', evidenceDateSource: 'provider_activity' as const, evidenceRecency: 'current' as const, supports: [channel.channelId] }));
   return {
     research: { status: 'complete', researchDate, sources, channels, publicExpertsAndPartners: [] },
     receipt: {
@@ -65,17 +99,65 @@ function expectCode(mutator: (input: ReturnType<typeof fixture>) => void, code: 
 describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
   it('passes the complete fixture', () => expect(evaluateBlueprintReleaseQualityGateV21(fixture()).passed).toBe(true));
 
-  it('accepts one content format when the idea has three independent verification dimensions', () => {
+  it('does not promote media-only research into customer access', () => {
     const input = fixture();
     input.research.receipt.sourceTypeCount = 1;
     input.research.receipt.targetTypeCounts = { podcast: 10 };
-    input.blueprint.customerAccessPack.channels.forEach(channel => { channel.targetType = 'podcast'; });
-    expect(researchVerificationDimensionsV21(input.blueprint, input.research)).toEqual(expect.arrayContaining([
-      'customer_problem_definition',
-      'competitor_alternative',
-      'customer_access'
-    ]));
-    expect(evaluateBlueprintReleaseQualityGateV21(input).passed).toBe(true);
+    input.blueprint.customerAccessPack.channels.forEach(channel => {
+      channel.targetType = 'podcast';
+      channel.evidenceRole = 'media_pr';
+    });
+
+    const dimensions = researchVerificationDimensionsV21(input.blueprint, input.research);
+    expect(dimensions).not.toContain('customer_access');
+    expect(dimensions).toContain('audience_reach');
+
+    const codes = evaluateBlueprintReleaseQualityGateV21(input).blockers.map(blocker => blocker.code);
+    expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.fewerThanThreeCustomerAccessTargets);
+    expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.strategy.firstRevenueUsesNonCustomerAccess);
+    expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.strategy.launchCardUsesNonCustomerAccess);
+  });
+
+  it('does not let a current research date make stale customer-access evidence current', () => {
+    const input = fixture();
+    const customerAccess = input.blueprint.customerAccessPack.channels.filter(channel => channel.evidenceRole === 'customer_access');
+    customerAccess.forEach(channel => {
+      channel.researchDate = '2026-09-26';
+      channel.evidenceDate = '2015-06-10T00:00:00.000Z';
+      channel.evidenceDateSource = 'published_metadata';
+      channel.evidenceRecency = 'stale';
+      channel.activity = 'uncertain';
+      channel.currentActivityStatus = 'verified_inactive';
+      channel.currentActivityVerifiedAt = '2026-09-26T12:00:00.000Z';
+      channel.currentActivityEvidence = 'The underlying evidence is from 2015; current activity was not established.';
+    });
+
+    const codes = evaluateBlueprintReleaseQualityGateV21(input).blockers.map(blocker => blocker.code);
+    expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.fewerThanThreeCustomerAccessTargets);
+    expect(researchVerificationDimensionsV21(input.blueprint, input.research)).not.toContain('customer_access');
+  });
+
+  it('blocks an active or recent label when current activity is not independently verified', () => {
+    const input = fixture();
+    const channel = input.blueprint.customerAccessPack.channels[0];
+    channel.activity = 'active';
+    channel.currentActivityStatus = 'unverified';
+    channel.currentActivityVerifiedAt = undefined;
+    channel.currentActivityEvidence = 'The source was accessed today, but no dated current activity was established.';
+
+    const codes = evaluateBlueprintReleaseQualityGateV21(input).blockers.map(blocker => blocker.code);
+    expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.inconsistentCurrentActivityClaim);
+  });
+
+  it('blocks new release records that omit recency metadata', () => {
+    const input = fixture();
+    const channel = input.blueprint.customerAccessPack.channels[0];
+    channel.evidenceRecency = undefined;
+    channel.currentActivityStatus = undefined;
+    channel.currentActivityEvidence = undefined;
+
+    const codes = evaluateBlueprintReleaseQualityGateV21(input).blockers.map(blocker => blocker.code);
+    expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.missingRecencyMetadata);
   });
 
   const C = BLUEPRINT_RELEASE_BLOCKER_CODES_V21;
@@ -87,6 +169,8 @@ describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
     ['no first commitment', i => { i.blueprint.firstRevenuePath.commitmentMethod = ''; }, C.strategy.noFirstMeaningfulCommitment],
     ['no price', i => { i.blueprint.offer.initialTestPrice = ''; i.blueprint.firstRevenuePath.firstPrice = ''; }, C.strategy.noInitialPrice],
     ['no first revenue path', i => { i.blueprint.firstRevenuePath.firstAsk = ''; }, C.strategy.noFirstRevenuePath],
+    ['first revenue uses media instead of customer access', i => { const media = i.blueprint.customerAccessPack.channels.find(channel => channel.evidenceRole === 'media_pr')!; i.blueprint.firstRevenuePath.firstChannel = media.community + ' via ' + media.platform; }, C.strategy.firstRevenueUsesNonCustomerAccess],
+    ['launch card uses media instead of customer access', i => { const media = i.blueprint.customerAccessPack.channels.find(channel => channel.evidenceRole === 'media_pr')!; i.blueprint.launchCard48Hour.firstThreeApproaches[0] = { name: media.community, channelId: media.channelId, publicUrl: media.publicUrl, firstAction: media.firstAction }; }, C.strategy.launchCardUsesNonCustomerAccess],
     ['no manual fulfillment', i => { i.blueprint.manualFulfillmentPlan.onboardingSteps = []; }, C.strategy.noManualFulfillmentMethod],
     ['missing risk boundary', i => { i.blueprint.executiveDecision.founderTimeRiskHours = 0; }, C.strategy.missingTimeOrCashBoundary],
     ['too few seeds', i => { i.research.receipt.seedDomains = ['one.example']; }, C.research.fewerThanTwoConfirmedSeeds],
@@ -95,11 +179,13 @@ describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
       i.blueprint.startingStateAudit.verifiedFacts = [];
       i.blueprint.customerAccessPack.channels.forEach(channel => {
         channel.targetType = 'association';
+        channel.evidenceRole = 'partnership';
         channel.competitorEvidence = [];
       });
       i.research.research.publicExpertsAndPartners = [];
     }, C.research.insufficientVerificationDimensions],
     ['too few candidates', i => { i.research.receipt.candidateChannelCount = 9; }, C.research.fewerThanTenVerifiedCandidates],
+    ['too few direct customer-access targets', i => { i.blueprint.customerAccessPack.channels.filter(channel => channel.evidenceRole === 'customer_access').slice(2).forEach(channel => { channel.targetType = 'podcast'; channel.evidenceRole = 'media_pr'; }); }, C.research.fewerThanThreeCustomerAccessTargets],
     ['missing public source', i => { i.blueprint.customerAccessPack.channels[0].publicUrl = ''; }, C.research.missingPublicSource],
     ['missing research date', i => { i.blueprint.customerAccessPack.channels[0].researchDate = ''; }, C.research.missingResearchDate],
     ['missing research execution metadata', i => { i.blueprint.customerAccessPack.channels[0].accessPath = ''; }, C.research.missingExecutionMetadata],

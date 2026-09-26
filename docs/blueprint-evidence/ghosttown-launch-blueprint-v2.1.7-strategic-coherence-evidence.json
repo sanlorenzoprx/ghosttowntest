@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "ghosttown-blueprint-amendment-evidence-v1",
+  "amendmentVersion": "2.1.7",
+  "changeId": "GT-BP-2026-09-26-V2.1.7",
+  "recordedAt": "2026-09-26T14:45:00.000Z",
+  "repository": "sanlorenzoprx/ghosttowntest",
+  "branch": "fix/strategic-coherence-gate",
+  "canonical": {
+    "baseVersion": "2.1.1",
+    "sourcePath": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md",
+    "gitBlobSha1": "616c691e6b4c9cea93615963a07375d13ffba57f",
+    "sourceModified": false
+  },
+  "decision": {
+    "summary": "Block 30-Day Sprint asset generation unless Customer -> problem -> buyer/payer -> current alternative -> test -> commitment -> fulfillment -> access path forms one coherent commercial chain.",
+    "customerOutcome": "GhostTown refuses to manufacture thirty days of execution around a weak strategic spine and instead names the smallest unresolved link that must be fixed first."
+  },
+  "implementationEvidence": [
+    {
+      "capability": "independent_pre_asset_coherence_gate",
+      "status": "IMPLEMENTED",
+      "evidence": "Workflow runs strategic_coherence_gate after strategy_synthesis and before asset_generation.",
+      "paths": ["src/api/launchBlueprintWorkflow.ts"],
+      "gitBlobSha1": "8a86ed7ff41727e52dbee6e49dc5ff4f0ad2fb1f"
+    },
+    {
+      "capability": "eight_link_fail_closed_schema",
+      "status": "IMPLEMENTED",
+      "evidence": "Gate requires exactly customer, problem, buyer_payer, current_alternative, test, commitment, fulfillment, and access_path. Unresolved or contradictory links block generation.",
+      "paths": ["src/api/launchBlueprintVertexPipeline.ts"],
+      "gitBlobSha1": "ba5f4e5978b4b2a9d45b1513de3bca55ac75f1fd"
+    },
+    {
+      "capability": "buyer_payer_separation",
+      "status": "IMPLEMENTED",
+      "evidence": "Gate instructions explicitly distinguish user/beneficiary from the person or organization able to authorize or pay for the requested commitment.",
+      "paths": ["src/api/launchBlueprintVertexPipeline.ts"],
+      "gitBlobSha1": "ba5f4e5978b4b2a9d45b1513de3bca55ac75f1fd"
+    },
+    {
+      "capability": "manual_proxy_value_mechanism_guard",
+      "status": "IMPLEMENTED",
+      "evidence": "Manual tests fail when they silently change the buyer, value mechanism, risk, or operational burden being tested; safety-sensitive responsibilities receive an explicit fail-closed rule.",
+      "paths": ["src/api/launchBlueprintVertexPipeline.ts"],
+      "gitBlobSha1": "ba5f4e5978b4b2a9d45b1513de3bca55ac75f1fd"
+    },
+    {
+      "capability": "customer_access_not_market_evidence",
+      "status": "IMPLEMENTED",
+      "evidence": "Access-path link must reference at least one verified channel and the independent gate is instructed that media, PR, backlinks, events, partners, and creators are not automatically buyer access.",
+      "paths": ["src/api/launchBlueprintVertexPipeline.ts"],
+      "gitBlobSha1": "ba5f4e5978b4b2a9d45b1513de3bca55ac75f1fd"
+    },
+    {
+      "capability": "receipt_order_enforcement",
+      "status": "IMPLEMENTED",
+      "evidence": "Paid fulfillment now requires the strategic_coherence_gate receipt between strategy synthesis and asset generation.",
+      "paths": ["src/api/blueprintFulfillmentV21.ts", "src/types/launchBlueprintV21.ts"],
+      "gitBlobSha1": ["1d32833ee68ed6b214be698ba7514d84a7762196", "623da3bab84b1c5cc8f409b0e95d5c4e230dfe0d"]
+    },
+    {
+      "capability": "focused_regression",
+      "status": "PASS",
+      "evidence": "Focused staged-pipeline suite passes 6/6 including exact-eight-link enforcement, unresolved buyer/payer, and changed-value-mechanism blockers.",
+      "paths": ["tests/launchBlueprintVertexPipeline.test.ts"],
+      "gitBlobSha1": "420f4f6eae29e3d9f97209cf433191fabb681ec7"
+    },
+    {
+      "capability": "typescript_validation",
+      "status": "PASS",
+      "evidence": "npx tsc --noEmit completed with exit code 0.",
+      "paths": []
+    }
+  ],
+  "pipelineVersion": "vertex-blueprint-staged-v2",
+  "pipelineOrder": [
+    "evidence_normalization",
+    "strategy_synthesis",
+    "strategic_coherence_gate",
+    "asset_generation",
+    "red_team_review"
+  ],
+  "gateLinks": [
+    "customer",
+    "problem",
+    "buyer_payer",
+    "current_alternative",
+    "test",
+    "commitment",
+    "fulfillment",
+    "access_path"
+  ],
+  "preservedAcceptance": {
+    "priceChanged": false,
+    "acceptedPurchaseRegenerated": false,
+    "acceptedD1R2ArtifactsMutated": false,
+    "canonicalBaseSourceModified": false,
+    "getMeLiveBoundaryChanged": false,
+    "productionDeploymentEnabled": false
+  },
+  "validation": {
+    "liveHistoricalReplay": {
+      "acceptanceWorkerVersion": "bd267896-fbe8-4cc8-92a4-d318a523d12a",
+      "provider": "google_vertex_ai",
+      "gateway": "cloudflare_ai_gateway",
+      "model": "gemini-3.5-flash",
+      "transportHardening": "Exact nested array bounds were removed from the Vertex response transport schema after Vertex returned HTTP 400 invalid argument. Deterministic validateStrategicCoherenceGate still enforces exactly eight unique links and the required access-path channel.",
+      "longevity": {
+        "orderId": "gtt_05e3a88c-29aa-48fa-8bd0-6883652fc04d",
+        "gatePassed": false,
+        "failedLinks": {
+          "test": "contradictory",
+          "fulfillment": "unresolved"
+        },
+        "blockerCodes": ["TEST_VALUE_MISMATCH", "FULFILLMENT_UNRESOLVED"],
+        "responseId": "D9m3avTZMMiJ0ekPk5rH0Aw"
+      },
+      "suredose": {
+        "orderId": "gtt_b83baaa2-c420-4ec2-b8e0-e062ae30a4d5",
+        "gatePassed": false,
+        "failedLinks": {
+          "buyer_payer": "unresolved",
+          "test": "contradictory",
+          "commitment": "unresolved",
+          "fulfillment": "unresolved",
+          "access_path": "unresolved"
+        },
+        "blockerCodes": ["SAFETY_SENSITIVE_MANUAL_PROXY", "UNRESOLVED_BUYER_PAYER", "INSUFFICIENT_ACCESS_PATH"],
+        "responseId": "Jtm3asWpFNeA0ekP96LBwAE"
+      }
+    },
+    "focusedTests": {
+      "command": "npx vitest run tests/launchBlueprintVertexPipeline.test.ts --no-file-parallelism --pool=threads --maxWorkers=1",
+      "passed": 6,
+      "failed": 0
+    },
+    "typecheck": {
+      "command": "npx tsc --noEmit",
+      "passed": true
+    },
+    "productionDeploymentPerformed": false
+  }
+}

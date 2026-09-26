@@ -1,0 +1,194 @@
+{
+  "schemaVersion": "ghosttown-blueprint-amendment-evidence-v1",
+  "amendmentVersion": "2.1.8",
+  "changeId": "GT-BP-2026-09-26-V2.1.8",
+  "recordedAt": "2026-09-26T16:04:04.4393448Z",
+  "repository": "sanlorenzoprx/ghosttowntest",
+  "branch": "fix/strategic-coherence-gate",
+  "canonical": {
+    "baseVersion": "2.1.1",
+    "sourcePath": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md",
+    "gitBlobSha1": "616c691e6b4c9cea93615963a07375d13ffba57f",
+    "sourceModified": false
+  },
+  "decision": {
+    "summary": "Separate direct customer access, market evidence, media/PR, and partnerships; require at least three direct customer-access targets before a Sprint can drive first-revenue execution.",
+    "customerOutcome": "GhostTown no longer promotes a relevant podcast, creator, backlink, publication, event, association, review site, or partner into a sales channel merely because it is useful market evidence."
+  },
+  "implementationEvidence": [
+    {
+      "capability": "deterministic_research_role_contract",
+      "status": "IMPLEMENTED",
+      "evidence": "Every retained target resolves to customer_access, market_evidence, media_pr, or partnership from provider/page-derived target type.",
+      "paths": [
+        "src/api/researchEvidenceRole.ts",
+        "src/types/launchBlueprint.ts"
+      ],
+      "gitBlobSha1": [
+        "b8524399144214248b30af077fe17a5eb4551bce",
+        "8e63c2fa99ecc6a0f638a1afb9ed257a8ef139d3"
+      ]
+    },
+    {
+      "capability": "dedicated_grounded_customer_access_discovery",
+      "status": "IMPLEMENTED",
+      "evidence": "Research planning adds problem-centered and buyer-centered grounded searches for public discussion/community sources using the existing Vertex Google Search path.",
+      "paths": [
+        "src/api/distributionFootprintResearch.ts"
+      ],
+      "gitBlobSha1": "f9c3d9e41e7e5d270d4a431e7a06cfe5cea7280d"
+    },
+    {
+      "capability": "research_minimum_direct_access_gate",
+      "status": "IMPLEMENTED",
+      "evidence": "Research completeness and release quality both require at least three direct customer-access targets; media, market, and partnership evidence cannot substitute.",
+      "paths": [
+        "src/api/distributionFootprintResearch.ts",
+        "src/api/blueprintReleaseQualityGateV21.ts"
+      ],
+      "gitBlobSha1": [
+        "f9c3d9e41e7e5d270d4a431e7a06cfe5cea7280d",
+        "a7c7a5dd58c5156fc8643d5cc85dcf90ea66ad54"
+      ]
+    },
+    {
+      "capability": "first_revenue_role_enforcement",
+      "status": "IMPLEMENTED",
+      "evidence": "First revenue and the 48-Hour Launch Card select only direct customer-access channels, and release fails if a non-customer-access target is referenced.",
+      "paths": [
+        "src/api/launchBlueprintGeneratorV21.ts",
+        "src/api/blueprintReleaseQualityGateV21.ts"
+      ],
+      "gitBlobSha1": [
+        "946888d5a190147376e8ada6df5d596740d3fd9d",
+        "a7c7a5dd58c5156fc8643d5cc85dcf90ea66ad54"
+      ]
+    },
+    {
+      "capability": "strategic_coherence_access_role_enforcement",
+      "status": "IMPLEMENTED",
+      "evidence": "Strategy synthesis receives evidence roles and the independent access_path coherence check rejects non-customer-access channel IDs.",
+      "paths": [
+        "src/api/launchBlueprintVertexPipeline.ts"
+      ],
+      "gitBlobSha1": "07afa54e09bac9f442eb857e26c863aeb51ecf34"
+    },
+    {
+      "capability": "customer_facing_role_separation",
+      "status": "IMPLEMENTED",
+      "evidence": "Dashboard, PDF/document projection, and ZIP CSV expose separate Direct Customer Access, Market Evidence, Media/PR, and Partnership roles and boundaries.",
+      "paths": [
+        "src/components/LaunchBlueprintViewV21.tsx",
+        "src/api/blueprintDocumentModel.ts",
+        "src/api/blueprintPdfV21.ts",
+        "src/api/blueprintAssets.ts"
+      ],
+      "gitBlobSha1": [
+        "578f668684e90c14f57b4d51583546cfe436186f",
+        "01ae97286ad8ec633ab71c3d235e51261310b626",
+        "0874422e2c712410954f9fc01fabac884af6fc57",
+        "97bad280016b1ce9450aec10079441ae7873f931"
+      ]
+    },
+    {
+      "capability": "focused_regression",
+      "status": "PASS",
+      "evidence": "Research / generator / Vertex / release / document / PDF / ZIP suite passes 63/63, including media-only rejection and minimum direct-access rules.",
+      "paths": [
+        "tests/customerAccessResearch.test.ts",
+        "tests/blueprintReleaseQualityGateV21.test.ts"
+      ],
+      "gitBlobSha1": [
+        "83f8773edd9f0c13b3a9a0f316a136f7a924d2c4",
+        "a5188d678cf5c7d5aefa4b4cdee272d2543ecd73"
+      ]
+    },
+    {
+      "capability": "dashboard_regression",
+      "status": "PASS",
+      "evidence": "Dashboard/customer-access/release focused suite passes 53/53.",
+      "paths": [
+        "tests/launchBlueprintViewV21.test.ts",
+        "tests/customerAccessResearch.test.ts",
+        "tests/blueprintReleaseQualityGateV21.test.ts"
+      ]
+    },
+    {
+      "capability": "typescript_validation",
+      "status": "PASS",
+      "evidence": "npx tsc --noEmit completed with exit code 0.",
+      "paths": []
+    }
+  ],
+  "historicalFalsification": {
+    "method": "Deterministic role replay against the two saved paid-Sprint canonical JSON artifacts. No historical artifact was mutated.",
+    "longevity": {
+      "orderId": "gtt_05e3a88c-29aa-48fa-8bd0-6883652fc04d",
+      "totalTargets": 12,
+      "roleCounts": {
+        "customer_access": 0,
+        "market_evidence": 2,
+        "media_pr": 7,
+        "partnership": 3
+      },
+      "originalFirstRevenueTargetType": "podcast",
+      "originalFirstRevenueRole": "media_pr",
+      "passesV218DirectAccessRequirement": false
+    },
+    "suredose": {
+      "orderId": "gtt_b83baaa2-c420-4ec2-b8e0-e062ae30a4d5",
+      "totalTargets": 12,
+      "roleCounts": {
+        "customer_access": 0,
+        "market_evidence": 0,
+        "media_pr": 9,
+        "partnership": 3
+      },
+      "originalFirstRevenueTargetType": "youtube_creator",
+      "originalFirstRevenueRole": "media_pr",
+      "passesV218DirectAccessRequirement": false
+    }
+  },
+  "releaseBlockers": [
+    "RESEARCH_FEWER_THAN_THREE_CUSTOMER_ACCESS_TARGETS",
+    "STRATEGY_FIRST_REVENUE_USES_NON_CUSTOMER_ACCESS",
+    "STRATEGY_LAUNCH_CARD_USES_NON_CUSTOMER_ACCESS"
+  ],
+  "preservedAcceptance": {
+    "priceChanged": false,
+    "acceptedPurchaseRegenerated": false,
+    "acceptedD1R2ArtifactsMutated": false,
+    "canonicalBaseSourceModified": false,
+    "getMeLiveBoundaryChanged": false,
+    "productionDeploymentEnabled": false
+  },
+  "validation": {
+    "focusedTests": {
+      "command": "npx vitest run tests/customerAccessResearch.test.ts tests/blueprintReleaseQualityGateV21.test.ts tests/launchBlueprintGeneratorV21.test.ts tests/launchBlueprintVertexPipeline.test.ts tests/blueprintDocumentModel.test.ts tests/blueprintAssetsV21.test.ts tests/blueprintPdfV21.test.ts --no-file-parallelism --pool=threads --maxWorkers=1",
+      "passed": 63,
+      "failed": 0
+    },
+    "uiFocusedTests": {
+      "command": "npx vitest run tests/launchBlueprintViewV21.test.ts tests/customerAccessResearch.test.ts tests/blueprintReleaseQualityGateV21.test.ts --no-file-parallelism --pool=threads --maxWorkers=1",
+      "passed": 53,
+      "failed": 0
+    },
+    "typecheck": {
+      "command": "npx tsc --noEmit",
+      "passed": true
+    },
+    "productionDeploymentPerformed": false,
+    "blueprintVerification": {
+      "command": "npm run verify:blueprint",
+      "passed": true,
+      "chainTip": "2.1.8"
+    },
+    "build": {
+      "command": "npm run build",
+      "passed": true,
+      "viteModulesTransformed": 78,
+      "generatedDiscoveryRoutes": 40,
+      "verifiedDiscoveryIntents": 20
+    }
+  }
+}

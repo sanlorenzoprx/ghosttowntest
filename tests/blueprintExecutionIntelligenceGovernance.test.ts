@@ -23,17 +23,19 @@ describe('Blueprint v2.1.6 Execution Intelligence governance', () => {
     expect(executionChangeRecord).toContain('Gate 36 remains the explicit human release decision');
   });
 
-  it('advances the hash-verified evidence chain through v2.1.6 without changing the canonical base hash', () => {
+  it('preserves the hash-verified v2.1.6 decision as the evidence chain advances through later approved amendments', () => {
     expect(chain.canonical.gitBlobSha1).toBe('616c691e6b4c9cea93615963a07375d13ffba57f');
     expect(chain.chainTip).toEqual({
-      changeId: 'GT-BP-2026-08-18-V2.1.6',
-      previousChangeId: 'GT-BP-2026-08-18-V2.1.5',
-      version: '2.1.6'
+      changeId: 'GT-BP-2026-09-26-V2.1.9',
+      previousChangeId: 'GT-BP-2026-09-26-V2.1.8',
+      version: '2.1.9'
     });
     expect(chain.calendarAmendment.version).toBe('2.1.5');
     expect(chain.executionIntelligenceAmendment.version).toBe('2.1.6');
-    expect(verifier).toContain("manifest?.chainTip?.changeId !== 'GT-BP-2026-08-18-V2.1.6'");
+    expect(chain.executionIntelligenceAmendment.changeId).toBe('GT-BP-2026-08-18-V2.1.6');
+    expect(verifier).toContain("manifest?.chainTip?.changeId !== 'GT-BP-2026-09-26-V2.1.9'");
     expect(verifier).toContain('v2.1.5 Calendar-Primary Execution amendment');
     expect(verifier).toContain('v2.1.6 Execution Intelligence amendment');
+    expect(verifier).toContain('v2.1.9 Evidence Recency and Current-Activity Integrity amendment');
   });
 });

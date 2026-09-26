@@ -98,12 +98,15 @@ function completeResearch(): CustomerAccessResearchInput {
       url: `https://example.org/source-${index + 1}`,
       publisher: 'Fixture publisher',
       accessedAt: `${researchDate}T11:00:00.000Z`,
+      evidenceDate: '2026-08-01T11:00:00.000Z',
+      evidenceDateSource: 'provider_activity' as const,
+      evidenceRecency: 'current' as const,
       supports: [`channel-${index + 1}`]
     })),
     channels: Array.from({ length: 10 }, (_, index) => ({
       channelId: `channel-${index + 1}`,
       community: `Family gaming channel ${index + 1}`,
-      platform: index < 3 ? 'Community' : index < 6 ? 'Publication' : 'Creator',
+      platform: index < 5 ? 'Community' : index < 7 ? 'Review site' : 'Creator',
       publicUrl: `https://example.org/channel-${index + 1}`,
       relevance: 'Families publicly discuss game selection, age fit, price, and recurring game-night needs.',
       activity: 'active' as const,
@@ -114,7 +117,15 @@ function completeResearch(): CustomerAccessResearchInput {
       firstAction: 'Review current discussions and record repeated buyer language.',
       confidence: 'high' as const,
       researchDate,
-      sourceIds: [`source-${index + 1}`]
+      evidenceDate: '2026-08-01T11:00:00.000Z',
+      evidenceDateSource: 'provider_activity' as const,
+      evidenceRecency: 'current' as const,
+      currentActivityStatus: 'verified_current' as const,
+      currentActivityVerifiedAt: `${researchDate}T11:00:00.000Z`,
+      currentActivityEvidence: 'Fixture provider independently observed current activity on 2026-08-01.',
+      sourceIds: [`source-${index + 1}`],
+      targetType: index < 5 ? 'community' as const : index < 7 ? 'review_site' as const : 'youtube_creator' as const,
+      evidenceRole: index < 5 ? 'customer_access' as const : index < 7 ? 'market_evidence' as const : 'media_pr' as const
     })),
     publicExpertsAndPartners: []
   };

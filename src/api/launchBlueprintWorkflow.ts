@@ -25,6 +25,7 @@ import {
   runVertexAssetGenerationStage,
   runVertexEvidenceNormalizationStage,
   runVertexRedTeamReviewStage,
+  runVertexStrategicCoherenceGateStage,
   runVertexStrategySynthesisStage
 } from './launchBlueprintVertexPipeline';
 import { assertVertexDailyAssetCompleteness } from './launchBlueprintVertexAssetGuard';
@@ -111,6 +112,12 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
           async () => runVertexStrategySynthesisStage(this.env, vertexContext, evidence.data)
         );
 
+        const coherence = await step.do(
+          'vertex strategic coherence gate',
+          { retries: { limit: 2, delay: '15 seconds', backoff: 'exponential' } },
+          async () => runVertexStrategicCoherenceGateStage(this.env, vertexContext, evidence.data, strategy.data)
+        );
+
         const assets = await step.do(
           'vertex stage 3 asset generation',
           { retries: { limit: 2, delay: '20 seconds', backoff: 'exponential' } },
@@ -142,6 +149,7 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
               vertexContext,
               evidence,
               strategy,
+              coherence,
               assets,
               redTeam
             )

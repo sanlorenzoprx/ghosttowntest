@@ -97,25 +97,45 @@ function researchInput(): CustomerAccessResearchInput {
     url: `https://example.com/runtime-source-${index}`,
     publisher: "Runtime Fixture",
     accessedAt: `${researchDate}T12:00:00.000Z`,
+    evidenceDate: "2026-08-01T12:00:00.000Z",
+    evidenceDateSource: "provider_activity" as const,
+    evidenceRecency: "current" as const,
     supports: [`runtime-channel-${index}`]
   }));
-  const channels = Array.from({ length: 10 }, (_, index) => ({
-    channelId: `runtime-channel-${index}`,
-    community: `Runtime Community ${index}`,
-    platform: index < 3 ? "Podcast" : index < 6 ? "YouTube" : "Publication",
-    publicUrl: `https://example.com/runtime-channel-${index}`,
-    relevance: "Families discuss game selection and purchases.",
-    activity: "active",
-    participationRules: "Read current rules.",
-    recommendedApproach: "Contribute before pitching.",
-    usefulTopic: "Choosing a family game.",
-    risk: "Rules can change.",
-    firstAction: "Read recent discussions.",
-    confidence: "high",
-    researchDate,
-    sourceIds: [`runtime-source-${index}`],
-    targetType: index < 3 ? "podcast" : index < 6 ? "youtube_creator" : "newsletter_or_publication"
-  })) as CustomerAccessResearchInput["channels"];
+  const channels = Array.from({ length: 10 }, (_, index) => {
+    const targetType = index < 5 ? "community"
+      : index < 7 ? "review_site"
+        : index < 9 ? "youtube_creator"
+          : "complementary_partner";
+    const evidenceRole = index < 5 ? "customer_access"
+      : index < 7 ? "market_evidence"
+        : index < 9 ? "media_pr"
+          : "partnership";
+    return {
+      channelId: `runtime-channel-${index}`,
+      community: `Runtime Community ${index}`,
+      platform: index < 5 ? "Community" : index < 7 ? "Review site" : index < 9 ? "YouTube" : "Partner",
+      publicUrl: `https://example.com/runtime-channel-${index}`,
+      relevance: "Families discuss game selection and purchases.",
+      activity: "active",
+      participationRules: "Read current rules.",
+      recommendedApproach: "Contribute before pitching.",
+      usefulTopic: "Choosing a family game.",
+      risk: "Rules can change.",
+      firstAction: "Read recent discussions.",
+      confidence: "high",
+      researchDate,
+      evidenceDate: "2026-08-01T12:00:00.000Z",
+      evidenceDateSource: "provider_activity" as const,
+      evidenceRecency: "current" as const,
+      currentActivityStatus: "verified_current" as const,
+      currentActivityVerifiedAt: generatedAt,
+      currentActivityEvidence: "Runtime fixture provider independently observed current public activity on 2026-08-01.",
+      sourceIds: [`runtime-source-${index}`],
+      targetType,
+      evidenceRole
+    };
+  }) as CustomerAccessResearchInput["channels"];
 
   return {
     status: "complete",
@@ -147,12 +167,13 @@ function makeScenario(owner = "founder@runtime.test") {
   blueprint.status = "ready";
   blueprint.qualityGate = { passed: true, failures: [], warnings: [] };
   blueprint.generationReceipt.vertexPipeline = {
-    pipelineVersion: "vertex-blueprint-staged-v1",
+    pipelineVersion: "vertex-blueprint-staged-v2",
     required: true,
     status: "complete",
     stages: [
       stage("evidence_normalization"),
       stage("strategy_synthesis"),
+      stage("strategic_coherence_gate"),
       stage("asset_generation"),
       stage("red_team_review")
     ],
@@ -187,7 +208,7 @@ function makeScenario(owner = "founder@runtime.test") {
       webSearchQueries: [],
       attemptedSourceCount: 10,
       successfulSourceCount: 10,
-      sourceTypeCount: 3,
+      sourceTypeCount: 4,
       candidateChannelCount: 10,
       verifiedChannelCount: 10,
       rejectedUrls: [],
@@ -195,9 +216,10 @@ function makeScenario(owner = "founder@runtime.test") {
       sourceDefinitionIds: blueprint.sources.map(source => source.sourceId),
       seedDomains: ["example.com", "example.org"],
       targetTypeCounts: {
-        podcast: 3,
-        youtube_creator: 3,
-        newsletter_or_publication: 4
+        community: 5,
+        review_site: 2,
+        youtube_creator: 2,
+        complementary_partner: 1
       },
       responseHash: "runtime-research-hash"
     }
