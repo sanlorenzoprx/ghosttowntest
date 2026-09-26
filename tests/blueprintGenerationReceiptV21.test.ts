@@ -137,7 +137,7 @@ function v21Blueprint() {
   blueprint.status = 'ready';
   blueprint.qualityGate = { passed: true, failures: [], warnings: [] };
   blueprint.generationReceipt.vertexPipeline = {
-    pipelineVersion: 'vertex-blueprint-staged-v2',
+    pipelineVersion: 'vertex-blueprint-staged-v3',
     required: true,
     status: 'complete',
     stages: [
@@ -145,6 +145,7 @@ function v21Blueprint() {
       stage('strategy_synthesis'),
       stage('strategic_coherence_gate'),
       stage('asset_generation'),
+      stage('customer_copy_edit'),
       stage('red_team_review')
     ],
     redTeam: { passed: true, findings: [] },
@@ -272,12 +273,13 @@ describe('Blueprint v2.1 Step 3 generation and evidence receipts', () => {
       location: 'us-central1',
       configuredModel: 'gemini-2.5-flash'
     });
-    expect(prepared.vertex.stages).toHaveLength(5);
+    expect(prepared.vertex.stages).toHaveLength(6);
     expect(prepared.vertex.stages.map(stage => stage.stage)).toEqual([
       'evidence_normalization',
       'strategy_synthesis',
       'strategic_coherence_gate',
       'asset_generation',
+      'customer_copy_edit',
       'red_team_review'
     ]);
     expect(prepared.hashes.normalizedInputSha256).toMatch(/^[a-f0-9]{64}$/);

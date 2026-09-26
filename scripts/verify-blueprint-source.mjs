@@ -57,20 +57,20 @@ try {
 
 // Keep the v2.1.4 compatibility fields for roadmap scripts that were built
 // before the calendar/Copilot amendments, but require the actual source-chain
-// tip to advance through the approved v2.1.5, v2.1.6, v2.1.7, v2.1.8, and v2.1.9 decisions.
+// tip to advance through the approved v2.1.5 through v2.1.10 decisions.
 if (manifest?.changeId !== 'GT-BP-2026-08-15-V2.1.4') {
   fail('Evidence manifest no longer preserves the v2.1.4 compatibility change ID.');
 }
 if (manifest?.previousChangeId !== 'GT-BP-2026-08-15-V2.1.3') {
   fail('Evidence manifest no longer preserves the v2.1.3 compatibility predecessor.');
 }
-if (manifest?.chainTip?.changeId !== 'GT-BP-2026-09-26-V2.1.9') {
-  fail('Evidence chain tip is not the approved v2.1.9 Evidence Recency and Current-Activity Integrity change ID.');
+if (manifest?.chainTip?.changeId !== 'GT-BP-2026-09-26-V2.1.10') {
+  fail('Evidence chain tip is not the approved v2.1.10 Customer Copy Integrity change ID.');
 }
-if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-09-26-V2.1.8') {
-  fail('Evidence chain tip does not preserve the v2.1.8 Research Role and Customer Access predecessor.');
+if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-09-26-V2.1.9') {
+  fail('Evidence chain tip does not preserve the v2.1.9 Evidence Recency and Current-Activity predecessor.');
 }
-if (manifest?.chainTip?.version !== '2.1.9') fail('Evidence chain tip version must be 2.1.9.');
+if (manifest?.chainTip?.version !== '2.1.10') fail('Evidence chain tip version must be 2.1.10.');
 
 const canonical = verifyTrackedSource(manifest.canonical, 'Canonical Blueprint');
 const platformAmendment = verifyTrackedSource(manifest.platformAmendment, 'v2.1.2 Vertex AI platform amendment');
@@ -92,6 +92,9 @@ const researchRoleEvidence = verifyTrackedSource(manifest.researchRoleCustomerAc
 const recencyAmendment = verifyTrackedSource(manifest.evidenceRecencyCurrentActivityAmendment, 'v2.1.9 Evidence Recency and Current-Activity Integrity amendment');
 const recencyChangeRecord = verifyTrackedSource(manifest.evidenceRecencyCurrentActivityChangeRecord, 'v2.1.9 change record');
 const recencyEvidence = verifyTrackedSource(manifest.evidenceRecencyCurrentActivityEvidence, 'v2.1.9 implementation evidence');
+const copyIntegrityAmendment = verifyTrackedSource(manifest.customerCopyIntegrityAmendment, 'v2.1.10 Customer Copy Integrity amendment');
+const copyIntegrityChangeRecord = verifyTrackedSource(manifest.customerCopyIntegrityChangeRecord, 'v2.1.10 change record');
+const copyIntegrityEvidence = verifyTrackedSource(manifest.customerCopyIntegrityEvidence, 'v2.1.10 implementation evidence');
 
 const authorityClause =
   'The canonical Blueprint is the authoritative product and implementation guide. Every Factory slice must revalidate its exact hash before execution.';
@@ -263,7 +266,7 @@ if (manifest?.evidenceRecencyCurrentActivityEvidence?.path !== 'docs/blueprint-e
 }
 try {
   const evidence = JSON.parse(recencyEvidence.source);
-  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.9 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.changeId !== manifest.evidenceRecencyCurrentActivityAmendment.changeId) fail('v2.1.9 implementation evidence change ID does not match the v2.1.9 amendment.');
   if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1) fail('v2.1.9 implementation evidence does not preserve the canonical Blueprint hash.');
   if (evidence?.canonical?.sourceModified !== false) fail('v2.1.9 implementation evidence must state that the canonical source was not modified.');
   if (evidence?.policy?.researchDateMaySubstituteForEvidenceDate !== false) fail('v2.1.9 must prohibit research date from substituting for evidence date.');
@@ -293,6 +296,45 @@ try {
   fail(`Unable to verify v2.1.9 implementation evidence: ${error.message}`);
 }
 
+const copyIntegrityDecision = 'Source meaning is authoritative. Customer-facing wording is editable.';
+requireText(copyIntegrityAmendment.source, copyIntegrityDecision, 'v2.1.10 Customer Copy Integrity product decision');
+for (const required of [
+  'vertex-blueprint-staged-v3',
+  'customer_copy_edit',
+  'approximately **8th-grade comprehension**',
+  'Reuse the validation method. Rewrite the customer language.',
+  'review/removal date of **2026-10-10**',
+  'Surface wording must be corrected when it is obviously wrong, generic, unreadable, or mismatched to the customer.'
+]) requireText(copyIntegrityAmendment.source, required, 'v2.1.10 Customer Copy Integrity amendment');
+requireText(copyIntegrityChangeRecord.source, 'Source meaning is authoritative. Customer-facing wording is editable.', 'v2.1.10 change record decision');
+requireText(copyIntegrityChangeRecord.source, 'Weakening approved outcomes remains prohibited.', 'v2.1.10 change record outcome protection');
+
+if (manifest?.customerCopyIntegrityEvidence?.path !== 'docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.10-customer-copy-integrity-evidence.json') {
+  fail('Evidence chain does not reference the v2.1.10 Customer Copy Integrity implementation evidence.');
+}
+try {
+  const evidence = JSON.parse(copyIntegrityEvidence.source);
+  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.10 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1) fail('v2.1.10 implementation evidence does not preserve the canonical Blueprint hash.');
+  if (evidence?.canonical?.sourceModified !== false) fail('v2.1.10 implementation evidence must state that the canonical source was not modified.');
+  if (evidence?.pipeline?.version !== 'vertex-blueprint-staged-v3') fail('v2.1.10 must require pipeline v3.');
+  if (evidence?.pipeline?.order?.join(',') !== 'evidence_normalization,strategy_synthesis,strategic_coherence_gate,asset_generation,customer_copy_edit,red_team_review') fail('v2.1.10 pipeline order must place customer copy editing after asset generation and before red-team review.');
+  if (evidence?.pipeline?.copyEditorBeforeRedTeam !== true) fail('v2.1.10 evidence must prove the editor precedes red-team review.');
+  if (evidence?.copyPolicy?.targetGradeLevel !== 8 || evidence?.copyPolicy?.deterministicReleaseMaxGrade !== 10) fail('v2.1.10 readability policy changed without a versioned decision.');
+  if (evidence?.copyPolicy?.sourceMeaningImmutable !== true || evidence?.copyPolicy?.surfaceWordingEditable !== true) fail('v2.1.10 must preserve source meaning while allowing surface edits.');
+  if (evidence?.copyPolicy?.protectedPricesDatesCountsUrlsIds !== true) fail('v2.1.10 must protect prices, dates, counts, URLs, and IDs from copy editing.');
+  if (evidence?.falsification?.typoPropagation?.blocked !== true || evidence?.falsification?.consumerB2BLeakage?.blocked !== true || evidence?.falsification?.genericTemplateLeakage?.blocked !== true || evidence?.falsification?.protectedPriceMutation?.blocked !== true) fail('v2.1.10 falsification coverage is incomplete.');
+  if (evidence?.validation?.focusedTests?.failed !== 0 || evidence?.validation?.focusedTests?.passed < 19) fail('v2.1.10 focused copy-integrity regression evidence is incomplete.');
+  if (evidence?.validation?.workerPersistence?.failed !== 0 || evidence?.validation?.workerPersistence?.passed < 3) fail('v2.1.10 Worker persistence evidence is incomplete.');
+  if (evidence?.validation?.typecheck?.passed !== true || evidence?.validation?.languageWrapper?.passed !== true) fail('v2.1.10 typecheck/language-wrapper evidence is incomplete.');
+  if (evidence?.validation?.blueprintVerification?.passed !== true || evidence?.validation?.blueprintVerification?.chainTip !== '2.1.10') fail('v2.1.10 Blueprint verification evidence is incomplete.');
+  if (evidence?.validation?.guardedBuild?.passed !== true || evidence?.validation?.acceptanceWorkerDryRun?.passed !== true) fail('v2.1.10 guarded build or acceptance Worker dry-run evidence is incomplete.');
+  if (evidence?.validation?.productionDeploymentPerformed !== false) fail('v2.1.10 evidence must not claim a production deployment.');
+  if (evidence?.temporaryLanguageWrapper?.reviewOrRemoveAfter !== '2026-10-10') fail('v2.1.10 temporary language wrapper review date changed without an explicit decision.');
+} catch (error) {
+  fail(`Unable to verify v2.1.10 implementation evidence: ${error.message}`);
+}
+
 if (manifest?.outcomeProtection?.weakeningAllowed !== false) {
   fail('Evidence manifest must explicitly prohibit weakening the approved customer outcome.');
 }
@@ -308,9 +350,9 @@ for (const required of [
 }
 
 console.log(
-  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${recencyAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
+  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${copyIntegrityAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
   `base ${manifest.canonical.version} ${canonical.actualHash}; platform ${manifest.platformAmendment.version} ${platformAmendment.actualHash}; ` +
   `website ${manifest.previousAmendment.version} ${websiteAmendment.actualHash}; spa ${manifest.amendment.version} ${spaAmendment.actualHash}; ` +
   `calendar ${manifest.calendarAmendment.version} ${calendarAmendment.actualHash}; execution ${manifest.executionIntelligenceAmendment.version} ${executionAmendment.actualHash}; ` +
-  `coherence ${coherenceAmendment.actualHash}; research-role ${researchRoleAmendment.actualHash}; recency-change-record ${recencyChangeRecord.actualHash}`
+  `coherence ${coherenceAmendment.actualHash}; research-role ${researchRoleAmendment.actualHash}; recency ${recencyAmendment.actualHash}; copy-integrity-change-record ${copyIntegrityChangeRecord.actualHash}`
 );
