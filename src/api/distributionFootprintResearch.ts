@@ -3,12 +3,22 @@ import type { EvaluationResult } from '../types/lit';
 import type { PaidTestOrder, CompetitorSeed } from '../types/paidTest';
 import type {
   BlueprintSource,
+  CurrentActivityStatus,
   CustomerAccessChannel,
-  DistributionTargetType
+  DistributionTargetType,
+  EvidenceDateSource,
+  EvidenceRecency
 } from '../types/launchBlueprint';
 import type { CustomerAccessResearchInput } from './launchBlueprintGenerator';
 import { generateAI } from './generativeAIService';
 import { researchEvidenceRoleForTargetType, researchEvidenceRoleReason } from './researchEvidenceRole';
+import {
+  activityLevelFromDate,
+  currentActivityStatusFromDate,
+  evidenceRecencyFromDate,
+  extractEvidenceDateFromHtml,
+  normalizedEvidenceDate
+} from './evidenceRecency';
 
 const DATAFORSEO_ENDPOINT = 'https://api.dataforseo.com/v3/backlinks/backlinks/live';
 const PODCAST_INDEX_ENDPOINT = 'https://api.podcastindex.org/api/1.0/search/byterm';
@@ -76,6 +86,12 @@ export interface FootprintCandidate {
   platform: string;
   activity: CustomerAccessChannel['activity'];
   confidence: CustomerAccessChannel['confidence'];
+  evidenceDate?: string;
+  evidenceDateSource: EvidenceDateSource;
+  evidenceRecency: EvidenceRecency;
+  currentActivityStatus: CurrentActivityStatus;
+  currentActivityVerifiedAt?: string;
+  currentActivityEvidence: string;
   factualSignals: string[];
   competitorEvidence: string[];
   audienceOwner: string;
@@ -177,6 +193,8 @@ interface VerifiedPage {
   title: string;
   publisher: string;
   description: string;
+  evidenceDate?: string;
+  evidenceDateSource: EvidenceDateSource;
 }
 
 function text(value: unknown, fallback = ''): string {
@@ -312,20 +330,16 @@ async function verifyOriginalPage(rawUrl: string): Promise<VerifiedPage> {
     : '';
   if (!html) await response.body?.cancel().catch(() => undefined);
   const publisher = final.hostname.replace(/^www\./, '');
+  const title = pageTitle(html) || publisher;
+  const dated = extractEvidenceDateFromHtml(html, final.toString(), title);
   return {
     finalUrl: final.toString().replace(/\/$/, ''),
-    title: pageTitle(html) || publisher,
+    title,
     publisher,
-    description: pageDescription(html)
+    description: pageDescription(html),
+    evidenceDate: dated.date,
+    evidenceDateSource: dated.source
   };
-}
-
-function activityFromDate(value: string | number | undefined): CustomerAccessChannel['activity'] {
-  if (!value) return 'uncertain';
-  const timestamp = typeof value === 'number' ? value * 1000 : Date.parse(value);
-  if (!Number.isFinite(timestamp)) return 'uncertain';
-  const ageDays = (Date.now() - timestamp) / 86400000;
-  return ageDays <= 45 ? 'recent' : ageDays <= 150 ? 'active' : ageDays <= 450 ? 'occasional' : 'uncertain';
 }
 
 function inferTargetType(value: string, provider: DistributionProvider): DistributionTargetType {
@@ -428,6 +442,8 @@ async function dataForSeoCandidates(env: Env, seed: CompetitorSeed): Promise<Foo
         item.dofollow === true ? 'The observed backlink is dofollow.' : 'The observed backlink may be nofollow or unspecified.'
       ];
       const type = inferTargetType(`${page.title} ${page.description} ${item.item_type || ''} ${(item.domain_from_platform_type || []).join(' ')}`, 'dataforseo_backlinks');
+      const observedAt = new Date().toISOString();
+      const backlinkObservedDate = normalizedEvidenceDate(item.last_seen || item.first_seen);
       return {
         candidateId: candidateId('dataforseo_backlinks', page.finalUrl),
         provider: 'dataforseo_backlinks' as const,
@@ -436,12 +452,19 @@ async function dataForSeoCandidates(env: Env, seed: CompetitorSeed): Promise<Foo
         publicUrl: page.finalUrl,
         publisher: page.publisher,
         platform: type === 'newsletter_or_publication' ? 'Publication or newsletter' : type.replace(/_/g, ' '),
-        activity: activityFromDate(item.last_seen || item.first_seen),
+        activity: 'uncertain' as const,
         confidence: 'high' as const,
+        evidenceDate: page.evidenceDate,
+        evidenceDateSource: page.evidenceDateSource,
+        evidenceRecency: evidenceRecencyFromDate(page.evidenceDate),
+        currentActivityStatus: 'unverified' as const,
+        currentActivityEvidence: backlinkObservedDate
+          ? `DataForSEO observed the backlink on ${backlinkObservedDate.slice(0, 10)}, but backlink freshness does not prove the publication, event, or organization is currently active.`
+          : 'The page is publicly reachable, but current publisher/channel activity was not independently verified.',
         factualSignals: [page.description, `Referring domain: ${text(item.domain_from)}`].filter(Boolean),
         competitorEvidence: evidence,
         audienceOwner: page.publisher,
-        observedAt: new Date().toISOString()
+        observedAt
       };
     } catch {
       return null;
@@ -478,6 +501,9 @@ async function podcastCandidates(env: Env, query: string, seedName?: string): Pr
     try {
       const page = await verifyOriginalPage(text(feed.link));
       const title = text(feed.title, page.title);
+      const observedAt = new Date().toISOString();
+      const evidenceDate = normalizedEvidenceDate(feed.lastUpdateTime);
+      const currentActivityStatus = currentActivityStatusFromDate(feed.lastUpdateTime);
       return {
         candidateId: candidateId('podcast_index', page.finalUrl),
         provider: 'podcast_index' as const,
@@ -486,12 +512,20 @@ async function podcastCandidates(env: Env, query: string, seedName?: string): Pr
         publicUrl: page.finalUrl,
         publisher: text(feed.author, page.publisher),
         platform: 'Podcast',
-        activity: activityFromDate(feed.lastUpdateTime),
+        activity: activityLevelFromDate(feed.lastUpdateTime),
         confidence: 'high' as const,
+        evidenceDate,
+        evidenceDateSource: evidenceDate ? 'provider_activity' as const : 'unknown' as const,
+        evidenceRecency: evidenceRecencyFromDate(feed.lastUpdateTime),
+        currentActivityStatus,
+        currentActivityVerifiedAt: currentActivityStatus === 'unverified' ? undefined : observedAt,
+        currentActivityEvidence: evidenceDate
+          ? `Podcast Index reports the feed last updated on ${evidenceDate.slice(0, 10)}.`
+          : 'Podcast Index did not provide a usable last-update date.',
         factualSignals: [text(feed.author) ? `Host or publisher: ${text(feed.author)}` : '', text(feed.language) ? `Language: ${text(feed.language)}` : '', page.description].filter(Boolean),
         competitorEvidence: [seedName ? `Podcast Index matched this show to competitor seed ${seedName}.` : `Podcast Index matched this show to the customer category query: ${query}.`],
         audienceOwner: text(feed.author, page.publisher),
-        observedAt: new Date().toISOString()
+        observedAt
       };
     } catch {
       return null;
@@ -522,6 +556,9 @@ async function youtubeCandidates(env: Env, query: string, seedName?: string): Pr
     seen.add(channelIdValue);
     const publicUrl = `https://www.youtube.com/channel/${encodeURIComponent(channelIdValue)}`;
     const channelTitle = text(item.snippet?.channelTitle, 'YouTube creator');
+    const observedAt = new Date().toISOString();
+    const evidenceDate = normalizedEvidenceDate(item.snippet?.publishedAt);
+    const currentActivityStatus = currentActivityStatusFromDate(item.snippet?.publishedAt);
     candidates.push({
       candidateId: candidateId('youtube_api', publicUrl),
       provider: 'youtube_api',
@@ -530,12 +567,20 @@ async function youtubeCandidates(env: Env, query: string, seedName?: string): Pr
       publicUrl,
       publisher: channelTitle,
       platform: 'YouTube creator',
-      activity: activityFromDate(item.snippet?.publishedAt),
+      activity: activityLevelFromDate(item.snippet?.publishedAt),
       confidence: 'high',
+      evidenceDate,
+      evidenceDateSource: evidenceDate ? 'provider_activity' : 'unknown',
+      evidenceRecency: evidenceRecencyFromDate(item.snippet?.publishedAt),
+      currentActivityStatus,
+      currentActivityVerifiedAt: currentActivityStatus === 'unverified' ? undefined : observedAt,
+      currentActivityEvidence: evidenceDate
+        ? `YouTube returned a matching video published on ${evidenceDate.slice(0, 10)}; this date, not the research date, is the activity signal.`
+        : 'YouTube did not provide a usable matching-video publication date.',
       factualSignals: [text(item.snippet?.title) ? `Matching video: ${text(item.snippet?.title)}` : '', text(item.snippet?.description).slice(0, 240)].filter(Boolean),
-      competitorEvidence: [seedName ? `YouTube returned a recent video from this creator for competitor seed ${seedName}.` : `YouTube returned a relevant video for category query: ${query}.`],
+      competitorEvidence: [seedName ? `YouTube returned a matching video from this creator for competitor seed ${seedName}.` : `YouTube returned a relevant video for category query: ${query}.`],
       audienceOwner: channelTitle,
-      observedAt: new Date().toISOString()
+      observedAt
     });
     if (candidates.length >= 12) break;
   }
@@ -551,7 +596,7 @@ async function groundedCustomerAccessCandidates(env: Env, query: string): Promis
     timeoutMs: 45_000,
     prompt: [
       'Find public online places where the target buyers themselves currently discuss this problem and where a founder can participate or request a conversation.',
-      'Prioritize public forums, discussion communities, support communities, message boards, public groups, and question/discussion pages.',
+      'Prioritize public forums, discussion communities, support communities, message boards, public groups, and question/discussion pages with a visible post/activity date within the last 120 days.',
       'Exclude podcasts, creator channels, news articles, generic blogs, vendor pages, directories, review articles, conferences, and associations unless the returned URL itself is a public buyer discussion/community surface.',
       'Do not claim that audience members are buyers unless the source itself shows the target people discussing the problem.',
       'Return a concise research summary grounded in Google Search; source selection matters more than prose.',
@@ -578,6 +623,10 @@ async function groundedCustomerAccessCandidates(env: Env, query: string): Promis
       const page = await verifyOriginalPage(safe.toString());
       const type = inferTargetType(`${page.finalUrl} ${groundedTitle} ${page.title} ${page.description}`, 'google_grounded_customer_access');
       if (type !== 'community') continue;
+      const observedAt = new Date().toISOString();
+      const currentActivityStatus = page.evidenceDateSource === 'published_metadata'
+        ? currentActivityStatusFromDate(page.evidenceDate)
+        : 'unverified';
       candidates.push({
         candidateId: candidateId('google_grounded_customer_access', page.finalUrl),
         provider: 'google_grounded_customer_access',
@@ -586,15 +635,25 @@ async function groundedCustomerAccessCandidates(env: Env, query: string): Promis
         publicUrl: page.finalUrl,
         publisher: page.publisher,
         platform: 'Public buyer community',
-        activity: 'active',
-        confidence: 'high',
+        activity: activityLevelFromDate(page.evidenceDate),
+        confidence: currentActivityStatus === 'verified_current' ? 'high' : 'medium',
+        evidenceDate: page.evidenceDate,
+        evidenceDateSource: page.evidenceDateSource,
+        evidenceRecency: evidenceRecencyFromDate(page.evidenceDate),
+        currentActivityStatus,
+        currentActivityVerifiedAt: currentActivityStatus === 'unverified' ? undefined : observedAt,
+        currentActivityEvidence: currentActivityStatus !== 'unverified' && page.evidenceDate
+          ? `The public discussion page is reachable now and exposes dated page/activity metadata from ${page.evidenceDate.slice(0, 10)}.`
+          : page.evidenceDate
+            ? `The public discussion page is reachable now and contains a year/date clue (${page.evidenceDate.slice(0, 10)}), but GhostTown could not independently verify it as current page/activity metadata.`
+            : 'The public discussion page is reachable now, but GhostTown could not verify a dated recent activity signal.',
         factualSignals: [
           `Google-grounded search returned this public discussion/community source for the direct customer-access query: ${query}.`,
           page.description
         ].filter(Boolean),
         competitorEvidence: [],
         audienceOwner: page.publisher,
-        observedAt: new Date().toISOString()
+        observedAt
       });
       if (candidates.length >= 12) break;
     } catch {
@@ -690,6 +749,11 @@ ${JSON.stringify(candidates.map(candidate => ({
     publisher: candidate.publisher,
     platform: candidate.platform,
     activity: candidate.activity,
+    evidenceDate: candidate.evidenceDate,
+    evidenceDateSource: candidate.evidenceDateSource,
+    evidenceRecency: candidate.evidenceRecency,
+    currentActivityStatus: candidate.currentActivityStatus,
+    currentActivityEvidence: candidate.currentActivityEvidence,
     factualSignals: candidate.factualSignals,
     competitorEvidence: candidate.competitorEvidence
   })))} `;
@@ -716,9 +780,10 @@ function discoveredThrough(provider: DistributionProvider): NonNullable<Customer
 
 function score(candidate: FootprintCandidate): number {
   const activity = { recent: 5, active: 4, occasional: 2, uncertain: 0 }[candidate.activity];
+  const currentActivity = candidate.currentActivityStatus === 'verified_current' ? 6 : candidate.currentActivityStatus === 'verified_inactive' ? -2 : 0;
   const role = researchEvidenceRoleForTargetType(candidate.targetTypeHint);
   const rolePriority = role === 'customer_access' ? 7 : role === 'partnership' ? 3 : role === 'media_pr' ? 2 : 1;
-  return activity + rolePriority + Math.min(4, candidate.competitorEvidence.length);
+  return activity + currentActivity + rolePriority + Math.min(4, candidate.competitorEvidence.length);
 }
 
 export async function finalizeCustomerAccessResearch(
@@ -791,6 +856,12 @@ export async function finalizeCustomerAccessResearch(
       firstAction: text(selected.firstAction, 'Open the public source, identify its current public access route, and personalize the prepared asset.'),
       confidence: candidate.confidence,
       researchDate,
+      evidenceDate: candidate.evidenceDate,
+      evidenceDateSource: candidate.evidenceDateSource,
+      evidenceRecency: candidate.evidenceRecency,
+      currentActivityStatus: candidate.currentActivityStatus,
+      currentActivityVerifiedAt: candidate.currentActivityVerifiedAt,
+      currentActivityEvidence: candidate.currentActivityEvidence,
       sourceIds: [recordSourceId],
       targetType: type,
       evidenceRole: researchEvidenceRoleForTargetType(type),
@@ -808,6 +879,9 @@ export async function finalizeCustomerAccessResearch(
       url: candidate.publicUrl,
       publisher: candidate.publisher,
       accessedAt: candidate.observedAt,
+      evidenceDate: candidate.evidenceDate,
+      evidenceDateSource: candidate.evidenceDateSource,
+      evidenceRecency: candidate.evidenceRecency,
       supports: [...candidate.competitorEvidence, ...candidate.factualSignals].slice(0, 8)
     });
     if (channels.length >= MAX_CHANNELS) break;
@@ -819,7 +893,7 @@ export async function finalizeCustomerAccessResearch(
     return counts;
   }, {});
   const mediaTypes = new Set(channels.map(channel => channel.targetType).filter(Boolean));
-  const customerAccessCount = channels.filter(channel => channel.evidenceRole === 'customer_access').length;
+  const customerAccessCount = channels.filter(channel => channel.evidenceRole === 'customer_access' && channel.currentActivityStatus === 'verified_current' && channel.currentActivityVerifiedAt).length;
   const complete = channels.length >= MIN_CHANNELS && mediaTypes.size >= 3 && customerAccessCount >= 3;
   if (!complete) throw new Error(`Research & Customer Access failed its quality gate: ${channels.length} targets across ${mediaTypes.size} target types, with ${customerAccessCount} direct customer-access targets; at least 3 are required`);
 

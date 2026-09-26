@@ -432,12 +432,12 @@ export default function LaunchBlueprintViewV21({ orderId, onBack, initialPayload
         <section className="rounded-2xl bg-ghost-ink p-7 text-white">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-gold">Research roles</p>
           <h2 className="mt-2 text-3xl font-black">Know which evidence can actually reach a buyer.</h2>
-          <p className="mt-3 text-white/75">Only Direct Customer Access can drive first-revenue outreach. Market evidence, Media / PR, and Partnerships remain useful, but they cannot substitute for a route to the buyer.</p>
+          <p className="mt-3 text-white/75">Only Direct Customer Access with current activity independently verified can drive first-revenue outreach. Evidence date and research date are shown separately so an old article cannot look current merely because GhostTown checked it today.</p>
         </section>
         {(["customer_access","market_evidence","media_pr","partnership"] as const).map(role => {
           const channels = blueprint.customerAccessPack.channels.filter(channel => researchEvidenceRole(channel) === role);
           const boundary = role === "customer_access"
-            ? "Use these for direct customer conversations and first-revenue work."
+            ? "Use only targets marked verified current for direct customer conversations and first-revenue work. Stale or unverified targets stay visible as supporting evidence but are not acquisition routes."
             : role === "market_evidence"
               ? "Use these to understand competitors, alternatives, reviews, and category behavior. Do not treat them as sales channels."
               : role === "media_pr"
@@ -453,6 +453,8 @@ export default function LaunchBlueprintViewV21({ orderId, onBack, initialPayload
                 <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-black">{channel.community}</h3><span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-black uppercase">{channel.targetType?.replace(/_/g," ") || "target"}</span></div>
                 <p className="mt-2 text-sm text-gray-700">{channel.relevance}</p>
                 <p className="mt-3 text-xs font-black uppercase text-gray-500">Role boundary</p><p className="mt-1 text-sm text-gray-700">{channel.evidenceRoleReason || boundary}</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2"><div><p className="text-xs font-black uppercase text-gray-500">Evidence dated</p><p className="mt-1 text-sm text-gray-700">{channel.evidenceDate ? new Date(channel.evidenceDate).toLocaleDateString() : "Unknown"} · {channel.evidenceRecency || "unknown"}</p></div><div><p className="text-xs font-black uppercase text-gray-500">Research checked</p><p className="mt-1 text-sm text-gray-700">{channel.researchDate}</p></div><div><p className="text-xs font-black uppercase text-gray-500">Current activity</p><p className="mt-1 text-sm text-gray-700">{(channel.currentActivityStatus || "unverified").replace(/_/g," ")}{channel.currentActivityVerifiedAt ? ` · verified ${new Date(channel.currentActivityVerifiedAt).toLocaleDateString()}` : ""}</p></div><div><p className="text-xs font-black uppercase text-gray-500">Evidence confidence</p><p className="mt-1 text-sm text-gray-700">{channel.confidence}</p></div></div>
+                <p className="mt-3 text-xs font-black uppercase text-gray-500">Current activity evidence</p><p className="mt-1 text-sm text-gray-700">{channel.currentActivityEvidence || "Current activity was not independently verified."}</p>
                 <p className="mt-3 text-xs font-black uppercase text-gray-500">Public path</p><p className="mt-1 text-sm text-gray-700">{channel.accessPath || channel.recommendedApproach}</p>
                 <p className="mt-3 text-xs font-black uppercase text-gray-500">First action</p><p className="mt-1 text-sm text-gray-700">{channel.firstAction}</p>
                 <a className="mt-3 inline-block text-sm font-black text-ghost-rust" href={channel.publicUrl} target="_blank" rel="noreferrer">Open source ↗</a>

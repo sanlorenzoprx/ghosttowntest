@@ -28,6 +28,20 @@ export function directCustomerAccessChannels<T extends Pick<CustomerAccessChanne
   return channels.filter(isCustomerAccessChannel);
 }
 
+export function isCurrentCustomerAccessChannel(
+  channel: Pick<CustomerAccessChannel, 'evidenceRole' | 'targetType' | 'currentActivityStatus' | 'currentActivityVerifiedAt'>
+): boolean {
+  return isCustomerAccessChannel(channel)
+    && channel.currentActivityStatus === 'verified_current'
+    && Boolean(channel.currentActivityVerifiedAt);
+}
+
+export function currentCustomerAccessChannels<
+  T extends Pick<CustomerAccessChannel, 'evidenceRole' | 'targetType' | 'currentActivityStatus' | 'currentActivityVerifiedAt'>
+>(channels: T[]): T[] {
+  return channels.filter(isCurrentCustomerAccessChannel);
+}
+
 export function researchEvidenceRoleReason(role: ResearchEvidenceRole): string {
   if (role === 'customer_access') {
     return 'A public community or discussion route where prospective buyers may be approached directly. Buyer presence and qualification still require observation.';

@@ -3,6 +3,9 @@ import type { TruthLabel } from './paidTest';
 export type BlueprintStatus = 'ready' | 'in_progress' | 'completed' | 'failed_quality_gate';
 export type ResearchConfidence = 'high' | 'medium' | 'low' | 'unverified';
 export type ActivityLevel = 'recent' | 'active' | 'occasional' | 'uncertain';
+export type EvidenceRecency = 'current' | 'recent' | 'stale' | 'unknown';
+export type EvidenceDateSource = 'published_metadata' | 'provider_activity' | 'page_year' | 'unknown';
+export type CurrentActivityStatus = 'verified_current' | 'verified_inactive' | 'unverified';
 export type BlueprintDecision = 'continue' | 'revise' | 'pivot' | 'stop';
 export type ResearchEvidenceRole = 'customer_access' | 'market_evidence' | 'media_pr' | 'partnership';
 export type DistributionTargetType =
@@ -21,6 +24,9 @@ export interface BlueprintSource {
   url: string;
   publisher?: string;
   accessedAt: string;
+  evidenceDate?: string;
+  evidenceDateSource?: EvidenceDateSource;
+  evidenceRecency?: EvidenceRecency;
   supports: string[];
 }
 
@@ -91,6 +97,12 @@ export interface CustomerAccessChannel {
   firstAction: string;
   confidence: ResearchConfidence;
   researchDate: string;
+  evidenceDate?: string;
+  evidenceDateSource?: EvidenceDateSource;
+  evidenceRecency?: EvidenceRecency;
+  currentActivityStatus?: CurrentActivityStatus;
+  currentActivityVerifiedAt?: string;
+  currentActivityEvidence?: string;
   sourceIds: string[];
   targetType?: DistributionTargetType;
   evidenceRole?: ResearchEvidenceRole;

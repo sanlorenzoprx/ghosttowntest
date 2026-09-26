@@ -68,6 +68,7 @@ export interface BlueprintDocumentAccessResource {
 export interface BlueprintDocumentAccessTarget {
   targetId: string; name: string; publicUrl: string; sourceRefs: string[]; researchDate: string;
   targetType: string; evidenceRole: ResearchEvidenceRole; confidence: string; accessPath: string; risk: string;
+  evidenceDate?: string; evidenceRecency: string; currentActivityStatus: string; currentActivityVerifiedAt?: string; currentActivityEvidence: string;
   matchedAssetOrScript: BlueprintDocumentAccessResource; firstAction: string;
 }
 export interface BlueprintSupportingDocumentSection { sectionId: string; title: string; content: string[]; sourceRefs: string[]; }
@@ -167,6 +168,9 @@ export function composeBlueprintDocumentModel(blueprint: GhostTownLaunchBlueprin
     targetId: channel.channelId, name: channel.community, publicUrl: channel.publicUrl,
     sourceRefs: channel.sourceIds, researchDate: channel.researchDate,
     targetType: channel.targetType || 'community', evidenceRole: researchEvidenceRole(channel), confidence: channel.confidence,
+    evidenceDate: channel.evidenceDate, evidenceRecency: channel.evidenceRecency || 'unknown',
+    currentActivityStatus: channel.currentActivityStatus || 'unverified', currentActivityVerifiedAt: channel.currentActivityVerifiedAt,
+    currentActivityEvidence: channel.currentActivityEvidence || 'Current activity was not independently verified.',
     accessPath: channel.accessPath || channel.recommendedApproach || channel.platform,
     risk: channel.risk, matchedAssetOrScript: accessResource(channel), firstAction: channel.firstAction
   });
@@ -201,7 +205,7 @@ export function composeBlueprintDocumentModel(blueprint: GhostTownLaunchBlueprin
       [...day16.assets, ...day20.assets, ...day21.assets].map(asset), packetMeasurement(day21), packetAdaptation(day21), unique([...day16.targets.flatMap(target => target.sourceIds), ...sources])),
     { ...section('customer_access_network', 'Research and Customer Access', 'Use Direct Customer Access for first-revenue work. Keep market evidence, media/PR, and partnerships in their own lanes.',
       'Each target is public and source-linked, but only targets classified as customer_access are eligible to drive direct buyer acquisition.',
-      channels.map(channel => evidence(`access:${channel.channelId}`, `${channel.community} | ${channel.publicUrl} | ${channel.relevance} | ${channel.researchDate} | confidence: ${channel.confidence} | access: ${channel.accessPath || channel.platform} | risk: ${channel.risk} | first action: ${channel.firstAction}`, channel.confidence === 'high' ? 'Verified' : 'Inferred', channel.sourceIds)),
+      channels.map(channel => evidence(`access:${channel.channelId}`, `${channel.community} | ${channel.publicUrl} | evidence dated: ${channel.evidenceDate || 'unknown'} (${channel.evidenceRecency || 'unknown'}) | researched: ${channel.researchDate} | current activity: ${channel.currentActivityStatus || 'unverified'}${channel.currentActivityVerifiedAt ? ` verified ${channel.currentActivityVerifiedAt}` : ''} | evidence confidence: ${channel.confidence} | access: ${channel.accessPath || channel.platform} | risk: ${channel.risk} | first action: ${channel.firstAction}`, channel.confidence === 'high' ? 'Verified' : 'Inferred', channel.sourceIds)),
       [day1, day4].flatMap(value => value.assets).map(asset), packetMeasurement(day4), packetAdaptation(day7), channelRefs), accessGroups },
     section('today', `Today: Day ${today.dayNumber} — ${today.title}`, today.objective, today.whyThisDayExists,
       today.targets.map(target => evidence(`today:target:${target.targetId}`, `${target.name}: ${target.selectionOrQualificationRule}`, target.identityStatus === 'verified_public' ? 'Verified' : 'Inferred', target.sourceIds)),
@@ -252,11 +256,10 @@ export function validateBlueprintDocumentModel(model: BlueprintDocumentModel): s
   if (!access?.accessGroups || access.accessGroups.map(group => group.groupId).join(',') !== 'customer_access,market_evidence,media_pr,partnership') failures.push('access-groups');
   const targetIds = targets.map(target => target.targetId);
   if (new Set(targetIds).size !== targets.length) failures.push('access-target-duplicate');
-  if (targets.some(target => !target.publicUrl || !target.sourceRefs.length || !target.researchDate || !target.confidence || !target.accessPath || !target.risk || !target.matchedAssetOrScript?.resourceId || !target.firstAction)) failures.push('access-target-metadata');
+  if (targets.some(target => !target.publicUrl || !target.sourceRefs.length || !target.researchDate || !target.confidence || !target.evidenceRecency || !target.currentActivityStatus || !target.currentActivityEvidence || !target.accessPath || !target.risk || !target.matchedAssetOrScript?.resourceId || !target.firstAction)) failures.push('access-target-metadata');
   for (const group of access?.accessGroups || []) {
     if (group.targets.some(target => target.evidenceRole !== group.groupId)) failures.push(`access-role-classification:${group.groupId}`);
   }
-  if ((access?.accessGroups?.find(group => group.groupId === 'customer_access')?.targets.length || 0) < 3) failures.push('access-customer-access-count');
   if (!model.supportingSections.some(value => value.sectionId === 'full_30_day_plan' && value.content.length === 30)) failures.push('full-30-day-plan');
   return failures;
 }

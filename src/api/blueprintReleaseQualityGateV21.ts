@@ -1,7 +1,7 @@
 import type { Env } from './env';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
 import type { GhostTownLaunchBlueprintV21, BlueprintGenerationEvidenceReceipt } from '../types/launchBlueprintV21';
-import { directCustomerAccessChannels, researchEvidenceRole } from './researchEvidenceRole';
+import { currentCustomerAccessChannels, directCustomerAccessChannels, researchEvidenceRole } from './researchEvidenceRole';
 
 export type BlueprintReleaseBlockerCategoryV21 = 'strategy' | 'research' | 'asset' | 'calendar' | 'delivery';
 export type ResearchVerificationDimensionV21 =
@@ -32,6 +32,8 @@ export const BLUEPRINT_RELEASE_BLOCKER_CODES_V21 = {
     insufficientVerificationDimensions: 'RESEARCH_INSUFFICIENT_VERIFICATION_DIMENSIONS',
     fewerThanTenVerifiedCandidates: 'RESEARCH_FEWER_THAN_TEN_VERIFIED_CANDIDATES',
     fewerThanThreeCustomerAccessTargets: 'RESEARCH_FEWER_THAN_THREE_CUSTOMER_ACCESS_TARGETS',
+    missingRecencyMetadata: 'RESEARCH_MISSING_EVIDENCE_RECENCY_METADATA',
+    inconsistentCurrentActivityClaim: 'RESEARCH_INCONSISTENT_CURRENT_ACTIVITY_CLAIM',
     missingPublicSource: 'RESEARCH_MISSING_PUBLIC_SOURCE',
     missingResearchDate: 'RESEARCH_MISSING_RESEARCH_DATE',
     missingExecutionMetadata: 'RESEARCH_MISSING_CONFIDENCE_ACCESS_RISK_ASSET_SCRIPT_OR_FIRST_ACTION'
@@ -146,7 +148,7 @@ export function researchVerificationDimensionsV21(
     dimensions.add('competitor_alternative');
   }
 
-  const sourcedCustomerAccessTargets = directCustomerAccessChannels(channels).filter(channel =>
+  const sourcedCustomerAccessTargets = currentCustomerAccessChannels(channels).filter(channel =>
     publicHttps(channel.publicUrl)
     && channel.sourceIds.length > 0
     && channel.sourceIds.every(sourceId => sourceIds.has(sourceId))
@@ -258,7 +260,8 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
   const verificationDimensions = researchVerificationDimensionsV21(blueprint, research);
   const sourceIds = new Set(blueprint.sources.map(source => source.sourceId));
   const channels = blueprint.customerAccessPack.channels;
-  const customerAccess = directCustomerAccessChannels(channels);
+  const roleEligibleCustomerAccess = directCustomerAccessChannels(channels);
+  const customerAccess = currentCustomerAccessChannels(channels);
   const customerAccessLabels = new Set(customerAccess.map(channel => channel.community + ' via ' + channel.platform));
   const customerAccessIds = new Set(customerAccess.map(channel => channel.channelId));
   add(blockers, 'strategy', C.strategy.firstRevenueUsesNonCustomerAccess, 'First revenue channel is not a direct customer-access target.', 'firstRevenuePath.firstChannel', !customerAccessLabels.has(blueprint.firstRevenuePath.firstChannel));
@@ -270,6 +273,13 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
   const missingResearchDate = !hasText(research.research.researchDate) || !hasText(receipt.completedAt)
     || blueprint.sources.some(source => !hasText(source.accessedAt))
     || channels.some(channel => !hasText(channel.researchDate));
+  const missingRecencyMetadata = channels.some(channel => !hasText(channel.evidenceRecency)
+    || !hasText(channel.currentActivityStatus) || !hasText(channel.currentActivityEvidence))
+    || blueprint.sources.some(source => !hasText(source.evidenceRecency));
+  const inconsistentCurrentActivityClaim = channels.some(channel =>
+    (channel.activity === 'recent' || channel.activity === 'active')
+    && channel.currentActivityStatus !== 'verified_current'
+  );
   const missingExecutionMetadata = channels.some(channel => !hasText(channel.confidence)
     || !hasText(channel.accessPath) || !hasText(channel.risk) || !hasText(channel.preparedAsset)
     || !hasText(channel.outreachScriptId) || !hasText(channel.firstAction));
@@ -278,7 +288,9 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
   add(blockers, 'research', C.research.requiredProviderAttemptsNotExecuted, 'Required provider attempts not executed.', 'research.receipt.attemptedSourceCount', receipt.attemptedSourceCount < expectedProviderAttempts);
   add(blockers, 'research', C.research.insufficientVerificationDimensions, 'Fewer than three independent idea-verification dimensions.', 'research.verificationDimensions', verificationDimensions.length < 3);
   add(blockers, 'research', C.research.fewerThanTenVerifiedCandidates, 'Fewer than ten verified candidates.', 'research.receipt.candidateChannelCount', receipt.candidateChannelCount < 10);
-  add(blockers, 'research', C.research.fewerThanThreeCustomerAccessTargets, 'Fewer than three verified direct customer-access targets. Media, market, and partner evidence cannot substitute for buyer access.', 'customerAccessPack.channels', customerAccess.length < 3);
+  add(blockers, 'research', C.research.fewerThanThreeCustomerAccessTargets, `Fewer than three currently verified direct customer-access targets. Found ${roleEligibleCustomerAccess.length} role-eligible targets but only ${customerAccess.length} with current activity verified.`, 'customerAccessPack.channels', customerAccess.length < 3);
+  add(blockers, 'research', C.research.missingRecencyMetadata, 'Evidence recency and current-activity verification metadata must be explicit for every researched target and source.', 'customerAccessPack.channels', missingRecencyMetadata);
+  add(blockers, 'research', C.research.inconsistentCurrentActivityClaim, 'A target cannot be labeled recent or active unless current activity was independently verified.', 'customerAccessPack.channels', inconsistentCurrentActivityClaim);
   add(blockers, 'research', C.research.missingPublicSource, 'Missing public source.', 'sources', missingPublicSource);
   add(blockers, 'research', C.research.missingResearchDate, 'Missing research date.', 'generationReceipt.researchDate', missingResearchDate);
   add(blockers, 'research', C.research.missingExecutionMetadata, 'Missing confidence, access path, risk, prepared asset, script, or first action.', 'customerAccessPack.channels', missingExecutionMetadata);

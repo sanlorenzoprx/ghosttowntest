@@ -1,7 +1,7 @@
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import { composeBlueprintDocumentModel, validateBlueprintDocumentAgainstCanonical, type BlueprintDocumentModel } from './blueprintDocumentModel';
 import { renderBlueprintDocumentHtml, renderWithBrowserPdfOrFallback, type BrowserPdfRenderer } from './blueprintDocumentHtml';
-import { directCustomerAccessChannels, researchEvidenceRole, RESEARCH_EVIDENCE_ROLE_LABELS } from './researchEvidenceRole';
+import { currentCustomerAccessChannels, researchEvidenceRole, RESEARCH_EVIDENCE_ROLE_LABELS } from './researchEvidenceRole';
 
 const WIDTH = 612;
 const HEIGHT = 792;
@@ -199,7 +199,7 @@ export class V21PdfBuilder {
       .forEach((line, index) => this.text(line, 64, 320 - index * 15, 10.5, 'F1', COLORS.white));
     this.rect(64, 145, 484, 96, [0.13, 0.15, 0.2], COLORS.rust);
     this.text('EVIDENCE-LED CUSTOMER ACQUISITION SYSTEM', 84, 214, 8.5, 'F2', COLORS.gold);
-    this.text(`48-hour launch card | ${directCustomerAccessChannels(this.blueprint.customerAccessPack.channels).length} direct customer-access targets | ${this.blueprint.customerAccessPack.channels.length} researched targets`, 84, 190, 8.2, 'F1', COLORS.white);
+    this.text(`48-hour launch card | ${currentCustomerAccessChannels(this.blueprint.customerAccessPack.channels).length} currently verified customer-access targets | ${this.blueprint.customerAccessPack.channels.length} researched targets`, 84, 190, 7.7, 'F1', COLORS.white);
     this.text(`First commercial ask: Day ${this.blueprint.firstRevenuePath.targetDay} | ${this.blueprint.firstRevenuePath.firstPrice}`, 84, 172, 9, 'F1', COLORS.white);
     this.text(`Canonical hash ${this.blueprint.generationReceipt.canonicalContract.gitBlobSha1}`, 64, 58, 7.5, 'F1', COLORS.muted);
   }
@@ -392,9 +392,13 @@ export class V21PdfBuilder {
         { label: 'Why it matters', value: channel.relevance },
         { label: 'Role boundary', value: channel.evidenceRoleReason || descriptions[role] },
         { label: 'Access or participation path', value: channel.accessPath || channel.recommendedApproach },
+        { label: 'Evidence dated', value: `${channel.evidenceDate || 'Unknown'} (${channel.evidenceRecency || 'unknown'})` },
+        { label: 'Research checked', value: channel.researchDate },
+        { label: 'Current activity', value: `${channel.currentActivityStatus || 'unverified'}${channel.currentActivityVerifiedAt ? `; verified ${channel.currentActivityVerifiedAt}` : ''}` },
+        { label: 'Current activity evidence', value: channel.currentActivityEvidence || 'Current activity was not independently verified.' },
+        { label: 'Evidence confidence', value: channel.confidence },
         { label: 'Prepared asset', value: channel.preparedAsset || channel.usefulTopic },
-        { label: 'First action', value: channel.firstAction },
-        { label: 'Confidence and research date', value: `${channel.confidence}; ${channel.researchDate}` }
+        { label: 'First action', value: channel.firstAction }
       ], role === 'customer_access' ? COLORS.green : role === 'partnership' ? COLORS.rust : COLORS.gold));
     }
   }
@@ -527,7 +531,8 @@ export class V21PdfBuilder {
     this.blueprint.sources.forEach((source, index) => this.card(`${index + 1}. ${source.title}`, [
       { label: 'Publisher', value: source.publisher || 'Public source' },
       { label: 'URL', value: source.url },
-      { label: 'Accessed', value: source.accessedAt },
+      { label: 'Evidence dated', value: `${source.evidenceDate || 'Unknown'} (${source.evidenceRecency || 'unknown'})` },
+      { label: 'Research accessed', value: source.accessedAt },
       { label: 'Supports', value: source.supports.join('; ') }
     ], COLORS.gold));
     this.title('Canonical Generation Receipt');
@@ -647,7 +652,7 @@ export function renderBlueprintDocumentModelPdf(model: BlueprintDocumentModel): 
     card('Measurement', `SUCCESS: ${section.measurement.successThreshold}\nFAILURE: ${section.measurement.failureThreshold}\nCOMPLETE WHEN: ${section.measurement.completionDefinition}\nCAPTURE: ${section.measurement.evidenceToCapture.join('; ')}`, COLORS.green);
     if (section.accessGroups) {
       heading('Research Roles', 'Customer access / Market evidence / Media-PR / Partnerships');
-      section.accessGroups.forEach(group => bullets(group.title, group.targets.map(target => `${target.name} [${target.evidenceRole}] (${target.targetType}) | ${target.publicUrl} | ${target.researchDate}, ${target.confidence} confidence | ACCESS: ${target.accessPath} | RESOURCE: ${target.matchedAssetOrScript.title} | RISK: ${target.risk} | FIRST ACTION: ${target.firstAction}`), group.groupId === 'customer_access' ? COLORS.green : group.groupId === 'partnership' ? COLORS.rust : COLORS.gold));
+      section.accessGroups.forEach(group => bullets(group.title, group.targets.map(target => `${target.name} [${target.evidenceRole}] (${target.targetType}) | ${target.publicUrl} | EVIDENCE DATED: ${target.evidenceDate || 'unknown'} (${target.evidenceRecency}) | RESEARCHED: ${target.researchDate} | CURRENT ACTIVITY: ${target.currentActivityStatus}${target.currentActivityVerifiedAt ? ` verified ${target.currentActivityVerifiedAt}` : ''} | EVIDENCE CONFIDENCE: ${target.confidence} | ACCESS: ${target.accessPath} | RESOURCE: ${target.matchedAssetOrScript.title} | RISK: ${target.risk} | FIRST ACTION: ${target.firstAction}`), group.groupId === 'customer_access' ? COLORS.green : group.groupId === 'partnership' ? COLORS.rust : COLORS.gold));
     }
     bullets('Adaptation Rule', section.adaptationRule.map(rule => `IF ${rule.condition} THEN ${rule.action} [${rule.route}]. Capture: ${rule.evidenceRequired.join('; ')}`), COLORS.rust);
   }

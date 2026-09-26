@@ -225,7 +225,7 @@ function mockProviders() {
     if (url.includes('api.dataforseo.com')) return new Response(JSON.stringify(dataForSeoResponse('seed')), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (url.includes('api.podcastindex.org')) return new Response(JSON.stringify(podcastResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (url.includes('www.googleapis.com/youtube')) return new Response(JSON.stringify(youtubeResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    return new Response('<html><head><title>Family Games Media</title><meta name="description" content="Active media source covering family games, reviews, events, and activities."></head><body>Public source</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+    return new Response('<html><head><title>Family Games Media</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="Active media source covering family games, reviews, events, and activities."></head><body>Public source</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
   });
 }
 
@@ -270,7 +270,10 @@ describe('customer access distribution footprint provider', () => {
     expect(result.research.channels.length).toBeLessThanOrEqual(25);
     expect(result.research.sources.length).toBe(result.research.channels.length);
     expect(new Set(result.research.channels.map(channel => channel.targetType)).size).toBeGreaterThanOrEqual(3);
-    expect(result.research.channels.filter(channel => channel.evidenceRole === 'customer_access').length).toBeGreaterThanOrEqual(3);
+    const customerAccess = result.research.channels.filter(channel => channel.evidenceRole === 'customer_access');
+    expect(customerAccess.length).toBeGreaterThanOrEqual(3);
+    expect(customerAccess.every(channel => channel.currentActivityStatus === 'verified_current' && Boolean(channel.currentActivityVerifiedAt))).toBe(true);
+    expect(result.research.channels.filter(channel => channel.discoveredThrough === 'competitor_backlink').every(channel => channel.currentActivityStatus === 'unverified')).toBe(true);
     expect(result.research.channels.some(channel => channel.evidenceRole === 'media_pr')).toBe(true);
     expect(result.research.channels.every(channel => channel.evidenceRole && channel.evidenceRoleReason)).toBe(true);
     expect(result.research.channels.every(channel => channel.evidenceRole === 'customer_access' || Boolean(channel.competitorEvidence?.length))).toBe(true);

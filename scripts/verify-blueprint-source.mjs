@@ -57,20 +57,20 @@ try {
 
 // Keep the v2.1.4 compatibility fields for roadmap scripts that were built
 // before the calendar/Copilot amendments, but require the actual source-chain
-// tip to advance through the approved v2.1.5, v2.1.6, v2.1.7, and v2.1.8 decisions.
+// tip to advance through the approved v2.1.5, v2.1.6, v2.1.7, v2.1.8, and v2.1.9 decisions.
 if (manifest?.changeId !== 'GT-BP-2026-08-15-V2.1.4') {
   fail('Evidence manifest no longer preserves the v2.1.4 compatibility change ID.');
 }
 if (manifest?.previousChangeId !== 'GT-BP-2026-08-15-V2.1.3') {
   fail('Evidence manifest no longer preserves the v2.1.3 compatibility predecessor.');
 }
-if (manifest?.chainTip?.changeId !== 'GT-BP-2026-09-26-V2.1.8') {
-  fail('Evidence chain tip is not the approved v2.1.8 Research Role and Customer Access change ID.');
+if (manifest?.chainTip?.changeId !== 'GT-BP-2026-09-26-V2.1.9') {
+  fail('Evidence chain tip is not the approved v2.1.9 Evidence Recency and Current-Activity Integrity change ID.');
 }
-if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-09-26-V2.1.7') {
-  fail('Evidence chain tip does not preserve the v2.1.7 Strategic Coherence Gate predecessor.');
+if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-09-26-V2.1.8') {
+  fail('Evidence chain tip does not preserve the v2.1.8 Research Role and Customer Access predecessor.');
 }
-if (manifest?.chainTip?.version !== '2.1.8') fail('Evidence chain tip version must be 2.1.8.');
+if (manifest?.chainTip?.version !== '2.1.9') fail('Evidence chain tip version must be 2.1.9.');
 
 const canonical = verifyTrackedSource(manifest.canonical, 'Canonical Blueprint');
 const platformAmendment = verifyTrackedSource(manifest.platformAmendment, 'v2.1.2 Vertex AI platform amendment');
@@ -89,6 +89,9 @@ const coherenceEvidence = verifyTrackedSource(manifest.strategicCoherenceEvidenc
 const researchRoleAmendment = verifyTrackedSource(manifest.researchRoleCustomerAccessAmendment, 'v2.1.8 Research Role and Customer Access amendment');
 const researchRoleChangeRecord = verifyTrackedSource(manifest.researchRoleCustomerAccessChangeRecord, 'v2.1.8 change record');
 const researchRoleEvidence = verifyTrackedSource(manifest.researchRoleCustomerAccessEvidence, 'v2.1.8 implementation evidence');
+const recencyAmendment = verifyTrackedSource(manifest.evidenceRecencyCurrentActivityAmendment, 'v2.1.9 Evidence Recency and Current-Activity Integrity amendment');
+const recencyChangeRecord = verifyTrackedSource(manifest.evidenceRecencyCurrentActivityChangeRecord, 'v2.1.9 change record');
+const recencyEvidence = verifyTrackedSource(manifest.evidenceRecencyCurrentActivityEvidence, 'v2.1.9 implementation evidence');
 
 const authorityClause =
   'The canonical Blueprint is the authoritative product and implementation guide. Every Factory slice must revalidate its exact hash before execution.';
@@ -217,7 +220,7 @@ if (manifest?.researchRoleCustomerAccessEvidence?.path !== 'docs/blueprint-evide
 }
 try {
   const evidence = JSON.parse(researchRoleEvidence.source);
-  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.8 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.changeId !== manifest.researchRoleCustomerAccessAmendment.changeId) fail('v2.1.8 implementation evidence change ID does not match the v2.1.8 amendment.');
   if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1) fail('v2.1.8 implementation evidence does not preserve the canonical Blueprint hash.');
   if (evidence?.canonical?.sourceModified !== false) fail('v2.1.8 implementation evidence must state that the canonical source was not modified.');
   const expectedBlockers = [
@@ -240,6 +243,56 @@ try {
   fail(`Unable to verify v2.1.8 implementation evidence: ${error.message}`);
 }
 
+const recencyDecision = 'Three clocks are authoritative and must remain separate:';
+requireText(recencyAmendment.source, recencyDecision, 'v2.1.9 Evidence Recency and Current-Activity Integrity product decision');
+for (const required of [
+  '**Research/access date**',
+  '**Evidence date**',
+  '**Current-activity verification**',
+  'A source accessed in September 2026 can still be evidence from 2015, 2018, 2022, or 2025.',
+  'currentActivityStatus = verified_current',
+  'RESEARCH_MISSING_EVIDENCE_RECENCY_METADATA',
+  'RESEARCH_INCONSISTENT_CURRENT_ACTIVITY_CLAIM',
+  'Never collapse those three facts.'
+]) requireText(recencyAmendment.source, required, 'v2.1.9 Evidence Recency and Current-Activity Integrity amendment');
+requireText(recencyChangeRecord.source, 'Research/access date | underlying evidence date | current-activity verification', 'v2.1.9 change record decision');
+requireText(recencyChangeRecord.source, 'Weakening approved outcomes remains prohibited.', 'v2.1.9 change record outcome protection');
+
+if (manifest?.evidenceRecencyCurrentActivityEvidence?.path !== 'docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.9-evidence-recency-current-activity-evidence.json') {
+  fail('Evidence chain does not reference the v2.1.9 Evidence Recency and Current-Activity implementation evidence.');
+}
+try {
+  const evidence = JSON.parse(recencyEvidence.source);
+  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.9 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1) fail('v2.1.9 implementation evidence does not preserve the canonical Blueprint hash.');
+  if (evidence?.canonical?.sourceModified !== false) fail('v2.1.9 implementation evidence must state that the canonical source was not modified.');
+  if (evidence?.policy?.researchDateMaySubstituteForEvidenceDate !== false) fail('v2.1.9 must prohibit research date from substituting for evidence date.');
+  if (evidence?.policy?.backlinkLastSeenMayProvePublisherActivity !== false) fail('v2.1.9 must prohibit backlink freshness from proving publisher activity.');
+  if (evidence?.policy?.unknownDateFailsClosed !== true) fail('v2.1.9 must fail closed on unknown current-activity dates.');
+  if (evidence?.policy?.currentEvidenceMaxDays !== 90 || evidence?.policy?.recentEvidenceMaxDays !== 365 || evidence?.policy?.currentActivityMaxDays !== 120) fail('v2.1.9 deterministic recency thresholds changed without a versioned decision.');
+  const expectedBlockers = [
+    'RESEARCH_FEWER_THAN_THREE_CUSTOMER_ACCESS_TARGETS',
+    'RESEARCH_MISSING_EVIDENCE_RECENCY_METADATA',
+    'RESEARCH_INCONSISTENT_CURRENT_ACTIVITY_CLAIM',
+    'STRATEGY_FIRST_REVENUE_USES_NON_CUSTOMER_ACCESS',
+    'STRATEGY_LAUNCH_CARD_USES_NON_CUSTOMER_ACCESS'
+  ];
+  if (expectedBlockers.some(code => !evidence?.releaseBlockers?.includes(code))) fail('v2.1.9 evidence is missing a required recency/customer-access release blocker.');
+  const historical = evidence?.historicalFalsification?.suredose?.examples || [];
+  const old2018 = historical.find(item => item?.underlyingYear === 2018);
+  const old2015 = historical.find(item => item?.underlyingYear === 2015);
+  if (old2018?.originalActivity !== 'recent' || old2018?.originalConfidence !== 'high') fail('v2.1.9 evidence must preserve the historical 2018 recent/high falsification.');
+  if (old2015?.originalActivity !== 'active' || old2015?.originalConfidence !== 'high') fail('v2.1.9 evidence must preserve the historical 2015 active/high falsification.');
+  if (evidence?.validation?.focusedTests?.failed !== 0 || evidence?.validation?.focusedTests?.passed < 77) fail('v2.1.9 focused recency regression evidence is incomplete.');
+  if (evidence?.validation?.typecheck?.passed !== true) fail('v2.1.9 typecheck evidence did not pass.');
+  if (evidence?.validation?.productionBuildPayload?.passed !== true || evidence?.validation?.productionBuildPayload?.generatedDiscoveryRoutes !== 40 || evidence?.validation?.productionBuildPayload?.verifiedDiscoveryIntents !== 20) fail('v2.1.9 production build payload evidence is incomplete.');
+  if (evidence?.validation?.guardedBuild?.passed !== true || evidence?.validation?.guardedBuild?.blueprintVerificationChainTip !== '2.1.9' || evidence?.validation?.guardedBuild?.generatedDiscoveryRoutes !== 40) fail('v2.1.9 guarded build evidence is incomplete.');
+  if (evidence?.validation?.blueprintVerification?.passed !== true || evidence?.validation?.blueprintVerification?.chainTip !== '2.1.9') fail('v2.1.9 Blueprint verification evidence is incomplete.');
+  if (evidence?.validation?.productionDeploymentPerformed !== false) fail('v2.1.9 evidence must not claim a production deployment.');
+} catch (error) {
+  fail(`Unable to verify v2.1.9 implementation evidence: ${error.message}`);
+}
+
 if (manifest?.outcomeProtection?.weakeningAllowed !== false) {
   fail('Evidence manifest must explicitly prohibit weakening the approved customer outcome.');
 }
@@ -255,9 +308,9 @@ for (const required of [
 }
 
 console.log(
-  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${researchRoleAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
+  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${recencyAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
   `base ${manifest.canonical.version} ${canonical.actualHash}; platform ${manifest.platformAmendment.version} ${platformAmendment.actualHash}; ` +
   `website ${manifest.previousAmendment.version} ${websiteAmendment.actualHash}; spa ${manifest.amendment.version} ${spaAmendment.actualHash}; ` +
   `calendar ${manifest.calendarAmendment.version} ${calendarAmendment.actualHash}; execution ${manifest.executionIntelligenceAmendment.version} ${executionAmendment.actualHash}; ` +
-  `coherence ${coherenceAmendment.actualHash}; research-role-change-record ${researchRoleChangeRecord.actualHash}`
+  `coherence ${coherenceAmendment.actualHash}; research-role ${researchRoleAmendment.actualHash}; recency-change-record ${recencyChangeRecord.actualHash}`
 );

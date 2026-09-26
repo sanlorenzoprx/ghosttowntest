@@ -59,6 +59,12 @@ function result(): CustomerAccessResearchResult {
       firstAction: 'Review the public route.',
       confidence: 'high' as const,
       researchDate,
+      evidenceDate: '2026-08-01T12:00:00.000Z',
+      evidenceDateSource: 'provider_activity' as const,
+      evidenceRecency: 'current' as const,
+      currentActivityStatus: 'verified_current' as const,
+      currentActivityVerifiedAt: generatedAt,
+      currentActivityEvidence: 'Fixture provider independently observed current activity on 2026-08-01.',
       sourceIds: ['source-' + (index + 1)],
       targetType,
       evidenceRole,
@@ -67,7 +73,7 @@ function result(): CustomerAccessResearchResult {
       outreachScriptId: evidenceRole === 'partnership' ? 'script-06-referral_partner' : evidenceRole === 'customer_access' ? 'script-03-community_member' : 'script-07-interview_invitation'
     };
   });
-  const sources = channels.map((channel, index) => ({ sourceId: 'source-' + (index + 1), title: 'Source ' + (index + 1), url: 'https://example.com/source-' + (index + 1), publisher: 'Fixture', accessedAt: generatedAt, supports: [channel.channelId] }));
+  const sources = channels.map((channel, index) => ({ sourceId: 'source-' + (index + 1), title: 'Source ' + (index + 1), url: 'https://example.com/source-' + (index + 1), publisher: 'Fixture', accessedAt: generatedAt, evidenceDate: '2026-08-01T12:00:00.000Z', evidenceDateSource: 'provider_activity' as const, evidenceRecency: 'current' as const, supports: [channel.channelId] }));
   return {
     research: { status: 'complete', researchDate, sources, channels, publicExpertsAndPartners: [] },
     receipt: {
@@ -110,6 +116,48 @@ describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
     expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.fewerThanThreeCustomerAccessTargets);
     expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.strategy.firstRevenueUsesNonCustomerAccess);
     expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.strategy.launchCardUsesNonCustomerAccess);
+  });
+
+  it('does not let a current research date make stale customer-access evidence current', () => {
+    const input = fixture();
+    const customerAccess = input.blueprint.customerAccessPack.channels.filter(channel => channel.evidenceRole === 'customer_access');
+    customerAccess.forEach(channel => {
+      channel.researchDate = '2026-09-26';
+      channel.evidenceDate = '2015-06-10T00:00:00.000Z';
+      channel.evidenceDateSource = 'published_metadata';
+      channel.evidenceRecency = 'stale';
+      channel.activity = 'uncertain';
+      channel.currentActivityStatus = 'verified_inactive';
+      channel.currentActivityVerifiedAt = '2026-09-26T12:00:00.000Z';
+      channel.currentActivityEvidence = 'The underlying evidence is from 2015; current activity was not established.';
+    });
+
+    const codes = evaluateBlueprintReleaseQualityGateV21(input).blockers.map(blocker => blocker.code);
+    expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.fewerThanThreeCustomerAccessTargets);
+    expect(researchVerificationDimensionsV21(input.blueprint, input.research)).not.toContain('customer_access');
+  });
+
+  it('blocks an active or recent label when current activity is not independently verified', () => {
+    const input = fixture();
+    const channel = input.blueprint.customerAccessPack.channels[0];
+    channel.activity = 'active';
+    channel.currentActivityStatus = 'unverified';
+    channel.currentActivityVerifiedAt = undefined;
+    channel.currentActivityEvidence = 'The source was accessed today, but no dated current activity was established.';
+
+    const codes = evaluateBlueprintReleaseQualityGateV21(input).blockers.map(blocker => blocker.code);
+    expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.inconsistentCurrentActivityClaim);
+  });
+
+  it('blocks new release records that omit recency metadata', () => {
+    const input = fixture();
+    const channel = input.blueprint.customerAccessPack.channels[0];
+    channel.evidenceRecency = undefined;
+    channel.currentActivityStatus = undefined;
+    channel.currentActivityEvidence = undefined;
+
+    const codes = evaluateBlueprintReleaseQualityGateV21(input).blockers.map(blocker => blocker.code);
+    expect(codes).toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.missingRecencyMetadata);
   });
 
   const C = BLUEPRINT_RELEASE_BLOCKER_CODES_V21;

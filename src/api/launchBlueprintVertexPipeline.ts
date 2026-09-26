@@ -24,7 +24,7 @@ import {
 } from './vertexStructuredGeneration';
 import { validateGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
 import { synchronizeDailyExecutionPackets } from './launchBlueprintDailyExecution';
-import { directCustomerAccessChannels, isCustomerAccessChannel, researchEvidenceRole } from './researchEvidenceRole';
+import { currentCustomerAccessChannels, isCurrentCustomerAccessChannel, researchEvidenceRole } from './researchEvidenceRole';
 
 export const VERTEX_BLUEPRINT_PIPELINE_VERSION = 'vertex-blueprint-staged-v2' as const;
 
@@ -720,7 +720,7 @@ function validateStrategy(
 ): VertexStrategySynthesis {
   const channelIds = new Set(context.draft.customerAccessPack.channels.map(channel => channel.channelId));
   data.channelPriorities = assertKnownIds(data.channelPriorities, channelIds, 'channel priorities', 3);
-  const customerAccess = directCustomerAccessChannels(context.draft.customerAccessPack.channels);
+  const customerAccess = currentCustomerAccessChannels(context.draft.customerAccessPack.channels);
   if (customerAccess.length < 3) {
     throw new Error(`Vertex Blueprint requires at least three direct customer-access targets before strategy synthesis; found ${customerAccess.length}`);
   }
@@ -759,7 +759,7 @@ export async function runVertexStrategySynthesisStage(
       'Synthesize a bounded 30-day validation strategy from the normalized packet.',
       'Treat prices, positioning, and recommendations as hypotheses unless supported by observed behavior.',
       'Use only supplied channel IDs. Preserve explicit stop criteria and manual fulfillment constraints.',
-      'Respect each channel evidenceRole. Only customer_access channels may drive first-revenue outreach or direct buyer acquisition; media_pr, market_evidence, and partnership channels are supporting evidence/opportunities only.',
+      'Respect each channel evidenceRole and recency metadata. Only customer_access channels with currentActivityStatus=verified_current may drive first-revenue outreach or direct buyer acquisition; media_pr, market_evidence, partnership, stale evidence, and unverified current activity are supporting evidence/opportunities only.',
       'Do not promise outcomes, fabricate proof, or recommend broad building before commitment evidence.',
       'Return only schema-controlled JSON.'
     ].join(' '),
@@ -785,6 +785,12 @@ export async function runVertexStrategySynthesisStage(
         relevance: channel.relevance,
         evidenceRole: researchEvidenceRole(channel),
         evidenceRoleReason: channel.evidenceRoleReason,
+        evidenceDate: channel.evidenceDate,
+        evidenceRecency: channel.evidenceRecency,
+        researchDate: channel.researchDate,
+        currentActivityStatus: channel.currentActivityStatus,
+        currentActivityVerifiedAt: channel.currentActivityVerifiedAt,
+        currentActivityEvidence: channel.currentActivityEvidence,
         firstAction: channel.firstAction,
         confidence: channel.confidence,
         sourceIds: channel.sourceIds
@@ -829,7 +835,7 @@ export function validateStrategicCoherenceGate(
       const channelsById = new Map(context.draft.customerAccessPack.channels.map(channel => [channel.channelId, channel]));
       const nonCustomerAccessIds = item.channelIds.filter(id => {
         const channel = channelsById.get(id);
-        return !channel || !isCustomerAccessChannel(channel);
+        return !channel || !isCurrentCustomerAccessChannel(channel);
       });
       if (nonCustomerAccessIds.length) {
         throw new Error(`Strategic Coherence Gate access path referenced non-customer-access channels: ${nonCustomerAccessIds.join(', ')}`);
@@ -919,6 +925,12 @@ export async function runVertexStrategicCoherenceGateStage(
         platform: channel.platform,
         targetType: channel.targetType,
         evidenceRole: researchEvidenceRole(channel),
+        evidenceDate: channel.evidenceDate,
+        evidenceRecency: channel.evidenceRecency,
+        researchDate: channel.researchDate,
+        currentActivityStatus: channel.currentActivityStatus,
+        currentActivityVerifiedAt: channel.currentActivityVerifiedAt,
+        currentActivityEvidence: channel.currentActivityEvidence,
         relevance: channel.relevance,
         accessPath: channel.accessPath,
         recommendedApproach: channel.recommendedApproach,
@@ -1162,7 +1174,7 @@ export function applyVertexPipelineDraft(
     };
   });
 
-  const customerAccess = directCustomerAccessChannels(next.customerAccessPack.channels);
+  const customerAccess = currentCustomerAccessChannels(next.customerAccessPack.channels);
   const firstChannel = customerAccess[0];
   if (!firstChannel) throw new Error('Vertex Blueprint strategy left no direct customer-access channel');
   next.firstRevenuePath.firstChannel = `${firstChannel.community} via ${firstChannel.platform}`;

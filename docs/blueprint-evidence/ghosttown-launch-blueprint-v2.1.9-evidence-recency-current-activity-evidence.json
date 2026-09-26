@@ -1,0 +1,204 @@
+{
+  "schemaVersion": "ghosttown-blueprint-amendment-evidence-v1",
+  "amendmentVersion": "2.1.9",
+  "changeId": "GT-BP-2026-09-26-V2.1.9",
+  "recordedAt": "2026-09-26T17:27:38.2815560Z",
+  "repository": "sanlorenzoprx/ghosttowntest",
+  "branch": "fix/strategic-coherence-gate",
+  "canonical": {
+    "baseVersion": "2.1.1",
+    "sourcePath": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md",
+    "gitBlobSha1": "616c691e6b4c9cea93615963a07375d13ffba57f",
+    "sourceModified": false
+  },
+  "decision": {
+    "summary": "Separate research/access date, underlying evidence date, and current-activity verification; stale evidence may remain useful but cannot become a current acquisition route without independent current proof.",
+    "customerOutcome": "GhostTown no longer makes an old article, event, backlink, or channel look current merely because the source was accessed recently."
+  },
+  "policy": {
+    "currentEvidenceMaxDays": 90,
+    "recentEvidenceMaxDays": 365,
+    "currentActivityMaxDays": 120,
+    "unknownDateFailsClosed": true,
+    "researchDateMaySubstituteForEvidenceDate": false,
+    "backlinkLastSeenMayProvePublisherActivity": false
+  },
+  "implementationEvidence": [
+    {
+      "capability": "three_clock_recency_contract",
+      "status": "IMPLEMENTED",
+      "evidence": "Research/access date, evidence date/recency, and current-activity verification are separate typed fields and deterministic calculations.",
+      "paths": [
+        "src/types/launchBlueprint.ts",
+        "src/api/evidenceRecency.ts"
+      ],
+      "gitBlobSha1": [
+        "c168785be7d00e5e782fdcee610608f3d6654e75",
+        "2adf8c90515e6a888cceb15274abab93700fe982"
+      ]
+    },
+    {
+      "capability": "provider_recency_semantics",
+      "status": "IMPLEMENTED",
+      "evidence": "Backlink freshness no longer proves current publisher activity; Podcast/YouTube use provider activity dates; grounded customer access requires dated page/activity metadata.",
+      "paths": [
+        "src/api/distributionFootprintResearch.ts"
+      ],
+      "gitBlobSha1": "10e9bbed3b02865a55a457baf7d417eff937e4ce"
+    },
+    {
+      "capability": "current_customer_access_gate",
+      "status": "IMPLEMENTED",
+      "evidence": "First revenue, Launch Card, Strategic Coherence access paths, research completeness, and release quality use only currently verified customer-access targets.",
+      "paths": [
+        "src/api/researchEvidenceRole.ts",
+        "src/api/blueprintReleaseQualityGateV21.ts",
+        "src/api/launchBlueprintGeneratorV21.ts",
+        "src/api/launchBlueprintVertexPipeline.ts"
+      ],
+      "gitBlobSha1": [
+        "a4050debf57e50f620909e445441103405e04817",
+        "0543cb2f85aaf4eb77b0734f84797875161f3cd9",
+        "30d9e9e4606830f75d86f09bf41aaa177d60eb57",
+        "9e1c38ed744dd61d519ffac949591c1cb7986d6b"
+      ]
+    },
+    {
+      "capability": "recovery_preserves_current_buyer_access",
+      "status": "IMPLEMENTED",
+      "evidence": "Deterministic recovery reserves currently verified community/customer-access candidates before score-filling the remaining target set.",
+      "paths": [
+        "src/api/customerAccessResearch.ts"
+      ],
+      "gitBlobSha1": "afb722b08b5b2063f0c4ab1c5b45cb1375aa21e6"
+    },
+    {
+      "capability": "customer_facing_recency_separation",
+      "status": "IMPLEMENTED",
+      "evidence": "Dashboard, PDF, semantic HTML/document model, and ZIP CSV expose evidence date/recency, research date, current activity, and evidence confidence separately.",
+      "paths": [
+        "src/api/blueprintDocumentModel.ts",
+        "src/api/blueprintDocumentHtml.ts",
+        "src/api/blueprintPdfV21.ts",
+        "src/api/blueprintAssets.ts",
+        "src/components/LaunchBlueprintViewV21.tsx"
+      ],
+      "gitBlobSha1": [
+        "36f6085c5e2174ee7d89a1898da3ab13c115406a",
+        "c42017e82acc76c4228ac5d33827f01349cbca11",
+        "10998834ddb62a8296fb7f06f835468f61177f58",
+        "ec3977b59c2e98f42b9aadb8be705b070c97f0ae",
+        "da7cde38996890bed4ec0b5c7062523e5c73d345"
+      ]
+    },
+    {
+      "capability": "focused_recency_regression",
+      "status": "PASS",
+      "evidence": "Nine focused test files pass 77/77, including 2015 stale evidence, 2022 page-year evidence, unknown-date fail-closed behavior, active-without-verification release blocking, and recovery ordering.",
+      "paths": [
+        "tests/evidenceRecency.test.ts",
+        "tests/customerAccessResearch.test.ts",
+        "tests/blueprintReleaseQualityGateV21.test.ts",
+        "tests/fixtures/launchBlueprint.ts",
+        "tests/launchBlueprintGeneratorV21.test.ts"
+      ],
+      "gitBlobSha1": [
+        "800661e53b296c8a17acf484a5b71066c63eb587",
+        "1796db4645fdad450b1c26e24ab9f999167ecda0",
+        "58463a4a45edeeacc94eca89896ba33a3b02bc50",
+        "19d0a18e2f843e5e3fbb8a814167e7fb4f07943d",
+        "c7c821d51c9b5547a7b9c1061fb304a16a486786"
+      ]
+    },
+    {
+      "capability": "governance_verifier_enforces_v219",
+      "status": "IMPLEMENTED",
+      "evidence": "The repository Blueprint verifier requires v2.1.9 as the chain tip and validates the recency amendment, change record, evidence manifest, release blockers, historical falsification, thresholds, and validation receipts before guarded commands run.",
+      "paths": [
+        "scripts/verify-blueprint-source.mjs"
+      ],
+      "gitBlobSha1": "1a5651db26817a8736bbcefcf75c118a7207e0f7"
+    }
+  ],
+  "historicalFalsification": {
+    "method": "Replay/inspection of the saved SureDose paid-Sprint canonical JSON. Historical artifact was not mutated.",
+    "suredose": {
+      "orderId": "gtt_b83baaa2-c420-4ec2-b8e0-e062ae30a4d5",
+      "researchDate": "2026-09-25",
+      "examples": [
+        {
+          "title": "Five Offerings from the Boston Connected Health Conference 2018 | Aging and Health Technology Watch",
+          "underlyingYear": 2018,
+          "originalActivity": "recent",
+          "originalConfidence": "high",
+          "originalAccessedAt": "2026-09-25T08:41:50.614Z",
+          "v219Classification": "stale evidence; current activity requires separate verification"
+        },
+        {
+          "title": "App of the Week - Dosecast - On Tech Street On Tech Street",
+          "underlyingYear": 2015,
+          "originalActivity": "active",
+          "originalConfidence": "high",
+          "originalAccessedAt": "2026-09-25T08:41:49.020Z",
+          "v219Classification": "stale evidence; current activity requires separate verification"
+        },
+        {
+          "title": "app.himssconference.com",
+          "underlyingYear": 2025,
+          "originalActivity": "occasional",
+          "originalConfidence": "high",
+          "originalAccessedAt": "2026-09-25T08:41:50.549Z",
+          "v219Classification": "underlying event date remains distinct from 2026 access date"
+        }
+      ]
+    }
+  },
+  "releaseBlockers": [
+    "RESEARCH_FEWER_THAN_THREE_CUSTOMER_ACCESS_TARGETS",
+    "RESEARCH_MISSING_EVIDENCE_RECENCY_METADATA",
+    "RESEARCH_INCONSISTENT_CURRENT_ACTIVITY_CLAIM",
+    "STRATEGY_FIRST_REVENUE_USES_NON_CUSTOMER_ACCESS",
+    "STRATEGY_LAUNCH_CARD_USES_NON_CUSTOMER_ACCESS"
+  ],
+  "preservedAcceptance": {
+    "priceChanged": false,
+    "acceptedPurchaseRegenerated": false,
+    "acceptedD1R2ArtifactsMutated": false,
+    "canonicalBaseSourceModified": false,
+    "getMeLiveBoundaryChanged": false,
+    "productionDeploymentEnabled": false
+  },
+  "validation": {
+    "focusedTests": {
+      "command": "npx vitest run tests/evidenceRecency.test.ts tests/customerAccessResearch.test.ts tests/blueprintReleaseQualityGateV21.test.ts tests/launchBlueprintGeneratorV21.test.ts tests/launchBlueprintVertexPipeline.test.ts tests/blueprintDocumentModel.test.ts tests/blueprintAssetsV21.test.ts tests/blueprintPdfV21.test.ts tests/launchBlueprintViewV21.test.ts --no-file-parallelism --pool=threads --maxWorkers=1",
+      "passed": 77,
+      "failed": 0
+    },
+    "typecheck": {
+      "command": "npx tsc --noEmit",
+      "passed": true
+    },
+    "productionBuildPayload": {
+      "command": "npx vite build; node scripts/generate-functional-discovery-pages.mjs; node scripts/verify-functional-discovery-output.mjs",
+      "passed": true,
+      "viteModulesTransformed": 78,
+      "generatedDiscoveryRoutes": 40,
+      "verifiedDiscoveryIntents": 20
+    },
+    "blueprintVerification": {
+      "command": "npm run verify:blueprint",
+      "passed": true,
+      "chainTip": "2.1.9"
+    },
+    "productionDeploymentPerformed": false,
+    "guardedBuild": {
+      "command": "npm run build",
+      "passed": true,
+      "blueprintVerificationChainTip": "2.1.9",
+      "viteModulesTransformed": 78,
+      "generatedDiscoveryRoutes": 40,
+      "verifiedDiscoveryIntents": 20,
+      "windowsInvocationNote": "Remote command environment required ComSpec=C:\\Windows\\System32\\cmd.exe because npm otherwise failed before script execution with ERR_INVALID_ARG_TYPE."
+    }
+  }
+}

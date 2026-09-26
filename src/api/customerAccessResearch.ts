@@ -2,7 +2,7 @@ import type { Env } from './env';
 import type { EvaluationResult } from '../types/lit';
 import type { PaidTestOrder } from '../types/paidTest';
 import type { BlueprintSource, CustomerAccessChannel, DistributionTargetType } from '../types/launchBlueprint';
-import { researchEvidenceRoleForTargetType, researchEvidenceRoleReason } from './researchEvidenceRole';
+import { currentCustomerAccessChannels, researchEvidenceRoleForTargetType, researchEvidenceRoleReason } from './researchEvidenceRole';
 import {
   finalizeCustomerAccessResearch as finalizeDistributionFootprintResearch,
   planCustomerAccessResearch,
@@ -37,7 +37,8 @@ function clean(value: string): string {
 function recoveryScore(candidate: FootprintCandidate): number {
   const confidence = { high: 4, medium: 3, low: 1, unverified: 0 }[candidate.confidence];
   const activity = { recent: 4, active: 3, occasional: 1, uncertain: 0 }[candidate.activity];
-  return confidence + activity + Math.min(3, candidate.competitorEvidence.length);
+  const currentActivity = candidate.currentActivityStatus === 'verified_current' ? 6 : candidate.currentActivityStatus === 'verified_inactive' ? -2 : 0;
+  return confidence + activity + currentActivity + Math.min(3, candidate.competitorEvidence.length);
 }
 
 function discoveredThrough(provider: DistributionProvider): NonNullable<CustomerAccessChannel['discoveredThrough']> {
@@ -45,7 +46,9 @@ function discoveredThrough(provider: DistributionProvider): NonNullable<Customer
     ? 'competitor_backlink'
     : provider === 'podcast_index'
       ? 'podcast_search'
-      : 'youtube_search';
+      : provider === 'google_grounded_customer_access'
+        ? 'grounded_customer_access_search'
+        : 'youtube_search';
 }
 
 function outreachScript(type: DistributionTargetType): string {
@@ -62,7 +65,7 @@ function recoveryToken(candidate: FootprintCandidate): string {
 function recoverableDiversityOrSelectionFailure(message: string): boolean {
   return message.includes('STEP5_RESEARCH_UNKNOWN_CANDIDATE_ID')
     || /used only \d+ provider types/i.test(message)
-    || /Media & Distribution Network failed its quality gate/i.test(message);
+    || /Research & Customer Access failed its quality gate/i.test(message);
 }
 
 /**
@@ -96,7 +99,20 @@ export function recoverCustomerAccessFromVerifiedCandidates(
     throw new Error(`Distribution Footprint recovery found only ${candidates.length} verified candidates; ${MIN_VERIFIED_CANDIDATES} are required`);
   }
 
-  const selected = candidates.slice(0, MAX_DELIVERED_TARGETS);
+  const currentAccessCandidates = candidates.filter(candidate =>
+    candidate.targetTypeHint === 'community'
+    && candidate.currentActivityStatus === 'verified_current'
+    && Boolean(candidate.currentActivityVerifiedAt)
+  );
+  if (currentAccessCandidates.length < 3) {
+    throw new Error(`Distribution Footprint recovery found only ${currentAccessCandidates.length} currently verified customer-access candidates; at least 3 are required`);
+  }
+  const priorityAccess = currentAccessCandidates.slice(0, 5);
+  const priorityIds = new Set(priorityAccess.map(candidate => candidate.candidateId));
+  const selected = [
+    ...priorityAccess,
+    ...candidates.filter(candidate => !priorityIds.has(candidate.candidateId))
+  ].slice(0, MAX_DELIVERED_TARGETS);
   const researchDate = new Date().toISOString().slice(0, 10);
   const sources: BlueprintSource[] = [];
   const channels: CustomerAccessChannel[] = selected.map(candidate => {
@@ -109,6 +125,9 @@ export function recoverCustomerAccessFromVerifiedCandidates(
       url: candidate.publicUrl,
       publisher: candidate.publisher,
       accessedAt: candidate.observedAt,
+      evidenceDate: candidate.evidenceDate,
+      evidenceDateSource: candidate.evidenceDateSource,
+      evidenceRecency: candidate.evidenceRecency,
       supports: [...candidate.competitorEvidence, ...candidate.factualSignals].slice(0, 8)
     });
     return {
@@ -125,6 +144,12 @@ export function recoverCustomerAccessFromVerifiedCandidates(
       firstAction: 'Open the verified public source, confirm its current access route, and personalize the prepared asset.',
       confidence: candidate.confidence,
       researchDate,
+      evidenceDate: candidate.evidenceDate,
+      evidenceDateSource: candidate.evidenceDateSource,
+      evidenceRecency: candidate.evidenceRecency,
+      currentActivityStatus: candidate.currentActivityStatus,
+      currentActivityVerifiedAt: candidate.currentActivityVerifiedAt,
+      currentActivityEvidence: candidate.currentActivityEvidence,
       sourceIds: [sourceId],
       targetType: type,
       evidenceRole: researchEvidenceRoleForTargetType(type),
@@ -137,6 +162,11 @@ export function recoverCustomerAccessFromVerifiedCandidates(
       outreachScriptId: outreachScript(type)
     };
   });
+
+  const currentCustomerAccess = currentCustomerAccessChannels(channels);
+  if (currentCustomerAccess.length < 3) {
+    throw new Error(`Distribution Footprint recovery retained only ${currentCustomerAccess.length} currently verified customer-access targets; at least 3 are required`);
+  }
 
   const targetTypeCounts = channels.reduce<Record<string, number>>((counts, channel) => {
     const type = channel.targetType || 'community';
