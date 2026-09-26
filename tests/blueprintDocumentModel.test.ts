@@ -22,11 +22,12 @@ describe('Blueprint premium document model', () => {
     expect(validateBlueprintDocumentModel(model)).toEqual([]);
     expect(validateBlueprintDocumentAgainstCanonical(model, canonical)).toEqual([]);
     const access = model.prioritySections.find(section => section.sectionId === 'customer_access_network')!;
-    expect(access.accessGroups?.map(group => group.groupId)).toEqual(['priority_five', 'reserve_five', 'partner_targets']);
+    expect(access.accessGroups?.map(group => group.groupId)).toEqual(['customer_access', 'market_evidence', 'media_pr', 'partnership']);
     const targets = access.accessGroups!.flatMap(group => group.targets);
     expect(targets).toHaveLength(12);
-    expect(access.accessGroups?.map(group => group.targets.length)).toEqual([5, 5, 2]);
-    expect(access.accessGroups?.[2].targets.map(target => target.targetType)).toEqual(['association', 'complementary_partner']);
+    expect(access.accessGroups?.map(group => group.targets.length)).toEqual([5, 2, 3, 2]);
+    expect(access.accessGroups?.[3].targets.map(target => target.targetType)).toEqual(['association', 'complementary_partner']);
+    expect(access.accessGroups?.[0].targets.every(target => target.evidenceRole === 'customer_access')).toBe(true);
     expect(targets.every(target => target.publicUrl && target.sourceRefs.length && target.researchDate && target.confidence && target.accessPath && target.risk && target.matchedAssetOrScript.resourceId && target.matchedAssetOrScript.targetIds.includes(target.targetId) && target.matchedAssetOrScript.sourceRefs.join(',') === target.sourceRefs.join(',') && target.firstAction)).toBe(true);
   });
 
@@ -75,8 +76,8 @@ describe('Blueprint premium document model', () => {
   it('renders generated model, semantic HTML, deterministic PDF, and injected browser output from one coherent record', async () => {
     const canonical = blueprint(); const model = composeBlueprintDocumentModel(canonical); const html = renderBlueprintDocumentHtml(model); const pdf = renderBlueprintDocumentModelPdf(model);
     const text = new TextDecoder().decode(pdf);
-    for (const expected of ['48-Hour Launch Card', 'First Customer', 'First Offer', 'First Revenue Path', 'Customer Access Network', 'Today: Day 1', 'DECISION', 'READY-TO-USE ASSETS', 'ADAPTATION RULE']) expect(text).toContain(expected);
-    expect(html).toContain('<table><caption>Priority Five</caption><thead>');
+    for (const expected of ['48-Hour Launch Card', 'First Customer', 'First Offer', 'First Revenue Path', 'Research and Customer Access', 'Today: Day 1', 'DECISION', 'READY-TO-USE ASSETS', 'ADAPTATION RULE']) expect(text).toContain(expected);
+    expect(html).toContain('<table><caption>Direct Customer Access</caption><thead>');
     expect(html).toContain('@page { size: Letter'); expect(html).toContain('font-size:9.5pt'); expect(html).toContain('print-color-adjust:exact');
     expect(text).toContain(model.presentation.title); expect(text).toContain(model.presentation.customer); expect(text).toContain(model.presentation.subtitle);
     expect(text).not.toContain(model.documentId); expect(text).not.toContain('Render mode:'); expect(text).not.toContain('Verdict lineage:');

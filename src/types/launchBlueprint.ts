@@ -4,6 +4,7 @@ export type BlueprintStatus = 'ready' | 'in_progress' | 'completed' | 'failed_qu
 export type ResearchConfidence = 'high' | 'medium' | 'low' | 'unverified';
 export type ActivityLevel = 'recent' | 'active' | 'occasional' | 'uncertain';
 export type BlueprintDecision = 'continue' | 'revise' | 'pivot' | 'stop';
+export type ResearchEvidenceRole = 'customer_access' | 'market_evidence' | 'media_pr' | 'partnership';
 export type DistributionTargetType =
   | 'podcast'
   | 'youtube_creator'
@@ -92,7 +93,9 @@ export interface CustomerAccessChannel {
   researchDate: string;
   sourceIds: string[];
   targetType?: DistributionTargetType;
-  discoveredThrough?: 'competitor_backlink' | 'podcast_search' | 'youtube_search' | 'customer_seed' | 'original_source';
+  evidenceRole?: ResearchEvidenceRole;
+  evidenceRoleReason?: string;
+  discoveredThrough?: 'competitor_backlink' | 'podcast_search' | 'youtube_search' | 'grounded_customer_access_search' | 'customer_seed' | 'original_source';
   competitorEvidence?: string[];
   audienceOwner?: string;
   accessPath?: string;

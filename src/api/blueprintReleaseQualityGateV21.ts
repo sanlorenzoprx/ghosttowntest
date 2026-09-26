@@ -1,6 +1,7 @@
 import type { Env } from './env';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
 import type { GhostTownLaunchBlueprintV21, BlueprintGenerationEvidenceReceipt } from '../types/launchBlueprintV21';
+import { directCustomerAccessChannels, researchEvidenceRole } from './researchEvidenceRole';
 
 export type BlueprintReleaseBlockerCategoryV21 = 'strategy' | 'research' | 'asset' | 'calendar' | 'delivery';
 export type ResearchVerificationDimensionV21 =
@@ -20,6 +21,8 @@ export const BLUEPRINT_RELEASE_BLOCKER_CODES_V21 = {
     noFirstMeaningfulCommitment: 'STRATEGY_NO_FIRST_MEANINGFUL_COMMITMENT',
     noInitialPrice: 'STRATEGY_NO_INITIAL_PRICE',
     noFirstRevenuePath: 'STRATEGY_NO_FIRST_REVENUE_PATH',
+    firstRevenueUsesNonCustomerAccess: 'STRATEGY_FIRST_REVENUE_USES_NON_CUSTOMER_ACCESS',
+    launchCardUsesNonCustomerAccess: 'STRATEGY_LAUNCH_CARD_USES_NON_CUSTOMER_ACCESS',
     noManualFulfillmentMethod: 'STRATEGY_NO_MANUAL_FULFILLMENT_METHOD',
     missingTimeOrCashBoundary: 'STRATEGY_MISSING_TIME_OR_CASH_BOUNDARY'
   },
@@ -28,6 +31,7 @@ export const BLUEPRINT_RELEASE_BLOCKER_CODES_V21 = {
     requiredProviderAttemptsNotExecuted: 'RESEARCH_REQUIRED_PROVIDER_ATTEMPTS_NOT_EXECUTED',
     insufficientVerificationDimensions: 'RESEARCH_INSUFFICIENT_VERIFICATION_DIMENSIONS',
     fewerThanTenVerifiedCandidates: 'RESEARCH_FEWER_THAN_TEN_VERIFIED_CANDIDATES',
+    fewerThanThreeCustomerAccessTargets: 'RESEARCH_FEWER_THAN_THREE_CUSTOMER_ACCESS_TARGETS',
     missingPublicSource: 'RESEARCH_MISSING_PUBLIC_SOURCE',
     missingResearchDate: 'RESEARCH_MISSING_RESEARCH_DATE',
     missingExecutionMetadata: 'RESEARCH_MISSING_CONFIDENCE_ACCESS_RISK_ASSET_SCRIPT_OR_FIRST_ACTION'
@@ -133,33 +137,31 @@ export function researchVerificationDimensionsV21(
 
   if (hasCustomerDefinition && hasProblemDefinition) dimensions.add('customer_problem_definition');
 
-  const hasCompetitorEvidence = channels.some(channel => Boolean(channel.competitorEvidence?.length));
+  const hasCompetitorEvidence = channels.some(channel =>
+    researchEvidenceRole(channel) === 'market_evidence'
+    || Boolean(channel.competitorEvidence?.length)
+  );
   const hasAlternativeDefinition = verifiedFacts.some(item => /current workaround/i.test(item.statement));
   if (research.receipt.seedDomains.length >= 2 && (hasCompetitorEvidence || hasAlternativeDefinition)) {
     dimensions.add('competitor_alternative');
   }
 
-  const sourcedReachableTargets = channels.filter(channel =>
+  const sourcedCustomerAccessTargets = directCustomerAccessChannels(channels).filter(channel =>
     publicHttps(channel.publicUrl)
     && channel.sourceIds.length > 0
     && channel.sourceIds.every(sourceId => sourceIds.has(sourceId))
     && hasText(channel.accessPath)
   );
-  if (sourcedReachableTargets.length >= 10) dimensions.add('customer_access');
+  if (sourcedCustomerAccessTargets.length >= 3) dimensions.add('customer_access');
 
-  if (channels.some(channel =>
-    channel.targetType === 'podcast'
-    || channel.targetType === 'youtube_creator'
-    || channel.targetType === 'newsletter_or_publication'
-    || channel.targetType === 'community'
-  )) dimensions.add('audience_reach');
+  if (channels.some(channel => researchEvidenceRole(channel) === 'media_pr')) {
+    dimensions.add('audience_reach');
+  }
 
-  if (research.research.publicExpertsAndPartners.length > 0 || channels.some(channel =>
-    channel.targetType === 'association'
-    || channel.targetType === 'event'
-    || channel.targetType === 'complementary_partner'
-    || channel.targetType === 'review_site'
-  )) dimensions.add('ecosystem_partner');
+  if (research.research.publicExpertsAndPartners.length > 0
+    || channels.some(channel => researchEvidenceRole(channel) === 'partnership')) {
+    dimensions.add('ecosystem_partner');
+  }
 
   if ([...blueprint.startingStateAudit.priorSignals, ...blueprint.startingStateAudit.priorNoSignals]
     .some(item => item.truthLabel === 'Verified')) {
@@ -256,6 +258,12 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
   const verificationDimensions = researchVerificationDimensionsV21(blueprint, research);
   const sourceIds = new Set(blueprint.sources.map(source => source.sourceId));
   const channels = blueprint.customerAccessPack.channels;
+  const customerAccess = directCustomerAccessChannels(channels);
+  const customerAccessLabels = new Set(customerAccess.map(channel => channel.community + ' via ' + channel.platform));
+  const customerAccessIds = new Set(customerAccess.map(channel => channel.channelId));
+  add(blockers, 'strategy', C.strategy.firstRevenueUsesNonCustomerAccess, 'First revenue channel is not a direct customer-access target.', 'firstRevenuePath.firstChannel', !customerAccessLabels.has(blueprint.firstRevenuePath.firstChannel));
+  add(blockers, 'strategy', C.strategy.launchCardUsesNonCustomerAccess, '48-hour Launch Card approaches must all be direct customer-access targets.', 'launchCard48Hour.firstThreeApproaches', blueprint.launchCard48Hour.firstThreeApproaches.length !== 3 || blueprint.launchCard48Hour.firstThreeApproaches.some(approach => !customerAccessIds.has(approach.channelId)));
+
   const missingPublicSource = blueprint.sources.length === 0
     || blueprint.sources.some(source => !hasText(source.sourceId) || !publicHttps(source.url))
     || channels.some(channel => !publicHttps(channel.publicUrl) || channel.sourceIds.length === 0 || channel.sourceIds.some(sourceId => !sourceIds.has(sourceId)));
@@ -270,6 +278,7 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
   add(blockers, 'research', C.research.requiredProviderAttemptsNotExecuted, 'Required provider attempts not executed.', 'research.receipt.attemptedSourceCount', receipt.attemptedSourceCount < expectedProviderAttempts);
   add(blockers, 'research', C.research.insufficientVerificationDimensions, 'Fewer than three independent idea-verification dimensions.', 'research.verificationDimensions', verificationDimensions.length < 3);
   add(blockers, 'research', C.research.fewerThanTenVerifiedCandidates, 'Fewer than ten verified candidates.', 'research.receipt.candidateChannelCount', receipt.candidateChannelCount < 10);
+  add(blockers, 'research', C.research.fewerThanThreeCustomerAccessTargets, 'Fewer than three verified direct customer-access targets. Media, market, and partner evidence cannot substitute for buyer access.', 'customerAccessPack.channels', customerAccess.length < 3);
   add(blockers, 'research', C.research.missingPublicSource, 'Missing public source.', 'sources', missingPublicSource);
   add(blockers, 'research', C.research.missingResearchDate, 'Missing research date.', 'generationReceipt.researchDate', missingResearchDate);
   add(blockers, 'research', C.research.missingExecutionMetadata, 'Missing confidence, access path, risk, prepared asset, script, or first action.', 'customerAccessPack.channels', missingExecutionMetadata);

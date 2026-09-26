@@ -24,6 +24,7 @@ import {
   type CustomerAccessResearchInput
 } from './launchBlueprintGenerator';
 import { synchronizeDailyExecutionPackets, validateDailyExecutionPackets } from './launchBlueprintDailyExecution';
+import { directCustomerAccessChannels } from './researchEvidenceRole';
 
 export const CANONICAL_BLUEPRINT_V21_GIT_BLOB_SHA1 = '616c691e6b4c9cea93615963a07375d13ffba57f' as const;
 
@@ -203,7 +204,7 @@ function evidenceHierarchy(): EvidenceHierarchy {
 }
 
 function firstRevenuePath(base: GhostTownLaunchBlueprint, lane: BusinessModelLane): FirstRevenuePath {
-  const channel = base.customerAccessPack.channels[0];
+  const channel = directCustomerAccessChannels(base.customerAccessPack.channels)[0];
   const script = base.customerAccessPack.outreachScripts.find(item => item.relationship === 'offer_test_invitation');
   return {
     firstOfferFormat: lane.firstMeaningfulTest,
@@ -338,7 +339,7 @@ export function upgradeGhostTownLaunchBlueprintToV21(
   const lane = classifyLane(order, verdict);
   const businessModelLane: BusinessModelLane = { lane, ...LANE_CONFIG[lane] };
   const revenue = firstRevenuePath(base, businessModelLane);
-  const approaches = base.customerAccessPack.channels.slice(0, 3).map(channel => ({
+  const approaches = directCustomerAccessChannels(base.customerAccessPack.channels).slice(0, 3).map(channel => ({
     name: channel.community,
     channelId: channel.channelId,
     publicUrl: channel.publicUrl,

@@ -1,5 +1,7 @@
 import type { GhostTownLaunchBlueprintV21, DailyExecutionPacket, DeliverableAsset } from '../types/launchBlueprintV21';
+import type { ResearchEvidenceRole } from '../types/launchBlueprint';
 import type { TruthLabel } from '../types/paidTest';
+import { researchEvidenceRole } from './researchEvidenceRole';
 
 /**
  * A read-only, deterministic presentation projection.  The v2.1 Blueprint is
@@ -52,7 +54,7 @@ export interface BlueprintPrioritySection {
   measurement: BlueprintDocumentMeasurement;
   adaptationRule: BlueprintDocumentAdaptation[];
   sourceRefs: string[];
-  accessGroups?: Array<{ groupId: 'priority_five' | 'reserve_five' | 'partner_targets'; title: string; targets: BlueprintDocumentAccessTarget[] }>;
+  accessGroups?: Array<{ groupId: ResearchEvidenceRole; title: string; targets: BlueprintDocumentAccessTarget[] }>;
 }
 export type BlueprintDocumentAccessResourceKind = 'helpful_post' | 'outreach_script' | 'daily_asset';
 export interface BlueprintDocumentAccessResource {
@@ -65,7 +67,7 @@ export interface BlueprintDocumentAccessResource {
 }
 export interface BlueprintDocumentAccessTarget {
   targetId: string; name: string; publicUrl: string; sourceRefs: string[]; researchDate: string;
-  targetType: string; confidence: string; accessPath: string; risk: string;
+  targetType: string; evidenceRole: ResearchEvidenceRole; confidence: string; accessPath: string; risk: string;
   matchedAssetOrScript: BlueprintDocumentAccessResource; firstAction: string;
 }
 export interface BlueprintSupportingDocumentSection { sectionId: string; title: string; content: string[]; sourceRefs: string[]; }
@@ -131,13 +133,19 @@ export function composeBlueprintDocumentModel(blueprint: GhostTownLaunchBlueprin
   const dailyAssets = blueprint.dailyCalendar.flatMap(day => day.executionPacket?.assets || []);
   const helpfulPosts = blueprint.customerAccessPack.helpfulPosts;
   const outreachScripts = blueprint.customerAccessPack.outreachScripts;
-  const partnerTypes = new Set(['association', 'complementary_partner']);
-  const isPartner = (channel: typeof channels[number]) => partnerTypes.has(channel.targetType || '');
   const accessResource = (channel: typeof channels[number]): BlueprintDocumentAccessResource => {
     const declaredAsset = dailyAssets.find(item => item.assetId === channel.preparedAsset || item.title === channel.preparedAsset);
     const declaredScript = outreachScripts.find(item => item.scriptId === channel.outreachScriptId);
     const matchedPost = helpfulPosts.find(item => item.postId === channel.preparedAsset || item.title === channel.preparedAsset || item.intendedCommunity === channel.community);
-    const semanticScript = outreachScripts.find(item => item.relationship === (channel.targetType === 'association' ? 'association_member' : isPartner(channel) ? 'referral_partner' : 'community_member'))
+    const role = researchEvidenceRole(channel);
+    const semanticRelationship = channel.targetType === 'association'
+      ? 'association_member'
+      : role === 'partnership'
+        ? 'referral_partner'
+        : role === 'customer_access'
+          ? 'community_member'
+          : 'interview_invitation';
+    const semanticScript = outreachScripts.find(item => item.relationship === semanticRelationship)
       || outreachScripts.find(item => item.relationship === 'interview_invitation');
     const resource = declaredAsset
       ? { kind: 'daily_asset' as const, resourceId: declaredAsset.assetId, title: declaredAsset.title }
@@ -158,16 +166,21 @@ export function composeBlueprintDocumentModel(blueprint: GhostTownLaunchBlueprin
   const accessTarget = (channel: typeof channels[number]): BlueprintDocumentAccessTarget => ({
     targetId: channel.channelId, name: channel.community, publicUrl: channel.publicUrl,
     sourceRefs: channel.sourceIds, researchDate: channel.researchDate,
-    targetType: channel.targetType || 'community', confidence: channel.confidence,
+    targetType: channel.targetType || 'community', evidenceRole: researchEvidenceRole(channel), confidence: channel.confidence,
     accessPath: channel.accessPath || channel.recommendedApproach || channel.platform,
     risk: channel.risk, matchedAssetOrScript: accessResource(channel), firstAction: channel.firstAction
   });
-  const directChannels = channels.filter(channel => !isPartner(channel));
-  const partnerChannels = channels.filter(isPartner);
+  const grouped = {
+    customer_access: channels.filter(channel => researchEvidenceRole(channel) === 'customer_access'),
+    market_evidence: channels.filter(channel => researchEvidenceRole(channel) === 'market_evidence'),
+    media_pr: channels.filter(channel => researchEvidenceRole(channel) === 'media_pr'),
+    partnership: channels.filter(channel => researchEvidenceRole(channel) === 'partnership')
+  };
   const accessGroups = [
-    { groupId: 'priority_five' as const, title: 'Priority Five', targets: directChannels.slice(0, 5).map(accessTarget) },
-    { groupId: 'reserve_five' as const, title: 'Reserve Five', targets: directChannels.slice(5).map(accessTarget) },
-    { groupId: 'partner_targets' as const, title: 'Partner Targets', targets: partnerChannels.map(accessTarget) }
+    { groupId: 'customer_access' as const, title: 'Direct Customer Access', targets: grouped.customer_access.map(accessTarget) },
+    { groupId: 'market_evidence' as const, title: 'Market Evidence', targets: grouped.market_evidence.map(accessTarget) },
+    { groupId: 'media_pr' as const, title: 'Media / PR Opportunities', targets: grouped.media_pr.map(accessTarget) },
+    { groupId: 'partnership' as const, title: 'Partnership Opportunities', targets: grouped.partnership.map(accessTarget) }
   ];
   const prioritySections = [
     section('48_hour_launch_card', '48-Hour Launch Card', blueprint.launchCard48Hour.firstCommitmentRequest,
@@ -186,8 +199,8 @@ export function composeBlueprintDocumentModel(blueprint: GhostTownLaunchBlueprin
       `${blueprint.firstRevenuePath.firstOfferFormat}; ask ${blueprint.firstRevenuePath.minimumQualifiedAsks} qualified buyers by Day ${blueprint.firstRevenuePath.targetDay}.`,
       [evidence('revenue:buyer', blueprint.firstRevenuePath.firstBuyer, 'Inferred'), evidence('revenue:price', blueprint.firstRevenuePath.firstPrice, blueprint.offer.truthLabel), ...blueprint.firstRevenuePath.requiredProof.map((value, index) => evidence(`revenue:proof:${index + 1}`, value, 'Test'))],
       [...day16.assets, ...day20.assets, ...day21.assets].map(asset), packetMeasurement(day21), packetAdaptation(day21), unique([...day16.targets.flatMap(target => target.sourceIds), ...sources])),
-    { ...section('customer_access_network', 'Customer Access Network', 'Run the Priority Five first; hold the Reserve Five until evidence changes the route.',
-      'Each target is public, source-linked, qualified, and paired with a safe first action rather than invented access.',
+    { ...section('customer_access_network', 'Research and Customer Access', 'Use Direct Customer Access for first-revenue work. Keep market evidence, media/PR, and partnerships in their own lanes.',
+      'Each target is public and source-linked, but only targets classified as customer_access are eligible to drive direct buyer acquisition.',
       channels.map(channel => evidence(`access:${channel.channelId}`, `${channel.community} | ${channel.publicUrl} | ${channel.relevance} | ${channel.researchDate} | confidence: ${channel.confidence} | access: ${channel.accessPath || channel.platform} | risk: ${channel.risk} | first action: ${channel.firstAction}`, channel.confidence === 'high' ? 'Verified' : 'Inferred', channel.sourceIds)),
       [day1, day4].flatMap(value => value.assets).map(asset), packetMeasurement(day4), packetAdaptation(day7), channelRefs), accessGroups },
     section('today', `Today: Day ${today.dayNumber} — ${today.title}`, today.objective, today.whyThisDayExists,
@@ -236,15 +249,14 @@ export function validateBlueprintDocumentModel(model: BlueprintDocumentModel): s
   const access = model.prioritySections.find(value => value.sectionId === 'customer_access_network');
   const targets = access?.accessGroups?.flatMap(group => group.targets) || [];
   if (targets.length < 10 || targets.length > 25) failures.push('access-target-count');
-  if (!access?.accessGroups || access.accessGroups.map(group => group.groupId).join(',') !== 'priority_five,reserve_five,partner_targets') failures.push('access-groups');
+  if (!access?.accessGroups || access.accessGroups.map(group => group.groupId).join(',') !== 'customer_access,market_evidence,media_pr,partnership') failures.push('access-groups');
   const targetIds = targets.map(target => target.targetId);
   if (new Set(targetIds).size !== targets.length) failures.push('access-target-duplicate');
   if (targets.some(target => !target.publicUrl || !target.sourceRefs.length || !target.researchDate || !target.confidence || !target.accessPath || !target.risk || !target.matchedAssetOrScript?.resourceId || !target.firstAction)) failures.push('access-target-metadata');
-  const partnerTypes = new Set(['association', 'complementary_partner']);
-  const partnerGroup = access?.accessGroups?.find(group => group.groupId === 'partner_targets');
-  if (partnerGroup?.targets.some(target => !partnerTypes.has(target.targetType))) failures.push('access-partner-classification');
-  if (access?.accessGroups?.filter(group => group.groupId !== 'partner_targets').flatMap(group => group.targets).some(target => partnerTypes.has(target.targetType))) failures.push('access-direct-classification');
-  if ((access?.accessGroups?.find(group => group.groupId === 'priority_five')?.targets.length || 0) !== Math.min(5, targets.filter(target => !partnerTypes.has(target.targetType)).length)) failures.push('access-priority-ranking');
+  for (const group of access?.accessGroups || []) {
+    if (group.targets.some(target => target.evidenceRole !== group.groupId)) failures.push(`access-role-classification:${group.groupId}`);
+  }
+  if ((access?.accessGroups?.find(group => group.groupId === 'customer_access')?.targets.length || 0) < 3) failures.push('access-customer-access-count');
   if (!model.supportingSections.some(value => value.sectionId === 'full_30_day_plan' && value.content.length === 30)) failures.push('full-30-day-plan');
   return failures;
 }

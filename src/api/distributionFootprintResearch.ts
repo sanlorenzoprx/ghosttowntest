@@ -8,6 +8,7 @@ import type {
 } from '../types/launchBlueprint';
 import type { CustomerAccessResearchInput } from './launchBlueprintGenerator';
 import { generateAI } from './generativeAIService';
+import { researchEvidenceRoleForTargetType, researchEvidenceRoleReason } from './researchEvidenceRole';
 
 const DATAFORSEO_ENDPOINT = 'https://api.dataforseo.com/v3/backlinks/backlinks/live';
 const PODCAST_INDEX_ENDPOINT = 'https://api.podcastindex.org/api/1.0/search/byterm';
@@ -25,7 +26,7 @@ const MAX_CANDIDATES_FOR_MODEL = 80;
 const MAX_DATAFORSEO_PAGE_VERIFICATIONS_PER_QUERY = 16;
 const MAX_PODCAST_PAGE_VERIFICATIONS_PER_QUERY = 12;
 
-export type DistributionProvider = 'dataforseo_backlinks' | 'podcast_index' | 'youtube_api';
+export type DistributionProvider = 'dataforseo_backlinks' | 'podcast_index' | 'youtube_api' | 'google_grounded_customer_access';
 
 export interface CustomerAccessResearchReceipt {
   provider: 'distribution_footprint';
@@ -331,6 +332,7 @@ function inferTargetType(value: string, provider: DistributionProvider): Distrib
   if (provider === 'podcast_index') return 'podcast';
   if (provider === 'youtube_api') return 'youtube_creator';
   const haystack = value.toLowerCase();
+  if (/reddit\.com|groups\.io|forum|community|discussion|support group|message board/.test(haystack)) return 'community';
   if (/podcast|radio|audio|listen/.test(haystack)) return 'podcast';
   if (/event|conference|summit|expo|festival|meetup|webinar/.test(haystack)) return 'event';
   if (/association|society|chamber|foundation|institute|council|alliance/.test(haystack)) return 'association';
@@ -362,9 +364,11 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
     }
   }
   const topic = coreTopic(order, verdict);
-  sourceIds.push('podcast:category', 'youtube:category');
+  sourceIds.push('podcast:category', 'youtube:category', 'customer_access:problem', 'customer_access:buyer');
   queryBySourceId['podcast:category'] = topic;
   queryBySourceId['youtube:category'] = `${topic} review interview`;
+  queryBySourceId['customer_access:problem'] = `${order.intake.problem} public forum community discussion support group ${text(order.intake.geography, 'global')}`.slice(0, 300);
+  queryBySourceId['customer_access:buyer'] = `${order.intake.targetBuyer} ${order.intake.problem} public forum community discussion where people ask for help ${text(order.intake.geography, 'global')}`.slice(0, 300);
   const researchSignals = order.intake.researchSignals;
   for (const type of ['audience', 'ecosystem'] as const) {
     const signal = researchSignals?.[type];
@@ -378,7 +382,7 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
   return {
     planVersion: 'distribution-footprint-plan-v1',
     createdAt: new Date().toISOString(),
-    packs: ['media_distribution', 'competitor_footprint'],
+    packs: ['customer_access', 'market_evidence', 'media_distribution', 'partnerships'],
     sourceIds,
     queryBySourceId,
     seedDomains: seeds.map(seed => seed.domain),
@@ -538,9 +542,72 @@ async function youtubeCandidates(env: Env, query: string, seedName?: string): Pr
   return candidates;
 }
 
+async function groundedCustomerAccessCandidates(env: Env, query: string): Promise<FootprintCandidate[]> {
+  const generated = await generateAI(env, {
+    task: 'grounded_research',
+    googleSearch: true,
+    temperature: 0,
+    maxOutputTokens: 5000,
+    timeoutMs: 45_000,
+    prompt: [
+      'Find public online places where the target buyers themselves currently discuss this problem and where a founder can participate or request a conversation.',
+      'Prioritize public forums, discussion communities, support communities, message boards, public groups, and question/discussion pages.',
+      'Exclude podcasts, creator channels, news articles, generic blogs, vendor pages, directories, review articles, conferences, and associations unless the returned URL itself is a public buyer discussion/community surface.',
+      'Do not claim that audience members are buyers unless the source itself shows the target people discussing the problem.',
+      'Return a concise research summary grounded in Google Search; source selection matters more than prose.',
+      `Search need: ${query}`
+    ].join('\n')
+  });
+
+  const chunks = generated.groundingMetadata?.groundingChunks || [];
+  const seen = new Set<string>();
+  const candidates: FootprintCandidate[] = [];
+  for (const chunk of chunks) {
+    const rawUrl = text(chunk.web?.uri);
+    if (!rawUrl) continue;
+    const safe = safePublicUrl(rawUrl);
+    if (!safe) continue;
+    const key = safe.toString().toLowerCase().replace(/\/$/, '');
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const groundedTitle = text(chunk.web?.title);
+    if (inferTargetType(`${groundedTitle} ${safe.toString()}`, 'google_grounded_customer_access') !== 'community') continue;
+
+    try {
+      const page = await verifyOriginalPage(safe.toString());
+      const type = inferTargetType(`${page.finalUrl} ${groundedTitle} ${page.title} ${page.description}`, 'google_grounded_customer_access');
+      if (type !== 'community') continue;
+      candidates.push({
+        candidateId: candidateId('google_grounded_customer_access', page.finalUrl),
+        provider: 'google_grounded_customer_access',
+        targetTypeHint: 'community',
+        title: groundedTitle || page.title,
+        publicUrl: page.finalUrl,
+        publisher: page.publisher,
+        platform: 'Public buyer community',
+        activity: 'active',
+        confidence: 'high',
+        factualSignals: [
+          `Google-grounded search returned this public discussion/community source for the direct customer-access query: ${query}.`,
+          page.description
+        ].filter(Boolean),
+        competitorEvidence: [],
+        audienceOwner: page.publisher,
+        observedAt: new Date().toISOString()
+      });
+      if (candidates.length >= 12) break;
+    } catch {
+      continue;
+    }
+  }
+  return candidates;
+}
+
 function providerForTask(taskId: string): DistributionProvider {
   if (taskId.startsWith('dataforseo:')) return 'dataforseo_backlinks';
   if (taskId.startsWith('podcast:')) return 'podcast_index';
+  if (taskId.startsWith('customer_access:')) return 'google_grounded_customer_access';
   return 'youtube_api';
 }
 
@@ -563,7 +630,9 @@ export async function runResearchBatch(
         ? seed ? await dataForSeoCandidates(env, seed) : []
         : provider === 'podcast_index'
           ? await podcastCandidates(env, query, seed?.name)
-          : await youtubeCandidates(env, query, seed?.name);
+          : provider === 'google_grounded_customer_access'
+            ? await groundedCustomerAccessCandidates(env, query)
+            : await youtubeCandidates(env, query, seed?.name);
       candidates.push(...result);
       attempts.push({ sourceId: taskId, sourceType: provider, success: true, query, candidateCount: result.length });
     } catch (error) {
@@ -598,7 +667,7 @@ Problem: ${order.intake.problem}
 Geography: ${order.intake.geography || 'not specified'}
 Confirmed competitor seeds: ${(order.intake.competitorSeeds || []).map(seed => `${seed.name} (${seed.domain})`).join(', ')}
 
-Select 10-25 high-signal targets only from the immutable candidate IDs below. Prioritize creators, podcasts, newsletters/publications, events, associations, review sites, and complementary partners that can create interviews, reviews, guest content, partnerships, referrals, or qualified customer conversations. Generic communities are secondary. Do not invent a target, URL, metric, rule, contact, or claim. Treat factualSignals and competitorEvidence as the only evidence.
+Select 10-25 high-signal evidence targets only from the immutable candidate IDs below. Keep four roles conceptually separate: direct customer access, market/competitor evidence, media/PR, and partnerships. A podcast, creator, publication, event, review site, backlink, association, or partner is not direct customer access merely because its audience appears relevant. Direct customer access requires a public community/discussion route where prospective buyers themselves may be approached. If at least three customer_access candidates exist, retain at least three of them, preferably five, before adding supporting media/market/partner targets. Do not relabel a media or partner candidate as a community to make it usable for sales. Preserve useful market/media/partner evidence even when it is not a sales channel. Do not invent a target, URL, metric, rule, contact, or claim. Treat factualSignals and competitorEvidence as the only evidence.
 
 For each selected target:
 - explain why its audience fits this exact buyer;
@@ -635,33 +704,21 @@ function parseSelection(value: string): SelectionPayload {
   return JSON.parse(source.slice(first, last + 1)) as SelectionPayload;
 }
 
-function targetType(value: unknown, fallback: DistributionTargetType): DistributionTargetType {
-  return value === 'podcast'
-    || value === 'youtube_creator'
-    || value === 'newsletter_or_publication'
-    || value === 'event'
-    || value === 'association'
-    || value === 'review_site'
-    || value === 'complementary_partner'
-    || value === 'community'
-    ? value
-    : fallback;
-}
-
 function discoveredThrough(provider: DistributionProvider): NonNullable<CustomerAccessChannel['discoveredThrough']> {
   return provider === 'dataforseo_backlinks'
     ? 'competitor_backlink'
     : provider === 'podcast_index'
       ? 'podcast_search'
-      : 'youtube_search';
+      : provider === 'google_grounded_customer_access'
+        ? 'grounded_customer_access_search'
+        : 'youtube_search';
 }
 
 function score(candidate: FootprintCandidate): number {
   const activity = { recent: 5, active: 4, occasional: 2, uncertain: 0 }[candidate.activity];
-  const type = candidate.targetTypeHint === 'podcast' || candidate.targetTypeHint === 'youtube_creator' ? 4
-    : candidate.targetTypeHint === 'newsletter_or_publication' || candidate.targetTypeHint === 'event' || candidate.targetTypeHint === 'association' ? 3
-      : 1;
-  return activity + type + Math.min(4, candidate.competitorEvidence.length);
+  const role = researchEvidenceRoleForTargetType(candidate.targetTypeHint);
+  const rolePriority = role === 'customer_access' ? 7 : role === 'partnership' ? 3 : role === 'media_pr' ? 2 : 1;
+  return activity + rolePriority + Math.min(4, candidate.competitorEvidence.length);
 }
 
 export async function finalizeCustomerAccessResearch(
@@ -715,7 +772,10 @@ export async function finalizeCustomerAccessResearch(
     const candidate = byId.get(idValue);
     if (!candidate || seen.has(candidate.publicUrl)) continue;
     seen.add(candidate.publicUrl);
-    const type = targetType(selected.targetType, candidate.targetTypeHint);
+    // Candidate classification is provider/page-derived and immutable here. The
+    // model may explain or rank a target, but it may not relabel media evidence
+    // as a community/customer-access target.
+    const type = candidate.targetTypeHint;
     const recordSourceId = sourceId(candidate.publicUrl);
     channels.push({
       channelId: channelId(candidate.publicUrl),
@@ -733,6 +793,8 @@ export async function finalizeCustomerAccessResearch(
       researchDate,
       sourceIds: [recordSourceId],
       targetType: type,
+      evidenceRole: researchEvidenceRoleForTargetType(type),
+      evidenceRoleReason: researchEvidenceRoleReason(researchEvidenceRoleForTargetType(type)),
       discoveredThrough: discoveredThrough(candidate.provider),
       competitorEvidence: candidate.competitorEvidence,
       audienceOwner: text(selected.audienceOwner, candidate.audienceOwner),
@@ -757,11 +819,12 @@ export async function finalizeCustomerAccessResearch(
     return counts;
   }, {});
   const mediaTypes = new Set(channels.map(channel => channel.targetType).filter(Boolean));
-  const complete = channels.length >= MIN_CHANNELS && mediaTypes.size >= 3;
-  if (!complete) throw new Error(`Media & Distribution Network failed its quality gate: ${channels.length} targets across ${mediaTypes.size} target types`);
+  const customerAccessCount = channels.filter(channel => channel.evidenceRole === 'customer_access').length;
+  const complete = channels.length >= MIN_CHANNELS && mediaTypes.size >= 3 && customerAccessCount >= 3;
+  if (!complete) throw new Error(`Research & Customer Access failed its quality gate: ${channels.length} targets across ${mediaTypes.size} target types, with ${customerAccessCount} direct customer-access targets; at least 3 are required`);
 
   const publicExpertsAndPartners = channels
-    .filter(channel => channel.targetType !== 'community')
+    .filter(channel => channel.evidenceRole === 'partnership')
     .slice(0, 8)
     .map(channel => ({
       name: channel.community,

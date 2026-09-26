@@ -3,6 +3,7 @@ import type {
   BlueprintDailyActionV21,
   GhostTownLaunchBlueprintV21,
 } from "../types/launchBlueprintV21";
+import { researchEvidenceRole } from "./researchEvidenceRole";
 
 export const BLUEPRINT_ASSET_FILENAMES = [
   "README.md",
@@ -234,6 +235,8 @@ export function buildBlueprintAssetFiles(
           [
             "channel_id",
             "type",
+            "evidence_role",
+            "role_boundary",
             "community",
             "platform",
             "public_url",
@@ -245,6 +248,8 @@ export function buildBlueprintAssetFiles(
           ...blueprint.customerAccessPack.channels.map((channel) => [
             channel.channelId,
             channel.targetType || "",
+            researchEvidenceRole(channel),
+            channel.evidenceRoleReason || "",
             channel.community,
             channel.platform,
             channel.publicUrl,

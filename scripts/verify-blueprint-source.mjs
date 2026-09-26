@@ -57,20 +57,20 @@ try {
 
 // Keep the v2.1.4 compatibility fields for roadmap scripts that were built
 // before the calendar/Copilot amendments, but require the actual source-chain
-// tip to advance through the approved v2.1.5, v2.1.6, and v2.1.7 decisions.
+// tip to advance through the approved v2.1.5, v2.1.6, v2.1.7, and v2.1.8 decisions.
 if (manifest?.changeId !== 'GT-BP-2026-08-15-V2.1.4') {
   fail('Evidence manifest no longer preserves the v2.1.4 compatibility change ID.');
 }
 if (manifest?.previousChangeId !== 'GT-BP-2026-08-15-V2.1.3') {
   fail('Evidence manifest no longer preserves the v2.1.3 compatibility predecessor.');
 }
-if (manifest?.chainTip?.changeId !== 'GT-BP-2026-09-26-V2.1.7') {
-  fail('Evidence chain tip is not the approved v2.1.7 Strategic Coherence Gate change ID.');
+if (manifest?.chainTip?.changeId !== 'GT-BP-2026-09-26-V2.1.8') {
+  fail('Evidence chain tip is not the approved v2.1.8 Research Role and Customer Access change ID.');
 }
-if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-08-18-V2.1.6') {
-  fail('Evidence chain tip does not preserve the v2.1.6 Execution Intelligence predecessor.');
+if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-09-26-V2.1.7') {
+  fail('Evidence chain tip does not preserve the v2.1.7 Strategic Coherence Gate predecessor.');
 }
-if (manifest?.chainTip?.version !== '2.1.7') fail('Evidence chain tip version must be 2.1.7.');
+if (manifest?.chainTip?.version !== '2.1.8') fail('Evidence chain tip version must be 2.1.8.');
 
 const canonical = verifyTrackedSource(manifest.canonical, 'Canonical Blueprint');
 const platformAmendment = verifyTrackedSource(manifest.platformAmendment, 'v2.1.2 Vertex AI platform amendment');
@@ -86,6 +86,9 @@ const executionChangeRecord = verifyTrackedSource(manifest.executionIntelligence
 const coherenceAmendment = verifyTrackedSource(manifest.strategicCoherenceAmendment, 'v2.1.7 Strategic Coherence Gate amendment');
 const coherenceChangeRecord = verifyTrackedSource(manifest.strategicCoherenceChangeRecord, 'v2.1.7 change record');
 const coherenceEvidence = verifyTrackedSource(manifest.strategicCoherenceEvidence, 'v2.1.7 implementation evidence');
+const researchRoleAmendment = verifyTrackedSource(manifest.researchRoleCustomerAccessAmendment, 'v2.1.8 Research Role and Customer Access amendment');
+const researchRoleChangeRecord = verifyTrackedSource(manifest.researchRoleCustomerAccessChangeRecord, 'v2.1.8 change record');
+const researchRoleEvidence = verifyTrackedSource(manifest.researchRoleCustomerAccessEvidence, 'v2.1.8 implementation evidence');
 
 const authorityClause =
   'The canonical Blueprint is the authoritative product and implementation guide. Every Factory slice must revalidate its exact hash before execution.';
@@ -183,7 +186,7 @@ if (manifest?.strategicCoherenceEvidence?.path !== 'docs/blueprint-evidence/ghos
 }
 try {
   const evidence = JSON.parse(coherenceEvidence.source);
-  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.7 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.changeId !== manifest.strategicCoherenceAmendment.changeId) fail('v2.1.7 implementation evidence change ID does not match the v2.1.7 amendment.');
   if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1) fail('v2.1.7 implementation evidence does not preserve the canonical Blueprint hash.');
   if (evidence?.canonical?.sourceModified !== false) fail('v2.1.7 implementation evidence must state that the canonical source was not modified.');
   if (evidence?.pipelineVersion !== 'vertex-blueprint-staged-v2') fail('v2.1.7 evidence must require strategic-coherence pipeline v2.');
@@ -196,6 +199,45 @@ try {
   if (evidence?.validation?.productionDeploymentPerformed !== false) fail('v2.1.7 evidence must not claim a production deployment.');
 } catch (error) {
   fail(`Unable to verify v2.1.7 implementation evidence: ${error.message}`);
+}
+
+const researchRoleDecision = 'Every retained research target has exactly one evidence role:';
+requireText(researchRoleAmendment.source, researchRoleDecision, 'v2.1.8 Research Role and Customer Access product decision');
+for (const required of [
+  'at least **3 direct `customer_access` targets**.',
+  'Only a target whose evidence role is `customer_access` may drive:',
+  'The dashboard and PDF must show researched targets in four separate groups:',
+  'Market evidence is not customer-access evidence. Customer-access evidence is not PR. PR is not partnership. Partnership is not a buyer.'
+]) requireText(researchRoleAmendment.source, required, 'v2.1.8 Research Role and Customer Access amendment');
+requireText(researchRoleChangeRecord.source, 'Direct Customer Access | Market Evidence | Media / PR | Partnership', 'v2.1.8 change record decision');
+requireText(researchRoleChangeRecord.source, 'Weakening approved outcomes remains prohibited.', 'v2.1.8 change record outcome protection');
+
+if (manifest?.researchRoleCustomerAccessEvidence?.path !== 'docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.8-research-role-customer-access-evidence.json') {
+  fail('Evidence chain does not reference the v2.1.8 Research Role and Customer Access implementation evidence.');
+}
+try {
+  const evidence = JSON.parse(researchRoleEvidence.source);
+  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.8 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1) fail('v2.1.8 implementation evidence does not preserve the canonical Blueprint hash.');
+  if (evidence?.canonical?.sourceModified !== false) fail('v2.1.8 implementation evidence must state that the canonical source was not modified.');
+  const expectedBlockers = [
+    'RESEARCH_FEWER_THAN_THREE_CUSTOMER_ACCESS_TARGETS',
+    'STRATEGY_FIRST_REVENUE_USES_NON_CUSTOMER_ACCESS',
+    'STRATEGY_LAUNCH_CARD_USES_NON_CUSTOMER_ACCESS'
+  ];
+  if (expectedBlockers.some(code => !evidence?.releaseBlockers?.includes(code))) fail('v2.1.8 evidence is missing a required customer-access release blocker.');
+  if (evidence?.historicalFalsification?.longevity?.passesV218DirectAccessRequirement !== false) fail('v2.1.8 evidence must prove the historical Longevity Sprint fails direct-customer-access requirements.');
+  if (evidence?.historicalFalsification?.suredose?.passesV218DirectAccessRequirement !== false) fail('v2.1.8 evidence must prove the historical SureDose Sprint fails direct-customer-access requirements.');
+  if (evidence?.historicalFalsification?.longevity?.roleCounts?.customer_access !== 0) fail('v2.1.8 historical Longevity replay must preserve zero direct customer-access targets.');
+  if (evidence?.historicalFalsification?.suredose?.roleCounts?.customer_access !== 0) fail('v2.1.8 historical SureDose replay must preserve zero direct customer-access targets.');
+  if (evidence?.validation?.focusedTests?.failed !== 0 || evidence?.validation?.focusedTests?.passed < 63) fail('v2.1.8 focused regression evidence is incomplete.');
+  if (evidence?.validation?.uiFocusedTests?.failed !== 0 || evidence?.validation?.uiFocusedTests?.passed < 53) fail('v2.1.8 dashboard regression evidence is incomplete.');
+  if (evidence?.validation?.typecheck?.passed !== true) fail('v2.1.8 typecheck evidence did not pass.');
+  if (evidence?.validation?.blueprintVerification?.passed !== true || evidence?.validation?.blueprintVerification?.chainTip !== '2.1.8') fail('v2.1.8 Blueprint verification evidence is incomplete.');
+  if (evidence?.validation?.build?.passed !== true || evidence?.validation?.build?.generatedDiscoveryRoutes !== 40) fail('v2.1.8 build evidence is incomplete.');
+  if (evidence?.validation?.productionDeploymentPerformed !== false) fail('v2.1.8 evidence must not claim a production deployment.');
+} catch (error) {
+  fail(`Unable to verify v2.1.8 implementation evidence: ${error.message}`);
 }
 
 if (manifest?.outcomeProtection?.weakeningAllowed !== false) {
@@ -213,9 +255,9 @@ for (const required of [
 }
 
 console.log(
-  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${coherenceAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
+  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${researchRoleAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
   `base ${manifest.canonical.version} ${canonical.actualHash}; platform ${manifest.platformAmendment.version} ${platformAmendment.actualHash}; ` +
   `website ${manifest.previousAmendment.version} ${websiteAmendment.actualHash}; spa ${manifest.amendment.version} ${spaAmendment.actualHash}; ` +
   `calendar ${manifest.calendarAmendment.version} ${calendarAmendment.actualHash}; execution ${manifest.executionIntelligenceAmendment.version} ${executionAmendment.actualHash}; ` +
-  `coherence-change-record ${coherenceChangeRecord.actualHash}`
+  `coherence ${coherenceAmendment.actualHash}; research-role-change-record ${researchRoleChangeRecord.actualHash}`
 );

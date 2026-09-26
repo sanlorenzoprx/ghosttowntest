@@ -2,6 +2,7 @@ import type { Env } from './env';
 import type { EvaluationResult } from '../types/lit';
 import type { PaidTestOrder } from '../types/paidTest';
 import type { BlueprintSource, CustomerAccessChannel, DistributionTargetType } from '../types/launchBlueprint';
+import { researchEvidenceRoleForTargetType, researchEvidenceRoleReason } from './researchEvidenceRole';
 import {
   finalizeCustomerAccessResearch as finalizeDistributionFootprintResearch,
   planCustomerAccessResearch,
@@ -126,6 +127,8 @@ export function recoverCustomerAccessFromVerifiedCandidates(
       researchDate,
       sourceIds: [sourceId],
       targetType: type,
+      evidenceRole: researchEvidenceRoleForTargetType(type),
+      evidenceRoleReason: researchEvidenceRoleReason(researchEvidenceRoleForTargetType(type)),
       discoveredThrough: discoveredThrough(candidate.provider),
       competitorEvidence: candidate.competitorEvidence,
       audienceOwner: candidate.audienceOwner,
@@ -142,7 +145,7 @@ export function recoverCustomerAccessFromVerifiedCandidates(
   }, {});
 
   const publicExpertsAndPartners = channels
-    .filter(channel => channel.targetType !== 'community')
+    .filter(channel => channel.evidenceRole === 'partnership')
     .slice(0, 8)
     .map(channel => ({
       name: channel.community,

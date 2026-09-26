@@ -4,6 +4,7 @@ import type { GhostTownLaunchBlueprintV21 } from "../types/launchBlueprintV21";
 import LaunchSitePanel from "./LaunchSitePanel";
 import GetMeLiveUpsell from "./GetMeLiveUpsell";
 import SprintShareMoment from "./SprintShareMoment";
+import { researchEvidenceRole, RESEARCH_EVIDENCE_ROLE_LABELS } from "../api/researchEvidenceRole";
 
 export type EvidenceStrength = "strong" | "moderate" | "early" | "weak";
 export type PrimaryConstraint = "customer" | "urgency" | "access" | "trust" | "offer" | "fulfillment" | "price" | "message" | "missing_evidence" | "none";
@@ -152,7 +153,7 @@ export interface BlueprintV21Payload {
   };
 }
 
-type Tab = "overview" | "audit" | "revenue" | "fulfillment" | "today" | "record" | "followups" | "evidence" | "review" | "reminders" | "calendar" | "site";
+type Tab = "overview" | "audit" | "research" | "revenue" | "fulfillment" | "today" | "record" | "followups" | "evidence" | "review" | "reminders" | "calendar" | "site";
 
 const tabs: Array<{ id: Tab; label: string }> = [
   { id: "overview", label: "Overview" },
@@ -163,6 +164,7 @@ const tabs: Array<{ id: Tab; label: string }> = [
   { id: "review", label: "Weekly Review" },
   { id: "reminders", label: "Reminders" },
   { id: "audit", label: "Starting State" },
+  { id: "research", label: "Research & Access" },
   { id: "revenue", label: "First Revenue" },
   { id: "fulfillment", label: "Fulfillment" },
   { id: "calendar", label: "30-Day Calendar" },
@@ -425,6 +427,39 @@ export default function LaunchBlueprintViewV21({ orderId, onBack, initialPayload
       {tab === "overview" && <><GetMeLiveUpsell sourceSprintOrderId={orderId} compact /><SprintShareMoment sourceSprintOrderId={orderId} /></>}
 
       {tab === "audit" && <div className="space-y-6"><section className="grid gap-4 md:grid-cols-2">{[["Existing offer", blueprint.startingStateAudit.existingOffer],["Existing site", blueprint.startingStateAudit.existingLandingPage],["Previous outreach", blueprint.startingStateAudit.previousOutreach],["Customers, audience, contacts or partners", blueprint.startingStateAudit.existingCustomersAudienceOrPartners],["Manual fulfillment readiness", blueprint.startingStateAudit.manualFulfillmentReadiness]].map(([title, item]) => { const evidence = item as typeof blueprint.startingStateAudit.existingOffer; return <article key={String(title)} className="rounded-xl border border-black/10 bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-black">{String(title)}</h2>{truthBadge(evidence.truthLabel)}</div><p className="mt-3 text-sm text-gray-700">{evidence.statement}</p></article>; })}</section><section className="rounded-xl border border-black/10 bg-white p-6"><h2 className="text-2xl font-black">Skills and assets</h2><div className="mt-4 space-y-3">{blueprint.startingStateAudit.existingSkillsAndAssets.map((item, index) => <div key={index} className="flex flex-col gap-2 rounded-lg bg-gray-50 p-4 sm:flex-row sm:items-start sm:justify-between"><span className="text-sm">{item.statement}</span>{truthBadge(item.truthLabel)}</div>)}</div></section><section className="rounded-xl border border-black/10 bg-white p-6"><h2 className="text-2xl font-black">Founder constraints</h2><div className="mt-4 grid gap-4 md:grid-cols-2">{Object.entries(blueprint.startingStateAudit.founderConstraints).map(([key, item]) => <div key={key} className="rounded-lg bg-gray-50 p-4"><div className="flex items-center justify-between gap-2"><strong>{key.replace(/([A-Z])/g, " $1")}</strong>{truthBadge(item.truthLabel)}</div><p className="mt-2 text-sm text-gray-700">{item.statement}</p></div>)}</div></section><section className="grid gap-4 lg:grid-cols-2"><article className="rounded-xl border border-black/10 bg-white p-6"><h2 className="text-xl font-black">Verified-fact register</h2><div className="mt-4 space-y-3">{blueprint.startingStateAudit.verifiedFacts.map((item, index) => <div key={index} className="rounded-lg bg-emerald-50 p-3 text-sm"><div className="mb-2">{truthBadge(item.truthLabel)}</div>{item.statement}</div>)}</div></article><article className="rounded-xl border border-black/10 bg-white p-6"><h2 className="text-xl font-black">Inference register</h2><div className="mt-4 space-y-3">{blueprint.startingStateAudit.inferences.map((item, index) => <div key={index} className="rounded-lg bg-amber-50 p-3 text-sm"><div className="mb-2">{truthBadge(item.truthLabel)}</div>{item.statement}</div>)}</div></article></section><section className="rounded-xl border border-black/10 bg-white p-6"><h2 className="text-2xl font-black">Five critical tests</h2><div className="mt-4 grid gap-4 md:grid-cols-2">{blueprint.startingStateAudit.criticalTests.map((test, index) => <article key={test.assumptionId} className="rounded-lg border border-black/10 p-4"><p className="text-xs font-black uppercase text-ghost-rust">Critical test {index + 1}</p><h3 className="mt-1 font-black">{test.assumption}</h3><p className="mt-2 text-sm"><strong>Evidence required:</strong> {test.evidenceRequired}</p><p className="mt-2 text-sm"><strong>If false:</strong> {test.failureConsequence}</p></article>)}</div></section></div>}
+
+      {tab === "research" && <div className="space-y-6">
+        <section className="rounded-2xl bg-ghost-ink p-7 text-white">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-gold">Research roles</p>
+          <h2 className="mt-2 text-3xl font-black">Know which evidence can actually reach a buyer.</h2>
+          <p className="mt-3 text-white/75">Only Direct Customer Access can drive first-revenue outreach. Market evidence, Media / PR, and Partnerships remain useful, but they cannot substitute for a route to the buyer.</p>
+        </section>
+        {(["customer_access","market_evidence","media_pr","partnership"] as const).map(role => {
+          const channels = blueprint.customerAccessPack.channels.filter(channel => researchEvidenceRole(channel) === role);
+          const boundary = role === "customer_access"
+            ? "Use these for direct customer conversations and first-revenue work."
+            : role === "market_evidence"
+              ? "Use these to understand competitors, alternatives, reviews, and category behavior. Do not treat them as sales channels."
+              : role === "media_pr"
+                ? "Use these for interviews, reviews, awareness, guest content, and PR. Do not treat them as direct buyer access."
+                : "Use these for referrals and complementary relationships. Do not treat them as direct buyer access without separate proof.";
+          return <section key={role} className="rounded-xl border border-black/10 bg-white p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><p className="text-xs font-black uppercase text-ghost-rust">{RESEARCH_EVIDENCE_ROLE_LABELS[role]}</p><p className="mt-2 max-w-3xl text-sm text-gray-700">{boundary}</p></div>
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-black">{channels.length} target{channels.length === 1 ? "" : "s"}</span>
+            </div>
+            {channels.length === 0 ? <p className="mt-4 rounded-lg bg-amber-50 p-4 text-sm font-semibold text-amber-900">{role === "customer_access" ? "No verified direct customer-access target. This Sprint must not release until GhostTown finds at least three." : "No source-backed target was retained for this role."}</p> :
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">{channels.map(channel => <article key={channel.channelId} className="rounded-lg border border-black/10 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-black">{channel.community}</h3><span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-black uppercase">{channel.targetType?.replace(/_/g," ") || "target"}</span></div>
+                <p className="mt-2 text-sm text-gray-700">{channel.relevance}</p>
+                <p className="mt-3 text-xs font-black uppercase text-gray-500">Role boundary</p><p className="mt-1 text-sm text-gray-700">{channel.evidenceRoleReason || boundary}</p>
+                <p className="mt-3 text-xs font-black uppercase text-gray-500">Public path</p><p className="mt-1 text-sm text-gray-700">{channel.accessPath || channel.recommendedApproach}</p>
+                <p className="mt-3 text-xs font-black uppercase text-gray-500">First action</p><p className="mt-1 text-sm text-gray-700">{channel.firstAction}</p>
+                <a className="mt-3 inline-block text-sm font-black text-ghost-rust" href={channel.publicUrl} target="_blank" rel="noreferrer">Open source ↗</a>
+              </article>)}</div>}
+          </section>;
+        })}
+      </div>}
 
       {tab === "revenue" && <div className="space-y-6"><section className="rounded-2xl bg-ghost-ink p-7 text-white"><p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-gold">Selected execution lane</p><h2 className="mt-2 text-3xl font-black">{blueprint.businessModelLane.lane.replace(/_/g, " ")}</h2><p className="mt-3 text-white/75">{blueprint.businessModelLane.rationale}</p></section><section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{[["First offer format", blueprint.firstRevenuePath.firstOfferFormat],["First buyer", blueprint.firstRevenuePath.firstBuyer],["First channel", blueprint.firstRevenuePath.firstChannel],["First price", blueprint.firstRevenuePath.firstPrice],["Commitment method", blueprint.firstRevenuePath.commitmentMethod],["Target day", `Day ${blueprint.firstRevenuePath.targetDay}`],["Minimum qualified asks", String(blueprint.firstRevenuePath.minimumQualifiedAsks)],["Success threshold", blueprint.firstRevenuePath.successThreshold]].map(([label, value]) => <article key={label} className="rounded-xl border border-black/10 bg-white p-5"><p className="text-xs font-black uppercase text-ghost-rust">{label}</p><p className="mt-2 text-sm font-semibold text-gray-800">{value}</p></article>)}</section><article className="rounded-xl border border-black/10 bg-white p-6"><div className="flex justify-between gap-4"><div><p className="text-xs font-black uppercase text-ghost-rust">First ask</p><p className="mt-2 whitespace-pre-line text-sm leading-6">{blueprint.firstRevenuePath.firstAsk}</p></div><button onClick={() => void copy(blueprint.firstRevenuePath.firstAsk)} className="h-fit rounded-lg border border-ghost-rust px-3 py-2 text-xs font-black text-ghost-rust">Copy ask</button></div><FieldList title="Follow-up sequence" items={blueprint.firstRevenuePath.followUpSequence} /></article><PilotBrief blueprint={blueprint} onCopy={text => void copy(text)} /></div>}
 
