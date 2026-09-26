@@ -25,11 +25,12 @@ import {
 import { validateGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
 import { synchronizeDailyExecutionPackets } from './launchBlueprintDailyExecution';
 
-export const VERTEX_BLUEPRINT_PIPELINE_VERSION = 'vertex-blueprint-staged-v1' as const;
+export const VERTEX_BLUEPRINT_PIPELINE_VERSION = 'vertex-blueprint-staged-v2' as const;
 
 const STAGE_NAMES = [
   'evidence_normalization',
   'strategy_synthesis',
+  'strategic_coherence_gate',
   'asset_generation',
   'red_team_review'
 ] as const;
@@ -116,6 +117,39 @@ export interface VertexStrategySynthesis {
     decision: BlueprintDecision;
     condition: string;
     nextAction: string;
+  }>;
+}
+
+export const STRATEGIC_COHERENCE_LINKS = [
+  'customer',
+  'problem',
+  'buyer_payer',
+  'current_alternative',
+  'test',
+  'commitment',
+  'fulfillment',
+  'access_path'
+] as const;
+
+export type StrategicCoherenceLink = typeof STRATEGIC_COHERENCE_LINKS[number];
+export type StrategicCoherenceStatus = 'coherent' | 'testable_hypothesis' | 'unresolved' | 'contradictory';
+
+export interface VertexStrategicCoherenceGate {
+  passed: boolean;
+  chainSummary: string;
+  links: Array<{
+    link: StrategicCoherenceLink;
+    value: string;
+    status: StrategicCoherenceStatus;
+    reason: string;
+    evidenceIds: string[];
+    channelIds: string[];
+  }>;
+  blockers: Array<{
+    code: string;
+    link: StrategicCoherenceLink;
+    message: string;
+    requiredEvidence: string;
   }>;
 }
 
@@ -322,6 +356,46 @@ const STRATEGY_SYNTHESIS_SCHEMA: VertexResponseSchema = {
     'channelPriorities',
     'decisionThresholds'
   ]
+};
+
+const STRATEGIC_COHERENCE_SCHEMA: VertexResponseSchema = {
+  type: 'OBJECT',
+  properties: {
+    passed: BOOLEAN,
+    chainSummary: STRING,
+    links: {
+      type: 'ARRAY',
+      minItems: 8,
+      maxItems: 8,
+      items: {
+        type: 'OBJECT',
+        properties: {
+          link: { type: 'STRING', enum: [...STRATEGIC_COHERENCE_LINKS] },
+          value: STRING,
+          status: { type: 'STRING', enum: ['coherent', 'testable_hypothesis', 'unresolved', 'contradictory'] },
+          reason: STRING,
+          evidenceIds: stringArray(0, 20),
+          channelIds: stringArray(0, 10)
+        },
+        required: ['link', 'value', 'status', 'reason', 'evidenceIds', 'channelIds']
+      }
+    },
+    blockers: {
+      type: 'ARRAY',
+      maxItems: 12,
+      items: {
+        type: 'OBJECT',
+        properties: {
+          code: STRING,
+          link: { type: 'STRING', enum: [...STRATEGIC_COHERENCE_LINKS] },
+          message: STRING,
+          requiredEvidence: STRING
+        },
+        required: ['code', 'link', 'message', 'requiredEvidence']
+      }
+    }
+  },
+  required: ['passed', 'chainSummary', 'links', 'blockers']
 };
 
 const ASSET_GENERATION_SCHEMA: VertexResponseSchema = {
@@ -716,6 +790,134 @@ export async function runVertexStrategySynthesisStage(
   return result;
 }
 
+export function validateStrategicCoherenceGate(
+  context: LaunchBlueprintVertexContext,
+  data: VertexStrategicCoherenceGate
+): VertexStrategicCoherenceGate {
+  data.chainSummary = requireText(data.chainSummary, 'strategic coherence chain summary');
+
+  const actual = data.links.map(item => item.link);
+  const expected = [...STRATEGIC_COHERENCE_LINKS].sort();
+  if (data.links.length !== STRATEGIC_COHERENCE_LINKS.length || new Set(actual).size !== STRATEGIC_COHERENCE_LINKS.length) {
+    throw new Error('Strategic Coherence Gate must return each of the eight chain links exactly once');
+  }
+  if ([...actual].sort().join(',') !== expected.join(',')) {
+    throw new Error('Strategic Coherence Gate returned an invalid chain-link set');
+  }
+
+  const knownEvidence = new Set(context.evidenceCatalog.map(item => item.evidenceId));
+  const knownChannels = new Set(context.draft.customerAccessPack.channels.map(channel => channel.channelId));
+
+  data.links.forEach(item => {
+    item.value = requireText(item.value, `strategic coherence ${item.link} value`);
+    item.reason = requireText(item.reason, `strategic coherence ${item.link} reason`);
+    item.evidenceIds = assertKnownIds(item.evidenceIds, knownEvidence, `${item.link} evidence IDs`, 0);
+    item.channelIds = assertKnownIds(item.channelIds, knownChannels, `${item.link} channel IDs`, 0);
+    if (item.link === 'access_path' && item.channelIds.length < 1) {
+      throw new Error('Strategic Coherence Gate access path must reference at least one verified channel ID');
+    }
+  });
+
+  data.blockers.forEach((blocker, index) => {
+    blocker.code = requireText(blocker.code, `strategic coherence blocker ${index + 1} code`);
+    blocker.message = requireText(blocker.message, `strategic coherence blocker ${index + 1} message`);
+    blocker.requiredEvidence = requireText(blocker.requiredEvidence, `strategic coherence blocker ${index + 1} required evidence`);
+  });
+
+  const failedLinks = data.links.filter(item => item.status === 'unresolved' || item.status === 'contradictory');
+  if (data.passed && (failedLinks.length || data.blockers.length)) {
+    throw new Error('Strategic Coherence Gate result is internally inconsistent');
+  }
+  if (!data.passed && !failedLinks.length && !data.blockers.length) {
+    throw new Error('Strategic Coherence Gate failed without identifying a blocking link');
+  }
+  return data;
+}
+
+export function assertStrategicCoherenceGate(data: VertexStrategicCoherenceGate): void {
+  const failedLinks = data.links.filter(item => item.status === 'unresolved' || item.status === 'contradictory');
+  if (data.passed && !failedLinks.length && !data.blockers.length) return;
+
+  const reasons = [
+    ...failedLinks.map(item => `${item.link}: ${item.reason}`),
+    ...data.blockers.map(item => `${item.code}: ${item.message} Required: ${item.requiredEvidence}`)
+  ];
+  throw new Error(`Launch Blueprint strategic coherence gate failed: ${reasons.join(' | ') || 'commercial chain did not pass'}`);
+}
+
+export async function runVertexStrategicCoherenceGateStage(
+  env: Env,
+  context: LaunchBlueprintVertexContext,
+  evidence: VertexEvidenceNormalization,
+  strategy: VertexStrategySynthesis
+): Promise<VertexStructuredStageResult<VertexStrategicCoherenceGate>> {
+  const byId = new Map(context.evidenceCatalog.map(item => [item.evidenceId, item]));
+  const selectedEvidence = unique([
+    ...evidence.verifiedEvidenceIds,
+    ...evidence.inferenceEvidenceIds
+  ]).map(id => byId.get(id)).filter((item): item is VertexEvidenceCatalogItem => Boolean(item));
+
+  const result = await runVertexStructuredStage<VertexStrategicCoherenceGate>(env, {
+    stage: 'strategic_coherence_gate',
+    systemInstruction: [
+      'You are GhostTown Strategic Coherence Gate, an independent fail-closed reviewer.',
+      'Do not improve, rewrite, or rescue the proposed strategy. Decide whether one coherent commercial chain exists before any 30-day Sprint assets may be generated.',
+      'Evaluate exactly: customer -> problem -> buyer/payer -> current alternative -> test -> commitment -> fulfillment -> access path.',
+      'The customer is the user or beneficiary. The buyer/payer is the person or organization able and willing to authorize the requested commitment; do not assume they are the same unless the supplied evidence or strategy makes that relationship explicit.',
+      'The current alternative must be an observed or explicitly supplied behavior/workaround, not merely a competitor list.',
+      'The test must exercise the same core value hypothesis as the proposed product. A manual proxy fails if it silently changes the business, buyer, value mechanism, risk, or operational burden being tested.',
+      'For safety-sensitive products, fail any manual proxy whose promised monitoring, intervention, escalation, clinical, financial, legal, or other high-consequence responsibility is not clearly bounded and realistically fulfillable.',
+      'The commitment must be observable and appropriate for the buyer/payer and test; compliments or generic interest are not commitment.',
+      'Fulfillment must be specific, operationally feasible inside the stated founder time/cost/capability limits, and consistent with the offer.',
+      'The access path must plausibly reach the stated buyer/payer. Media, PR, backlink, event, partner, or creator evidence is not automatically a customer-access path.',
+      'A link may be testable_hypothesis only when it is explicit, internally consistent, bounded, and can be tested without assuming the answer. Mark missing identity, payer, fulfillment, or access logic unresolved.',
+      'Fail the gate if any link is unresolved or contradictory. Identify the smallest missing evidence needed to continue.',
+      'Use only supplied evidence IDs and channel IDs. Return only schema-controlled JSON.'
+    ].join(' '),
+    prompt: JSON.stringify({
+      contractVersion: context.draft.contractVersion,
+      sourceIdea: {
+        name: context.verdict.idea.ideaName,
+        description: context.verdict.idea.description,
+        targetUser: context.verdict.idea.targetUser,
+        painfulProblem: context.verdict.idea.painfulProblem,
+        currentAlternative: context.verdict.idea.currentAlternative
+      },
+      paidIntake: context.order.intake,
+      evidencePacket: {
+        summary: evidence.packetSummary,
+        selectedEvidence,
+        missingEvidence: evidence.missingEvidence,
+        criticalAssumptions: evidence.criticalAssumptions
+      },
+      proposedStrategy: strategy,
+      businessModelLane: context.draft.businessModelLane,
+      currentAlternatives: context.draft.positioning.currentAlternatives,
+      founderConstraints: context.draft.startingStateAudit.founderConstraints,
+      verifiedChannels: context.draft.customerAccessPack.channels.map(channel => ({
+        channelId: channel.channelId,
+        community: channel.community,
+        platform: channel.platform,
+        targetType: channel.targetType,
+        relevance: channel.relevance,
+        accessPath: channel.accessPath,
+        recommendedApproach: channel.recommendedApproach,
+        firstAction: channel.firstAction,
+        confidence: channel.confidence,
+        sourceIds: channel.sourceIds
+      }))
+    }),
+    responseSchema: STRATEGIC_COHERENCE_SCHEMA,
+    temperature: 0,
+    maxOutputTokens: 6144,
+    timeoutMs: 75_000
+  });
+
+  result.data = validateStrategicCoherenceGate(context, result.data);
+  assertStrategicCoherenceGate(result.data);
+  return result;
+}
+
 function validateAssets(
   context: LaunchBlueprintVertexContext,
   data: VertexAssetGeneration
@@ -1092,9 +1294,12 @@ export function finalizeLaunchBlueprintVertexPipeline(
   context: LaunchBlueprintVertexContext,
   evidence: VertexStructuredStageResult<VertexEvidenceNormalization>,
   strategy: VertexStructuredStageResult<VertexStrategySynthesis>,
+  coherence: VertexStructuredStageResult<VertexStrategicCoherenceGate>,
   assets: VertexStructuredStageResult<VertexAssetGeneration>,
   redTeam: VertexStructuredStageResult<VertexRedTeamReview>
 ): GhostTownLaunchBlueprintV21 {
+  validateStrategicCoherenceGate(context, coherence.data);
+  assertStrategicCoherenceGate(coherence.data);
   validateRedTeam(redTeam.data);
   const failedChecks = Object.values(redTeam.data.checks).filter(value => value === 'fail');
   const blocking = redTeam.data.findings.filter(finding => finding.severity === 'blocking');
@@ -1112,6 +1317,7 @@ export function finalizeLaunchBlueprintVertexPipeline(
   const receipts = [
     stageReceipt(evidence),
     stageReceipt(strategy),
+    stageReceipt(coherence),
     stageReceipt(assets),
     stageReceipt(redTeam)
   ];

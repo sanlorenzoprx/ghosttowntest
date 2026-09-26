@@ -5,11 +5,13 @@ import type { CustomerAccessResearchResult } from '../src/api/customerAccessRese
 import type { VertexStructuredStageResult } from '../src/api/vertexStructuredGeneration';
 import {
   applyVertexPipelineDraft,
+  assertStrategicCoherenceGate,
   createLaunchBlueprintVertexContext,
   finalizeLaunchBlueprintVertexPipeline,
   type VertexAssetGeneration,
   type VertexEvidenceNormalization,
   type VertexRedTeamReview,
+  type VertexStrategicCoherenceGate,
   type VertexStrategySynthesis
 } from '../src/api/launchBlueprintVertexPipeline';
 import { upgradeGhostTownLaunchBlueprintToV21 } from '../src/api/launchBlueprintGeneratorV21';
@@ -224,6 +226,26 @@ function strategyStage(context = fixtureContext()): VertexStrategySynthesis {
   };
 }
 
+function passingCoherenceGate(context = fixtureContext()): VertexStrategicCoherenceGate {
+  const evidenceId = context.evidenceCatalog[0]?.evidenceId || 'evidence-001';
+  const channelId = context.draft.customerAccessPack.channels[0]?.channelId || 'channel-1';
+  return {
+    passed: true,
+    chainSummary: 'The family customer, buyer, recent selection problem, paid concierge test, fulfillment, and reachable channel form one bounded validation chain.',
+    links: [
+      { link: 'customer', value: 'Families with children who recently bought an unsuitable game.', status: 'coherent', reason: 'The beneficiary and target segment are explicit.', evidenceIds: [evidenceId], channelIds: [] },
+      { link: 'problem', value: 'Poor-fit game purchases waste money and undermine family game night.', status: 'coherent', reason: 'The problem is concrete and tied to recent behavior.', evidenceIds: [evidenceId], channelIds: [] },
+      { link: 'buyer_payer', value: 'The parent or guardian making the family game purchase.', status: 'testable_hypothesis', reason: 'The proposed buyer can authorize the same purchase decision being tested.', evidenceIds: [evidenceId], channelIds: [] },
+      { link: 'current_alternative', value: 'Buying random games without a structured fit check.', status: 'coherent', reason: 'The workaround is explicitly supplied in the source idea.', evidenceIds: [evidenceId], channelIds: [] },
+      { link: 'test', value: 'A fixed-scope concierge game-night recommendation pilot.', status: 'testable_hypothesis', reason: 'The manual pilot tests selection value without changing the buyer or core outcome.', evidenceIds: [evidenceId], channelIds: [] },
+      { link: 'commitment', value: 'A $49 payment or accepted written paid-pilot scope.', status: 'testable_hypothesis', reason: 'The commitment is observable and tied to the proposed buyer and test.', evidenceIds: [evidenceId], channelIds: [] },
+      { link: 'fulfillment', value: 'Deliver one curated recommendation within three business days and record cost and labor.', status: 'testable_hypothesis', reason: 'The scope is bounded and measurable inside the stated guardrails.', evidenceIds: [evidenceId], channelIds: [] },
+      { link: 'access_path', value: 'Use the first verified family-relevant channel to reach qualified parent buyers.', status: 'testable_hypothesis', reason: 'The path is source-linked and can be tested for buyer reach.', evidenceIds: [evidenceId], channelIds: [channelId] }
+    ],
+    blockers: []
+  };
+}
+
 function assetStage(context = fixtureContext()): VertexAssetGeneration {
   return {
     helpfulPosts: context.draft.customerAccessPack.helpfulPosts.slice(0, 3).map((post, index) => ({
@@ -337,6 +359,7 @@ describe('staged Vertex Launch Blueprint pipeline', () => {
       context,
       stageResult('evidence_normalization', evidence),
       stageResult('strategy_synthesis', strategy),
+      stageResult('strategic_coherence_gate', passingCoherenceGate(context)),
       stageResult('asset_generation', assets),
       stageResult('red_team_review', passingRedTeam())
     );
@@ -344,13 +367,49 @@ describe('staged Vertex Launch Blueprint pipeline', () => {
     expect(finalized.status).toBe('ready');
     expect(finalized.qualityGate.passed).toBe(true);
     expect(finalized.generationReceipt.vertexPipeline?.status).toBe('complete');
+    expect(finalized.generationReceipt.vertexPipeline?.pipelineVersion).toBe('vertex-blueprint-staged-v2');
     expect(finalized.generationReceipt.vertexPipeline?.stages.map(item => item.stage)).toEqual([
       'evidence_normalization',
       'strategy_synthesis',
+      'strategic_coherence_gate',
       'asset_generation',
       'red_team_review'
     ]);
     expect(finalized.qualityGate.warnings.some(warning => warning.includes('WARN_PRICE_TEST'))).toBe(true);
+  });
+
+  it('blocks Sprint generation when the buyer or payer link is unresolved', () => {
+    const gate = passingCoherenceGate();
+    gate.passed = false;
+    const buyerPayer = gate.links.find(item => item.link === 'buyer_payer');
+    if (!buyerPayer) throw new Error('fixture is missing buyer_payer link');
+    buyerPayer.status = 'unresolved';
+    buyerPayer.reason = 'The end user is named, but the person who can authorize or pay for the test is not established.';
+    gate.blockers.push({
+      code: 'BUYER_PAYER_UNRESOLVED',
+      link: 'buyer_payer',
+      message: 'Do not assume the medication user, caregiver, provider, or family member is the payer.',
+      requiredEvidence: 'Name the buyer/payer and the observable commitment that person can authorize.'
+    });
+
+    expect(() => assertStrategicCoherenceGate(gate)).toThrow('BUYER_PAYER_UNRESOLVED');
+  });
+
+  it('blocks Sprint generation when the proposed test changes the value mechanism', () => {
+    const gate = passingCoherenceGate();
+    gate.passed = false;
+    const test = gate.links.find(item => item.link === 'test');
+    if (!test) throw new Error('fixture is missing test link');
+    test.status = 'contradictory';
+    test.reason = 'The manual proxy introduces a materially different responsibility from the product hypothesis.';
+    gate.blockers.push({
+      code: 'TEST_VALUE_MECHANISM_MISMATCH',
+      link: 'test',
+      message: 'The proposed manual service is not a faithful proxy for the product value being tested.',
+      requiredEvidence: 'Define a bounded test that exercises the same buyer, value mechanism, and outcome as the proposed product.'
+    });
+
+    expect(() => assertStrategicCoherenceGate(gate)).toThrow('TEST_VALUE_MECHANISM_MISMATCH');
   });
 
   it('rejects a strategy that references an invented channel ID', () => {
@@ -382,6 +441,7 @@ describe('staged Vertex Launch Blueprint pipeline', () => {
       context,
       stageResult('evidence_normalization', evidenceStage(context)),
       stageResult('strategy_synthesis', strategyStage(context)),
+      stageResult('strategic_coherence_gate', passingCoherenceGate(context)),
       stageResult('asset_generation', assetStage(context)),
       stageResult('red_team_review', redTeam)
     )).toThrow('red-team gate failed');

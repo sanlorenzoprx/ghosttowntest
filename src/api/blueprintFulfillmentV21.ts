@@ -96,9 +96,13 @@ function assertVertexPipelineComplete(
   if (!receipt || receipt.status !== 'complete' || !receipt.required) {
     throw new Error('Launch Blueprint v2.1 requires a completed staged Vertex pipeline receipt');
   }
+  if (receipt.pipelineVersion !== 'vertex-blueprint-staged-v2') {
+    throw new Error(`Launch Blueprint v2.1 requires strategic-coherence pipeline v2, received ${receipt.pipelineVersion}`);
+  }
   const expectedStages = [
     'evidence_normalization',
     'strategy_synthesis',
+    'strategic_coherence_gate',
     'asset_generation',
     'red_team_review'
   ];

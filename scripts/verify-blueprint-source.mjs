@@ -57,20 +57,20 @@ try {
 
 // Keep the v2.1.4 compatibility fields for roadmap scripts that were built
 // before the calendar/Copilot amendments, but require the actual source-chain
-// tip to advance through the approved v2.1.5 and v2.1.6 decisions.
+// tip to advance through the approved v2.1.5, v2.1.6, and v2.1.7 decisions.
 if (manifest?.changeId !== 'GT-BP-2026-08-15-V2.1.4') {
   fail('Evidence manifest no longer preserves the v2.1.4 compatibility change ID.');
 }
 if (manifest?.previousChangeId !== 'GT-BP-2026-08-15-V2.1.3') {
   fail('Evidence manifest no longer preserves the v2.1.3 compatibility predecessor.');
 }
-if (manifest?.chainTip?.changeId !== 'GT-BP-2026-08-18-V2.1.6') {
-  fail('Evidence chain tip is not the approved v2.1.6 Execution Intelligence change ID.');
+if (manifest?.chainTip?.changeId !== 'GT-BP-2026-09-26-V2.1.7') {
+  fail('Evidence chain tip is not the approved v2.1.7 Strategic Coherence Gate change ID.');
 }
-if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-08-18-V2.1.5') {
-  fail('Evidence chain tip does not preserve the v2.1.5 Calendar-Primary predecessor.');
+if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-08-18-V2.1.6') {
+  fail('Evidence chain tip does not preserve the v2.1.6 Execution Intelligence predecessor.');
 }
-if (manifest?.chainTip?.version !== '2.1.6') fail('Evidence chain tip version must be 2.1.6.');
+if (manifest?.chainTip?.version !== '2.1.7') fail('Evidence chain tip version must be 2.1.7.');
 
 const canonical = verifyTrackedSource(manifest.canonical, 'Canonical Blueprint');
 const platformAmendment = verifyTrackedSource(manifest.platformAmendment, 'v2.1.2 Vertex AI platform amendment');
@@ -83,6 +83,9 @@ const calendarAmendment = verifyTrackedSource(manifest.calendarAmendment, 'v2.1.
 const calendarChangeRecord = verifyTrackedSource(manifest.calendarChangeRecord, 'v2.1.5 change record');
 const executionAmendment = verifyTrackedSource(manifest.executionIntelligenceAmendment, 'v2.1.6 Execution Intelligence amendment');
 const executionChangeRecord = verifyTrackedSource(manifest.executionIntelligenceChangeRecord, 'v2.1.6 change record');
+const coherenceAmendment = verifyTrackedSource(manifest.strategicCoherenceAmendment, 'v2.1.7 Strategic Coherence Gate amendment');
+const coherenceChangeRecord = verifyTrackedSource(manifest.strategicCoherenceChangeRecord, 'v2.1.7 change record');
+const coherenceEvidence = verifyTrackedSource(manifest.strategicCoherenceEvidence, 'v2.1.7 implementation evidence');
 
 const authorityClause =
   'The canonical Blueprint is the authoritative product and implementation guide. Every Factory slice must revalidate its exact hash before execution.';
@@ -147,12 +150,25 @@ for (const required of [
 requireText(executionChangeRecord.source, 'The paid GhostTown 30-Day Launch Blueprint is extended', 'v2.1.6 change record decision');
 requireText(executionChangeRecord.source, 'Weakening approved outcomes remains prohibited.', 'v2.1.6 change record outcome protection');
 
+const coherenceDecision = 'GhostTown must not generate the paid 30-Day Sprint until one coherent commercial chain exists:';
+requireText(coherenceAmendment.source, coherenceDecision, 'v2.1.7 Strategic Coherence Gate product decision');
+for (const required of [
+  'Customer -> problem -> buyer/payer -> current alternative -> test -> commitment -> fulfillment -> access path',
+  'A failed coherence gate may not be converted into a warning.',
+  'A manual proxy fails the gate when it silently changes the business being tested.',
+  'Research evidence and customer access are separate concepts.',
+  'no 30-day customer assets are generated',
+  'Weakening approved outcomes remains prohibited.'
+]) requireText(coherenceAmendment.source, required, 'v2.1.7 Strategic Coherence Gate amendment');
+requireText(coherenceChangeRecord.source, 'Customer -> problem -> buyer/payer -> current alternative -> test -> commitment -> fulfillment -> access path', 'v2.1.7 change record decision');
+requireText(coherenceChangeRecord.source, 'Weakening approved outcomes remains prohibited.', 'v2.1.7 change record outcome protection');
+
 if (manifest?.executionIntelligenceEvidence?.path !== 'docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.6-execution-intelligence-evidence.json') {
   fail('Evidence chain does not reference the v2.1.6 implementation evidence manifest.');
 }
 try {
   const executionEvidence = JSON.parse(readFileSync(resolve(repositoryRoot, manifest.executionIntelligenceEvidence.path), 'utf8'));
-  if (executionEvidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.6 implementation evidence change ID does not match the chain tip.');
+  if (executionEvidence?.changeId !== manifest.executionIntelligenceAmendment.changeId) fail('v2.1.6 implementation evidence change ID does not match the v2.1.6 amendment.');
   if (executionEvidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1) fail('v2.1.6 implementation evidence does not preserve the canonical Blueprint hash.');
   if (executionEvidence?.canonical?.sourceModified !== false) fail('v2.1.6 implementation evidence must state that the canonical source was not modified.');
   if (executionEvidence?.modelBoundary?.modelMayMarkDayComplete !== false) fail('v2.1.6 model boundary must prohibit AI-owned completion.');
@@ -160,6 +176,24 @@ try {
   if (executionEvidence?.preservedAcceptance?.gate36HumanReleasePreserved !== true) fail('v2.1.6 evidence must preserve the human Gate 36 release decision.');
 } catch (error) {
   fail(`Unable to verify v2.1.6 implementation evidence: ${error.message}`);
+}
+
+if (manifest?.strategicCoherenceEvidence?.path !== 'docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.7-strategic-coherence-evidence.json') {
+  fail('Evidence chain does not reference the v2.1.7 Strategic Coherence implementation evidence.');
+}
+try {
+  const evidence = JSON.parse(coherenceEvidence.source);
+  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.7 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1) fail('v2.1.7 implementation evidence does not preserve the canonical Blueprint hash.');
+  if (evidence?.canonical?.sourceModified !== false) fail('v2.1.7 implementation evidence must state that the canonical source was not modified.');
+  if (evidence?.pipelineVersion !== 'vertex-blueprint-staged-v2') fail('v2.1.7 evidence must require strategic-coherence pipeline v2.');
+  if (evidence?.pipelineOrder?.join(',') !== 'evidence_normalization,strategy_synthesis,strategic_coherence_gate,asset_generation,red_team_review') fail('v2.1.7 evidence must preserve the hard pre-asset gate ordering.');
+  if (evidence?.gateLinks?.join(',') !== 'customer,problem,buyer_payer,current_alternative,test,commitment,fulfillment,access_path') fail('v2.1.7 evidence must preserve the eight-link strategic chain.');
+  if (evidence?.validation?.focusedTests?.failed !== 0 || evidence?.validation?.focusedTests?.passed < 5) fail('v2.1.7 focused regression evidence is incomplete.');
+  if (evidence?.validation?.typecheck?.passed !== true) fail('v2.1.7 typecheck evidence did not pass.');
+  if (evidence?.validation?.productionDeploymentPerformed !== false) fail('v2.1.7 evidence must not claim a production deployment.');
+} catch (error) {
+  fail(`Unable to verify v2.1.7 implementation evidence: ${error.message}`);
 }
 
 if (manifest?.outcomeProtection?.weakeningAllowed !== false) {
@@ -177,8 +211,9 @@ for (const required of [
 }
 
 console.log(
-  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${executionAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
+  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${coherenceAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
   `base ${manifest.canonical.version} ${canonical.actualHash}; platform ${manifest.platformAmendment.version} ${platformAmendment.actualHash}; ` +
   `website ${manifest.previousAmendment.version} ${websiteAmendment.actualHash}; spa ${manifest.amendment.version} ${spaAmendment.actualHash}; ` +
-  `calendar ${manifest.calendarAmendment.version} ${calendarAmendment.actualHash}; change-record ${executionChangeRecord.actualHash}`
+  `calendar ${manifest.calendarAmendment.version} ${calendarAmendment.actualHash}; execution ${manifest.executionIntelligenceAmendment.version} ${executionAmendment.actualHash}; ` +
+  `coherence-change-record ${coherenceChangeRecord.actualHash}`
 );
