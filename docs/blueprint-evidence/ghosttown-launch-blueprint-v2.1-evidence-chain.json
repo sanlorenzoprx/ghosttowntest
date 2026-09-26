@@ -100,7 +100,7 @@
   "strategicCoherenceEvidence": {
     "path": "docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.7-strategic-coherence-evidence.json",
     "version": "2.1.7",
-    "gitBlobSha1": "2aee1f367c3432af81e6d490f4796267713ab7c7"
+    "gitBlobSha1": "f769322b0a9b0694fef4e829c13f85ed258fa95c"
   },
   "outcomeProtection": {
     "weakeningAllowed": false,

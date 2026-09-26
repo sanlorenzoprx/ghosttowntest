@@ -189,7 +189,9 @@ try {
   if (evidence?.pipelineVersion !== 'vertex-blueprint-staged-v2') fail('v2.1.7 evidence must require strategic-coherence pipeline v2.');
   if (evidence?.pipelineOrder?.join(',') !== 'evidence_normalization,strategy_synthesis,strategic_coherence_gate,asset_generation,red_team_review') fail('v2.1.7 evidence must preserve the hard pre-asset gate ordering.');
   if (evidence?.gateLinks?.join(',') !== 'customer,problem,buyer_payer,current_alternative,test,commitment,fulfillment,access_path') fail('v2.1.7 evidence must preserve the eight-link strategic chain.');
-  if (evidence?.validation?.focusedTests?.failed !== 0 || evidence?.validation?.focusedTests?.passed < 5) fail('v2.1.7 focused regression evidence is incomplete.');
+  if (evidence?.validation?.focusedTests?.failed !== 0 || evidence?.validation?.focusedTests?.passed < 6) fail('v2.1.7 focused regression evidence is incomplete.');
+  if (evidence?.validation?.liveHistoricalReplay?.longevity?.gatePassed !== false) fail('v2.1.7 evidence must prove the historical Longevity Sprint is blocked.');
+  if (evidence?.validation?.liveHistoricalReplay?.suredose?.gatePassed !== false) fail('v2.1.7 evidence must prove the historical SureDose Sprint is blocked.');
   if (evidence?.validation?.typecheck?.passed !== true) fail('v2.1.7 typecheck evidence did not pass.');
   if (evidence?.validation?.productionDeploymentPerformed !== false) fail('v2.1.7 evidence must not claim a production deployment.');
 } catch (error) {

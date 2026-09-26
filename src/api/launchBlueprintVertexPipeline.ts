@@ -358,6 +358,10 @@ const STRATEGY_SYNTHESIS_SCHEMA: VertexResponseSchema = {
   ]
 };
 
+// Keep the Vertex transport schema intentionally lighter than the product
+// contract. Vertex can reject exact nested array bounds as an invalid request.
+// validateStrategicCoherenceGate() remains authoritative for exactly eight
+// unique links and the required access-path channel.
 const STRATEGIC_COHERENCE_SCHEMA: VertexResponseSchema = {
   type: 'OBJECT',
   properties: {
@@ -365,8 +369,6 @@ const STRATEGIC_COHERENCE_SCHEMA: VertexResponseSchema = {
     chainSummary: STRING,
     links: {
       type: 'ARRAY',
-      minItems: 8,
-      maxItems: 8,
       items: {
         type: 'OBJECT',
         properties: {
@@ -382,7 +384,6 @@ const STRATEGIC_COHERENCE_SCHEMA: VertexResponseSchema = {
     },
     blockers: {
       type: 'ARRAY',
-      maxItems: 12,
       items: {
         type: 'OBJECT',
         properties: {

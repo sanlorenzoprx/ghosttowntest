@@ -7,6 +7,7 @@ import {
   applyVertexPipelineDraft,
   assertStrategicCoherenceGate,
   createLaunchBlueprintVertexContext,
+  validateStrategicCoherenceGate,
   finalizeLaunchBlueprintVertexPipeline,
   type VertexAssetGeneration,
   type VertexEvidenceNormalization,
@@ -376,6 +377,15 @@ describe('staged Vertex Launch Blueprint pipeline', () => {
       'red_team_review'
     ]);
     expect(finalized.qualityGate.warnings.some(warning => warning.includes('WARN_PRICE_TEST'))).toBe(true);
+  });
+
+  it('keeps the exact eight-link contract after relaxing Vertex transport bounds', () => {
+    const context = fixtureContext();
+    const gate = passingCoherenceGate(context);
+    gate.links = gate.links.filter(item => item.link !== 'fulfillment');
+
+    expect(() => validateStrategicCoherenceGate(context, gate))
+      .toThrow('must return each of the eight chain links exactly once');
   });
 
   it('blocks Sprint generation when the buyer or payer link is unresolved', () => {
