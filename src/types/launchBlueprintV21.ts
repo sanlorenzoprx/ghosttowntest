@@ -273,7 +273,7 @@ export interface VertexStructuredStageReceipt {
 }
 
 export interface BlueprintVertexStageReceipt extends VertexStructuredStageReceipt {
-  stage: 'evidence_normalization' | 'strategy_synthesis' | 'strategic_coherence_gate' | 'asset_generation' | 'red_team_review';
+  stage: 'evidence_normalization' | 'strategy_synthesis' | 'strategic_coherence_gate' | 'asset_generation' | 'customer_copy_edit' | 'red_team_review';
 }
 
 export interface BlueprintVertexRedTeamFinding {
@@ -284,7 +284,7 @@ export interface BlueprintVertexRedTeamFinding {
 }
 
 export interface BlueprintVertexPipelineReceipt {
-  pipelineVersion: 'vertex-blueprint-staged-v1' | 'vertex-blueprint-staged-v2';
+  pipelineVersion: 'vertex-blueprint-staged-v1' | 'vertex-blueprint-staged-v2' | 'vertex-blueprint-staged-v3';
   required: boolean;
   status: 'complete' | 'skipped';
   stages: BlueprintVertexStageReceipt[];

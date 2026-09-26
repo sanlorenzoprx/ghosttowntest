@@ -25,14 +25,16 @@ import {
 import { validateGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
 import { synchronizeDailyExecutionPackets } from './launchBlueprintDailyExecution';
 import { currentCustomerAccessChannels, isCurrentCustomerAccessChannel, researchEvidenceRole } from './researchEvidenceRole';
+import { correctCustomerSurfaceSpelling } from './customerCopyLanguage';
 
-export const VERTEX_BLUEPRINT_PIPELINE_VERSION = 'vertex-blueprint-staged-v2' as const;
+export const VERTEX_BLUEPRINT_PIPELINE_VERSION = 'vertex-blueprint-staged-v3' as const;
 
 const STAGE_NAMES = [
   'evidence_normalization',
   'strategy_synthesis',
   'strategic_coherence_gate',
   'asset_generation',
+  'customer_copy_edit',
   'red_team_review'
 ] as const;
 
@@ -199,6 +201,8 @@ export interface VertexAssetGeneration {
     estimatedMinutes: number;
   }>;
 }
+
+export type VertexCustomerCopyEdit = VertexAssetGeneration;
 
 export interface VertexRedTeamReview {
   passed: boolean;
@@ -1023,6 +1027,202 @@ export async function runVertexAssetGenerationStage(
   return result;
 }
 
+function normalizeCopyEditAssets(data: VertexCustomerCopyEdit): VertexCustomerCopyEdit {
+  const fix = correctCustomerSurfaceSpelling;
+  const fixList = (values: string[]) => values.map(fix);
+  return {
+    helpfulPosts: data.helpfulPosts.map(item => ({
+      ...item,
+      title: fix(item.title),
+      body: fix(item.body),
+      closingQuestion: fix(item.closingQuestion)
+    })),
+    outreachScripts: data.outreachScripts.map(item => ({ ...item, message: fix(item.message) })),
+    landingPageCopy: {
+      headline: fix(data.landingPageCopy.headline),
+      subheadline: fix(data.landingPageCopy.subheadline),
+      offerDescription: fix(data.landingPageCopy.offerDescription),
+      primaryCallToAction: fix(data.landingPageCopy.primaryCallToAction),
+      confirmationEmailSubject: fix(data.landingPageCopy.confirmationEmailSubject),
+      confirmationEmailBody: fix(data.landingPageCopy.confirmationEmailBody)
+    },
+    customerInterviewGuide: {
+      opening: fix(data.customerInterviewGuide.opening),
+      lastOccurrenceQuestions: fixList(data.customerInterviewGuide.lastOccurrenceQuestions),
+      currentWorkaroundQuestions: fixList(data.customerInterviewGuide.currentWorkaroundQuestions),
+      costAndConsequenceQuestions: fixList(data.customerInterviewGuide.costAndConsequenceQuestions),
+      buyingProcessQuestions: fixList(data.customerInterviewGuide.buyingProcessQuestions),
+      closingAndReferralQuestions: fixList(data.customerInterviewGuide.closingAndReferralQuestions)
+    },
+    offerConversationGuide: {
+      opening: fix(data.offerConversationGuide.opening),
+      offerExplanation: fix(data.offerConversationGuide.offerExplanation),
+      pricePresentation: fix(data.offerConversationGuide.pricePresentation),
+      commitmentRequest: fix(data.offerConversationGuide.commitmentRequest),
+      followUpAgreement: fix(data.offerConversationGuide.followUpAgreement)
+    },
+    dailyActions: data.dailyActions.map(day => ({
+      ...day,
+      title: fix(day.title),
+      requiredActions: fixList(day.requiredActions),
+      preparedAssets: fixList(day.preparedAssets),
+      successMeasurement: fix(day.successMeasurement),
+      evidenceToRecord: fixList(day.evidenceToRecord),
+      whyItMatters: fix(day.whyItMatters)
+    }))
+  };
+}
+
+function protectedCopyTokenFingerprint(value: VertexAssetGeneration): string {
+  const matches = JSON.stringify(value).match(
+    /https?:\/\/[^\s"'<>]+|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|[$€£]\s?\d[\d,.]*|\b\d+(?:\.\d+)?%?\b/g
+  ) || [];
+  return matches.sort().join('|');
+}
+
+function customerCopySegments(data: VertexAssetGeneration, includeDaily = true): string[] {
+  const segments = [
+    ...data.helpfulPosts.flatMap(item => [item.title, item.body, item.closingQuestion]),
+    ...data.outreachScripts.map(item => item.message),
+    ...Object.values(data.landingPageCopy),
+    data.customerInterviewGuide.opening,
+    ...data.customerInterviewGuide.lastOccurrenceQuestions,
+    ...data.customerInterviewGuide.currentWorkaroundQuestions,
+    ...data.customerInterviewGuide.costAndConsequenceQuestions,
+    ...data.customerInterviewGuide.buyingProcessQuestions,
+    ...data.customerInterviewGuide.closingAndReferralQuestions,
+    ...Object.values(data.offerConversationGuide)
+  ];
+  if (includeDaily) {
+    segments.push(...data.dailyActions.flatMap(day => [
+      day.title,
+      ...day.requiredActions,
+      day.successMeasurement,
+      day.whyItMatters
+    ]));
+  }
+  return segments.map(clean).filter(Boolean);
+}
+
+function estimatedSyllables(word: string): number {
+  const normalized = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (!normalized) return 0;
+  if (normalized.length <= 3) return 1;
+  const withoutSilentE = normalized.replace(/e$/, '');
+  const groups = withoutSilentE.match(/[aeiouy]+/g)?.length || 1;
+  return Math.max(1, groups);
+}
+
+export function estimateCustomerCopyGrade(data: VertexAssetGeneration): number {
+  const segments = customerCopySegments(data);
+  const words = segments.flatMap(segment => segment.match(/[A-Za-z]+(?:'[A-Za-z]+)?/g) || []);
+  if (!words.length) return 0;
+  const sentenceCount = segments.reduce((count, segment) => {
+    const punctuation = segment.match(/[.!?]+(?:\s|$)/g)?.length || 0;
+    return count + Math.max(1, punctuation);
+  }, 0);
+  const syllables = words.reduce((sum, word) => sum + estimatedSyllables(word), 0);
+  const grade = 0.39 * (words.length / sentenceCount) + 11.8 * (syllables / words.length) - 15.59;
+  return Math.max(0, Math.round(grade * 10) / 10);
+}
+
+function likelyOrganizationalBuyer(strategy: VertexStrategySynthesis): boolean {
+  const audience = `${strategy.offer.targetCustomer} ${strategy.firstRevenuePath.firstBuyer}`;
+  return /\b(business|businesses|company|companies|team|teams|organization|store|agency|clinic|practice|employer|department|manager|owner|founder|operator|professional|enterprise|vendor|firm)\b/i.test(audience);
+}
+
+export function validateCustomerCopyEdit(
+  context: LaunchBlueprintVertexContext,
+  strategy: VertexStrategySynthesis,
+  source: VertexAssetGeneration,
+  edited: VertexCustomerCopyEdit
+): VertexCustomerCopyEdit {
+  const normalized = normalizeCopyEditAssets(edited);
+  validateAssets(context, normalized);
+
+  if (protectedCopyTokenFingerprint(source) !== protectedCopyTokenFingerprint(normalized)) {
+    throw new Error('Customer Copy Editor changed a protected number, price, percentage, URL, email, or other numeric surface token');
+  }
+
+  const sourceDays = new Map(source.dailyActions.map(day => [day.dayNumber, day]));
+  normalized.dailyActions.forEach(day => {
+    if (day.estimatedMinutes !== sourceDays.get(day.dayNumber)?.estimatedMinutes) {
+      throw new Error(`Customer Copy Editor changed Day ${day.dayNumber} estimated minutes`);
+    }
+  });
+
+  const allCopy = customerCopySegments(normalized).join('\n');
+  if (/Use this before buying or building a larger solution/i.test(allCopy)) {
+    throw new Error('Customer Copy Editor left known generic template leakage in customer-facing copy');
+  }
+
+  if (!likelyOrganizationalBuyer(strategy)) {
+    const consumerCopy = customerCopySegments(normalized, false).join('\n');
+    const b2bLeak = consumerCopy.match(/\b(your team|your company|your organization|your department|your staff|your workflow|at work)\b/i);
+    if (b2bLeak) {
+      throw new Error(`Customer Copy Editor left B2B language in consumer-facing copy: ${b2bLeak[0]}`);
+    }
+  }
+
+  const language = context.draft.startingStateAudit.founderConstraints.language.statement || '';
+  if (!/spanish|español/i.test(language)) {
+    const grade = estimateCustomerCopyGrade(normalized);
+    if (grade > 10) {
+      throw new Error(`Customer Copy Editor readability is too difficult: estimated grade ${grade}; target is approximately grade 8 and release guard is grade 10 or lower`);
+    }
+  }
+  return normalized;
+}
+
+export async function runVertexCustomerCopyEditStage(
+  env: Env,
+  context: LaunchBlueprintVertexContext,
+  strategy: VertexStrategySynthesis,
+  assets: VertexAssetGeneration
+): Promise<VertexStructuredStageResult<VertexCustomerCopyEdit>> {
+  const result = await runVertexStructuredStage<VertexCustomerCopyEdit>(env, {
+    stage: 'customer_copy_edit',
+    systemInstruction: [
+      'You are GhostTown Stage 4, the final customer copy editor.',
+      'Source meaning is authoritative; surface wording is editable.',
+      'Correct obvious spelling, grammar, punctuation, and awkward phrasing instead of preserving founder typos.',
+      'Aim for approximately eighth-grade comprehension: short sentences, concrete words, direct questions, and minimal jargon.',
+      'Rewrite generic template language so it sounds specific to the supplied customer, problem, current alternative, offer, and channel.',
+      'Preserve reusable validation principles when useful, but do not reuse generic customer-facing wording merely because the structure is reusable.',
+      'Match the actual audience. Never inject workplace, team, workflow, implementation, or enterprise language into a consumer conversation unless the supplied buyer context supports it.',
+      'Do not change facts, evidence, promises, prices, dates, counts, thresholds, URLs, emails, IDs, day numbers, estimated minutes, or business strategy.',
+      'Do not add testimonials, guarantees, proof, scarcity, claims, or facts.',
+      'Keep every postId, scriptId, Day 1 through Day 30 entry, and schema shape exactly intact.',
+      'Return only schema-controlled JSON.'
+    ].join(' '),
+    prompt: JSON.stringify({
+      audience: {
+        targetCustomer: strategy.offer.targetCustomer,
+        firstBuyer: strategy.firstRevenuePath.firstBuyer,
+        painfulProblem: strategy.offer.painfulProblem,
+        desiredOutcome: strategy.offer.desiredOutcome,
+        currentAlternatives: context.draft.positioning.currentAlternatives,
+        offerName: strategy.offer.offerName,
+        businessModelLane: context.draft.businessModelLane,
+        language: context.draft.startingStateAudit.founderConstraints.language.statement
+      },
+      founderInputMeaning: {
+        targetBuyer: context.order.intake.targetBuyer,
+        problem: context.order.intake.problem,
+        currentWorkaround: context.order.intake.currentWorkaround,
+        offerHypothesis: context.order.intake.offerHypothesis
+      },
+      surfaceCopy: assets
+    }),
+    responseSchema: ASSET_GENERATION_SCHEMA,
+    temperature: 0,
+    maxOutputTokens: 12288,
+    timeoutMs: 90_000
+  });
+  result.data = validateCustomerCopyEdit(context, strategy, assets, result.data);
+  return result;
+}
+
 function reorderChannels(
   channels: CustomerAccessChannel[],
   priorities: string[]
@@ -1336,6 +1536,7 @@ export function finalizeLaunchBlueprintVertexPipeline(
   strategy: VertexStructuredStageResult<VertexStrategySynthesis>,
   coherence: VertexStructuredStageResult<VertexStrategicCoherenceGate>,
   assets: VertexStructuredStageResult<VertexAssetGeneration>,
+  copyEdit: VertexStructuredStageResult<VertexCustomerCopyEdit>,
   redTeam: VertexStructuredStageResult<VertexRedTeamReview>
 ): GhostTownLaunchBlueprintV21 {
   validateStrategicCoherenceGate(context, coherence.data);
@@ -1351,7 +1552,8 @@ export function finalizeLaunchBlueprintVertexPipeline(
     throw new Error(`Launch Blueprint v2.1 red-team gate failed: ${reasons.join(' | ') || 'review did not pass'}`);
   }
 
-  const candidate = applyVertexPipelineDraft(context, evidence.data, strategy.data, assets.data);
+  validateCustomerCopyEdit(context, strategy.data, assets.data, copyEdit.data);
+  const candidate = applyVertexPipelineDraft(context, evidence.data, strategy.data, copyEdit.data);
   assertImmutableContract(context.draft, candidate);
 
   const receipts = [
@@ -1359,6 +1561,7 @@ export function finalizeLaunchBlueprintVertexPipeline(
     stageReceipt(strategy),
     stageReceipt(coherence),
     stageReceipt(assets),
+    stageReceipt(copyEdit),
     stageReceipt(redTeam)
   ];
   const completedAt = receipts.map(receipt => receipt.completedAt).sort().at(-1) || new Date().toISOString();

@@ -1,15 +1,15 @@
 {
-  "schemaVersion": "ghosttown-blueprint-evidence-chain-v9",
+  "schemaVersion": "ghosttown-blueprint-evidence-chain-v10",
   "changeId": "GT-BP-2026-08-15-V2.1.4",
-  "generatedAt": "2026-09-26T17:27:38Z",
+  "generatedAt": "2026-09-26T19:40:00Z",
   "repository": "sanlorenzoprx/ghosttowntest",
   "branch": "fix/strategic-coherence-gate",
   "pullRequest": null,
   "previousChangeId": "GT-BP-2026-08-15-V2.1.3",
   "chainTip": {
-    "changeId": "GT-BP-2026-09-26-V2.1.9",
-    "previousChangeId": "GT-BP-2026-09-26-V2.1.8",
-    "version": "2.1.9"
+    "changeId": "GT-BP-2026-09-26-V2.1.10",
+    "previousChangeId": "GT-BP-2026-09-26-V2.1.9",
+    "version": "2.1.10"
   },
   "source": {
     "name": "GhostTown Launch Blueprint 9-4-26(2).md",
@@ -143,5 +143,22 @@
     "path": "docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.9-evidence-recency-current-activity-evidence.json",
     "version": "2.1.9",
     "gitBlobSha1": "133a55c9eb27e494cb6b180465fb9599714b816b"
+  },
+  "customerCopyIntegrityAmendment": {
+    "path": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_10_CUSTOMER_COPY_INTEGRITY_AMENDMENT.md",
+    "version": "2.1.10",
+    "gitBlobSha1": "35455a29114a8e4e2aa351970e596eea10ad349d",
+    "changeId": "GT-BP-2026-09-26-V2.1.10",
+    "decision": "Source meaning is authoritative; customer-facing wording is editable and must be corrected for spelling, grammar, readability, audience fit, and business-specific semantics before release."
+  },
+  "customerCopyIntegrityChangeRecord": {
+    "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_10_CHANGE_RECORD.md",
+    "version": "2.1.10",
+    "gitBlobSha1": "fc55f2981ab73f9af2eda53579acba128e117c33"
+  },
+  "customerCopyIntegrityEvidence": {
+    "path": "docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.10-customer-copy-integrity-evidence.json",
+    "version": "2.1.10",
+    "gitBlobSha1": "bcf03e6ec9850b408866ed144aa3ca0bdb9e39f1"
   }
 }

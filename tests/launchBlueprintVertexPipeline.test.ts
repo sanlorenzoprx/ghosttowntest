@@ -8,8 +8,10 @@ import {
   assertStrategicCoherenceGate,
   createLaunchBlueprintVertexContext,
   validateStrategicCoherenceGate,
+  validateCustomerCopyEdit,
   finalizeLaunchBlueprintVertexPipeline,
   type VertexAssetGeneration,
+  type VertexCustomerCopyEdit,
   type VertexEvidenceNormalization,
   type VertexRedTeamReview,
   type VertexStrategicCoherenceGate,
@@ -17,6 +19,7 @@ import {
 } from '../src/api/launchBlueprintVertexPipeline';
 import { upgradeGhostTownLaunchBlueprintToV21 } from '../src/api/launchBlueprintGeneratorV21';
 import { launchBlueprintFixture } from './fixtures/launchBlueprint';
+import { correctCustomerSurfaceSpelling } from '../src/api/customerCopyLanguage';
 
 const generatedAt = '2026-08-06T21:00:00.000Z';
 
@@ -362,21 +365,69 @@ describe('staged Vertex Launch Blueprint pipeline', () => {
       stageResult('strategy_synthesis', strategy),
       stageResult('strategic_coherence_gate', passingCoherenceGate(context)),
       stageResult('asset_generation', assets),
+      stageResult('customer_copy_edit', assets),
       stageResult('red_team_review', passingRedTeam())
     );
 
     expect(finalized.status).toBe('ready');
     expect(finalized.qualityGate.passed).toBe(true);
     expect(finalized.generationReceipt.vertexPipeline?.status).toBe('complete');
-    expect(finalized.generationReceipt.vertexPipeline?.pipelineVersion).toBe('vertex-blueprint-staged-v2');
+    expect(finalized.generationReceipt.vertexPipeline?.pipelineVersion).toBe('vertex-blueprint-staged-v3');
     expect(finalized.generationReceipt.vertexPipeline?.stages.map(item => item.stage)).toEqual([
       'evidence_normalization',
       'strategy_synthesis',
       'strategic_coherence_gate',
       'asset_generation',
+      'customer_copy_edit',
       'red_team_review'
     ]);
     expect(finalized.qualityGate.warnings.some(warning => warning.includes('WARN_PRICE_TEST'))).toBe(true);
+  });
+
+  it('overwrites obvious founder spelling errors in customer-facing copy', () => {
+    const rawTypos = ['Car' + 'giver', 'mem' + 'eory', 'requir' + 'ment', 'does' + 'nt'].join(' ');
+    expect(correctCustomerSurfaceSpelling(`${rawTypos} work`))
+      .toBe("Caregiver memory requirement doesn't work");
+
+    const context = fixtureContext();
+    const source = assetStage(context);
+    const edited = JSON.parse(JSON.stringify(source)) as VertexCustomerCopyEdit;
+    edited.helpfulPosts[0].title = `A ${'car' + 'giver'} ${'mem' + 'eory'} ${'requir' + 'ment'} checklist 1`;
+
+    const result = validateCustomerCopyEdit(context, strategyStage(context), source, edited);
+    expect(result.helpfulPosts[0].title).toBe('A caregiver memory requirement checklist 1');
+  });
+
+  it('blocks B2B template leakage in consumer-facing discovery copy', () => {
+    const context = fixtureContext();
+    const source = assetStage(context);
+    const edited = JSON.parse(JSON.stringify(source)) as VertexCustomerCopyEdit;
+    edited.customerInterviewGuide.lastOccurrenceQuestions[0] =
+      'When did this last affect your work, and what did your team use to catch it?';
+
+    expect(() => validateCustomerCopyEdit(context, strategyStage(context), source, edited))
+      .toThrow('B2B language in consumer-facing copy');
+  });
+
+  it('blocks known generic customer-facing template leakage', () => {
+    const context = fixtureContext();
+    const source = assetStage(context);
+    const edited = JSON.parse(JSON.stringify(source)) as VertexCustomerCopyEdit;
+    edited.helpfulPosts[0].body = 'Use this before buying or building a larger solution.';
+
+    expect(() => validateCustomerCopyEdit(context, strategyStage(context), source, edited))
+      .toThrow('generic template leakage');
+  });
+
+  it('blocks copy edits that change protected prices or numbers', () => {
+    const context = fixtureContext();
+    const source = assetStage(context);
+    const edited = JSON.parse(JSON.stringify(source)) as VertexCustomerCopyEdit;
+    edited.offerConversationGuide.pricePresentation =
+      edited.offerConversationGuide.pricePresentation.replace('$49', '$59');
+
+    expect(() => validateCustomerCopyEdit(context, strategyStage(context), source, edited))
+      .toThrow('changed a protected number');
   });
 
   it('keeps the exact eight-link contract after relaxing Vertex transport bounds', () => {
@@ -453,6 +504,7 @@ describe('staged Vertex Launch Blueprint pipeline', () => {
       stageResult('strategy_synthesis', strategyStage(context)),
       stageResult('strategic_coherence_gate', passingCoherenceGate(context)),
       stageResult('asset_generation', assetStage(context)),
+      stageResult('customer_copy_edit', assetStage(context)),
       stageResult('red_team_review', redTeam)
     )).toThrow('red-team gate failed');
   });

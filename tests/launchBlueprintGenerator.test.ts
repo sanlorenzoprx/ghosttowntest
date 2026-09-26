@@ -134,6 +134,29 @@ describe('GhostTown Launch Blueprint v2 generator', () => {
     expect(blueprint.dailyCalendar[29].title).toBe('Prepare the next plan');
   });
 
+  it('cleans founder spelling before customer-facing deterministic copy and removes the known generic resource template', () => {
+    const typoOrder = structuredClone(order);
+    typoOrder.intake.targetBuyer = ['Car' + 'givers', 'with', 'meme' + 'ory', 'concerns'].join(' ');
+    typoOrder.intake.problem = ['A', 'car' + 'giver', 'forgets', 'a', 'requir' + 'ment'].join(' ');
+    typoOrder.intake.currentWorkaround = ['written', 'meme' + 'ory', 'notes'].join(' ');
+    typoOrder.intake.offerHypothesis = ['A', 'car' + 'giver', 'meme' + 'ory', 'checklist'].join(' ');
+
+    const blueprint = createGhostTownLaunchBlueprint(typoOrder, verdict, completeResearch());
+    expect(blueprint.offer.targetCustomer).toBe('Caregivers with memory concerns');
+    expect(blueprint.offer.painfulProblem).toBe('A caregiver forgets a requirement');
+    expect(blueprint.positioning.currentAlternatives.join(' ')).toContain('memory notes');
+
+    const customerCopy = JSON.stringify({
+      posts: blueprint.customerAccessPack.helpfulPosts,
+      scripts: blueprint.customerAccessPack.outreachScripts,
+      landing: blueprint.landingPageCopy
+    });
+    expect(customerCopy).not.toContain('Use this before buying or building a larger solution');
+    expect(customerCopy.toLowerCase()).not.toContain('car' + 'giver');
+    expect(customerCopy.toLowerCase()).not.toContain('mem' + 'eory');
+    expect(customerCopy.toLowerCase()).not.toContain('requir' + 'ment');
+  });
+
   it('fails closed when current sourced customer-access research is absent', () => {
     const blueprint = createGhostTownLaunchBlueprint(order, verdict, {
       status: 'not_run',

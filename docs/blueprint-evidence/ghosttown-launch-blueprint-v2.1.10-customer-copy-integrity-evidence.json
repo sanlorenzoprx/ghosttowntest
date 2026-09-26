@@ -1,0 +1,173 @@
+{
+  "schemaVersion": "ghosttown-blueprint-amendment-evidence-v1",
+  "amendmentVersion": "2.1.10",
+  "changeId": "GT-BP-2026-09-26-V2.1.10",
+  "recordedAt": "2026-09-26T19:40:00Z",
+  "repository": "sanlorenzoprx/ghosttowntest",
+  "branch": "fix/copy-language-quality",
+  "canonical": {
+    "baseVersion": "2.1.1",
+    "sourcePath": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md",
+    "gitBlobSha1": "616c691e6b4c9cea93615963a07375d13ffba57f",
+    "sourceModified": false
+  },
+  "decision": {
+    "summary": "Source meaning is authoritative; customer-facing wording is editable and must be corrected for spelling, grammar, readability, audience fit, and business-specific semantics before release.",
+    "customerOutcome": "A paid Sprint should read like polished copy written for this customer and this problem, not preserve founder typos or leak generic/B2B templates."
+  },
+  "pipeline": {
+    "version": "vertex-blueprint-staged-v3",
+    "order": [
+      "evidence_normalization",
+      "strategy_synthesis",
+      "strategic_coherence_gate",
+      "asset_generation",
+      "customer_copy_edit",
+      "red_team_review"
+    ],
+    "copyEditorBeforeRedTeam": true
+  },
+  "copyPolicy": {
+    "targetGradeLevel": 8,
+    "deterministicReleaseMaxGrade": 10,
+    "sourceMeaningImmutable": true,
+    "surfaceWordingEditable": true,
+    "protectedFactsAndEvidence": true,
+    "protectedPricesDatesCountsUrlsIds": true,
+    "b2bLanguageRequiresOrganizationalBuyer": true,
+    "genericTemplatePhraseBlocked": "Use this before buying or building a larger solution"
+  },
+  "temporaryLanguageWrapper": {
+    "path": "scripts/check-language-quality.mjs",
+    "reviewOrRemoveAfter": "2026-10-10",
+    "repositoryDependencyAdded": false,
+    "oneTimeBroadSpellScan": "PASS after excluding legitimate Spanish terms and code symbols"
+  },
+  "implementationEvidence": [
+    {
+      "capability": "shared_surface_spelling_normalizer",
+      "status": "IMPLEMENTED",
+      "paths": [
+        "src/api/customerCopyLanguage.ts"
+      ],
+      "gitBlobSha1": "5c3d09a31d1baecdc1b3c30546996abbc08057a8"
+    },
+    {
+      "capability": "deterministic_customer_copy_cleanup",
+      "status": "IMPLEMENTED",
+      "paths": [
+        "src/api/launchBlueprintGenerator.ts"
+      ],
+      "gitBlobSha1": "f657f3721ced0dd2f92aeea6d6a2c97a30632013"
+    },
+    {
+      "capability": "vertex_customer_copy_editor_and_guards",
+      "status": "IMPLEMENTED",
+      "paths": [
+        "src/api/launchBlueprintVertexPipeline.ts"
+      ],
+      "gitBlobSha1": "b6ca31386bbc1ecc0eed957dfc1ab7400a3c8650"
+    },
+    {
+      "capability": "workflow_editor_stage",
+      "status": "IMPLEMENTED",
+      "paths": [
+        "src/api/launchBlueprintWorkflow.ts"
+      ],
+      "gitBlobSha1": "e8caa2da8ac1f69168c46d782b43a4dc106301cc"
+    },
+    {
+      "capability": "production_requires_v3_receipt",
+      "status": "IMPLEMENTED",
+      "paths": [
+        "src/api/blueprintFulfillmentV21.ts",
+        "src/types/launchBlueprintV21.ts"
+      ],
+      "gitBlobSha1": [
+        "212f1032ee3820f257794c629ae8e49f6e0e6fa1",
+        "92133294384b75d8ff702c78363b202890c8540b"
+      ]
+    },
+    {
+      "capability": "temporary_repo_language_gate",
+      "status": "IMPLEMENTED",
+      "paths": [
+        "scripts/check-language-quality.mjs",
+        "package.json"
+      ],
+      "gitBlobSha1": [
+        "3b99cea090a96b3dc2a495e7298a47ff7e653074",
+        "221c9753891af7338e0d3f5d6bccefb57b44b365"
+      ]
+    },
+    {
+      "capability": "copy_integrity_regressions",
+      "status": "PASS",
+      "paths": [
+        "tests/launchBlueprintGenerator.test.ts",
+        "tests/launchBlueprintVertexPipeline.test.ts",
+        "tests/blueprintGenerationReceiptV21.test.ts",
+        "tests/runtime/paidPathStorage.worker.test.ts"
+      ],
+      "gitBlobSha1": [
+        "1ca7e0cb05fe03c42381268cbada8b94e21c2108",
+        "4de7e6e7479ceb77d93dfb0167914b3334b762b3",
+        "c4da940f8388002d886ae98c445248e468bc3fac",
+        "44cbf3af9af8be52813c0dfdbbba243d307f2c40"
+      ]
+    }
+  ],
+  "falsification": {
+    "typoPropagation": {
+      "blocked": true,
+      "examples": "Known misspellings of requirement, memory, and caregiver are normalized on customer-facing surfaces."
+    },
+    "consumerB2BLeakage": {
+      "blocked": true,
+      "example": "Consumer copy using phrases such as 'your team' or 'your workflow' without an organizational buyer is rejected."
+    },
+    "genericTemplateLeakage": {
+      "blocked": true
+    },
+    "protectedPriceMutation": {
+      "blocked": true
+    }
+  },
+  "validation": {
+    "focusedTests": {
+      "passed": 19,
+      "failed": 0
+    },
+    "workerPersistence": {
+      "passed": 3,
+      "failed": 0,
+      "runner": "vitest.worker.config.ts"
+    },
+    "typecheck": {
+      "passed": true
+    },
+    "languageWrapper": {
+      "passed": true
+    },
+    "blueprintVerification": {
+      "passed": true,
+      "chainTip": "2.1.10"
+    },
+    "guardedBuild": {
+      "passed": true
+    },
+    "acceptanceWorkerDryRun": {
+      "passed": true
+    },
+    "productionDeploymentPerformed": false
+  },
+  "preservedAcceptance": {
+    "canonicalBaseSourceModified": false,
+    "historicalArtifactsMutated": false,
+    "strategicCoherencePreserved": true,
+    "researchRoleSeparationPreserved": true,
+    "evidenceRecencyPreserved": true,
+    "priceChanged": false,
+    "productionDeploymentEnabled": false
+  }
+}

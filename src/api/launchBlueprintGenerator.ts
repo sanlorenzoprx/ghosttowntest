@@ -1,6 +1,7 @@
 import type { EvaluationResult } from '../types/lit';
 import { hydrateEvaluationResultDecisionV2, projectVerdictDecisionV2ToLegacy } from '../verdict/verdictDecisionV2';
 import type { PaidTestOrder } from '../types/paidTest';
+import { correctCustomerSurfaceSpelling } from './customerCopyLanguage';
 import type {
   BlueprintDailyAction,
   BlueprintSource,
@@ -270,18 +271,20 @@ function priceRange(template: ModelTemplate, supplied?: string): { initial: stri
 
 function offerFor(model: BusinessModel, order: PaidTestOrder, verdict: EvaluationResult): OfferAndPricing {
   const template = MODEL_TEMPLATES[model];
-  const buyer = clean(order.intake.targetBuyer, verdict.idea.targetUser || 'the initial customer');
-  const problem = clean(order.intake.problem, verdict.idea.painfulProblem || 'the stated problem');
-  const ideaName = clean(verdict.idea.ideaName, 'New Business');
+  const buyer = correctCustomerSurfaceSpelling(clean(order.intake.targetBuyer, verdict.idea.targetUser || 'the initial customer'));
+  const problem = correctCustomerSurfaceSpelling(clean(order.intake.problem, verdict.idea.painfulProblem || 'the stated problem'));
+  const ideaName = correctCustomerSurfaceSpelling(clean(verdict.idea.ideaName, 'New Business'));
   const prices = priceRange(template, order.intake.expectedPrice);
-  const suppliedOffer = order.intake.offerHypothesis?.trim();
+  const suppliedOffer = order.intake.offerHypothesis?.trim()
+    ? correctCustomerSurfaceSpelling(order.intake.offerHypothesis.trim())
+    : undefined;
   const decision = verdict.verdictDecisionV2;
   const legacy = decision ? projectVerdictDecisionV2ToLegacy(decision) : null;
   return {
     offerName: `${ideaName} ${template.suffix}`,
     targetCustomer: buyer,
     painfulProblem: problem,
-    desiredOutcome: clean(legacy?.recommended_next_test, `Make meaningful progress on ${problem}`),
+    desiredOutcome: correctCustomerSurfaceSpelling(clean(legacy?.recommended_next_test, `Make meaningful progress on ${problem}`)),
     oneSentencePromise: suppliedOffer ? `${asSentence(suppliedOffer)} The first test remains fixed-scope and evidence-seeking.` : template.promise(buyer, problem),
     deliverables: template.deliverables,
     deliveryMethod: template.deliveryMethod,
@@ -295,7 +298,7 @@ function offerFor(model: BusinessModel, order: PaidTestOrder, verdict: Evaluatio
     objections: [
       { objection: 'I am not sure this will fit my situation.', response: 'Use the qualification and onboarding step to confirm fit before payment or delivery begins.' },
       { objection: 'The price feels high for an unproven offer.', response: `The offer is a bounded founding-customer pilot at ${prices.initial}, with written deliverables and no long-term commitment.` },
-      { objection: 'I already use another option.', response: `The pilot does not require replacing ${withoutEndPunctuation(clean(order.intake.currentWorkaround, verdict.idea.currentAlternative || 'the current approach'))} before the buyer sees a first useful result.` },
+      { objection: 'I already use another option.', response: `The pilot does not require replacing ${withoutEndPunctuation(correctCustomerSurfaceSpelling(clean(order.intake.currentWorkaround, verdict.idea.currentAlternative || 'the current approach')))} before the buyer sees a first useful result.` },
       { objection: 'I do not have time for a complicated implementation.', response: `The first useful result is designed for ${withoutEndPunctuation(template.timeToValue).toLowerCase()}, with buyer responsibilities stated before the pilot starts.` },
       { objection: 'What happens if the pilot is not useful?', response: template.riskReversal }
     ],
@@ -305,7 +308,7 @@ function offerFor(model: BusinessModel, order: PaidTestOrder, verdict: Evaluatio
 }
 
 function positioningFor(model: BusinessModel, order: PaidTestOrder, verdict: EvaluationResult, offer: OfferAndPricing): PositioningPlan {
-  const workaround = clean(order.intake.currentWorkaround, verdict.idea.currentAlternative || 'the current approach');
+  const workaround = correctCustomerSurfaceSpelling(clean(order.intake.currentWorkaround, verdict.idea.currentAlternative || 'the current approach'));
   const alternatives = workaround
     .split(/,|;|\bor\b/i)
     .map(item => withoutEndPunctuation(item))
@@ -381,7 +384,7 @@ function helpfulPosts(offer: OfferAndPricing, positioning: PositioningPlan, rese
       intendedCommunity: channelName(research, 3, 'Resource-friendly customer community'),
       objective: 'Give the community an immediately usable mini-template.',
       title: `A one-page “first useful result” template for ${problem}`,
-      body: `Use this before buying or building a larger solution:\n\nBuyer: [one narrow segment]\nRecent problem: [what happened]\nCurrent alternative: [what they used]\nFirst useful result: [what must be true in seven days]\nBuyer responsibility: [what they must provide]\nNot included: [three exclusions]\nEvidence: [payment, action, or measurable behavior]\nStop condition: [what would make you stop]\n\nA clear first-result definition makes it easier to compare offers and harder to hide behind activity.`,
+      body: `If you are ${buyer} dealing with ${problem}, use this before committing to a bigger solution:\n\nWhat happened recently? [specific situation]\nWhat are you using now? [current alternative]\nWhat would help first? [one useful result within seven days]\nWhat do you need to provide? [required input]\nWhat is outside the test? [clear exclusions]\nWhat behavior would show it helped? [payment, action, or measurable result]\nWhat result would tell you to stop? [stop condition]\n\nThis keeps the first test focused on your real situation instead of a generic promise.`,
       closingQuestion: 'What would you put in the “first useful result” line?',
       softCallToAction: 'Use the template freely and adapt it to the community’s rules.',
       responseSignals: ['Completed template examples.', 'Questions about scope.', 'Requests for feedback.', 'Mentions of a current buying decision.'],
@@ -393,7 +396,7 @@ function helpfulPosts(offer: OfferAndPricing, positioning: PositioningPlan, rese
       intendedCommunity: channelName(research, 4, 'Conversation-oriented customer community'),
       objective: 'Start a candid conversation about how buyers currently solve the problem.',
       title: `When ${problem.toLowerCase()}, what do you actually do next?`,
-      body: `I am trying to understand the real workflow behind this problem—not collect “would you use it?” opinions.\n\nWhen this happened most recently, what triggered it? What did you try first? What was frustrating about that option? Did you spend money, time, or both? What would have made the first attempt more useful?\n\nNo product link. I am interested in current behavior and the language people use to describe it.`,
+      body: `I am trying to understand what people actually do when this problem happens—not collect “would you use it?” opinions.\n\nWhen this happened most recently, what triggered it? What did you try first? What was frustrating about that option? Did you spend money, time, or both? What would have made the first attempt more useful?\n\nNo product link. I am interested in current behavior and the language people use to describe it.`,
       closingQuestion: 'What happened the last time you dealt with it?',
       responseSignals: ['Detailed recent stories.', 'Named paid alternatives.', 'Specific objections.', 'Volunteers for a 15-minute conversation.'],
       commentResponsePlan: 'Thank each participant, ask one follow-up at a time, and offer a short findings summary after enough evidence is collected.'
@@ -412,14 +415,14 @@ function outreachScripts(offer: OfferAndPricing): OutreachScript[] {
     warm_contact: { title: 'Warm contact', purpose: 'Request a candid introduction or interview.', useWhen: 'You know the person and can reference the relationship honestly.', message: `Hi [Name] — I’m testing a narrow idea for ${buyer} dealing with ${problem}. ${interviewCore} You came to mind because [specific honest reason]. Would you be open to a short conversation, or is there one person you think I should speak with?` },
     former_colleague_or_customer: { title: 'Former colleague or customer', purpose: 'Use relevant shared context without assuming they are a buyer.', useWhen: 'The prior relationship is relevant to the problem.', message: `Hi [Name] — our past work on [specific context] made me think you may have a useful perspective on ${problem}. ${interviewCore} I will keep it focused and will not turn the call into a pitch.` },
     community_member: { title: 'Community member', purpose: 'Move from a useful public exchange to a private research conversation.', useWhen: 'The person publicly described a relevant situation.', message: `Your comment about [specific public point] was useful. I’m researching how ${buyer} handle ${problem}, and your example sounded relevant. Would you be open to a 15-minute conversation about what happened and what you tried? I’m not selling during the interview.` },
-    linkedin_connection: { title: 'LinkedIn connection', purpose: 'Request a specific research conversation.', useWhen: 'The person’s public role or post indicates relevant experience.', message: `Hi [Name] — I noticed your work with [specific public role/company/context]. I’m researching ${problem} among ${buyer}. I’m looking for a 15-minute conversation about the current workflow, not a general “pick your brain” call. I can send the summarized findings afterward.` },
+    linkedin_connection: { title: 'LinkedIn connection', purpose: 'Request a specific research conversation.', useWhen: 'The person’s public role or post indicates relevant experience.', message: `Hi [Name] — I noticed your work with [specific public role/company/context]. I’m researching ${problem} among ${buyer}. I’m looking for a 15-minute conversation about what happens now, not a general “pick your brain” call. I can send the summarized findings afterward.` },
     association_member: { title: 'Association member', purpose: 'Request insight grounded in the association’s field.', useWhen: 'The person is publicly listed as a member, organizer, speaker, or chapter contact.', message: `Hi [Name] — I found your public association role while researching how ${buyer} deal with ${problem}. I’m speaking with a small number of people about the current process and common mistakes. Would you be open to a short research conversation or point me to the most relevant public resource?` },
     referral_partner: { title: 'Potential referral partner', purpose: 'Explore a complementary relationship without asking for mass promotion.', useWhen: 'The partner serves the same buyer but does not directly compete.', message: `Hi [Name] — you help ${buyer} with [their public specialty]. I’m testing ${offerName}, a narrow pilot focused on ${problem}. I’m not asking you to promote an unproven offer. I’d value 15 minutes to understand whether this problem appears in your work and what a responsible referral would require if the pilot proves useful.` },
     interview_invitation: { title: 'Interview invitation', purpose: 'Book a behavior-focused customer interview.', useWhen: 'The prospect matches the qualification criteria.', message: `${interviewCore} Would [time option one] or [time option two] work?` },
     offer_test_invitation: { title: 'Offer test invitation', purpose: 'Ask a qualified buyer for a transparent pilot commitment.', useWhen: 'The person described a recent problem and fits the initial segment.', message: `Based on what you described about ${problem}, I’ve prepared ${offerName}. It includes ${offer.deliverables.slice(0, 3).map(item => item.name).join(', ')}, with the first useful result in ${withoutEndPunctuation(offer.timeToFirstUsefulResult).toLowerCase()}. The founding-customer test price is ${price}. This is a validation-stage pilot, not a promise of guaranteed results. Would you like to review the written scope and decide whether it fits?` },
     follow_up_no_response: { title: 'Follow-up after no response', purpose: 'Give the person one respectful second opportunity.', useWhen: 'At least three business days passed after a relevant first message.', message: `Hi [Name] — one brief follow-up on my note about ${problem}. I’m still looking for a small number of recent, real examples from ${buyer}. A simple “not relevant” is helpful too, and I won’t keep following up.` },
     follow_up_interest: { title: 'Follow-up after interest', purpose: 'Convert interest into a defined next step.', useWhen: 'The person asked a question or expressed relevant interest.', message: `Thanks for the interest. The clearest next step is [15-minute fit call / written pilot scope / payment link]. I’ll confirm the deliverables, exclusions, ${price} test price, and first-result timeline before you commit. Would [option one] or [option two] work?` },
-    follow_up_rejection: { title: 'Follow-up after rejection', purpose: 'Learn from a specific rejection without pressuring the prospect.', useWhen: 'The person declined and the relationship permits one learning question.', message: 'Thanks for the direct answer. I won’t push the offer. For the research record, was the main issue buyer fit, problem urgency, trust, timing, scope, or price? A one-line answer is enough and will help me avoid making the wrong change.' },
+    follow_up_rejection: { title: 'Follow-up after rejection', purpose: 'Learn from a specific rejection without pressuring the prospect.', useWhen: 'The person declined and the relationship permits one learning question.', message: `Thanks for the direct answer about ${offerName}. I won’t push it. If you are comfortable sharing one detail, was the main issue fit, urgency, trust, timing, scope, or the ${price} test price? A one-line answer is enough.` },
     referral_request: { title: 'Referral request', purpose: 'Request one relevant introduction after value or useful research participation.', useWhen: 'The person received value or clearly understands the target buyer.', message: `Thank you for the help with ${problem}. Is there one ${buyer} who has dealt with this recently and might be willing to share their experience? A direct introduction is useful only if you believe the conversation would be relevant; please do not send a list or private information.` }
   };
   return REQUIRED_RELATIONSHIPS.map((relationship, index) => ({
@@ -464,7 +467,7 @@ function landingPageCopy(offer: OfferAndPricing, positioning: PositioningPlan): 
     riskReversal: asSentence(offer.riskReversal),
     primaryCallToAction: 'Apply for the founding-customer pilot',
     secondaryCallToAction: 'Ask a question before applying',
-    thankYouPageCopy: 'Thank you. Your request has been received. We will confirm fit, scope, responsibilities, timeline, and the validation-stage nature of the pilot before asking you to commit.',
+    thankYouPageCopy: `Thank you for your interest in ${offer.offerName}. We’ll first confirm that the pilot fits ${offer.targetCustomer}, the problem you described, the written scope, and the timeline before asking you to commit.`,
     confirmationEmailSubject: `Your ${offer.offerName} request`,
     confirmationEmailBody: `Thank you for your interest in ${offer.offerName}. Your request is not yet an acceptance or charge. The next step is a short fit review covering your recent problem, current alternative, required inputs, written deliverables, exclusions, ${offer.initialTestPrice} test price, and first-result timeline.`
   };

@@ -167,7 +167,7 @@ function makeScenario(owner = "founder@runtime.test") {
   blueprint.status = "ready";
   blueprint.qualityGate = { passed: true, failures: [], warnings: [] };
   blueprint.generationReceipt.vertexPipeline = {
-    pipelineVersion: "vertex-blueprint-staged-v2",
+    pipelineVersion: "vertex-blueprint-staged-v3",
     required: true,
     status: "complete",
     stages: [
@@ -175,6 +175,7 @@ function makeScenario(owner = "founder@runtime.test") {
       stage("strategy_synthesis"),
       stage("strategic_coherence_gate"),
       stage("asset_generation"),
+      stage("customer_copy_edit"),
       stage("red_team_review")
     ],
     redTeam: { passed: true, findings: [] },

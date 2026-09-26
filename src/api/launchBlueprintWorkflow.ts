@@ -23,6 +23,7 @@ import {
   finalizeLaunchBlueprintVertexPipeline,
   markVertexPipelineSkipped,
   runVertexAssetGenerationStage,
+  runVertexCustomerCopyEditStage,
   runVertexEvidenceNormalizationStage,
   runVertexRedTeamReviewStage,
   runVertexStrategicCoherenceGateStage,
@@ -128,22 +129,28 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
           }
         );
 
+        const copyEdit = await step.do(
+          'vertex stage 4 customer copy edit',
+          { retries: { limit: 2, delay: '15 seconds', backoff: 'exponential' } },
+          async () => runVertexCustomerCopyEditStage(this.env, vertexContext, strategy.data, assets.data)
+        );
+
         const candidate = synchronizeVertexBlueprintSurfaces(
           applyVertexPipelineDraft(
             vertexContext,
             evidence.data,
             strategy.data,
-            assets.data
+            copyEdit.data
           )
         );
 
         const redTeam = await step.do(
-          'vertex stage 4 independent red-team review',
+          'vertex stage 5 independent red-team review',
           { retries: { limit: 2, delay: '15 seconds', backoff: 'exponential' } },
           async () => runVertexRedTeamReviewStage(this.env, vertexContext, candidate)
         );
 
-        blueprint = await step.do('stage 5 validate canonical blueprint schema and receipts', async () =>
+        blueprint = await step.do('stage 6 validate canonical blueprint schema and receipts', async () =>
           synchronizeVertexBlueprintSurfaces(
             finalizeLaunchBlueprintVertexPipeline(
               vertexContext,
@@ -151,6 +158,7 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
               strategy,
               coherence,
               assets,
+              copyEdit,
               redTeam
             )
           )
