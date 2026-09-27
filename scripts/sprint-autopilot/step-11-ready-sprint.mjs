@@ -20,6 +20,28 @@ function runNode(script) {
   });
 }
 
+function run(command, args) {
+  const result = spawnSync(command, args, {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: process.env,
+    shell: process.platform === 'win32'
+  });
+  if ((result.status ?? 1) !== 0) process.exit(result.status ?? 1);
+}
+
+run('npm', ['run', 'type-check']);
+run('npx', [
+  'vitest', 'run',
+  'tests/researchEvidenceSufficiency.test.ts',
+  'tests/adaptiveResearch.test.ts',
+  'tests/blueprintReleaseQualityGateV21.test.ts',
+  'tests/researchOutcomeRouting.test.ts',
+  '--no-file-parallelism'
+]);
+const adaptiveInvariant = runNode(resolve(ROOT, 'scripts/sprint-autopilot/step-09-adaptive-research.mjs'));
+if ((adaptiveInvariant.status ?? 1) !== 0) process.exit(adaptiveInvariant.status ?? 1);
+
 if (existsSync(APPROVAL) && existsSync(join(ARCHIVE, 'final-acceptance-receipt.json'))) {
   const approval = json(APPROVAL);
   const receipt = json(join(ARCHIVE, 'final-acceptance-receipt.json'));
