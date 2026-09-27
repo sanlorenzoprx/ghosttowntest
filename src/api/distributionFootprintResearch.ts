@@ -22,6 +22,7 @@ import {
 } from './evidenceRecency';
 
 const DATAFORSEO_ENDPOINT = 'https://api.dataforseo.com/v3/backlinks/backlinks/live';
+const RANKPARSE_BACKLINKS_ENDPOINT = 'https://api.rankparse.com/v1/backlinks';
 const PODCAST_INDEX_ENDPOINT = 'https://api.podcastindex.org/api/1.0/search/byterm';
 const YOUTUBE_ENDPOINT = 'https://www.googleapis.com/youtube/v3/search';
 const YOUTUBE_COMMENTS_ENDPOINT = 'https://www.googleapis.com/youtube/v3/commentThreads';
@@ -36,9 +37,10 @@ const MAX_CANDIDATES_FOR_MODEL = 80;
 // the discovery -> shortlist -> finalist verification optimization is tracked
 // separately and must not be used to weaken the evidence standard.
 const MAX_DATAFORSEO_PAGE_VERIFICATIONS_PER_QUERY = 16;
+const MAX_RANKPARSE_PAGE_VERIFICATIONS_PER_QUERY = 16;
 const MAX_PODCAST_PAGE_VERIFICATIONS_PER_QUERY = 12;
 
-export type DistributionProvider = 'dataforseo_backlinks' | 'podcast_index' | 'youtube_api' | 'google_grounded_customer_access';
+export type DistributionProvider = 'dataforseo_backlinks' | 'rankparse_backlinks' | 'podcast_index' | 'youtube_api' | 'google_grounded_customer_access';
 
 export interface CustomerAccessResearchReceipt {
   provider: 'distribution_footprint';
@@ -140,6 +142,30 @@ interface DataForSeoResponse {
     status_message?: string;
     result?: Array<{ items?: DataForSeoBacklink[] }>;
   }>;
+}
+
+interface RankParseBacklink {
+  from_domain?: string;
+  from_url?: string;
+  to_url?: string;
+  anchor_text?: string | null;
+  rel?: string | null;
+  link_type?: string;
+  domain_host_count?: number;
+  crawled_at?: string;
+}
+
+interface RankParseBacklinksResponse {
+  data?: RankParseBacklink[];
+  domain?: string;
+  total?: number;
+  limit?: number;
+  offset?: number;
+  credits_used?: number;
+  credits_remaining?: number;
+  crawl_release?: string;
+  cached?: boolean;
+  error?: string | { message?: string };
 }
 
 interface PodcastIndexFeed {
@@ -600,6 +626,111 @@ async function dataForSeoCandidates(env: Env, seed: CompetitorSeed): Promise<Foo
   return verified.filter((item): item is NonNullable<typeof item> => Boolean(item));
 }
 
+
+async function rankParseCandidates(env: Env, seed: CompetitorSeed): Promise<FootprintCandidate[]> {
+  const apiKey = env.RANKPARSE_API_KEY?.trim();
+  if (!apiKey) throw new Error('RankParse API key is not configured');
+
+  const url = new URL(RANKPARSE_BACKLINKS_ENDPOINT);
+  url.searchParams.set('domain', seed.domain);
+  url.searchParams.set('limit', '24');
+  url.searchParams.set('sort', 'importance');
+
+  const response = await fetchWithTimeout(url.toString(), {
+    headers: { 'X-API-Key': apiKey }
+  }, 20000);
+  const body = await response.json() as RankParseBacklinksResponse;
+  if (!response.ok) {
+    const reason = typeof body.error === 'string' ? body.error : body.error?.message;
+    throw new Error(reason || `RankParse returned HTTP ${response.status}`);
+  }
+
+  const blocked = /(^|\.)(facebook|instagram|linkedin|reddit|x|twitter|pinterest|tiktok)\.com$/i;
+  const eligible = (body.data || []).filter(item => {
+    const domain = text(item.from_domain).replace(/^www\./, '');
+    return Boolean(item.from_url && domain && !blocked.test(domain));
+  }).slice(0, MAX_RANKPARSE_PAGE_VERIFICATIONS_PER_QUERY);
+
+  const verified = await Promise.all(eligible.map(async item => {
+    try {
+      const page = await verifyOriginalPage(text(item.from_url));
+      const claimedBacklink = [seed.name, seed.domain, text(item.anchor_text)].filter(Boolean).join(' ');
+      if (!pageSupportsClaim(page, claimedBacklink)) {
+        throw new Error('Original source does not contain the claimed competitor/backlink evidence');
+      }
+      const crawledAt = normalizedEvidenceDate(item.crawled_at);
+      const observedAt = new Date().toISOString();
+      const type = inferTargetType(
+        `${page.title} ${page.description} ${text(item.link_type)} ${text(item.anchor_text)}`,
+        'rankparse_backlinks'
+      );
+      const evidence = [
+        `${page.publisher} links to ${seed.name}.`,
+        text(item.anchor_text) ? `Observed anchor text: ${text(item.anchor_text)}.` : '',
+        crawledAt ? `RankParse crawled this backlink on ${crawledAt.slice(0, 10)}.` : '',
+        text(item.rel).toLowerCase().includes('nofollow') ? 'The observed backlink is nofollow.' : 'The observed backlink is not marked nofollow.'
+      ].filter(Boolean);
+
+      return {
+        candidateId: candidateId('rankparse_backlinks', page.finalUrl),
+        provider: 'rankparse_backlinks' as const,
+        targetTypeHint: type,
+        title: page.title,
+        publicUrl: page.finalUrl,
+        publisher: page.publisher,
+        platform: type === 'newsletter_or_publication' ? 'Publication or newsletter' : type.replace(/_/g, ' '),
+        activity: 'uncertain' as const,
+        confidence: 'high' as const,
+        evidenceDate: page.evidenceDate,
+        evidenceDateSource: page.evidenceDateSource,
+        evidenceRecency: evidenceRecencyFromDate(page.evidenceDate),
+        currentActivityStatus: 'unverified' as const,
+        currentActivityEvidence: crawledAt
+          ? `RankParse crawled the backlink on ${crawledAt.slice(0, 10)}, but backlink crawl freshness does not prove the publication, event, or organization is currently active.`
+          : 'The page is publicly reachable, but current publisher/channel activity was not independently verified.',
+        factualSignals: [
+          page.description,
+          `Referring domain: ${text(item.from_domain)}`,
+          body.crawl_release ? `RankParse crawl release: ${body.crawl_release}.` : ''
+        ].filter(Boolean),
+        competitorEvidence: evidence,
+        audienceOwner: page.publisher,
+        observedAt
+      };
+    } catch {
+      return null;
+    }
+  }));
+  return verified.filter((item): item is NonNullable<typeof item> => Boolean(item));
+}
+
+async function competitorBacklinkCandidates(
+  env: Env,
+  seed: CompetitorSeed
+): Promise<{ provider: 'dataforseo_backlinks' | 'rankparse_backlinks'; candidates: FootprintCandidate[] }> {
+  let dataForSeoError: unknown;
+  if (env.DATAFORSEO_LOGIN?.trim() && env.DATAFORSEO_PASSWORD?.trim()) {
+    try {
+      return { provider: 'dataforseo_backlinks', candidates: await dataForSeoCandidates(env, seed) };
+    } catch (error) {
+      dataForSeoError = error;
+    }
+  }
+
+  if (env.RANKPARSE_API_KEY?.trim()) {
+    try {
+      return { provider: 'rankparse_backlinks', candidates: await rankParseCandidates(env, seed) };
+    } catch (rankParseError) {
+      const left = dataForSeoError instanceof Error ? dataForSeoError.message : 'DataForSEO unavailable';
+      const right = rankParseError instanceof Error ? rankParseError.message : 'RankParse unavailable';
+      throw new Error(`Backlink providers unavailable: DataForSEO=${left}; RankParse=${right}`);
+    }
+  }
+
+  if (dataForSeoError instanceof Error) throw dataForSeoError;
+  throw new Error('No backlink provider is configured');
+}
+
 async function sha1Hex(value: string): Promise<string> {
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(value)));
   return Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
@@ -1007,17 +1138,27 @@ export async function runResearchBatch(
     const query = plan.queryBySourceId[taskId] || '';
     const seed = seedForTask(order, taskId);
     try {
-      const result = taskId.startsWith('youtube_access:')
-        ? await youtubeCustomerAccessCandidates(env, query)
-        : provider === 'dataforseo_backlinks'
-          ? seed ? await dataForSeoCandidates(env, seed) : []
-          : provider === 'podcast_index'
-            ? await podcastCandidates(env, query, seed?.name)
-            : provider === 'google_grounded_customer_access'
-              ? await groundedCustomerAccessCandidates(env, query)
-              : await youtubeCandidates(env, query, seed?.name);
+      let result: FootprintCandidate[];
+      let actualProvider = provider;
+      if (taskId.startsWith('youtube_access:')) {
+        result = await youtubeCustomerAccessCandidates(env, query);
+      } else if (provider === 'dataforseo_backlinks') {
+        if (!seed) {
+          result = [];
+        } else {
+          const backlink = await competitorBacklinkCandidates(env, seed);
+          actualProvider = backlink.provider;
+          result = backlink.candidates;
+        }
+      } else if (provider === 'podcast_index') {
+        result = await podcastCandidates(env, query, seed?.name);
+      } else if (provider === 'google_grounded_customer_access') {
+        result = await groundedCustomerAccessCandidates(env, query);
+      } else {
+        result = await youtubeCandidates(env, query, seed?.name);
+      }
       candidates.push(...result);
-      attempts.push({ sourceId: taskId, sourceType: provider, success: true, query, candidateCount: result.length });
+      attempts.push({ sourceId: taskId, sourceType: actualProvider, success: true, query, candidateCount: result.length });
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Provider request failed';
       attempts.push({ sourceId: taskId, sourceType: provider, success: false, query, candidateCount: 0, error: reason });
@@ -1160,7 +1301,7 @@ function parseSelection(value: string): SelectionPayload {
 }
 
 function discoveredThrough(provider: DistributionProvider): NonNullable<CustomerAccessChannel['discoveredThrough']> {
-  return provider === 'dataforseo_backlinks'
+  return provider === 'dataforseo_backlinks' || provider === 'rankparse_backlinks'
     ? 'competitor_backlink'
     : provider === 'podcast_index'
       ? 'podcast_search'
