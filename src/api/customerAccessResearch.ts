@@ -3,6 +3,7 @@ import type { EvaluationResult } from '../types/lit';
 import type { PaidTestOrder } from '../types/paidTest';
 import type { BlueprintSource, CompetitorReviewIntelligence, CustomerAccessChannel, DistributionTargetType } from '../types/launchBlueprint';
 import { currentCustomerAccessChannels, researchEvidenceRoleForTargetType, researchEvidenceRoleReason } from './researchEvidenceRole';
+import { researchShortfallError } from './researchOutcome';
 import {
   finalizeCustomerAccessResearch as finalizeDistributionFootprintResearch,
   planCustomerAccessResearch,
@@ -97,7 +98,11 @@ export function recoverCustomerAccessFromVerifiedCandidates(
 
   const candidates = [...deduped.values()].sort((left, right) => recoveryScore(right) - recoveryScore(left));
   if (candidates.length < MIN_VERIFIED_CANDIDATES) {
-    throw new Error(`Distribution Footprint recovery found only ${candidates.length} verified candidates; ${MIN_VERIFIED_CANDIDATES} are required`);
+    throw researchShortfallError(
+      'MIN_VERIFIED_CANDIDATES',
+      `Distribution Footprint recovery found only ${candidates.length} verified candidates; ${MIN_VERIFIED_CANDIDATES} are required`,
+      attempts
+    );
   }
 
   const currentAccessCandidates = candidates.filter(candidate =>
@@ -115,9 +120,11 @@ export function recoverCustomerAccessFromVerifiedCandidates(
       .slice(0, 8)
       .map(candidate => `${candidate.provider}:${candidate.currentActivityStatus}:${candidate.evidenceDate || 'undated'}:${candidate.publicUrl}`)
       .join(' | ');
-    throw new Error(
+    throw researchShortfallError(
+      'MIN_CURRENT_CUSTOMER_ACCESS',
       `Distribution Footprint recovery found only ${currentAccessCandidates.length} currently verified customer-access candidates; at least 3 are required. ` +
-      `Access attempts: ${accessAttempts || 'none'}. Community candidates: ${candidateDiagnostics || 'none'}`
+        `Access attempts: ${accessAttempts || 'none'}. Community candidates: ${candidateDiagnostics || 'none'}`,
+      attempts
     );
   }
   const priorityAccess = currentAccessCandidates.slice(0, 5);
@@ -178,7 +185,11 @@ export function recoverCustomerAccessFromVerifiedCandidates(
 
   const currentCustomerAccess = currentCustomerAccessChannels(channels);
   if (currentCustomerAccess.length < 3) {
-    throw new Error(`Distribution Footprint recovery retained only ${currentCustomerAccess.length} currently verified customer-access targets; at least 3 are required`);
+    throw researchShortfallError(
+      'MIN_CURRENT_CUSTOMER_ACCESS',
+      `Distribution Footprint recovery retained only ${currentCustomerAccess.length} currently verified customer-access targets; at least 3 are required`,
+      attempts
+    );
   }
 
   const targetTypeCounts = channels.reduce<Record<string, number>>((counts, channel) => {

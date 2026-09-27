@@ -9,6 +9,7 @@ import {
   completeLaunchBlueprintOrderV21,
   failLaunchBlueprintOrderV21,
   markLaunchBlueprintGeneratingV21,
+  markLaunchBlueprintResearchBlockedV21,
   markLaunchBlueprintUncertaintyV21
 } from './blueprintFulfillmentV21';
 import {
@@ -39,6 +40,7 @@ import {
 import { vertexBlueprintRequired } from './vertexStructuredGeneration';
 import { researchEnvForPaidBlueprint } from './paidBlueprintResearch';
 import type { VertexStrategicCoherenceGate } from './launchBlueprintVertexPipeline';
+import { isResearchOutcomeError } from './researchOutcome';
 
 function batchSize(value: string | undefined): number {
   const parsed = Number(value);
@@ -91,8 +93,7 @@ export function customerAccessResearchUncertaintyGate(
 }
 
 export function isCustomerAccessResearchUncertainty(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return /(?:currently verified customer-access candidates|currently verified customer-access targets|retained no currently usable buyer-access target)/i.test(message);
+  return isResearchOutcomeError(error, 'INSUFFICIENT_EVIDENCE');
 }
 
 export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBlueprintWorkflowParams> {
@@ -138,11 +139,14 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
           async () => finalizeCustomerAccessResearch(researchEnv, context.order, context.verdict, plan, completedBatches, competitorReviewIntelligence)
         );
       } catch (error) {
+        if (isResearchOutcomeError(error, 'PROVIDER_BLOCKED')) {
+          const order = await step.do('persist research-blocked provider receipt', async () =>
+            markLaunchBlueprintResearchBlockedV21(this.env, orderId, error)
+          );
+          return { orderId, status: order.status };
+        }
         if (!isCustomerAccessResearchUncertainty(error)) throw error;
-        const gate = customerAccessResearchUncertaintyGate(
-          context,
-          error instanceof Error ? error.message : String(error)
-        );
+        const gate = customerAccessResearchUncertaintyGate(context, error.customerSafeMessage);
         const order = await step.do('persist 3-day customer-access uncertainty Sprint', async () =>
           markLaunchBlueprintUncertaintyV21(this.env, orderId, gate)
         );
@@ -265,6 +269,16 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
       );
       return { orderId, status: order.status };
     } catch (error) {
+      if (isResearchOutcomeError(error, 'PROVIDER_BLOCKED')) {
+        const order = await markLaunchBlueprintResearchBlockedV21(this.env, orderId, error);
+        return { orderId, status: order.status };
+      }
+      if (isResearchOutcomeError(error, 'INSUFFICIENT_EVIDENCE')) {
+        const context = await loadLaunchBlueprintWorkflowContext(this.env, orderId);
+        const gate = customerAccessResearchUncertaintyGate(context, error.customerSafeMessage);
+        const order = await markLaunchBlueprintUncertaintyV21(this.env, orderId, gate);
+        return { orderId, status: order.status };
+      }
       await failLaunchBlueprintOrderV21(this.env, orderId, error);
       throw error;
     }

@@ -4,7 +4,7 @@ import type { PrePurchaseResearchSignals } from './researchSignals';
 import type { CommercialAttributionEnvelope } from './commercialAttribution';
 
 export type TruthLabel = 'Verified' | 'Inferred' | 'Test';
-export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'awaiting_seeds' | 'researching' | 'generating' | 'uncertainty' | 'ready' | 'failed' | 'refunded';
+export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'awaiting_seeds' | 'researching' | 'generating' | 'research_blocked' | 'uncertainty' | 'ready' | 'failed' | 'refunded';
 export type StripeMode = 'test' | 'live';
 export type PaidArtifactType = 'legacy_report_v1' | 'execution_plan_30day_v1' | 'launch_blueprint_v2';
 export type PaidPlanOfferId = typeof GHOSTTOWN_30_DAY_PLAN_V1.offerId;
@@ -120,6 +120,18 @@ export interface PendingPaidPlanOrder {
   updatedAt: string;
 }
 
+export interface ResearchBlockedReceipt {
+  schemaVersion: 'ghosttown-research-blocked-v1';
+  outcome: 'PROVIDER_BLOCKED';
+  code: string;
+  createdAt: string;
+  nextRetryAt: string;
+  automaticRetryWindowHours: 48;
+  attemptedProviderTypes: string[];
+  failedProviderTypes: string[];
+  customerMessage: string;
+}
+
 export interface PaidTestOrder {
   orderId: string;
   email: string;
@@ -149,6 +161,7 @@ export interface PaidTestOrder {
   fulfillmentWorkflowId?: string;
   fulfillmentAttemptCount?: number;
   uncertaintySprint?: StrategicUncertaintySprint;
+  researchBlocked?: ResearchBlockedReceipt;
 }
 
 export interface ReportClaim {

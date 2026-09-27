@@ -3,6 +3,7 @@ import {
   customerAccessResearchUncertaintyGate,
   isCustomerAccessResearchUncertainty
 } from '../src/api/launchBlueprintWorkflow';
+import { ResearchOutcomeError } from '../src/api/researchOutcome';
 
 const context = {
   order: {
@@ -41,10 +42,23 @@ const context = {
 describe('customer-access uncertainty routing', () => {
   it('classifies a lack of verified direct customer access as uncertainty rather than a terminal provider failure', () => {
     expect(isCustomerAccessResearchUncertainty(
-      new Error('Distribution Footprint recovery found only 0 currently verified customer-access candidates; at least 3 are required')
+      new ResearchOutcomeError({
+        outcome: 'INSUFFICIENT_EVIDENCE',
+        code: 'MIN_CURRENT_CUSTOMER_ACCESS',
+        detail: 'No currently verified customer-access candidates were found.',
+        attempts: [{ sourceType: 'web_search', success: true, candidateCount: 0 }]
+      })
     )).toBe(true);
     expect(isCustomerAccessResearchUncertainty(
-      new Error('DataForSEO credentials are not configured')
+      new ResearchOutcomeError({
+        outcome: 'PROVIDER_BLOCKED',
+        code: 'MIN_CURRENT_CUSTOMER_ACCESS',
+        detail: 'Provider capacity prevented completion.',
+        attempts: [{ sourceType: 'youtube_api', success: false, candidateCount: 0 }]
+      })
+    )).toBe(false);
+    expect(isCustomerAccessResearchUncertainty(
+      new Error('Distribution Footprint recovery found only 0 currently verified customer-access candidates; at least 3 are required')
     )).toBe(false);
   });
 

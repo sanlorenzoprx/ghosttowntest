@@ -21,6 +21,7 @@ import {
   extractEvidenceDateFromHtml,
   normalizedEvidenceDate
 } from './evidenceRecency';
+import { researchShortfallError } from './researchOutcome';
 
 const DATAFORSEO_ENDPOINT = 'https://api.dataforseo.com/v3/backlinks/backlinks/live';
 const RANKPARSE_BACKLINKS_ENDPOINT = 'https://api.rankparse.com/v1/backlinks';
@@ -1383,8 +1384,20 @@ export async function finalizeCustomerAccessResearch(
   const sourceTypes = new Set(successful.map(attempt => attempt.sourceType));
   const rejectedUrls = batches.flatMap(batch => batch.rejectedUrls);
   if (attempts.length < MIN_ATTEMPTS) throw new Error(`Distribution Footprint attempted only ${attempts.length} tasks; ${MIN_ATTEMPTS} are required`);
-  if (successful.length < MIN_SUCCESSES) throw new Error(`Distribution Footprint completed only ${successful.length} provider tasks; ${MIN_SUCCESSES} are required`);
-  if (sourceTypes.size < MIN_PROVIDER_TYPES) throw new Error(`Distribution Footprint used only ${sourceTypes.size} provider types; ${MIN_PROVIDER_TYPES} are required`);
+  if (successful.length < MIN_SUCCESSES) {
+    throw researchShortfallError(
+      'MIN_SUCCESSFUL_PROVIDER_TASKS',
+      `Distribution Footprint completed only ${successful.length} provider tasks; ${MIN_SUCCESSES} are required`,
+      attempts
+    );
+  }
+  if (sourceTypes.size < MIN_PROVIDER_TYPES) {
+    throw researchShortfallError(
+      'MIN_PROVIDER_TYPES',
+      `Distribution Footprint used only ${sourceTypes.size} provider types; ${MIN_PROVIDER_TYPES} are required`,
+      attempts
+    );
+  }
 
   const deduped = new Map<string, FootprintCandidate>();
   for (const candidate of batches.flatMap(batch => batch.candidates)) {
@@ -1401,9 +1414,11 @@ export async function finalizeCustomerAccessResearch(
       .slice(0, 8)
       .map(item => `${item.url}=${item.reason}`)
       .join(' | ');
-    throw new Error(
+    throw researchShortfallError(
+      'MIN_VERIFIED_CANDIDATES',
       `Distribution Footprint found only ${candidates.length} verified candidates; ${MIN_CHANNELS} are required. ` +
-      `Provider attempts: ${attemptDiagnostics || 'none'}. Rejections: ${rejectionDiagnostics || 'none'}`
+        `Provider attempts: ${attemptDiagnostics || 'none'}. Rejections: ${rejectionDiagnostics || 'none'}`,
+      attempts
     );
   }
 

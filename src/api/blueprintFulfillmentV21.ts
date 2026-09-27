@@ -18,6 +18,7 @@ import {
 } from './blueprintReleaseQualityGateV21';
 import { verifyBlueprintDeliveryStateExactV21 } from './blueprintDeliveryVerifierV21';
 import { StrategicCoherenceGateError } from './launchBlueprintVertexPipeline';
+import { isResearchOutcomeError, type ResearchOutcomeError } from './researchOutcome';
 
 const orderKey = (id: string) => `paid_test_order_${id}`;
 const userOrdersKey = (email: string) => `paid_test_orders_${email.trim().toLowerCase()}`;
@@ -44,7 +45,8 @@ async function saveOrderSummaryV21(env: Env, order: PaidTestOrder, ideaName: str
     planVersion: order.planVersion,
     fulfillmentWorkflowId: order.fulfillmentWorkflowId,
     fulfillmentError: order.fulfillmentError,
-    uncertaintySprint: order.uncertaintySprint
+    uncertaintySprint: order.uncertaintySprint,
+    researchBlocked: order.researchBlocked
   };
   const next = [summary, ...existing.filter(item => item.orderId !== order.orderId)]
     .sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || '')))
@@ -149,6 +151,7 @@ export async function markLaunchBlueprintGeneratingV21(
   const { order, verdict } = await loadLaunchBlueprintWorkflowContext(env, orderId);
   order.status = 'generating';
   order.fulfillmentError = undefined;
+  order.researchBlocked = undefined;
   return persistLifecycle(env, order, verdict.idea.ideaName);
 }
 
@@ -160,7 +163,47 @@ export async function markLaunchBlueprintUncertaintyV21(
   const { order, verdict } = await loadLaunchBlueprintWorkflowContext(env, orderId);
   order.status = 'uncertainty';
   order.fulfillmentError = undefined;
+  order.researchBlocked = undefined;
   order.uncertaintySprint = createStrategicUncertaintySprint(order.orderId, order.verdictId, gate);
+  return persistLifecycle(env, order, verdict.idea.ideaName);
+}
+
+export async function markLaunchBlueprintResearchBlockedV21(
+  env: Env,
+  orderId: string,
+  error: ResearchOutcomeError
+): Promise<PaidTestOrder> {
+  const { order, verdict } = await loadLaunchBlueprintWorkflowContext(env, orderId);
+  const createdAt = new Date();
+  const nextRetryAt = new Date(createdAt.getTime() + 15 * 60 * 1000).toISOString();
+  order.status = 'research_blocked';
+  order.uncertaintySprint = undefined;
+  order.fulfillmentError = error.customerSafeMessage;
+  order.researchBlocked = {
+    schemaVersion: 'ghosttown-research-blocked-v1',
+    outcome: 'PROVIDER_BLOCKED',
+    code: error.code,
+    createdAt: createdAt.toISOString(),
+    nextRetryAt,
+    automaticRetryWindowHours: 48,
+    attemptedProviderTypes: error.attemptedProviderTypes,
+    failedProviderTypes: error.failedProviderTypes,
+    customerMessage: error.customerSafeMessage
+  };
+  await env.KV.put(
+    `research_blocked_diagnostic_${orderId}_${createdAt.getTime()}`,
+    JSON.stringify({
+      schemaVersion: 'ghosttown-research-blocked-diagnostic-v1',
+      orderId,
+      outcome: error.outcome,
+      code: error.code,
+      message: error.message,
+      attemptedProviderTypes: error.attemptedProviderTypes,
+      failedProviderTypes: error.failedProviderTypes,
+      recordedAt: createdAt.toISOString()
+    }),
+    { expirationTtl: 86400 * 30 }
+  );
   return persistLifecycle(env, order, verdict.idea.ideaName);
 }
 
@@ -169,6 +212,10 @@ export async function failLaunchBlueprintOrderV21(
   orderId: string,
   error: unknown
 ): Promise<void> {
+  if (isResearchOutcomeError(error, 'PROVIDER_BLOCKED')) {
+    await markLaunchBlueprintResearchBlockedV21(env, orderId, error);
+    return;
+  }
   const context = await loadLaunchBlueprintWorkflowContext(env, orderId).catch(() => null);
   if (!context) return;
   context.order.status = error instanceof StrategicCoherenceGateError ? 'uncertainty' : 'failed';
@@ -264,6 +311,7 @@ export async function completeLaunchBlueprintOrderV21(
 
   order.status = 'ready';
   order.fulfillmentError = undefined;
+  order.researchBlocked = undefined;
   await persistLifecycle(env, order, verdict.idea.ideaName);
   await recordCompletionV21(
     env,
