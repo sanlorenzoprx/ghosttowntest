@@ -136,7 +136,7 @@
       ],
       "handler": "node scripts/sprint-autopilot/step-04-product-specific-daily-plan.mjs",
       "verify": [
-        "npx vitest run tests/launchBlueprintDailyExecution.test.ts tests/launchBlueprintVertexPipeline.test.ts --no-file-parallelism",
+        "npx vitest run tests/launchBlueprintDailyExecution.test.ts tests/q2DailyExecutionPackets.test.ts tests/launchBlueprintVertexPipeline.test.ts --no-file-parallelism",
         "npm run type-check"
       ],
       "externalInputs": [],

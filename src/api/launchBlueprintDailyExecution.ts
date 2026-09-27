@@ -14,13 +14,13 @@ import type {
  */
 const titles = [
   'Start with the riskiest commitment', 'Qualify the first customer', 'Build the prospect tracker', 'Run the discovery sequence', 'Conduct the interview', 'Score urgency', 'Make the Week 1 decision', 'Map alternatives', 'Prepare the Pilot Brief', 'Prepare price and objections',
-  'Run the offer conversation', 'Open the validation site', 'Set the evidence ledger', 'Make the Week 2 review', 'Dry-run purchase to delivery', 'Send the paid invitation', 'Record sales outcomes', 'Send the value follow-up', 'Score open opportunities', 'Confirm onboarding and scope',
+  'Run the offer conversation', 'Check the offer against the evidence', 'Set the evidence ledger', 'Make the Week 2 review', 'Dry-run purchase to delivery', 'Send the paid invitation', 'Record sales outcomes', 'Send the value follow-up', 'Score open opportunities', 'Confirm onboarding and scope',
   'Deliver and review commitment', 'Request feedback, renewal, or referral', 'Read the truth-labeled scoreboard', 'Revise one constraint', 'Check the delivery economics', 'Plan one-variable second test', 'Run the second-test sequence', 'Calculate unit economics', 'Write the evidence decision', 'Choose the bounded next sprint'
 ] as const;
 
 const assetNames = [
   '48-Hour Evidence Brief', 'Qualification Checklist', 'Prospect Tracker', 'Discovery Sequence', 'Customer Interview Worksheet', 'Urgency Scorecard', 'Week 1 Decision Memo', 'Current Alternatives Map', 'Founding Customer Pilot Brief', 'Pricing and Objection Sheet',
-  'Offer Conversation and Follow-up', 'Launch Site Activation Checklist', 'Evidence Capture Checklist', 'Week 2 Offer and Fulfillment Review', 'Purchase-to-Delivery Dry Run', 'Paid Pilot Invitation', 'Sales Outcome Sheet', 'Value Follow-up', 'Close Scorecard', 'Onboarding and Scope Form',
+  'Offer Conversation and Follow-up', 'Offer Evidence Consistency Checklist', 'Evidence Capture Checklist', 'Week 2 Offer and Fulfillment Review', 'Purchase-to-Delivery Dry Run', 'Paid Pilot Invitation', 'Sales Outcome Sheet', 'Value Follow-up', 'Close Scorecard', 'Onboarding and Scope Form',
   'Delivery Cover Note and Quality Checklist', 'Feedback, Renewal, and Referral Message', 'Truth-Labeled Scoreboard', 'One-Constraint Revision Worksheet', 'Delivery SOP and Economics Worksheet', 'One-Variable Second Test Plan', 'Second-Test Sequence', 'Unit Economics CSV', 'Evidence Decision Memo', 'Final Decision and Bounded Next Sprint'
 ] as const;
 
@@ -47,12 +47,12 @@ function dayContent(day: number, blueprint: GhostTownLaunchBlueprintV21, verdict
   const customer = q1.customer;
   const problem = q1.problem;
   const price = blueprint.firstRevenuePath.firstPrice;
-  const exactDiscovery = `Hi {{firstName}} — I’m researching how ${customer} handle ${problem}. When did this last affect your work, and what did your team use to catch it? I’m not pitching on this message; a two-sentence reply is useful.`;
+  const exactDiscovery = `Hi {{firstName}} — I’m researching how ${customer} handle ${problem}. When did this last affect you, and what did you use instead? I’m not pitching on this message; a two-sentence reply is useful.`;
   const content: Record<number, string> = {
     1: `# 48-Hour Evidence Brief\n\n**Customer:** ${customer}\n\n**Problem:** ${problem}\n\n**Offer:** ${q1.offer}\n\n**Canonical offer:** ${blueprint.offer.oneSentencePromise}\n\n**Commitment requested:** ${q1.commitment}\n\n## Do this first\n${q1.firstAction}\n\nPASS: at least 3 qualified commitments or conversations from the first 10 contacts within 5 business days.\nFAIL: 0 qualified commitments or conversations after the full batch.\nINCONCLUSIVE: 1–2 signals; change one supported constraint.\n\nDo not build broad monitoring, integrations, or automation before commitment evidence.`,
     2: `# Qualification Checklist\n\nA target qualifies only when it matches **${customer}**, has experienced **${problem}** recently, can describe a current alternative, and can take or influence the requested commitment. Exclude friends, broad audiences, and targets without a recent concrete problem.\n\nRecord: name, role, recent trigger, current alternative, decision authority, and next step.`,
     3: `target_name,role,recent_trigger,current_alternative,qualification_status,source_or_channel,next_step,follow_up_date\n,,,,,,,`,
-    4: `# Discovery Sequence\n\n${exactDiscovery}\n\n## Follow-up — after 3 business days\nHi {{firstName}} — a quick “not relevant” or the current alternative your team uses would still help the research. I will not follow up again after this.\n\n## Reply transition\nThanks. Would a 15-minute comparison be useful? I can do {{timeOptionOne}} or {{timeOptionTwo}}.\n\n## Stop rule\nAfter this follow-up, do not contact this person again without a new, relevant reason.`,
+    4: `# Discovery Sequence\n\n${exactDiscovery}\n\n## Follow-up — after 3 business days\nHi {{firstName}} — a quick “not relevant” or the current alternative you use would still help the research. I will not follow up again after this.\n\n## Reply transition\nThanks. Would a 15-minute comparison be useful? I can do {{timeOptionOne}} or {{timeOptionTwo}}.\n\n## Stop rule\nAfter this follow-up, do not contact this person again without a new, relevant reason.`,
     5: `# Customer Interview Worksheet\n\nOpening: ${blueprint.customerInterviewGuide.opening}\n\n## Problem history\n${blueprint.customerInterviewGuide.problemHistoryQuestions.map(q => `- ${q}`).join('\n')}\n\n## Last occurrence\n${blueprint.customerInterviewGuide.lastOccurrenceQuestions.map(q => `- ${q}`).join('\n')}\n\n## Current workaround\n${blueprint.customerInterviewGuide.currentWorkaroundQuestions.map(q => `- ${q}`).join('\n')}\n\n## Cost and consequence\n${blueprint.customerInterviewGuide.costAndConsequenceQuestions.map(q => `- ${q}`).join('\n')}\n\n## Buying process\n${blueprint.customerInterviewGuide.buyingProcessQuestions.map(q => `- ${q}`).join('\n')}\n\n## Existing spending and switching friction\n${blueprint.customerInterviewGuide.existingSpendingQuestions.concat(blueprint.customerInterviewGuide.switchingFrictionQuestions).map(q => `- ${q}`).join('\n')}\n\n## Close\n${blueprint.customerInterviewGuide.closingAndReferralQuestions.map(q => `- ${q}`).join('\n')}\n\nCapture exact words, incident, alternative, consequence, authority, and referral. Do not present the offer until the problem is understood.`,
     6: `# Urgency Scorecard\n\nScore each conversation 0–2 for: recent occurrence, consequence, existing spend, decision authority, access, and willingness to change.\n\n12–9: qualified, make a transparent ask. 8–5: learn more. 4–0: do not increase outreach volume.`,
     7: `# Week 1 Decision Memo\n\nQualified targets: \nReplies: \nInterviews: \nRecent incidents: \nNamed alternatives: \nExact quote: \nMain constraint: \n\nDecision: CONTINUE | NARROW | REVISE | PAUSE\n\nEvidence reason: \nOwner and due action: \n\nIf 10 qualified messages produce 0 replies, stop volume and revise access, customer, or opening. If replies show no recent pain, revise the problem before more copy.`,
@@ -60,7 +60,7 @@ function dayContent(day: number, blueprint: GhostTownLaunchBlueprintV21, verdict
     9: `# Founding Customer Pilot Brief\n\nProblem: ${blueprint.foundingCustomerPilotBrief.problem}\nScope: ${blueprint.foundingCustomerPilotBrief.scope}\nDeliverables:\n${blueprint.foundingCustomerPilotBrief.deliverables.map(x => `- ${x}`).join('\n')}\nTimeline: ${blueprint.foundingCustomerPilotBrief.timeline}\nPrice: ${blueprint.foundingCustomerPilotBrief.price}\nProof boundary: ${blueprint.foundingCustomerPilotBrief.proofBoundary}\nNext step: ${blueprint.foundingCustomerPilotBrief.nextStep}`,
     10: `# Pricing and Objection Sheet\n\nPrice hypothesis: ${price}\n\n| Objection | Truthful response | Evidence to record | Next action |\n|---|---|---|---|\n| Price | Compare the bounded scope and customer consequence; do not discount before diagnosis. | Exact price words | Test scope only if price is the dominant recorded constraint. |\n| Trust | State the validation-stage proof boundary; do not invent results. | Proof requested | Offer the Pilot Brief. |\n| Scope | Restate inclusions and exclusions. | Missing deliverable | Revise one scope variable. |\n| Timing | Ask for the recent trigger and dated next step. | Trigger/date | Follow up once. |\n| Fit | Confirm buyer, problem, and authority. | Qualification gap | Stop or refer. |\n\nFor every objection record exact words, category, evidence strength, and one next experiment.`,
     11: `# Offer Conversation and Follow-up\n\nOpening: ${blueprint.offerConversationGuide.opening}\n\nProblem confirmation:\n${blueprint.offerConversationGuide.problemConfirmation.map(x => `- ${x}`).join('\n')}\n\nOffer: ${blueprint.offerConversationGuide.offerExplanation}\n\nScope:\n${blueprint.offerConversationGuide.scopeConfirmation.map(x => `- ${x}`).join('\n')}\n\nPrice: ${blueprint.offerConversationGuide.pricePresentation}\n\nObjections:\n${blueprint.offerConversationGuide.objectionCapture.map(x => `- ${x}`).join('\n')}\n\nCommitment request: ${blueprint.offerConversationGuide.commitmentRequest}\n\nFollow-up: ${blueprint.offerConversationGuide.followUpAgreement}`,
-    12: `# Launch Site Activation Checklist\n\n## Canonical page copy\nHeadline: ${blueprint.landingPageCopy.headline}\n\nSubheadline: ${blueprint.landingPageCopy.subheadline}\n\nProblem: ${blueprint.landingPageCopy.problemSection}\n\nOffer: ${blueprint.landingPageCopy.offerDescription}\n\nPrice: ${blueprint.landingPageCopy.pricePresentation}\n\nCTA: ${blueprint.landingPageCopy.primaryCallToAction}\n\nOpen the existing validation-stage Launch Site from the Blueprint account. Confirm every field above matches; record the URL, source code, and any changed claim. Publish or share privately only after claims match recorded evidence.`,
+    12: `# Offer Evidence Consistency Checklist\n\nCustomer: ${blueprint.offer.targetCustomer}\n\nProblem: ${blueprint.offer.painfulProblem}\n\nOffer: ${blueprint.offer.oneSentencePromise}\n\nPrice boundary: ${blueprint.firstRevenuePath.firstPrice}\n\nCommitment request: ${blueprint.firstRevenuePath.commitmentMethod}\n\nCompare each statement with the evidence ledger. Mark each item VERIFIED, INFERRED, or TEST. Correct unsupported wording before the next buyer conversation. This $97 Sprint does not include website publishing, domain work, payment setup, or Launch Site implementation.`,
     13: `# Evidence Capture Checklist\n\nFor each action record: contact or channel, date, action, exact response, customer language, alternative, objection, commitment requested/received, revenue, founder minutes, direct cost, follow-up, and evidence strength.`,
     14: `# Week 2 Offer and Fulfillment Review\n\nConversations: \nTransparent asks: \nAlternatives: \nObjections: \nScope understood: \nFounder hours (must be <= 6 unless lane guardrail says otherwise): \nDirect cost: \nPrice response: \n\nDecision: MAKE ASK | REDUCE COMMITMENT | REVISE SCOPE | PAUSE\n\nMake one variable change only, tied to named evidence.`,
     15: `# Purchase-to-Delivery Dry Run\n\nWalk one qualified scenario through: qualification → written scope → payment/commitment → required buyer inputs → delivery start → first useful result → evidence review. Stop if scope, permissions, capacity, or direct cost is unknown.`,
@@ -75,7 +75,7 @@ function dayContent(day: number, blueprint: GhostTownLaunchBlueprintV21, verdict
     24: `# One-Constraint Revision Worksheet\n\nConstraint: customer | urgency | access | trust | offer | fulfillment | price | message\nEvidence: \nSingle variable to change: \nWhat remains unchanged: \nSuccess threshold: \nFailure threshold: \nNext test date:`,
     25: `# Delivery SOP and Economics Worksheet\n\nStep,owner,minutes,direct_cost,quality_check\nQualification,,,\nScope confirmation,,,\nDelivery,,,\nReview,,,\n\nDo not scale acquisition if direct cost plus founder labor exceeds the Blueprint guardrail.`,
     26: `# One-Variable Second Test Plan\n\nHypothesis: \nChange only: \nKeep constant: customer, problem, evidence method\nBatch size: 10 qualified targets\nMessage: \nSuccess: \nFailure: \nStop rule:`,
-    27: `# Second-Test Sequence\n\nMessage: Hi {{firstName}} — I’m testing one narrower approach to ${problem}. Is this a recent issue for your team, and what do you use today?\n\nFollow-up after 3 business days: a current alternative or “not relevant” is enough; no more follow-up after this.\n\nRecord results before changing another variable.`,
+    27: `# Second-Test Sequence\n\nMessage: Hi {{firstName}} — I’m testing one narrower approach to ${problem}. Is this a recent issue for you, and what do you use today?\n\nFollow-up after 3 business days: a current alternative or “not relevant” is enough; no more follow-up after this.\n\nRecord results before changing another variable.`,
     28: `metric,value,evidence\nqualified_conversations,,\ntransparent_asks,,\ncommitments,,\nrevenue_cents,,\nfounder_minutes,,\nvariable_cost_cents,,`,
     29: `# Evidence Decision Memo\n\nBehavioral evidence: \nConversations: \nAsks: \nCommitments: \nRevenue: \nFounder hours: \nDirect cost: \nLargest unknown: \nMain constraint: \n\nDecision: CONTINUE | REVISE | PIVOT | PAUSE | STOP\n\nReason and next bounded test:`,
     30: `# Final Decision and Bounded Next Sprint\n\nAllowed decision: CONTINUE | CONTINUE WITH REVISION | PIVOT CUSTOMER | PIVOT PROBLEM | PIVOT OFFER | PAUSE FOR MISSING EVIDENCE | STOP\n\nBehavioral evidence: \nUnknown: \nConstraint: \nOne next objective: \nThree milestones: \nFive actions: \nObservable stop rule: \n\nThe next irreversible build decision is not justified until the selected commitment evidence exists.`
@@ -105,10 +105,10 @@ const assetParents: Record<number, number[]> = {
   28: [17, 21, 25, 27], 29: [23, 28], 30: [29]
 };
 
-const targetKindsByDay: Record<number, Array<'buyer' | 'offer' | 'evidence' | 'launch_site' | 'fulfillment' | 'existing_contact'>> = {
+const targetKindsByDay: Record<number, Array<'buyer' | 'offer' | 'evidence' | 'fulfillment' | 'existing_contact'>> = {
   1: ['buyer', 'offer', 'evidence'], 2: ['buyer', 'evidence'], 3: ['buyer', 'evidence'], 4: ['buyer', 'evidence'], 5: ['buyer', 'evidence'],
   6: ['buyer', 'evidence'], 7: ['evidence'], 8: ['buyer', 'evidence'], 9: ['buyer', 'offer'], 10: ['buyer', 'offer', 'evidence'],
-  11: ['buyer', 'offer', 'evidence'], 12: ['launch_site', 'offer', 'evidence'], 13: ['evidence'], 14: ['evidence'], 15: ['buyer', 'offer', 'fulfillment'],
+  11: ['buyer', 'offer', 'evidence'], 12: ['offer', 'evidence'], 13: ['evidence'], 14: ['evidence'], 15: ['buyer', 'offer', 'fulfillment'],
   16: ['buyer', 'offer', 'evidence'], 17: ['buyer', 'evidence'], 18: ['buyer', 'evidence'], 19: ['buyer', 'evidence'], 20: ['buyer', 'offer', 'fulfillment'],
   21: ['fulfillment', 'evidence'], 22: ['existing_contact', 'evidence'], 23: ['evidence'], 24: ['evidence'], 25: ['fulfillment', 'evidence'],
   26: ['buyer', 'evidence'], 27: ['buyer', 'evidence'], 28: ['evidence'], 29: ['evidence'], 30: ['evidence']
@@ -135,7 +135,7 @@ function actionContracts(blueprint: GhostTownLaunchBlueprintV21, verdict?: Evalu
   ['Turn the evidence into one bounded pilot brief before any price presentation.', `1 buyer-ready ${offer} brief with scope, exclusions, ${price} price boundary, and next step.`, ['Completed pilot brief', 'Scope and exclusion confirmation', 'Price boundary and buyer-ready next step']],
   ['Ask qualified buyers about the canonical offer and price boundary; do not ask generic respondents.', `3 qualified buyer price conversations matching ${customer}; one transparent ${offer} and ${price} presentation in each.`, ['Three qualified buyer identities', 'Exact price words and objection category', 'Offer/price presentation and dated next step']],
   ['Use the completed conversation guide to make one transparent commitment request.', '1 qualified buyer receives the canonical scope, price boundary, and commitment request.', ['Buyer qualification record', 'Exact scope and price presented', 'Commitment response and follow-up date']],
-  ['Compare the existing validation Launch Site to the canonical commercial ledger before sharing it.', '1 URL and source-code review; every customer, problem, offer, price, and CTA claim matches or is logged as changed.', ['Validation-site URL', 'Source-code or rendered-copy capture', 'Each changed claim and correction decision']],
+  ['Compare the canonical customer, problem, offer, price, commitment request, and claims to the evidence ledger before the next buyer conversation.', '1 completed offer-evidence review; every commercial claim is supported or explicitly labeled as a test.', ['Canonical customer/problem/offer/price/commitment snapshot', 'Evidence source or Test label for each claim', 'One correction or explicit no-change decision']],
   ['Record every observed action in the evidence ledger before interpreting results.', 'All completed actions from Days 1-12 have a dated ledger entry.', ['Ledger rows for each action', 'Exact response or observed behavior', 'Evidence source and next action']],
   ['Choose one Week 2 change from behavior, not multiple simultaneous edits.', '1 review with 3 qualified conversations, 1 transparent ask, and founder plan at or below 6 hours.', ['Conversation and ask counts', 'Founder-hours plan', 'One variable, evidence, owner, and date']],
   ['Walk a qualified buyer scenario through payment to first useful result manually.', '1 dry run covering scope, permission, capacity, direct cost, and delivery handoff.', ['Dry-run timestamp and scenario', 'Unknowns found or explicit none', 'Owner for each resolved gap']],
@@ -179,20 +179,29 @@ export function synchronizeDailyExecutionPackets(
   const offerTarget: ExecutionTarget = { targetId: 'target-canonical-offer-v1', kind: 'offer', name: blueprint.offer.offerName, identityStatus: 'canonical_internal', selectionOrQualificationRule: 'Use the canonical offer, scope, price boundary, and proof boundary only.', minimumCount: 1, excluded: ['Unapproved discounts', 'Unsupported guarantees'], sourceIds: [] };
   const buyerTarget: ExecutionTarget = { targetId: 'target-qualified-buyer-batch-v1', kind: 'qualified_buyer_batch', name: blueprint.executiveDecision.recommendedInitialCustomer, identityStatus: 'founder_must_select', selectionOrQualificationRule: 'Select 10 people with a recent concrete problem, current alternative, and potential decision authority.', minimumCount: 10, excluded: ['Friends giving hypothetical feedback', 'Broad or anonymous traffic'], sourceIds: [] };
   const evidenceTarget: ExecutionTarget = { targetId: 'target-evidence-ledger-v1', kind: 'evidence_set', name: 'Recorded execution evidence', identityStatus: 'canonical_internal', selectionOrQualificationRule: 'Use only dated ledger entries, exact buyer language, commitments, revenue, hours, and costs.', minimumCount: 1, excluded: ['Hypothetical interest', 'Unrecorded activity'], sourceIds: [] };
-  const launchSiteTarget: ExecutionTarget = { targetId: 'target-launch-site-v1', kind: 'launch_site', name: blueprint.launchSite.offer.headline || blueprint.landingPageCopy.headline, identityStatus: 'canonical_internal', selectionOrQualificationRule: 'Open the founder-owned validation Launch Site and compare only the canonical offer, price, CTA, and recorded claims.', minimumCount: 1, excluded: ['A new public site', 'Unrecorded claims'], sourceIds: [] };
   const fulfillmentTarget: ExecutionTarget = { targetId: 'target-fulfillment-run-v1', kind: 'fulfillment_run', name: `${blueprint.offer.offerName} manual fulfillment`, identityStatus: 'canonical_internal', selectionOrQualificationRule: 'Use an accepted written scope, buyer inputs, price boundary, and the manual fulfillment plan only.', minimumCount: 1, excluded: ['Unaccepted scope', 'Unsupported guarantee', 'Unrecorded direct cost'], sourceIds: [] };
   const existingContactTarget: ExecutionTarget = { targetId: 'target-delivered-buyer-v1', kind: 'existing_contact', name: 'Delivered qualified pilot buyer', identityStatus: 'founder_supplied', selectionOrQualificationRule: 'Use only a buyer who received the bounded pilot or record a respectful stop when no delivery occurred.', minimumCount: 1, excluded: ['Unqualified contact', 'Undelivered prospect'], sourceIds: [] };
+
   const objectives = [
     'Use the Q1 first action to create the first commitment evidence.', `Select only buyers matching ${decision.customer} with recent evidence of ${decision.problem} and decision authority.`, `Create a trackable batch of ${batchSize} qualified prospects.`, 'Send a finished discovery sequence to the qualified batch.', 'Learn recent problem behavior without pitching.', 'Rank urgency before making the paid ask.', 'Decide whether access, customer, or opening is the largest Week 1 constraint.', 'Compare named current alternatives and switching friction.', `Prepare a bounded ${blueprint.offer.offerName} pilot brief before presenting price.`, 'Capture price, trust, scope, and timing objections verbatim.',
-    'Make a transparent scope-and-price conversation possible.', 'Verify the existing validation site carries the canonical offer and CTA.', 'Make every outreach and conversation observable in the ledger.', 'Choose the one evidence-backed Week 2 offer or fulfillment change.', 'Prove the founder can take a payment through first useful result manually.', 'Ask qualified prospects to buy the bounded pilot.', 'Classify every paid ask outcome without inventing pipeline status.', 'Follow up with a specific useful reason and dated next step.', 'Choose whether to close, continue, refer, or stop each open opportunity.', 'Confirm written scope and buyer responsibilities before delivery.',
+    'Make a transparent scope-and-price conversation possible.', 'Check the canonical offer, price, commitment request, and claims against the evidence ledger.', 'Make every outreach and conversation observable in the ledger.', 'Choose the one evidence-backed Week 2 offer or fulfillment change.', 'Prove the founder can take a payment through first useful result manually.', 'Ask qualified prospects to buy the bounded pilot.', 'Classify every paid ask outcome without inventing pipeline status.', 'Follow up with a specific useful reason and dated next step.', 'Choose whether to close, continue, refer, or stop each open opportunity.', 'Confirm written scope and buyer responsibilities before delivery.',
     `Deliver the bounded ${blueprint.offer.offerName} and review commitment plus economics.`, 'Ask for evidence-backed feedback, renewal, referral, or a respectful no.', 'Separate verified behavior from inference and next tests.', 'Change exactly one supported constraint.', 'Check whether manual fulfillment is viable before acquiring more buyers.', 'Design a controlled second test with one changed variable.', 'Run the second-test batch without changing another variable.', 'Calculate revenue, time, and direct-cost evidence.', 'Select the allowed decision from accumulated behavioral evidence.', 'Write the bounded next sprint or an explicit stop record.'
   ];
   const thresholds = [
     blueprint.firstRevenuePath.successThreshold, `${batchSize} targets meet all qualification fields.`, `${batchSize} dated prospect records with qualification evidence.`, '3 qualified replies or 2 interviews after the full batch and follow-up.', '2 interviews with recent incident, alternative, and exact language.', 'At least 2 targets score 9/12 or higher for urgency.', 'A CONTINUE, NARROW, REVISE, or PAUSE memo names counts and one owner.', 'Two recurring alternatives and switching barriers recorded.', 'One buyer-ready brief with scope, exclusions, price, and next step.', 'Every objection is classified from at least 3 conversations.',
-    'One qualified prospect receives a transparent scope, price, and commitment request.', 'Site copy, offer, price boundary, and CTA exactly match canonical fields.', 'All activity has an evidence-ledger entry with exact outcome.', '3 qualified conversations, 1 transparent ask, and <=6 founder hours planned.', 'One completed dry run reveals no unknown scope, permissions, capacity, or cost.', 'At least 3 transparent paid invitations sent to qualified prospects.', 'Every paid invitation has one classified outcome and dated next action.', 'All interested prospects receive one value-specific follow-up.', 'Every open opportunity is closed, continued, referred, or stopped with evidence.', 'One accepted scope has buyer inputs, owner, timeline, and exclusions.',
+    'One qualified prospect receives a transparent scope, price, and commitment request.', 'Customer, problem, offer, price, commitment request, and claims are evidence-backed or explicitly labeled as tests.', 'All activity has an evidence-ledger entry with exact outcome.', '3 qualified conversations, 1 transparent ask, and <=6 founder hours planned.', 'One completed dry run reveals no unknown scope, permissions, capacity, or cost.', 'At least 3 transparent paid invitations sent to qualified prospects.', 'Every paid invitation has one classified outcome and dated next action.', 'All interested prospects receive one value-specific follow-up.', 'Every open opportunity is closed, continued, referred, or stopped with evidence.', 'One accepted scope has buyer inputs, owner, timeline, and exclusions.',
     'Delivery is complete with buyer feedback, founder hours, and direct cost recorded.', 'One feedback request is sent after delivery or a respectful stop is recorded.', 'Scoreboard has verified, inferred, and test items with sources.', 'One constraint and one changed variable are documented.', 'Founder labor plus direct cost remains within the gross-margin guardrail.', `Second test names one hypothesis, constant fields, a ${batchSize}-buyer batch, and stop rule.`, 'Second batch has a complete message, follow-up, and results.', 'Revenue, founder minutes, and direct cost are calculated from ledger entries.', 'Decision memo names behavioral evidence, unknown, and next bounded test.', 'Next sprint has 3 milestones, 5 actions, and an observable stop rule.'
   ];
+
   const contracts = actionContracts(blueprint, verdict);
+  const customerAccessChannels = blueprint.customerAccessPack.channels.filter(channel =>
+    channel.evidenceRole === 'customer_access' &&
+    channel.currentActivityStatus === 'verified_current' &&
+    Boolean(channel.currentActivityVerifiedAt) &&
+    Boolean(channel.publicUrl)
+  );
+  const outreachDays = new Set([1, 4, 10, 11, 16, 17, 18, 19, 26, 27]);
+
   const nextDays = blueprint.dailyCalendar.map((legacy, index) => {
     const day = index + 1;
     const { content } = dayContent(day, blueprint, verdict);
@@ -201,48 +210,136 @@ export function synchronizeDailyExecutionPackets(
     const dayBuyerTarget = { ...buyerTarget, targetId: `target-day-${String(day).padStart(2, '0')}-qualified-buyers-v1` };
     const dayOfferTarget = { ...offerTarget, targetId: `target-day-${String(day).padStart(2, '0')}-offer-v1` };
     const dayEvidenceTarget = { ...evidenceTarget, targetId: `target-day-${String(day).padStart(2, '0')}-evidence-v1` };
-    const dayLaunchSiteTarget = { ...launchSiteTarget, targetId: `target-day-${String(day).padStart(2, '0')}-launch-site-v1` };
     const dayFulfillmentTarget = { ...fulfillmentTarget, targetId: `target-day-${String(day).padStart(2, '0')}-fulfillment-v1` };
     const dayExistingContactTarget = { ...existingContactTarget, targetId: `target-day-${String(day).padStart(2, '0')}-delivered-buyer-v1` };
-    const targetFor = { buyer: dayBuyerTarget, offer: dayOfferTarget, evidence: dayEvidenceTarget, launch_site: dayLaunchSiteTarget, fulfillment: dayFulfillmentTarget, existing_contact: dayExistingContactTarget };
-    const targets: ExecutionTarget[] = targetKindsByDay[day].map(kind => targetFor[kind]);
+    const targetFor = { buyer: dayBuyerTarget, offer: dayOfferTarget, evidence: dayEvidenceTarget, fulfillment: dayFulfillmentTarget, existing_contact: dayExistingContactTarget };
+    let targets: ExecutionTarget[] = targetKindsByDay[day].map(kind => targetFor[kind]);
+
+    const verifiedChannel = outreachDays.has(day) && customerAccessChannels.length
+      ? customerAccessChannels[(day - 1) % customerAccessChannels.length]
+      : undefined;
+    if (verifiedChannel) {
+      targets = [
+        ...targets,
+        {
+          targetId: `target-day-${String(day).padStart(2, '0')}-verified-channel-v1`,
+          kind: 'verified_channel',
+          name: verifiedChannel.community,
+          identityStatus: 'verified_public',
+          selectionOrQualificationRule: verifiedChannel.participationRules || 'Use the verified current public participation path and follow its current rules.',
+          minimumCount: 1,
+          excluded: ['Unverified private contact route', 'Stale or removed destination'],
+          channelId: verifiedChannel.channelId,
+          publicUrl: verifiedChannel.publicUrl,
+          sourceIds: [...verifiedChannel.sourceIds]
+        }
+      ];
+    }
+
     const targetIds = targets.map(target => target.targetId);
-    const [instruction, quantity, evidenceExpected] = contracts[index];
+    const [fallbackInstruction, quantity, fallbackEvidence] = contracts[index];
+    const substantiveTitle = legacy.title?.trim() || titles[index];
+    const substantiveObjective = legacy.primaryObjective?.trim() || objectives[index];
+    const substantiveWhy = legacy.whyItMatters?.trim() || rationale(
+      blueprint.offer.targetCustomer,
+      blueprint.offer.painfulProblem,
+      `${blueprint.offer.offerName}: ${blueprint.offer.oneSentencePromise}`,
+      blueprint.firstRevenuePath.firstPrice,
+      substantiveObjective
+    );
+    const substantiveActions = legacy.requiredActions?.map(value => value.trim()).filter(Boolean) || [];
+    const actionInstructions = substantiveActions.length ? substantiveActions : [fallbackInstruction];
+    const substantiveEvidence = legacy.evidenceToRecord?.map(value => value.trim()).filter(Boolean) || [];
+    const evidenceExpected = substantiveEvidence.length ? substantiveEvidence : [...fallbackEvidence];
+    const substantiveSuccess = legacy.successMeasurement?.trim() || thresholds[index];
+    const substantiveOutcome = legacy.expectedDeliverable?.trim() || `${assetNames[index]} is used and an evidence record exists.`;
+    const substantiveMinutes = legacy.estimatedMinutes > 0 ? legacy.estimatedMinutes : minutes(day);
+    const substantivePreparedAssets = legacy.preparedAssets?.map(value => value.trim()).filter(Boolean) || [];
+
     const fields = [...content.matchAll(/{{([A-Za-z][A-Za-z0-9]*)}}/g)].map(match => match[1]);
     const asset: DeliverableAsset = {
-      assetId, dayNumber: day, type: 'finished_execution_asset', title: assetNames[index], finishedContent: content,
+      assetId,
+      dayNumber: day,
+      type: 'finished_execution_asset',
+      title: assetNames[index],
+      finishedContent: content,
       contentType: day === 3 || day === 28 ? 'text/csv' : 'text/markdown',
       personalizationFields: [...new Set(fields)].map(name => ({ name, description: `Founder-supplied ${name.replace(/([A-Z])/g, ' $1').toLowerCase()}.`, required: true })),
-       usageInstructions: 'Open the finished asset, use it only with its declared canonical target, record the listed evidence, and save the working copy without changing the canonical Blueprint.',
-       targetIds, capabilities: { copyReady: true, editable: true, downloadable: true, openable: true },
-       evidenceExpected: [...evidenceExpected], version: '1.0.0',
-       lineage: { blueprintId: blueprint.blueprintId, blueprintVersion: blueprint.blueprintVersion, sourceVerdictId: blueprint.sourceVerdictId, sourceIds: [], sourceAssetIds: (assetParents[day] || []).map(parent => parent === 4 ? 'asset-day-04-discovery-sequence-v1' : `asset-day-${String(parent).padStart(2, '0')}-${assetNames[parent - 1].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '')}-v1`) }
+      usageInstructions: 'Open the finished asset, use it only with its declared canonical target, record the listed evidence, and save the working copy without changing the canonical Blueprint.',
+      targetChannel: verifiedChannel?.community,
+      targetIds,
+      capabilities: { copyReady: true, editable: true, downloadable: true, openable: true },
+      evidenceExpected: [...evidenceExpected],
+      version: '1.0.0',
+      lineage: {
+        blueprintId: blueprint.blueprintId,
+        blueprintVersion: blueprint.blueprintVersion,
+        sourceVerdictId: blueprint.sourceVerdictId,
+        sourceIds: verifiedChannel ? [...verifiedChannel.sourceIds] : [],
+        sourceAssetIds: (assetParents[day] || []).map(parent =>
+          parent === 4
+            ? 'asset-day-04-discovery-sequence-v1'
+            : `asset-day-${String(parent).padStart(2, '0')}-${assetNames[parent - 1].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '')}-v1`
+        )
+      }
     };
+
     const packet: DailyExecutionPacket = {
-      dayNumber: day, title: titles[index], objective: objectives[index],
-      whyThisDayExists: rationale(blueprint.offer.targetCustomer, blueprint.offer.painfulProblem, `${blueprint.offer.offerName}: ${blueprint.offer.oneSentencePromise}`, blueprint.firstRevenuePath.firstPrice, objectives[index]),
+      dayNumber: day,
+      title: substantiveTitle,
+      objective: substantiveObjective,
+      whyThisDayExists: substantiveWhy,
       targets,
-      actions: [{ actionId: day === 4 ? 'action-day-04-send-discovery-v1' : id(day, 'action'), sequence: 1, instruction: `Use “${asset.title}” with the named target and record the result before interpreting it.`, quantity: day === 4 || day === 10 || day === 16 || day === 27 ? '10 qualified targets' : '1 completed operating action', targetIds, assetIds: [assetId], evidenceExpected: asset.evidenceExpected }],
-      assets: [asset], expectedOutcome: `${asset.title} is used and an evidence record exists.`,
-      successThreshold: thresholds[index],
-      failureThreshold: day === 1 ? '0 qualified conversations or commitments after the full batch.' : day === 4 ? 'Zero qualified replies after the full batch and follow-up.' : `The stated Day ${day} threshold is not met with dated evidence.`,
-       evidenceToCapture: asset.evidenceExpected, branchRules: branches(day, thresholds[index], day === 1 ? '0 qualified conversations or commitments after the full batch.' : day === 4 ? 'Zero qualified replies after the full batch and follow-up.' : `no dated evidence satisfies ${thresholds[index]}`), estimatedMinutes: minutes(day),
-      completionDefinition: `Day ${day} is complete only when “${asset.title}” is used with its named target and the evidence ledger contains the exact outcome, count, source, and next action.`
+      actions: actionInstructions.map((instruction, actionIndex) => ({
+        actionId: day === 4 && actionIndex === 0
+          ? 'action-day-04-send-discovery-v1'
+          : id(day, actionIndex === 0 ? 'action' : `action-${actionIndex + 1}`),
+        sequence: actionIndex + 1,
+        instruction,
+        quantity: actionIndex === 0 ? quantity : '1 completed supporting action',
+        targetIds,
+        assetIds: [assetId],
+        evidenceExpected: [...evidenceExpected]
+      })),
+      assets: [asset],
+      expectedOutcome: substantiveOutcome,
+      successThreshold: substantiveSuccess,
+      failureThreshold: day === 1
+        ? '0 qualified conversations or commitments after the full batch.'
+        : day === 4
+          ? 'Zero qualified replies after the full batch and follow-up.'
+          : `The stated Day ${day} threshold is not met with dated evidence.`,
+      evidenceToCapture: [...evidenceExpected],
+      branchRules: branches(
+        day,
+        substantiveSuccess,
+        day === 1
+          ? '0 qualified conversations or commitments after the full batch.'
+          : day === 4
+            ? 'Zero qualified replies after the full batch and follow-up.'
+            : `no dated evidence satisfies ${substantiveSuccess}`
+      ),
+      estimatedMinutes: substantiveMinutes,
+      completionDefinition: `Day ${day} is complete only when the required actions are completed, the finished “${asset.title}” is used, and the day-specific evidence is recorded in the evidence ledger.`
     };
-    // Action quantities and evidence must describe the actual work of this day,
-    // rather than inherit a calendar-wide template.
-    packet.actions = [{
-      actionId: day === 4 ? 'action-day-04-send-discovery-v1' : id(day, 'action'), sequence: 1,
-      instruction, quantity, targetIds, assetIds: [assetId], evidenceExpected: [...evidenceExpected]
-    }];
-    packet.evidenceToCapture = [...evidenceExpected];
-    packet.completionDefinition = `Day ${day} is complete only when ${quantity.toLowerCase()} is completed, the finished “${asset.title}” is used, and the day-specific evidence is recorded in the evidence ledger.`;
+
     return {
-      ...legacy, dayNumber: day, title: packet.title, primaryObjective: packet.objective, whyItMatters: packet.whyThisDayExists,
-      estimatedMinutes: packet.estimatedMinutes, requiredActions: packet.actions.map(action => action.instruction), preparedAssets: packet.assets.map(item => item.title), expectedDeliverable: packet.expectedOutcome,
-      successMeasurement: packet.successThreshold, evidenceToRecord: packet.evidenceToCapture, ifThenBranches: packet.branchRules.map(rule => ({ condition: rule.condition, action: rule.action })), executionPacket: packet
+      ...legacy,
+      dayNumber: day,
+      title: packet.title,
+      primaryObjective: packet.objective,
+      whyItMatters: packet.whyThisDayExists,
+      estimatedMinutes: packet.estimatedMinutes,
+      requiredActions: actionInstructions,
+      preparedAssets: substantivePreparedAssets.length ? substantivePreparedAssets : packet.assets.map(item => item.title),
+      expectedDeliverable: packet.expectedOutcome,
+      successMeasurement: packet.successThreshold,
+      evidenceToRecord: packet.evidenceToCapture,
+      ifThenBranches: packet.branchRules.map(rule => ({ condition: rule.condition, action: rule.action })),
+      executionPacket: packet
     } as BlueprintDailyActionV21;
   });
+
   return { ...blueprint, dailyExecutionContractVersion: 'daily-execution-packet-v1', dailyCalendar: nextDays };
 }
 

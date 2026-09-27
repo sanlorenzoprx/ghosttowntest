@@ -263,8 +263,9 @@ describe('Q2 DailyExecutionPacket and DeliverableAsset', () => {
     expect(day1.actions[0].quantity).toContain('10 qualified targets matching');
     expect(output.dailyCalendar[1].executionPacket?.targets.some(target => target.kind === 'qualified_buyer_batch')).toBe(true);
     expect(output.dailyCalendar[9].executionPacket?.actions[0].quantity).toContain('3 qualified buyer price conversations');
-    expect(output.dailyCalendar[11].executionPacket?.evidenceToCapture).toContain('Validation-site URL');
-    expect(output.dailyCalendar[11].executionPacket?.evidenceToCapture).toContain('Source-code or rendered-copy capture');
+    expect(output.dailyCalendar[11].executionPacket?.evidenceToCapture).toContain('Canonical customer/problem/offer/price/commitment snapshot');
+    expect(output.dailyCalendar[11].executionPacket?.evidenceToCapture).toContain('Evidence source or Test label for each claim');
+    expect(JSON.stringify(output.dailyCalendar[11])).not.toMatch(/Launch Site Activation|validation-site URL|source-code review/i);
     expect(output.dailyCalendar[24].executionPacket?.evidenceToCapture).toContain('Labor minutes by step');
     expect(output.dailyCalendar[24].executionPacket?.evidenceToCapture).toContain('Direct-cost field by step');
     expect(new Set(output.dailyCalendar.map(day => day.executionPacket?.actions[0].instruction)).size).toBe(30);
