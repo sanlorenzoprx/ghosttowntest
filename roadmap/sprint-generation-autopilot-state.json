@@ -1,12 +1,12 @@
 {
   "schemaVersion": "ghosttown-sprint-roadmap-autopilot-state-v1",
   "roadmapId": "ghosttown-30-day-sprint-generation-v1",
-  "status": "RUNNING",
+  "status": "BLOCKED_INTERNAL",
   "currentStep": 7,
   "workingBranch": "acceptance/fresh-sprint-e2e",
   "lastGoodSha": "f9e86e5ded07f143ef76e60292941cda76a4db74",
   "startedAt": "2026-09-27T18:33:53.879Z",
-  "updatedAt": "2026-09-27T19:55:11.644Z",
+  "updatedAt": "2026-09-27T19:55:47.568Z",
   "externalInput": null,
   "steps": {
     "0": {
@@ -73,13 +73,13 @@
       "message": "Completion gate passed"
     },
     "7": {
-      "status": "PENDING",
-      "attempts": 2,
+      "status": "BLOCKED_INTERNAL",
+      "attempts": 3,
       "startedAt": "2026-09-27T19:26:30.344Z",
       "completedAt": null,
       "lastSha": null,
-      "receipt": "github-acceptance/sprint-autopilot/step-07-attempt-2.json",
-      "message": "External Brave Search input acknowledged by user; resume Step 7 verification."
+      "receipt": "github-acceptance/sprint-autopilot/step-07-attempt-3.json",
+      "message": "Verification failed: npm run type-check"
     },
     "8": {
       "status": "PENDING",
