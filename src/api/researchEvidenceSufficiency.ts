@@ -55,12 +55,13 @@ export function evaluateResearchEvidenceSufficiency(
     reviewByUrl.set(key, observation);
   }
 
-  const competitiveAlternativeUrls = new Set(
-    candidates
+  const competitiveAlternativeUrls = new Set([
+    ...reviewByUrl.keys(),
+    ...candidates
       .filter(candidate => candidate.competitorEvidence.some(value => value.trim()))
       .map(candidate => normalizedUrl(candidate.publicUrl))
       .filter(Boolean)
-  );
+  ]);
 
   const coveredRoles: StrategicResearchEvidenceRole[] = [];
   if (currentCustomerAccess.length >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.currentCustomerAccess) {
