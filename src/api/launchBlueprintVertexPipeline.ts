@@ -642,6 +642,25 @@ export function buildVertexEvidenceCatalog(
     source: 'provider_research'
   }, [source.sourceId]));
 
+  const review = research.research.competitorReviewIntelligence;
+  review?.observations.forEach(observation => {
+    observation.customerLanguage.slice(0, 4).forEach(language => addEvidence(items, {
+      statement: `Competitor-review observation for ${observation.competitorName}: ${language}`,
+      truthLabel: 'Verified',
+      source: 'provider_research'
+    }, [observation.sourceId]));
+  });
+  review?.patterns.forEach(pattern => addEvidence(items, {
+    statement: `Competitor-review pattern (${pattern.kind}, ${pattern.confidence} confidence): ${pattern.theme}`,
+    truthLabel: 'Inferred',
+    source: 'provider_research'
+  }, pattern.sourceIds));
+  review?.productImplications.forEach(implication => addEvidence(items, {
+    statement: `Product hypothesis from competitor-review evidence: ${implication.hypothesis}. Test question: ${implication.testQuestion}`,
+    truthLabel: 'Test',
+    source: 'provider_research'
+  }, implication.sourceIds));
+
   return items;
 }
 
