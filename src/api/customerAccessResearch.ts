@@ -1,7 +1,7 @@
 import type { Env } from './env';
 import type { EvaluationResult } from '../types/lit';
 import type { PaidTestOrder } from '../types/paidTest';
-import type { BlueprintSource, CustomerAccessChannel, DistributionTargetType } from '../types/launchBlueprint';
+import type { BlueprintSource, CompetitorReviewIntelligence, CustomerAccessChannel, DistributionTargetType } from '../types/launchBlueprint';
 import { currentCustomerAccessChannels, researchEvidenceRoleForTargetType, researchEvidenceRoleReason } from './researchEvidenceRole';
 import {
   finalizeCustomerAccessResearch as finalizeDistributionFootprintResearch,
@@ -42,7 +42,7 @@ function recoveryScore(candidate: FootprintCandidate): number {
 }
 
 function discoveredThrough(provider: DistributionProvider): NonNullable<CustomerAccessChannel['discoveredThrough']> {
-  return provider === 'dataforseo_backlinks'
+  return provider === 'dataforseo_backlinks' || provider === 'rankparse_backlinks'
     ? 'competitor_backlink'
     : provider === 'podcast_index'
       ? 'podcast_search'
@@ -79,7 +79,8 @@ export function recoverCustomerAccessFromVerifiedCandidates(
   order: PaidTestOrder,
   verdict: EvaluationResult,
   plan: DistributionFootprintPlan,
-  batches: ResearchBatchResult[]
+  batches: ResearchBatchResult[],
+  competitorReviewIntelligence?: CompetitorReviewIntelligence
 ): CustomerAccessResearchResult {
   const attempts = batches.flatMap(batch => batch.attempts);
   const successful = attempts.filter(attempt => attempt.success);
@@ -126,7 +127,7 @@ export function recoverCustomerAccessFromVerifiedCandidates(
     ...candidates.filter(candidate => !priorityIds.has(candidate.candidateId))
   ].slice(0, MAX_DELIVERED_TARGETS);
   const researchDate = new Date().toISOString().slice(0, 10);
-  const sources: BlueprintSource[] = [];
+  const sources: BlueprintSource[] = [...(competitorReviewIntelligence?.sources || [])];
   const channels: CustomerAccessChannel[] = selected.map(candidate => {
     const token = recoveryToken(candidate);
     const sourceId = `source_recovered_${token}`;
@@ -203,7 +204,8 @@ export function recoverCustomerAccessFromVerifiedCandidates(
       researchDate,
       sources,
       channels,
-      publicExpertsAndPartners
+      publicExpertsAndPartners,
+      competitorReviewIntelligence
     },
     receipt: {
       provider: 'distribution_footprint',
@@ -235,23 +237,49 @@ export async function finalizeCustomerAccessResearch(
   order: PaidTestOrder,
   verdict: EvaluationResult,
   plan: DistributionFootprintPlan,
-  batches: ResearchBatchResult[]
+  batches: ResearchBatchResult[],
+  competitorReviewIntelligence?: CompetitorReviewIntelligence
 ): Promise<CustomerAccessResearchResult> {
   try {
-    return await finalizeDistributionFootprintResearch(env, order, verdict, plan, batches);
+    return await finalizeDistributionFootprintResearch(
+      env,
+      order,
+      verdict,
+      plan,
+      batches,
+      competitorReviewIntelligence
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (!recoverableDiversityOrSelectionFailure(message)) throw error;
-    return recoverCustomerAccessFromVerifiedCandidates(order, verdict, plan, batches);
+    return recoverCustomerAccessFromVerifiedCandidates(
+      order,
+      verdict,
+      plan,
+      batches,
+      competitorReviewIntelligence
+    );
   }
 }
 
 export async function researchCustomerAccess(
   env: Env,
   order: PaidTestOrder,
-  verdict: EvaluationResult
+  verdict: EvaluationResult,
+  competitorReviewIntelligence?: CompetitorReviewIntelligence
 ): Promise<CustomerAccessResearchResult> {
-  const plan = planCustomerAccessResearch(order, verdict);
+  const plan = planCustomerAccessResearch(
+    order,
+    verdict,
+    competitorReviewIntelligence?.customerLanguagePhrases || []
+  );
   const batch = await runResearchBatch(env, order, plan, plan.sourceIds);
-  return finalizeCustomerAccessResearch(env, order, verdict, plan, [batch]);
+  return finalizeCustomerAccessResearch(
+    env,
+    order,
+    verdict,
+    plan,
+    [batch],
+    competitorReviewIntelligence
+  );
 }
