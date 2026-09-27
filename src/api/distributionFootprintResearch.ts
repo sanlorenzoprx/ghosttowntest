@@ -1204,7 +1204,7 @@ export async function finalizeCustomerAccessResearch(
     task: 'candidate_selection',
     prompt: selectionPrompt(order, verdict, candidates),
     temperature: 0.1,
-    maxOutputTokens: 10000,
+    maxOutputTokens: 8192,
     timeoutMs: 30_000,
     responseSchema: SELECTION_RESPONSE_SCHEMA
   });
