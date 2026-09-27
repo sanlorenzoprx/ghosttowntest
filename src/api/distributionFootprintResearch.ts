@@ -379,7 +379,7 @@ export function sourceClaimSupportFailure(claim: string, pageText: string): stri
   const matched = tokens.filter(token => haystack.includes(token));
   const anchorTerms = tokens.slice(0, Math.min(2, tokens.length));
   if (anchorTerms.length && !anchorTerms.some(token => haystack.includes(token))) {
-    return 'Source page does not support the specific search-intent anchor terms';
+    return 'Source page supports only 0 required search-intent anchor terms';
   }
   const required = tokens.length >= 7 ? 3 : tokens.length >= 3 ? 2 : 1;
   if (matched.length < required) {
@@ -585,8 +585,8 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
     const podcastId = `podcast:${type}`;
     const youtubeId = `youtube:${type}`;
     sourceIds.push(podcastId, youtubeId);
-    queryBySourceId[podcastId] = intentQuery([order.intake.targetBuyer, signal.value], 12);
-    queryBySourceId[youtubeId] = `${intentQuery([order.intake.targetBuyer, signal.value], 10)} review interview`.trim().slice(0, 220);
+    queryBySourceId[podcastId] = `${buyerQuery} ${signal.value}`.trim().slice(0, 220);
+    queryBySourceId[youtubeId] = `${buyerQuery} ${signal.value} review interview`.trim().slice(0, 220);
   }
 
   return {
