@@ -12,6 +12,24 @@ const START_PATH = '/__acceptance/fresh-sprint/start';
 const STATUS_PATH = '/__acceptance/fresh-sprint/status';
 const TOKEN = crypto.randomUUID() + crypto.randomUUID();
 
+function git(args) {
+  const r = spawnSync('git', args, {
+    cwd: ROOT, encoding: 'utf8', shell: false, maxBuffer: 16 * 1024 * 1024
+  });
+  if (r.error) throw r.error;
+  if ((r.status ?? 1) !== 0) throw new Error((r.stderr || r.stdout || 'git failed').trim());
+  return String(r.stdout || '').trim();
+}
+
+const ORIGINAL_HEAD = git(['rev-parse', 'HEAD']);
+let MAIN_SHA = '';
+try {
+  MAIN_SHA = git(['rev-parse', 'origin/main']);
+} catch {
+  git(['fetch', 'origin', 'main', '--depth=1']);
+  MAIN_SHA = git(['rev-parse', 'FETCH_HEAD']);
+}
+
 mkdirSync(OUT, { recursive: true });
 
 function wrangler(args, opts = {}) {
@@ -290,7 +308,24 @@ try {
   console.log(JSON.stringify(receipt, null, 2));
 } finally {
   if (deployed) {
-    try { wrangler(['deploy','--env','acceptance']); } catch (e) { console.error('CRITICAL: failed to restore canonical acceptance Worker:', e); process.exitCode = 1; }
+    try {
+      git(['checkout', '--detach', MAIN_SHA]);
+      wrangler(['deploy','--env','acceptance']);
+      jsonFile('restore-receipt.json', {
+        schemaVersion: 'ghosttown-acceptance-restore-v1',
+        restoredSha: MAIN_SHA,
+        requestedFromSha: ORIGINAL_HEAD,
+        restoredAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error('CRITICAL: failed to restore canonical acceptance Worker from exact main SHA:', e);
+      process.exitCode = 1;
+    } finally {
+      try { git(['checkout', '--detach', ORIGINAL_HEAD]); } catch (e) {
+        console.error('CRITICAL: failed to restore acceptance checkout after main deployment:', e);
+        process.exitCode = 1;
+      }
+    }
   }
   rmSync(TEMP, { force: true });
 }
