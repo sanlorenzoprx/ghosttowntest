@@ -238,23 +238,41 @@ export function synchronizeDailyExecutionPackets(
 
     const targetIds = targets.map(target => target.targetId);
     const [fallbackInstruction, quantity, fallbackEvidence] = contracts[index];
-    const substantiveTitle = legacy.title?.trim() || titles[index];
-    const substantiveObjective = legacy.primaryObjective?.trim() || objectives[index];
-    const substantiveWhy = legacy.whyItMatters?.trim() || rationale(
-      blueprint.offer.targetCustomer,
-      blueprint.offer.painfulProblem,
-      `${blueprint.offer.offerName}: ${blueprint.offer.oneSentencePromise}`,
-      blueprint.firstRevenuePath.firstPrice,
-      substantiveObjective
-    );
-    const substantiveActions = legacy.requiredActions?.map(value => value.trim()).filter(Boolean) || [];
-    const actionInstructions = substantiveActions.length ? substantiveActions : [fallbackInstruction];
-    const substantiveEvidence = legacy.evidenceToRecord?.map(value => value.trim()).filter(Boolean) || [];
-    const evidenceExpected = substantiveEvidence.length ? substantiveEvidence : [...fallbackEvidence];
-    const substantiveSuccess = legacy.successMeasurement?.trim() || thresholds[index];
-    const substantiveOutcome = legacy.expectedDeliverable?.trim() || `${assetNames[index]} is used and an evidence record exists.`;
-    const substantiveMinutes = legacy.estimatedMinutes > 0 ? legacy.estimatedMinutes : minutes(day);
-    const substantivePreparedAssets = legacy.preparedAssets?.map(value => value.trim()).filter(Boolean) || [];
+    // The first pass builds the canonical deterministic packet. A later pass
+    // receives an existing packet and may contain Vertex-authored daily fields;
+    // preserve those substantive changes instead of overwriting them.
+    const preserveGeneratedStrategy = Boolean(legacy.executionPacket);
+    const substantiveTitle = preserveGeneratedStrategy && legacy.title?.trim() ? legacy.title.trim() : titles[index];
+    const substantiveObjective = preserveGeneratedStrategy && legacy.primaryObjective?.trim() ? legacy.primaryObjective.trim() : objectives[index];
+    const substantiveWhy = preserveGeneratedStrategy && legacy.whyItMatters?.trim()
+      ? legacy.whyItMatters.trim()
+      : rationale(
+          blueprint.offer.targetCustomer,
+          blueprint.offer.painfulProblem,
+          `${blueprint.offer.offerName}: ${blueprint.offer.oneSentencePromise}`,
+          blueprint.firstRevenuePath.firstPrice,
+          substantiveObjective
+        );
+    const generatedActions = preserveGeneratedStrategy
+      ? legacy.requiredActions?.map(value => value.trim()).filter(Boolean) || []
+      : [];
+    const actionInstructions = generatedActions.length ? generatedActions : [fallbackInstruction];
+    const generatedEvidence = preserveGeneratedStrategy
+      ? legacy.evidenceToRecord?.map(value => value.trim()).filter(Boolean) || []
+      : [];
+    const evidenceExpected = generatedEvidence.length ? generatedEvidence : [...fallbackEvidence];
+    const substantiveSuccess = preserveGeneratedStrategy && legacy.successMeasurement?.trim()
+      ? legacy.successMeasurement.trim()
+      : thresholds[index];
+    const substantiveOutcome = preserveGeneratedStrategy && legacy.expectedDeliverable?.trim()
+      ? legacy.expectedDeliverable.trim()
+      : `${assetNames[index]} is used and an evidence record exists.`;
+    const substantiveMinutes = preserveGeneratedStrategy && legacy.estimatedMinutes > 0
+      ? legacy.estimatedMinutes
+      : minutes(day);
+    const substantivePreparedAssets = preserveGeneratedStrategy
+      ? legacy.preparedAssets?.map(value => value.trim()).filter(Boolean) || []
+      : [];
 
     const fields = [...content.matchAll(/{{([A-Za-z][A-Za-z0-9]*)}}/g)].map(match => match[1]);
     const asset: DeliverableAsset = {
