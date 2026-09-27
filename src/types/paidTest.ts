@@ -94,6 +94,7 @@ export interface PaidTestIntake {
   customerNotes?: string;
   strategicClarifications?: StrategicClarificationResponse[];
   researchSignals?: PrePurchaseResearchSignals;
+  uncertaintyResolution?: StrategicUncertaintyResolution;
   /** Transport-only checkout lineage; the Worker moves this onto PaidTestOrder. */
   attribution?: CommercialAttributionEnvelope;
 }

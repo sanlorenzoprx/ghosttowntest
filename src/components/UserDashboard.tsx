@@ -36,6 +36,18 @@ interface PaidOrderSummary {
   offerName?: string;
   sourceVerdictId?: string;
   planVersion?: string;
+  fulfillmentError?: string;
+  uncertaintySprint?: {
+    version: "1.0";
+    status: "open" | "answered";
+    durationDays: 2 | 3;
+    objective: string;
+    chainSummary: string;
+    blockers: Array<{ code: string; link: string; question: string; requiredEvidence: string }>;
+    days: Array<{ day: 1 | 2 | 3; title: string; actions: string[]; completion: string }>;
+    unlockRule: string;
+    answeredAt?: string;
+  };
 }
 
 interface GetMeLiveSummary {
@@ -71,6 +83,8 @@ export default function UserDashboard({
   const [seedOrderId, setSeedOrderId] = useState("");
   const [uncertaintyOrderId, setUncertaintyOrderId] = useState("");
   const [retryingOrderId, setRetryingOrderId] = useState("");
+  const [uncertaintyAnswers, setUncertaintyAnswers] = useState<Record<string, Record<string, string>>>({});
+  const [savingUncertaintyOrderId, setSavingUncertaintyOrderId] = useState("");
   const [getMeLiveOrders, setGetMeLiveOrders] = useState<GetMeLiveSummary[]>([]);
 
   const loadGetMeLive = () =>
@@ -499,7 +513,7 @@ export default function UserDashboard({
                       {isBlueprint && (plan.status === "failed" || working) && (
                         <button
                           onClick={() => void retryBlueprint(plan.orderId)}
-                          disabled={Boolean(retryingOrderId)}
+                          disabled={Boolean(retryingOrderId) || plan.uncertaintySprint?.status === "open"}
                           className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-black text-white disabled:opacity-50"
                         >
                           {retryingOrderId === plan.orderId

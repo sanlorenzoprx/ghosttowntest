@@ -6,6 +6,7 @@ import type { VertexStructuredStageResult } from '../src/api/vertexStructuredGen
 import {
   applyVertexPipelineDraft,
   assertStrategicCoherenceGate,
+  StrategicCoherenceGateError,
   createLaunchBlueprintVertexContext,
   validateStrategicCoherenceGate,
   validateCustomerCopyEdit,
@@ -454,6 +455,14 @@ describe('staged Vertex Launch Blueprint pipeline', () => {
     });
 
     expect(() => assertStrategicCoherenceGate(gate)).toThrow('BUYER_PAYER_UNRESOLVED');
+    try {
+      assertStrategicCoherenceGate(gate);
+      throw new Error('Expected StrategicCoherenceGateError');
+    } catch (error) {
+      expect(error).toBeInstanceOf(StrategicCoherenceGateError);
+      expect((error as StrategicCoherenceGateError).gate.blockers[0]?.link).toBe('buyer_payer');
+      expect((error as StrategicCoherenceGateError).gate.blockers[0]?.requiredEvidence).toContain('buyer/payer');
+    }
   });
 
   it('blocks Sprint generation when the proposed test changes the value mechanism', () => {
