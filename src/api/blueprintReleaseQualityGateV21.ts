@@ -2,6 +2,7 @@ import type { Env } from './env';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
 import type { GhostTownLaunchBlueprintV21, BlueprintGenerationEvidenceReceipt } from '../types/launchBlueprintV21';
 import { currentCustomerAccessChannels, directCustomerAccessChannels, researchEvidenceRole } from './researchEvidenceRole';
+import { RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS } from './researchEvidenceSufficiency';
 
 export type BlueprintReleaseBlockerCategoryV21 = 'strategy' | 'research' | 'asset' | 'calendar' | 'delivery';
 export type ResearchVerificationDimensionV21 =
@@ -32,6 +33,9 @@ export const BLUEPRINT_RELEASE_BLOCKER_CODES_V21 = {
     insufficientVerificationDimensions: 'RESEARCH_INSUFFICIENT_VERIFICATION_DIMENSIONS',
     fewerThanTenVerifiedCandidates: 'RESEARCH_FEWER_THAN_TEN_VERIFIED_CANDIDATES',
     fewerThanThreeCustomerAccessTargets: 'RESEARCH_FEWER_THAN_THREE_CUSTOMER_ACCESS_TARGETS',
+    insufficientProblemLanguageEvidence: 'RESEARCH_INSUFFICIENT_PROBLEM_LANGUAGE_EVIDENCE',
+    insufficientCompetitiveAlternativeEvidence: 'RESEARCH_INSUFFICIENT_COMPETITIVE_ALTERNATIVE_EVIDENCE',
+    insufficientEvidenceRoleCoverage: 'RESEARCH_INSUFFICIENT_EVIDENCE_ROLE_COVERAGE',
     missingRecencyMetadata: 'RESEARCH_MISSING_EVIDENCE_RECENCY_METADATA',
     inconsistentCurrentActivityClaim: 'RESEARCH_INCONSISTENT_CURRENT_ACTIVITY_CLAIM',
     missingPublicSource: 'RESEARCH_MISSING_PUBLIC_SOURCE',
@@ -256,7 +260,6 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
 
   const receipt = research.receipt;
   const seedCount = receipt.seedDomains.length;
-  const expectedProviderAttempts = Math.max(receipt.sourceDefinitionIds.length, seedCount * 3);
   const verificationDimensions = researchVerificationDimensionsV21(blueprint, research);
   const sourceIds = new Set(blueprint.sources.map(source => source.sourceId));
   const channels = blueprint.customerAccessPack.channels;
