@@ -1,0 +1,64 @@
+name: Fresh Sprint Acceptance
+
+on:
+  push:
+    branches:
+      - acceptance/fresh-sprint-e2e
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghosttown-fresh-sprint-acceptance
+  cancel-in-progress: false
+
+jobs:
+  fresh-sprint:
+    name: fresh-sprint
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Cloudflare credentials
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+
+      - name: Focused closeout regressions
+        run: >
+          npx vitest run
+          tests/currentProductPromise.test.ts
+          tests/strategicUncertaintySprint.test.ts
+          tests/customerAccessResearch.test.ts
+          tests/blueprintReleaseQualityGateV21.test.ts
+          --no-file-parallelism
+
+      - name: Run completely fresh Sprint acceptance
+        run: node scripts/fresh-sprint-acceptance.mjs
+
+      - name: Upload fresh Sprint acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-fresh-sprint-${{ github.run_id }}
+          path: github-acceptance/fresh-sprint
+          if-no-files-found: warn
+          retention-days: 30
