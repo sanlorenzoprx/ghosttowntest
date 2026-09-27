@@ -1,0 +1,71 @@
+name: Fresh Sprint Acceptance Closeout
+
+on:
+  push:
+    branches:
+      - acceptance/fresh-sprint-closeout
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghosttown-fresh-sprint-acceptance
+  cancel-in-progress: false
+
+jobs:
+  fresh-sprint:
+    name: fresh-sprint
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: acceptance
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify required GitHub acceptance credentials
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+
+      - name: Verify closeout contracts
+        run: >
+          npx vitest run
+          tests/currentProductPromise.test.ts
+          tests/strategicUncertaintySprint.test.ts
+          tests/customerAccessResearch.test.ts
+          tests/launchBlueprintVertexPipeline.test.ts
+          tests/blueprintAssetsV21.test.ts
+          tests/blueprintPdfV21.test.ts
+          tests/blueprintReleaseQualityGateV21.test.ts
+          --no-file-parallelism
+
+      - name: Acceptance Worker dry-run
+        run: npm run worker:check:acceptance
+
+      - name: Run completely fresh Sprint acceptance
+        run: node scripts/fresh-sprint-acceptance.mjs
+
+      - name: Upload fresh acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-fresh-sprint-${{ github.run_id }}
+          path: fresh-acceptance-evidence
+          if-no-files-found: error
+          retention-days: 30
