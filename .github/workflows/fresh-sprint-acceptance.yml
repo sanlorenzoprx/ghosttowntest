@@ -19,8 +19,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ghosttown-fresh-sprint-acceptance
-  cancel-in-progress: false
+  group: ghosttown-fresh-sprint-acceptance-${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'checkpoint' && 'checkpoint' || 'debug' }}
+  cancel-in-progress: ${{ github.event_name == 'push' || inputs.mode == 'debug' }}
 
 jobs:
   fresh-sprint:
