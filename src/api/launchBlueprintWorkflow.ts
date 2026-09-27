@@ -44,7 +44,7 @@ function batchSize(value: string | undefined): number {
   return Number.isFinite(parsed) ? Math.min(6, Math.max(2, Math.floor(parsed))) : 3;
 }
 
-function customerAccessResearchUncertaintyGate(
+export function customerAccessResearchUncertaintyGate(
   context: Awaited<ReturnType<typeof loadLaunchBlueprintWorkflowContext>>,
   reason: string
 ): VertexStrategicCoherenceGate {
@@ -89,7 +89,7 @@ function customerAccessResearchUncertaintyGate(
   };
 }
 
-function isCustomerAccessResearchUncertainty(error: unknown): boolean {
+export function isCustomerAccessResearchUncertainty(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /(?:currently verified customer-access candidates|currently verified customer-access targets|retained no currently usable buyer-access target)/i.test(message);
 }
