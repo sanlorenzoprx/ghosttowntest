@@ -16,8 +16,8 @@ describe('typed research outcomes', () => {
     ];
     expect(classifyResearchShortfall(attempts)).toBe('INSUFFICIENT_EVIDENCE');
     const error = researchShortfallError(
-      'MIN_VERIFIED_CANDIDATES',
-      'Only three verified candidates were found after healthy providers completed.',
+      'MIN_PROBLEM_LANGUAGE_OBSERVATIONS',
+      'Independent first-person problem-language evidence remained insufficient after healthy providers completed.',
       attempts
     );
     expect(error.outcome).toBe('INSUFFICIENT_EVIDENCE');
@@ -32,8 +32,8 @@ describe('typed research outcomes', () => {
     ];
     expect(classifyResearchShortfall(attempts)).toBe('PROVIDER_BLOCKED');
     const error = researchShortfallError(
-      'MIN_VERIFIED_CANDIDATES',
-      'Research could not reach the evidence gate because providers were unavailable.',
+      'MIN_CURRENT_CUSTOMER_ACCESS',
+      'Research could not verify the required Customer Access evidence because providers were unavailable.',
       attempts
     );
     expect(error.outcome).toBe('PROVIDER_BLOCKED');
