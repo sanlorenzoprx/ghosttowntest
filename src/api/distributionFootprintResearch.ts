@@ -356,23 +356,37 @@ const CLAIM_STOP_WORDS = new Set([
   'what', 'when', 'where', 'which', 'with', 'without'
 ]);
 
+const SEARCH_STOP_WORDS = new Set([
+  ...CLAIM_STOP_WORDS,
+  'and', 'are', 'but', 'can', 'for', 'from', 'has', 'have', 'its', 'our', 'the', 'was', 'will', 'you', 'your'
+]);
+
 function claimTokens(value: string): string[] {
   return [...new Set((value.toLowerCase().match(/[a-z0-9]{4,}/g) || [])
     .filter(token => !CLAIM_STOP_WORDS.has(token)))];
 }
 
+export function searchTerms(value: string): string[] {
+  return [...new Set((value.toLowerCase().match(/[a-z0-9][a-z0-9.+-]{1,}/g) || [])
+    .map(token => token.replace(/^[.+-]+|[.+-]+$/g, ''))
+    .filter(token => token.length >= 2 && !SEARCH_STOP_WORDS.has(token) && !/^\d+$/.test(token)))];
+}
+
 export function sourceClaimSupportFailure(claim: string, pageText: string): string | undefined {
-  const tokens = claimTokens(claim);
+  const tokens = searchTerms(claim);
   if (!tokens.length) return undefined;
   const haystack = pageText.toLowerCase();
   const matched = tokens.filter(token => haystack.includes(token));
+  const anchorTerms = tokens.slice(0, Math.min(2, tokens.length));
+  if (anchorTerms.length && !anchorTerms.some(token => haystack.includes(token))) {
+    return 'Source page does not support the specific search-intent anchor terms';
+  }
   const required = tokens.length >= 7 ? 3 : tokens.length >= 3 ? 2 : 1;
   if (matched.length < required) {
     return `Source page supports only ${matched.length} of ${required} required claim terms`;
   }
   return undefined;
 }
-
 export function customerAccessUsabilityFailure(finalUrl: URL, visibleText: string): string | undefined {
   const urlSignal = /reddit\.com\/r\/|groups\.io\/g\/|\/(?:forum|forums|community|communities|discuss|discussion|thread|threads|topic|topics|question|questions)(?:\/|$)/i.test(finalUrl.toString());
   const participationSignal = /\b(?:join|reply|replies|comment|comments|post|posts|members|member|new topic|start a discussion|ask a question|create account|sign up)\b/i.test(visibleText.slice(0, 8000));
@@ -420,9 +434,7 @@ async function readLimitedText(response: Response, limit = 65536): Promise<strin
 }
 
 function pageSupportsClaim(page: VerifiedPage, claim: string): boolean {
-  const tokens = Array.from(new Set(
-    claim.toLowerCase().match(/[a-z0-9]{4,}/g)?.filter(token => !CLAIM_STOP_WORDS.has(token)) || []
-  ));
+  const tokens = searchTerms(claim);
   if (!tokens.length) return true;
   const haystack = `${page.title} ${page.description} ${page.visibleText}`.toLowerCase();
   const required = tokens.length >= 4 ? 2 : 1;
@@ -487,57 +499,85 @@ function seedForTask(order: PaidTestOrder, taskId: string): CompetitorSeed | und
   return order.intake.competitorSeeds?.find(seed => seed.seedId === seedId);
 }
 
-function coreTopic(order: PaidTestOrder, verdict: EvaluationResult): string {
-  return `${verdict.idea.ideaName} ${order.intake.targetBuyer} ${order.intake.problem}`.replace(/\s+/g, ' ').trim().slice(0, 220);
+function coreTopic(order: PaidTestOrder, _verdict: EvaluationResult): string {
+  return `${order.intake.targetBuyer} ${order.intake.problem}`.replace(/\s+/g, ' ').trim().slice(0, 220);
 }
 
 function directBuyerDiscussionQuery(order: PaidTestOrder, _verdict: EvaluationResult): string {
-  // Search in buyer/problem language, not GhostTown's invented product or offer
-  // name. Product labels are often absent from the real discussions we need to
-  // discover and can collapse recall for a genuinely new idea.
-  const buyerTokens = claimTokens(order.intake.targetBuyer).slice(0, 6);
-  const buyerSet = new Set(buyerTokens);
-  const problemTokens = claimTokens(order.intake.problem)
+  const buyerTerms = searchTerms(order.intake.targetBuyer).slice(0, 6);
+  const buyerSet = new Set(buyerTerms);
+  const problemTerms = searchTerms(order.intake.problem)
     .filter(token => !buyerSet.has(token))
-    .slice(0, 4);
-  return [...new Set([...buyerTokens, ...problemTokens])].slice(0, 8).join(' ');
+    .slice(0, 6);
+  return [...new Set([...buyerTerms, ...problemTerms])].slice(0, 10).join(' ');
+}
+
+function intentQuery(parts: string[], maxTerms = 12): string {
+  return [...new Set(parts.flatMap(part => searchTerms(part)))]
+    .slice(0, maxTerms)
+    .join(' ');
 }
 
 export function planCustomerAccessResearch(order: PaidTestOrder, verdict: EvaluationResult, reviewLanguage: string[] = []): DistributionFootprintPlan {
   const seeds = order.intake.competitorSeeds || [];
   if (seeds.length < 2 || seeds.length > 3) throw new Error('Distribution Footprint requires two or three confirmed competitor seeds');
+
   const sourceIds: string[] = [];
   const queryBySourceId: Record<string, string> = {};
+  const geography = text(order.intake.geography, 'global');
+  const buyerQuery = intentQuery([order.intake.targetBuyer], 7);
+  const problemQuery = intentQuery([order.intake.problem], 8);
+  const buyerProblemQuery = intentQuery([order.intake.problem, order.intake.targetBuyer], 11);
   const buyerDiscussionQuery = directBuyerDiscussionQuery(order, verdict);
-  const reviewLanguageQuery = [...new Set(reviewLanguage.map(value => text(value)).filter(Boolean))]
-    .slice(0, 6)
-    .join(' ')
-    .slice(0, 180);
-  const accessLanguage = [buyerDiscussionQuery, reviewLanguageQuery].filter(Boolean).join(' ').slice(0, 220);
+
   for (const seed of seeds) {
     for (const provider of ['dataforseo', 'podcast', 'youtube'] as const) {
       const taskId = `${provider}:${seed.seedId}`;
       sourceIds.push(taskId);
       queryBySourceId[taskId] = provider === 'dataforseo'
         ? seed.name
-        : `${seed.name} ${buyerDiscussionQuery}`.trim().slice(0, 160);
+        : intentQuery([seed.name, order.intake.targetBuyer, order.intake.problem], 12);
     }
   }
+
   const topic = coreTopic(order, verdict);
   sourceIds.push(
     'podcast:category',
     'youtube:category',
-    'customer_access:problem',
     'customer_access:buyer',
-    'youtube_access:problem',
-    'youtube_access:buyer'
+    'customer_access:problem',
+    'customer_access:buyer_problem',
+    'youtube_access:buyer',
+    'youtube_access:problem'
   );
+
   queryBySourceId['podcast:category'] = buyerDiscussionQuery || topic;
-  queryBySourceId['youtube:category'] = `${buyerDiscussionQuery || topic} review interview`.slice(0, 160);
-  queryBySourceId['customer_access:problem'] = `${accessLanguage} forum discussion ${text(order.intake.geography, 'global')}`.slice(0, 220);
-  queryBySourceId['customer_access:buyer'] = `${accessLanguage} community question ${text(order.intake.geography, 'global')}`.slice(0, 220);
-  queryBySourceId['youtube_access:problem'] = accessLanguage;
-  queryBySourceId['youtube_access:buyer'] = claimTokens(order.intake.targetBuyer).slice(0, 6).join(' ');
+  queryBySourceId['youtube:category'] = `${buyerDiscussionQuery || topic} review interview`.trim().slice(0, 180);
+  queryBySourceId['customer_access:buyer'] = `${buyerQuery} community question ${geography}`.trim().slice(0, 220);
+  queryBySourceId['customer_access:problem'] = `${problemQuery} forum discussion ${geography}`.trim().slice(0, 220);
+  queryBySourceId['customer_access:buyer_problem'] = `${buyerProblemQuery} forum discussion ${geography}`.trim().slice(0, 220);
+  queryBySourceId['youtube_access:buyer'] = buyerQuery;
+  queryBySourceId['youtube_access:problem'] = buyerProblemQuery;
+
+  for (const [index, seed] of seeds.entries()) {
+    const complaintId = `customer_access:competitor_${index + 1}_complaint`;
+    const alternativesId = `customer_access:competitor_${index + 1}_alternatives`;
+    sourceIds.push(complaintId, alternativesId);
+    queryBySourceId[complaintId] = `${intentQuery([seed.name, order.intake.problem], 9)} complaint forum discussion ${geography}`.trim().slice(0, 220);
+    queryBySourceId[alternativesId] = `${intentQuery([seed.name, order.intake.problem], 9)} alternatives discussion ${geography}`.trim().slice(0, 220);
+  }
+
+  const reviewQueries = [...new Set(reviewLanguage.map(value => text(value)).filter(Boolean))]
+    .map(value => intentQuery([value], 9))
+    .filter(Boolean)
+    .slice(0, 6);
+
+  reviewQueries.forEach((query, index) => {
+    const taskId = `customer_access:review_${index + 1}`;
+    sourceIds.push(taskId);
+    queryBySourceId[taskId] = `${query} forum discussion ${geography}`.trim().slice(0, 220);
+  });
+
   const researchSignals = order.intake.researchSignals;
   for (const type of ['audience', 'ecosystem'] as const) {
     const signal = researchSignals?.[type];
@@ -545,9 +585,10 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
     const podcastId = `podcast:${type}`;
     const youtubeId = `youtube:${type}`;
     sourceIds.push(podcastId, youtubeId);
-    queryBySourceId[podcastId] = `${order.intake.targetBuyer} ${signal.value}`.slice(0, 220);
-    queryBySourceId[youtubeId] = `${order.intake.targetBuyer} ${signal.value} review interview`.slice(0, 220);
+    queryBySourceId[podcastId] = intentQuery([order.intake.targetBuyer, signal.value], 12);
+    queryBySourceId[youtubeId] = `${intentQuery([order.intake.targetBuyer, signal.value], 10)} review interview`.trim().slice(0, 220);
   }
+
   return {
     planVersion: 'distribution-footprint-plan-v1',
     createdAt: new Date().toISOString(),
@@ -557,7 +598,7 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
     seedDomains: seeds.map(seed => seed.domain),
     seedNames: seeds.map(seed => seed.name),
     language: 'en',
-    geography: text(order.intake.geography, 'global')
+    geography
   };
 }
 
