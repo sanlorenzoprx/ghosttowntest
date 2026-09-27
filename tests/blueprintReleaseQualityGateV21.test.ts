@@ -117,7 +117,8 @@ function result(): CustomerAccessResearchResult {
   return {
     research: { status: 'complete', researchDate, sources, channels, publicExpertsAndPartners: [], competitorReviewIntelligence },
     receipt: {
-      provider: 'distribution_footprint', model: 'gemini-2.5-flash', requestedAt: generatedAt, completedAt: generatedAt, packs: ['customer_access'], webSearchQueries: [], attemptedSourceCount: 6, successfulSourceCount: 6, sourceTypeCount: 3, candidateChannelCount: 10, verifiedChannelCount: 10, rejectedUrls: [], failedSources: [], sourceDefinitionIds: ['dataforseo:s1','podcast:s1','youtube:s1','dataforseo:s2','podcast:s2','youtube:s2'], seedDomains: ['seed-one.example','seed-two.example'], targetTypeCounts: { podcast: 3, youtube_creator: 3, newsletter_or_publication: 4 }, responseHash: 'fixture'
+      provider: 'distribution_footprint', model: 'gemini-2.5-flash', requestedAt: generatedAt, completedAt: generatedAt, packs: ['customer_access'], webSearchQueries: [], attemptedSourceCount: 6, successfulSourceCount: 6, sourceTypeCount: 1, candidateChannelCount: 5, verifiedChannelCount: 10, rejectedUrls: [], failedSources: [], sourceDefinitionIds: ['web:1'], seedDomains: ['seed-one.example','seed-two.example'], targetTypeCounts: { community: 5, review_site: 2, youtube_creator: 2, complementary_partner: 1 }, responseHash: 'fixture',
+      evidenceSufficiency: { currentCustomerAccessCount: 5, problemLanguageObservationCount: 3, competitiveAlternativeSourceCount: 2, coveredRoles: ['customer_access','problem_language','competitive_alternative'], missingRoles: [], independentEvidenceUrls: 10, sufficient: true }
     }
   };
 }
