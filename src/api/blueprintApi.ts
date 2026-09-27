@@ -45,25 +45,6 @@ function normalizedEmail(value: string): string {
 const paidOrderKey = (orderId: string) => `paid_test_order_${orderId}`;
 const userOrdersKey = (email: string) => `paid_test_orders_${normalizedEmail(email)}`;
 
-async function persistUncertaintyOrder(env: Env, order: PaidTestOrder): Promise<void> {
-  order.updatedAt = new Date().toISOString();
-  await env.KV.put(paidOrderKey(order.orderId), JSON.stringify(order));
-  const key = userOrdersKey(order.email);
-  const raw = await env.KV.get(key);
-  if (!raw) return;
-  const summaries = JSON.parse(raw) as Array<Record<string, unknown>>;
-  const next = summaries.map(summary => summary.orderId === order.orderId
-    ? {
-        ...summary,
-        status: order.status,
-        updatedAt: order.updatedAt,
-        fulfillmentError: order.fulfillmentError,
-        uncertaintySprint: order.uncertaintySprint
-      }
-    : summary);
-  await env.KV.put(key, JSON.stringify(next));
-}
-
 function isV21(blueprint: GhostTownLaunchBlueprint): blueprint is GhostTownLaunchBlueprintV21 {
   return (blueprint as GhostTownLaunchBlueprint & { blueprintVersion?: string }).blueprintVersion === '2.1';
 }
