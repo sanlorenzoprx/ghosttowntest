@@ -145,7 +145,7 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
           );
           return { orderId, status: order.status };
         }
-        if (!isCustomerAccessResearchUncertainty(error)) throw error;
+        if (!isResearchOutcomeError(error, 'INSUFFICIENT_EVIDENCE')) throw error;
         const gate = customerAccessResearchUncertaintyGate(context, error.customerSafeMessage);
         const order = await step.do('persist 3-day customer-access uncertainty Sprint', async () =>
           markLaunchBlueprintUncertaintyV21(this.env, orderId, gate)

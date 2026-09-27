@@ -266,19 +266,13 @@ while (executed < maxSteps && state.currentStep <= 16) {
     const result = runCommand(command, step.id, 'verify');
     commands.push(result);
     if (result.exitCode !== 0) {
-      const waiting = result.exitCode === Number(contract.handlerExitCodes?.waitingExternalInput || 2);
-      stepState.status = waiting ? 'WAITING_EXTERNAL_INPUT' : 'BLOCKED_INTERNAL';
-      stepState.message = waiting ? 'Verification requires an external input' : `Verification failed: ${command}`;
+      // Verification tools such as TypeScript commonly use exit code 2 for
+      // ordinary compile/test failures. Only step handlers may deliberately
+      // request WAITING_EXTERNAL_INPUT; verification failures are internal.
+      const waiting = false;
+      stepState.status = 'BLOCKED_INTERNAL';
+      stepState.message = `Verification failed: ${command}`;
       state.status = stepState.status;
-      if (waiting) {
-        state.externalInput = {
-          stepId: step.id,
-          step: step.slug,
-          requirements: step.externalInputs || [],
-          requestedAt: now(),
-          instruction: 'Complete only the named external account/credential/approval action, never paste secret values into logs or chat, then rerun with --resume-external.'
-        };
-      }
       const receiptPath = join(receiptDir, `step-${String(step.id).padStart(2, '0')}-attempt-${stepState.attempts}.json`);
       writeJson(receiptPath, {
         schemaVersion: 'ghosttown-sprint-autopilot-step-receipt-v1',
