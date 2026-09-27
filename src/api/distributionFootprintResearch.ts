@@ -392,33 +392,12 @@ async function readLimitedText(response: Response, limit = 65536): Promise<strin
   return new TextDecoder().decode(bytes);
 }
 
-const SOURCE_ERROR_PATTERNS = [
-  /\b404\b.{0,40}\b(not found|error)\b/i,
-  /\b(page|site|content|resource)\s+(was\s+)?(not found|removed|unavailable|does not exist|doesn't exist)\b/i,
-  /\bno longer available\b/i,
-  /\binvalid\s+[^\n]{0,40}\bsite\b/i,
-  /\bthis page (isn't|is not) available\b/i,
-  /\bsite not found\b/i
-];
-
-const CLAIM_STOPWORDS = new Set([
-  'about', 'after', 'again', 'against', 'being', 'between', 'could', 'family',
-  'from', 'have', 'into', 'more', 'other', 'their', 'there', 'these', 'they',
-  'this', 'those', 'through', 'using', 'with', 'your'
-]);
-
-function sourceLooksUsable(pageText: string): boolean {
-  const normalized = pageText.replace(/\s+/g, ' ').trim();
-  if (normalized.length < 40) return false;
-  return !SOURCE_ERROR_PATTERNS.some(pattern => pattern.test(normalized));
-}
-
 function pageSupportsClaim(page: VerifiedPage, claim: string): boolean {
   const tokens = Array.from(new Set(
     claim.toLowerCase().match(/[a-z0-9]{4,}/g)?.filter(token => !CLAIM_STOPWORDS.has(token)) || []
   ));
   if (!tokens.length) return true;
-  const haystack = page.searchText.toLowerCase();
+  const haystack = `${page.title} ${page.description} ${page.visibleText}`.toLowerCase();
   const required = tokens.length >= 4 ? 2 : 1;
   return tokens.filter(token => haystack.includes(token)).length >= required;
 }
@@ -827,8 +806,7 @@ async function youtubeCustomerAccessCandidates(env: Env, query: string): Promise
           .sort((left, right) => Date.parse(right) - Date.parse(left))[0];
         const observedAt = new Date().toISOString();
         const videoTitle = text(item.snippet?.title, 'YouTube discussion');
-        const channelTitle = text(item.snippet?.channelTitle, 'YouTube channel');
-        const verifiedVideo = await verifyYoutubeVideo(videoId, videoTitle);
+            const verifiedVideo = await verifyYoutubeVideo(videoId, videoTitle);
         const publicUrl = verifiedVideo.publicUrl;
 
         candidates.push({
@@ -1227,7 +1205,8 @@ export async function finalizeCustomerAccessResearch(
     prompt: selectionPrompt(order, verdict, candidates),
     temperature: 0.1,
     maxOutputTokens: 10000,
-    timeoutMs: 30_000
+    timeoutMs: 30_000,
+    responseSchema: SELECTION_RESPONSE_SCHEMA
   });
   const output = ai.text;
   const model = ai.receipt.model;
