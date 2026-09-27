@@ -9,7 +9,7 @@ const checks = [
   [source.includes('const preserveGeneratedStrategy = Boolean(legacy.executionPacket)') && source.includes('legacy.title.trim() : titles[index]'), 'daily title is not preserved from the generated strategy'],
   [source.includes('legacy.primaryObjective.trim() : objectives[index]'), 'daily objective is not preserved from the generated strategy'],
   [source.includes('const generatedActions = preserveGeneratedStrategy'), 'generated daily actions are not preserved'],
-  [source.includes('const substantiveSuccess = legacy.successMeasurement?.trim() || thresholds[index]'), 'generated success measurement is not preserved'],
+  [source.includes('const substantiveSuccess = preserveGeneratedStrategy') && source.includes('legacy.successMeasurement.trim()') && source.includes(': thresholds[index]'), 'generated success measurement is not preserved'],
   [source.includes("channel.evidenceRole === 'customer_access'"), 'outreach is not restricted to Customer Access'],
   [source.includes("channel.currentActivityStatus === 'verified_current'"), 'outreach is not restricted to verified-current channels'],
   [source.includes("kind: 'verified_channel'"), 'daily packets do not carry verified channel targets'],
