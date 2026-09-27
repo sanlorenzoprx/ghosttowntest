@@ -128,6 +128,42 @@ function titleFromHtml(html: string, fallback: string): string {
   return clean(match?.[1]) || fallback;
 }
 
+export function hasFirstPersonUserSignal(value: string): boolean {
+  const text = clean(value).toLowerCase();
+  const firstPerson = /\b(?:i|i'm|i've|i'd|my|me|we|we're|we've|our)\b/.test(text);
+  const experience = /\b(?:use|used|using|tried|bought|buy|paid|pay|switched|cancelled|canceled|love|hate|wish|found|had|got|needed|recommend)\b/.test(text);
+  return firstPerson && experience;
+}
+
+export function isEligibleReviewSource(seed: CompetitorSeed, finalUrl: string, visibleText: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(finalUrl);
+  } catch {
+    return false;
+  }
+  if (!hasFirstPersonUserSignal(visibleText)) return false;
+  const host = url.hostname.replace(/^www\./, '').toLowerCase();
+  const seedHost = seed.domain.replace(/^www\./, '').toLowerCase();
+  const competitorOwned = host === seedHost || host.endsWith(`.${seedHost}`);
+  if (!competitorOwned) return true;
+  return /\/(?:reviews?|community|forum|discuss|discussion|support|threads?|comments?|feedback)(?:\/|$)/i.test(url.pathname);
+}
+
+export function phraseSupportedByObservations(
+  phrase: string,
+  observations: CompetitorReviewObservation[],
+  sourceIds?: string[]
+): boolean {
+  const normalized = clean(phrase).toLowerCase();
+  if (!normalized) return false;
+  const allowedSources = sourceIds?.length ? new Set(sourceIds) : null;
+  return observations.some(observation =>
+    (!allowedSources || allowedSources.has(observation.sourceId))
+    && observation.customerLanguage.some(snippet => clean(snippet).toLowerCase().includes(normalized))
+  );
+}
+
 function reviewSignalScore(sentence: string): number {
   const s = sentence.toLowerCase();
   let score = 0;
@@ -237,6 +273,7 @@ async function verifyReviewPage(seed: CompetitorSeed, candidate: { url: string; 
       .filter(token => token.length >= 4);
     if (!seedTokens.some(token => haystack.includes(token))) return null;
 
+    if (!isEligibleReviewSource(seed, finalUrl, visible)) return null;
     const snippets = reviewSnippets(visible);
     if (!snippets.length) return null;
 
@@ -348,13 +385,17 @@ async function synthesizeReviewIntelligence(
     const competitorNames = Array.isArray(raw.competitorNames)
       ? unique(raw.competitorNames.map(clean))
       : [];
+    if (sourceIds.length < 2) continue;
+    const supportedLanguage = Array.isArray(raw.customerLanguage)
+      ? unique(raw.customerLanguage.map(clean))
+          .filter(phrase => phraseSupportedByObservations(phrase, observations, sourceIds))
+          .slice(0, 4)
+      : [];
     patterns.push({
       patternId: `review_pattern_${patterns.length + 1}`,
       kind,
       theme,
-      customerLanguage: Array.isArray(raw.customerLanguage)
-        ? unique(raw.customerLanguage.map(clean)).slice(0, 4)
-        : [],
+      customerLanguage: supportedLanguage,
       sourceIds,
       competitorNames,
       confidence: normalizeConfidence(raw.confidence)
@@ -362,7 +403,9 @@ async function synthesizeReviewIntelligence(
   }
 
   const customerLanguagePhrases = Array.isArray(payload.customerLanguagePhrases)
-    ? unique(payload.customerLanguagePhrases.map(clean)).slice(0, 20)
+    ? unique(payload.customerLanguagePhrases.map(clean))
+        .filter(phrase => phraseSupportedByObservations(phrase, observations))
+        .slice(0, 20)
     : [];
 
   const productImplications: CompetitorReviewProductImplication[] = [];
