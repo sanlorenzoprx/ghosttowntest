@@ -4,6 +4,7 @@ export type GenerativeAITask =
   | 'verdict'
   | 'candidate_selection'
   | 'grounded_research'
+  | 'review_intelligence'
   | 'blueprint'
   | 'custom_website';
 
@@ -108,6 +109,7 @@ const DEFAULT_MODELS: Record<GenerativeAITask, string> = {
   verdict: 'gemini-3.5-flash-lite',
   candidate_selection: 'gemini-3.5-flash-lite',
   grounded_research: 'gemini-3.5-flash',
+  review_intelligence: 'gemini-3.5-flash',
   blueprint: 'gemini-3.5-flash',
   custom_website: 'gemini-3.5-flash'
 };
@@ -121,7 +123,7 @@ export function resolveGenerativeModel(env: Env, task: GenerativeAITask): string
     ? env.VERTEX_VERDICT_MODEL
     : task === 'candidate_selection'
       ? env.VERTEX_SELECTION_MODEL
-      : task === 'grounded_research'
+      : task === 'grounded_research' || task === 'review_intelligence'
         ? env.VERTEX_RESEARCH_MODEL
         : task === 'custom_website'
           ? env.VERTEX_WEBSITE_MODEL
