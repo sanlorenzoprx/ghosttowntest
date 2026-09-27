@@ -1113,13 +1113,50 @@ ${JSON.stringify(candidates.map(candidate => ({
   })))} `;
 }
 
+function escapeRawJsonControlCharacters(value: string): string {
+  let result = '';
+  let inString = false;
+  let escaped = false;
+  for (const character of value) {
+    if (!inString) {
+      if (character === '"') inString = true;
+      result += character;
+      continue;
+    }
+    if (escaped) {
+      escaped = false;
+      result += character;
+      continue;
+    }
+    if (character === '\\') {
+      escaped = true;
+      result += character;
+      continue;
+    }
+    if (character === '"') {
+      inString = false;
+      result += character;
+      continue;
+    }
+    const code = character.charCodeAt(0);
+    result += code <= 0x1f ? `\\u${code.toString(16).padStart(4, '0')}` : character;
+  }
+  return result;
+}
+
 function parseSelection(value: string): SelectionPayload {
   const fenced = value.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
   const source = fenced || value;
   const first = source.indexOf('{');
   const last = source.lastIndexOf('}');
   if (first < 0 || last <= first) throw new Error('Distribution selection did not contain JSON');
-  return JSON.parse(source.slice(first, last + 1)) as SelectionPayload;
+  const json = source.slice(first, last + 1);
+  try {
+    return JSON.parse(json) as SelectionPayload;
+  } catch (error) {
+    if (!(error instanceof SyntaxError) || !/[\u0000-\u001f]/.test(json)) throw error;
+    return JSON.parse(escapeRawJsonControlCharacters(json)) as SelectionPayload;
+  }
 }
 
 function discoveredThrough(provider: DistributionProvider): NonNullable<CustomerAccessChannel['discoveredThrough']> {

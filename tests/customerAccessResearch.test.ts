@@ -3,7 +3,7 @@ import type { Env } from '../src/api/env';
 import type { EvaluationResult } from '../src/types/lit';
 import type { PaidTestOrder } from '../src/types/paidTest';
 
-const aiState = vi.hoisted(() => ({ mode: 'valid' as 'valid' | 'unknown' | 'grounded_error' }));
+const aiState = vi.hoisted(() => ({ mode: 'valid' as 'valid' | 'unknown' | 'grounded_error' | 'invalid_control' }));
 
 vi.mock('../src/api/generativeAIService', () => ({
   generateAI: async (_env: unknown, options: { prompt: string; task?: string; googleSearch?: boolean }) => {
@@ -79,8 +79,12 @@ vi.mock('../src/api/generativeAIService', () => ({
       channels[0] = { ...channels[0], candidateId: 'candidate_model_invented' };
       channels.splice(5);
     }
+    let selectionText = JSON.stringify({ channels });
+    if (aiState.mode === 'invalid_control') {
+      selectionText = selectionText.replace('family game-selection resource', 'family game-selection\nresource');
+    }
     return {
-      text: JSON.stringify({ channels }),
+      text: selectionText,
       receipt: {
         provider: 'google_vertex_ai',
         gateway: 'cloudflare_ai_gateway',
@@ -393,6 +397,15 @@ describe('customer access distribution footprint provider', () => {
     expect(result.receipt.model).toBe('verified-provider-recovery');
     expect(result.receipt.candidateChannelCount).toBeGreaterThanOrEqual(10);
     expect(result.research.channels.every(channel => channel.publicUrl.startsWith('https://'))).toBe(true);
+  });
+
+  it('repairs raw control characters inside candidate-selection JSON strings without weakening source gates', async () => {
+    aiState.mode = 'invalid_control';
+    mockProviders();
+    const result = await researchCustomerAccess(env(), order, verdict);
+    expect(result.research.status).toBe('complete');
+    expect(result.research.channels.length).toBeGreaterThanOrEqual(10);
+    expect(result.research.channels.filter(channel => channel.evidenceRole === 'customer_access').length).toBeGreaterThanOrEqual(3);
   });
 
   it('rejects HTTP 404 and removed-page destinations instead of counting them as verified sources', async () => {
