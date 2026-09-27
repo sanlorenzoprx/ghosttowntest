@@ -9,3 +9,4 @@ dist/
 scripts/.blueprint-correction-payload/
 .roadmap-autopilot/
 .phase1-playwright/
+github-acceptance/
