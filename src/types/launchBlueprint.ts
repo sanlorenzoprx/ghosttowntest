@@ -250,6 +250,53 @@ export interface BlueprintQualityGate {
   warnings: string[];
 }
 
+
+export interface CompetitorReviewObservation {
+  observationId: string;
+  competitorSeedId: string;
+  competitorName: string;
+  sourceId: string;
+  sourceUrl: string;
+  sourceTitle: string;
+  accessedAt: string;
+  evidenceDate?: string;
+  customerLanguage: string[];
+}
+
+export interface CompetitorReviewPattern {
+  patternId: string;
+  kind: 'strength' | 'weakness' | 'job' | 'switching_signal' | 'pricing_signal' | 'support_signal' | 'requested_improvement';
+  theme: string;
+  customerLanguage: string[];
+  sourceIds: string[];
+  competitorNames: string[];
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface CompetitorReviewProductImplication {
+  implicationId: string;
+  hypothesis: string;
+  whyItMatters: string;
+  testQuestion: string;
+  sourceIds: string[];
+}
+
+export interface CompetitorReviewIntelligence {
+  schemaVersion: 'competitor-review-intelligence-v1';
+  orderId: string;
+  sourceVerdictId: string;
+  productSpecific: true;
+  generatedAt: string;
+  status: 'complete' | 'partial' | 'not_available';
+  competitorSeedIds: string[];
+  observations: CompetitorReviewObservation[];
+  patterns: CompetitorReviewPattern[];
+  customerLanguagePhrases: string[];
+  productImplications: CompetitorReviewProductImplication[];
+  sources: BlueprintSource[];
+  limitations: string[];
+}
+
 export interface BlueprintGenerationReceipt {
   sourceVerdictId: string;
   generatedAt: string;
@@ -295,6 +342,7 @@ export interface GhostTownLaunchBlueprint {
     criteria: Array<{ decision: BlueprintDecision; condition: string; nextAction: string }>;
   };
   sources: BlueprintSource[];
+  competitorReviewIntelligence?: CompetitorReviewIntelligence;
   qualityGate: BlueprintQualityGate;
   generationReceipt: BlueprintGenerationReceipt;
 }
