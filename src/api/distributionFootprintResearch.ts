@@ -364,7 +364,7 @@ async function verifyOriginalPage(rawUrl: string): Promise<VerifiedPage> {
   const publisher = final.hostname.replace(/^www\./, '');
   const title = pageTitle(html) || publisher;
   const description = pageDescription(html);
-  const searchText = [title, description, html].join(' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const searchText = [title, description, html].join(' ').replace(/\s+/g, ' ').trim();
   if (!sourceLooksUsable(searchText)) {
     throw new Error('Original source is not a usable public evidence page');
   }
@@ -602,32 +602,39 @@ async function youtubeCandidates(env: Env, query: string, seedName?: string): Pr
     seen.add(channelIdValue);
     const publicUrl = `https://www.youtube.com/channel/${encodeURIComponent(channelIdValue)}`;
     const channelTitle = text(item.snippet?.channelTitle, 'YouTube creator');
-    const observedAt = new Date().toISOString();
-    const evidenceDate = normalizedEvidenceDate(item.snippet?.publishedAt);
-    const currentActivityStatus = currentActivityStatusFromDate(item.snippet?.publishedAt);
-    candidates.push({
-      candidateId: candidateId('youtube_api', publicUrl),
-      provider: 'youtube_api',
-      targetTypeHint: 'youtube_creator',
-      title: channelTitle,
-      publicUrl,
-      publisher: channelTitle,
-      platform: 'YouTube creator',
-      activity: activityLevelFromDate(item.snippet?.publishedAt),
-      confidence: 'high',
-      evidenceDate,
-      evidenceDateSource: evidenceDate ? 'provider_activity' : 'unknown',
-      evidenceRecency: evidenceRecencyFromDate(item.snippet?.publishedAt),
-      currentActivityStatus,
-      currentActivityVerifiedAt: currentActivityStatus === 'unverified' ? undefined : observedAt,
-      currentActivityEvidence: evidenceDate
-        ? `YouTube returned a matching video published on ${evidenceDate.slice(0, 10)}; this date, not the research date, is the activity signal.`
-        : 'YouTube did not provide a usable matching-video publication date.',
-      factualSignals: [text(item.snippet?.title) ? `Matching video: ${text(item.snippet?.title)}` : '', text(item.snippet?.description).slice(0, 240)].filter(Boolean),
-      competitorEvidence: [seedName ? `YouTube returned a matching video from this creator for competitor seed ${seedName}.` : `YouTube returned a relevant video for category query: ${query}.`],
-      audienceOwner: channelTitle,
-      observedAt
-    });
+    try {
+      const page = await verifyOriginalPage(publicUrl);
+      const claimedIdentity = [channelTitle, text(item.snippet?.title)].filter(Boolean).join(' ');
+      if (!pageSupportsClaim(page, claimedIdentity)) continue;
+      const observedAt = new Date().toISOString();
+      const evidenceDate = normalizedEvidenceDate(item.snippet?.publishedAt);
+      const currentActivityStatus = currentActivityStatusFromDate(item.snippet?.publishedAt);
+      candidates.push({
+        candidateId: candidateId('youtube_api', page.finalUrl),
+        provider: 'youtube_api',
+        targetTypeHint: 'youtube_creator',
+        title: channelTitle,
+        publicUrl: page.finalUrl,
+        publisher: channelTitle,
+        platform: 'YouTube creator',
+        activity: activityLevelFromDate(item.snippet?.publishedAt),
+        confidence: 'high',
+        evidenceDate,
+        evidenceDateSource: evidenceDate ? 'provider_activity' : 'unknown',
+        evidenceRecency: evidenceRecencyFromDate(item.snippet?.publishedAt),
+        currentActivityStatus,
+        currentActivityVerifiedAt: currentActivityStatus === 'unverified' ? undefined : observedAt,
+        currentActivityEvidence: evidenceDate
+          ? `YouTube returned a matching video published on ${evidenceDate.slice(0, 10)}, and GhostTown independently re-opened the public channel destination.`
+          : 'GhostTown independently re-opened the public channel destination, but YouTube did not provide a usable matching-video publication date.',
+        factualSignals: [text(item.snippet?.title) ? `Matching video: ${text(item.snippet?.title)}` : '', text(item.snippet?.description).slice(0, 240)].filter(Boolean),
+        competitorEvidence: [seedName ? `YouTube returned a matching video from this creator for competitor seed ${seedName}.` : `YouTube returned a relevant video for category query: ${query}.`],
+        audienceOwner: channelTitle,
+        observedAt
+      });
+    } catch {
+      continue;
+    }
     if (candidates.length >= 12) break;
   }
   return candidates;
