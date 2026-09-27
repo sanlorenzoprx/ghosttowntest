@@ -132,7 +132,8 @@ async function status(env, orderId) {
     orderId: order.orderId, verdictId: order.verdictId, email: order.email, status: order.status,
     paidAt: order.paidAt, fulfillmentWorkflowId: order.fulfillmentWorkflowId,
     fulfillmentAttemptCount: order.fulfillmentAttemptCount, fulfillmentError: order.fulfillmentError,
-    uncertaintySprint: order.uncertaintySprint
+    uncertaintySprint: order.uncertaintySprint,
+    researchBlocked: order.researchBlocked
   }, workflowStatus };
   if (order.status === 'ready') {
     const row = await env.DB.prepare('SELECT blueprint_json, research_receipt_json, pdf_r2_key FROM launch_blueprints WHERE order_id = ?').bind(orderId).first();
@@ -189,6 +190,23 @@ function auditUncertainty(status) {
   return { outcome: 'uncertainty', unresolvedLinks: u.unresolvedLinks, questionCount: u.questions.length, passed: true };
 }
 
+function auditResearchBlocked(status) {
+  const blocked = status.order.researchBlocked;
+  assert(blocked?.schemaVersion === 'ghosttown-research-blocked-v1', 'Missing research-blocked receipt');
+  assert(blocked.outcome === 'PROVIDER_BLOCKED', 'research_blocked must carry PROVIDER_BLOCKED outcome');
+  assert(blocked.code, 'research_blocked must identify a typed shortfall code');
+  assert(blocked.nextRetryAt, 'research_blocked must include an automatic retry time');
+  assert(blocked.automaticRetryWindowHours === 48, 'research_blocked retry window must remain 48 hours');
+  assert(String(blocked.customerMessage || '').includes('not a judgment about your business idea'), 'research_blocked customer message must not judge the business');
+  return {
+    outcome: 'research_blocked',
+    code: blocked.code,
+    failedProviderTypes: blocked.failedProviderTypes || [],
+    nextRetryAt: blocked.nextRetryAt,
+    passed: true
+  };
+}
+
 function auditReady(status) {
   const blueprint = JSON.parse(status.blueprintJson);
   const research = JSON.parse(status.researchReceiptJson);
@@ -210,7 +228,33 @@ function auditReady(status) {
   assert(!allText.includes('$119'), 'Retired $119 Get Me Live promise leaked into Sprint');
   assert(!/30-Day Sprint[^]{0,180}(includes|comes with)[^]{0,100}(live website|Launch Site)/i.test(allText), 'Sprint improperly bundles a live website/Launch Site');
   assert(research?.generationReceiptEvidence?.quality?.sourceVerificationPassed === true, 'Source verification receipt did not pass');
-  return { outcome: 'ready', customerAccessCount: direct.length, dayCount: blueprint.dailyCalendar.length, messageCount: blueprint.customerAccessPack.outreachScripts.length, passed: true };
+
+  const review = blueprint.competitorReviewIntelligence;
+  assert(review?.schemaVersion === 'competitor-review-intelligence-v1', 'READY Sprint is missing competitor review intelligence');
+  assert(review.productSpecific === true, 'Competitor review intelligence must be product-specific');
+  assert(review.orderId === status.order.orderId, 'Competitor review intelligence order provenance mismatch');
+  assert(Array.isArray(review.observations) && review.observations.length >= 2, 'READY Sprint needs at least two verified review observations');
+  const observedSourceIds = new Set(review.observations.map(o => o.sourceId));
+  assert(review.observations.every(o => o.sourceUrl && o.customerLanguage?.length && o.sourceId), 'Review observations must retain source URL, source ID, and observed language');
+  assert((review.patterns || []).every(p => Array.isArray(p.sourceIds) && p.sourceIds.length >= 2 && p.sourceIds.every(id => observedSourceIds.has(id))), 'Review patterns must cite at least two verified observations');
+  assert((review.productImplications || []).every(i => Array.isArray(i.sourceIds) && i.sourceIds.length && i.sourceIds.every(id => observedSourceIds.has(id))), 'Review product hypotheses must cite verified observations');
+
+  const receipt = blueprint.generationReceipt;
+  assert(receipt?.pipelineVersion === 'vertex-blueprint-staged-v3', 'READY Sprint must carry the staged Vertex v3 generation receipt');
+  const stages = (receipt.stages || []).map(stage => stage.stage);
+  assert(stages.includes('strategic_coherence_gate'), 'READY Sprint is missing the Strategic Coherence stage receipt');
+  assert(receipt.redTeam?.passed === true, 'READY Sprint red-team receipt did not pass');
+
+  return {
+    outcome: 'ready',
+    customerAccessCount: direct.length,
+    dayCount: blueprint.dailyCalendar.length,
+    messageCount: blueprint.customerAccessPack.outreachScripts.length,
+    reviewObservationCount: review.observations.length,
+    reviewPatternCount: review.patterns.length,
+    generationStages: stages,
+    passed: true
+  };
 }
 
 let deployed = false;
@@ -257,7 +301,7 @@ try {
     const order = JSON.parse(orderRaw);
     finalStatus = { ok: true, order, workflowStatus: order.fulfillmentWorkflowId ? 'recorded' : 'unknown' };
     jsonFile('latest-status.json', finalStatus);
-    if (['ready', 'uncertainty', 'failed'].includes(order.status)) break;
+    if (['ready', 'uncertainty', 'research_blocked', 'failed'].includes(order.status)) break;
     finalStatus = null;
   }
   assert(finalStatus, 'Fresh Sprint timed out');
@@ -266,6 +310,8 @@ try {
   let audit;
   if (finalStatus.order.status === 'uncertainty') {
     audit = auditUncertainty(finalStatus);
+  } else if (finalStatus.order.status === 'research_blocked') {
+    audit = auditResearchBlocked(finalStatus);
   } else {
     const sql = `SELECT blueprint_json, research_receipt_json, pdf_r2_key FROM launch_blueprints WHERE order_id = '${start.orderId.replaceAll("'", "''")}' LIMIT 1;`;
     const d1Raw = wrangler(['d1','execute','ghosttowntest-blueprints-acceptance','--remote','--env','acceptance','--command',sql,'--json']);
