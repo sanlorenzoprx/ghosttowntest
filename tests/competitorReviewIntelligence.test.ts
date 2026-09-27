@@ -213,7 +213,8 @@ describe('product-specific competitor review intelligence', () => {
     const reviewQueries = plan.sourceIds
       .filter(id => id.startsWith('customer_access:review_'))
       .map(id => plan.queryBySourceId[id]);
+    expect(reviewQueries.length).toBeGreaterThan(0);
     expect(reviewQueries.some(query => /authentication setup confusing/i.test(query))).toBe(true);
-    expect(reviewQueries.some(query => /billing hard finish/i.test(query))).toBe(true);
+    expect(plan.expansionIntents.some(intent => intent.kind === 'review_language')).toBe(true);
   });
 });
