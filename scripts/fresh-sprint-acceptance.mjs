@@ -45,23 +45,23 @@ async function start(env) {
     resultId: verdictId,
     generatedAt: now,
     idea: {
-      ideaName: 'WooCommerce Checkout Friction Audit',
-      description: 'A manual checkout-friction audit for small WooCommerce store owners, focused on identifying confusing checkout steps before they buy more software or traffic.',
-      targetUser: 'Small WooCommerce store owners who personally manage their online store and checkout',
-      painfulProblem: 'Small WooCommerce store owners lose potential orders when checkout steps, shipping choices, or payment setup confuse buyers.',
-      currentAlternative: 'WooCommerce documentation, WordPress support forums, hosting support, plugins, and trial-and-error configuration changes.',
-      motivation: 'Find checkout friction before spending more on plugins, redesigns, or paid traffic.'
+      ideaName: 'AI App Launch Readiness Audit',
+      description: 'A manual launch-readiness audit for solo founders building apps with AI coding tools, focused on deployment, authentication, payments, domains, and production-readiness gaps before launch.',
+      targetUser: 'Solo founders using AI coding tools such as Cursor, Replit, or Lovable who personally build and launch web apps',
+      painfulProblem: 'Solo founders can get an AI-built app working locally but still struggle to make deployment, authentication, payments, domains, and production configuration work together.',
+      currentAlternative: 'Product documentation, Reddit and community discussions, Discord groups, Stack Overflow, podcasts, and trial-and-error debugging.',
+      motivation: 'Find launch blockers before spending more time rebuilding or announcing an app that is not production-ready.'
     },
     deterministicScores: {
       ghostTownScore: 3, ghostTownRisk: 'medium', leverageScore: 3, insightScore: 3, timingScore: 3,
       litScore: 3, litBand: 'unclear', highWallsScore: 2, highWallsBand: 'weak',
-      businessDnaType: 'service', businessDnaTrap: 'Store owners may not pay for an audit before they see evidence that checkout friction is costing orders',
-      businessDnaWinStrategy: 'Sell a small manual checkout audit before building software',
-      finalVerdict: 'test_first', verdictHeadline: 'Test willingness to pay for a focused checkout-friction audit',
-      verdictExplanation: 'The checkout problem is understandable, but willingness to pay for a focused audit is not yet proven.',
-      recommendedNextTest: 'Ask qualified WooCommerce store owners to pay for a manual checkout-friction audit.',
-      doNotBuildUntil: 'At least a few qualified store owners pay or make another meaningful commitment.',
-      oneSentenceAdvice: 'Sell the audit outcome before building checkout software.'
+      businessDnaType: 'service', businessDnaTrap: 'Solo founders may prefer free documentation and community help instead of paying for a launch-readiness audit',
+      businessDnaWinStrategy: 'Sell a small manual launch-readiness audit before building automation',
+      finalVerdict: 'test_first', verdictHeadline: 'Test willingness to pay for a focused AI-app launch-readiness audit',
+      verdictExplanation: 'The launch-friction problem is visible, but willingness to pay for a focused audit is not yet proven.',
+      recommendedNextTest: 'Ask qualified solo founders using AI coding tools to pay for a manual launch-readiness audit.',
+      doNotBuildUntil: 'At least a few qualified solo founders pay or make another meaningful commitment.',
+      oneSentenceAdvice: 'Sell the launch-readiness outcome before building automation.'
     },
     usedAI: false, cacheHit: false, answers: {}
   };
@@ -80,17 +80,17 @@ async function start(env) {
     updatedAt: now,
     intake: {
       verdictId,
-      targetBuyer: 'Small WooCommerce store owners who personally manage checkout and can approve a small business purchase',
+      targetBuyer: 'Solo founders using AI coding tools who personally own the app and can approve a small business purchase',
       geography: 'United States',
-      problem: 'Small WooCommerce store owners lose potential orders when checkout steps, shipping choices, or payment setup confuse buyers.',
-      currentWorkaround: 'WooCommerce documentation, WordPress support forums, hosting support, plugins, and trial-and-error configuration changes.',
-      offerHypothesis: 'A $49 manual Checkout Friction Audit: review the store checkout flow and deliver a prioritized list of the top three friction points with screenshots and fixes to test.',
+      problem: 'Solo founders can get an AI-built app working locally but still struggle to make deployment, authentication, payments, domains, and production configuration work together.',
+      currentWorkaround: 'Product documentation, Reddit and community discussions, Discord groups, Stack Overflow, podcasts, and trial-and-error debugging.',
+      offerHypothesis: 'A $49 manual AI App Launch Readiness Audit: review the launch setup and deliver a prioritized list of the top three production blockers with screenshots and fixes to test.',
       expectedPrice: '$49',
       currentStage: 'New idea with no paid customers yet',
-      customerNotes: 'The store owner is both the user-side decision maker and payer. The first test is an advisory audit only: no payment processing, credential handling, financial advice, or changes to the live store.',
+      customerNotes: 'The solo founder is both the user and payer. The first test is advisory only: no credential collection, no production access, no security guarantee, no financial advice, and no changes to the live app.',
       competitorSeeds: [
-        { seedId: 'seed_kiwico_' + stamp, name: 'WooCommerce', website: 'https://woocommerce.com', domain: 'woocommerce.com', relationship: 'adjacent_product', origin: 'customer_confirmed', reason: 'Store owners already use WooCommerce as the checkout platform being evaluated.', verifiedAt: now },
-        { seedId: 'seed_bgg_' + stamp, name: 'CartFlows', website: 'https://cartflows.com', domain: 'cartflows.com', relationship: 'current_alternative', origin: 'customer_confirmed', reason: 'Store owners use checkout optimization plugins and funnels as a current alternative.', verifiedAt: now }
+        { seedId: 'seed_cursor_' + stamp, name: 'Cursor', website: 'https://cursor.com', domain: 'cursor.com', relationship: 'adjacent_product', origin: 'customer_confirmed', reason: 'Solo founders use Cursor to build AI-assisted applications.', verifiedAt: now },
+        { seedId: 'seed_replit_' + stamp, name: 'Replit', website: 'https://replit.com', domain: 'replit.com', relationship: 'adjacent_product', origin: 'customer_confirmed', reason: 'Solo founders use Replit to build and deploy AI-assisted applications.', verifiedAt: now }
       ]
     }
   };
