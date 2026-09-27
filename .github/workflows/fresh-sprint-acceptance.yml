@@ -5,6 +5,15 @@ on:
     branches:
       - acceptance/fresh-sprint-e2e
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "debug = smallest failure-focused tests; checkpoint = full 7-file/76-test focused regression before merge"
+        required: true
+        default: debug
+        type: choice
+        options:
+          - debug
+          - checkpoint
 
 permissions:
   contents: read
@@ -42,14 +51,25 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
 
-      - name: Focused closeout regressions
+      - name: Debug tests for current candidate-selection failure
+        if: ${{ github.event_name == 'push' || inputs.mode == 'debug' }}
+        run: >
+          npx vitest run
+          tests/generativeAIService.test.ts
+          tests/customerAccessResearch.test.ts
+          tests/customerAccessUncertaintyRouting.test.ts
+          --no-file-parallelism
+
+      - name: Checkpoint focused regression — 7 files / 76 tests
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'checkpoint' }}
         run: >
           npx vitest run
           tests/currentProductPromise.test.ts
           tests/strategicUncertaintySprint.test.ts
           tests/customerAccessResearch.test.ts
-          tests/customerAccessUncertaintyRouting.test.ts
-          tests/generativeAIService.test.ts
+          tests/launchBlueprintVertexPipeline.test.ts
+          tests/blueprintAssetsV21.test.ts
+          tests/blueprintPdfV21.test.ts
           tests/blueprintReleaseQualityGateV21.test.ts
           --no-file-parallelism
 
