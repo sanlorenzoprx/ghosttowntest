@@ -1,12 +1,15 @@
+import type { CompetitorReviewIntelligence } from '../types/launchBlueprint';
 import type { DistributionFootprintPlan, ResearchBatchResult } from './distributionFootprintResearch';
+import {
+  evaluateResearchEvidenceSufficiency,
+  RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS,
+  type ResearchEvidenceSufficiency
+} from './researchEvidenceSufficiency';
 
-export interface ResearchGapSummary {
-  verifiedCandidateCount: number;
-  currentCustomerAccessCount: number;
-  successfulProviderTypes: number;
-  missingVerifiedCandidates: number;
+export interface ResearchGapSummary extends ResearchEvidenceSufficiency {
   missingCurrentCustomerAccess: number;
-  missingProviderTypes: number;
+  missingProblemLanguageObservations: number;
+  missingCompetitiveAlternativeSources: number;
 }
 
 export interface AdaptiveExpansionPlan {
@@ -15,46 +18,51 @@ export interface AdaptiveExpansionPlan {
   selectedIntentIds: string[];
 }
 
-function uniqueCandidates(batches: ResearchBatchResult[]) {
-  const byUrl = new Map<string, ResearchBatchResult['candidates'][number]>();
-  for (const candidate of batches.flatMap(batch => batch.candidates)) {
-    const key = candidate.publicUrl.toLowerCase().replace(/\/$/, '');
-    if (!key) continue;
-    const existing = byUrl.get(key);
-    if (!existing || candidate.currentActivityStatus === 'verified_current') byUrl.set(key, candidate);
-  }
-  return [...byUrl.values()];
-}
-
 export function summarizeResearchGap(
   batches: ResearchBatchResult[],
-  minimumVerifiedTargets = 10,
-  minimumCurrentCustomerAccess = 3,
-  minimumProviderTypes = 2
+  competitorReviewIntelligence?: CompetitorReviewIntelligence
 ): ResearchGapSummary {
-  const candidates = uniqueCandidates(batches);
-  const currentCustomerAccessCount = candidates.filter(candidate =>
-    candidate.targetTypeHint === 'community'
-    && candidate.currentActivityStatus === 'verified_current'
-    && Boolean(candidate.currentActivityVerifiedAt)
-  ).length;
-  const successfulProviderTypes = new Set(
-    candidates.map(candidate => candidate.provider)
-  ).size;
+  const sufficiency = evaluateResearchEvidenceSufficiency(batches, competitorReviewIntelligence);
   return {
-    verifiedCandidateCount: candidates.length,
-    currentCustomerAccessCount,
-    successfulProviderTypes,
-    missingVerifiedCandidates: Math.max(0, minimumVerifiedTargets - candidates.length),
-    missingCurrentCustomerAccess: Math.max(0, minimumCurrentCustomerAccess - currentCustomerAccessCount),
-    missingProviderTypes: Math.max(0, minimumProviderTypes - successfulProviderTypes)
+    ...sufficiency,
+    missingCurrentCustomerAccess: Math.max(
+      0,
+      RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.currentCustomerAccess - sufficiency.currentCustomerAccessCount
+    ),
+    missingProblemLanguageObservations: Math.max(
+      0,
+      RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations - sufficiency.problemLanguageObservationCount
+    ),
+    missingCompetitiveAlternativeSources: Math.max(
+      0,
+      RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.competitiveAlternativeSources - sufficiency.competitiveAlternativeSourceCount
+    )
   };
 }
 
 export function needsAdaptiveSecondPass(gap: ResearchGapSummary): boolean {
-  return gap.missingVerifiedCandidates > 0
-    || gap.missingCurrentCustomerAccess > 0
-    || gap.missingProviderTypes > 0;
+  // Distribution expansion can directly improve customer-access and
+  // competitor/alternative coverage. Missing verified first-person problem
+  // language belongs to review intelligence and should not trigger repeated
+  // generic web-search rounds that cannot satisfy that role.
+  return gap.missingCurrentCustomerAccess > 0
+    || gap.missingCompetitiveAlternativeSources > 0;
+}
+
+function intentPriority(
+  intent: DistributionFootprintPlan['expansionIntents'][number],
+  gap: ResearchGapSummary
+): number {
+  if (gap.missingCurrentCustomerAccess > 0 && intent.evidenceGoal === 'customer_access') return 0;
+  if (
+    gap.missingCompetitiveAlternativeSources > 0
+    && ['competitor_complaint', 'competitor_alternative', 'current_alternative'].includes(intent.kind)
+  ) return 0;
+  if (
+    gap.missingProblemLanguageObservations > 0
+    && ['review_language', 'problem_discussion', 'buyer_problem'].includes(intent.kind)
+  ) return 1;
+  return intent.evidenceGoal === 'customer_access' ? 2 : 3;
 }
 
 export function buildAdaptiveExpansionPlan(
@@ -69,11 +77,9 @@ export function buildAdaptiveExpansionPlan(
   const prioritized = plan.expansionIntents
     .filter(intent => !excluded.has(intent.intentId))
     .sort((left, right) => {
-    if (gap.missingCurrentCustomerAccess > 0 && left.evidenceGoal !== right.evidenceGoal) {
-      return left.evidenceGoal === 'customer_access' ? -1 : 1;
-    }
-    return left.intentId.localeCompare(right.intentId);
-  });
+      const priorityDifference = intentPriority(left, gap) - intentPriority(right, gap);
+      return priorityDifference || left.intentId.localeCompare(right.intentId);
+    });
 
   const sourceIds: string[] = [];
   const queryBySourceId: Record<string, string> = {};

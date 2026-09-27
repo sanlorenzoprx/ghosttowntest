@@ -68,16 +68,57 @@ function result(): CustomerAccessResearchResult {
       sourceIds: ['source-' + (index + 1)],
       targetType,
       evidenceRole,
+      competitorEvidence: evidenceRole === 'market_evidence' ? ['Observed competitor or current-alternative evidence.'] : [],
       accessPath: 'Public contact route',
       preparedAsset: 'Prepared educational asset',
       outreachScriptId: evidenceRole === 'partnership' ? 'script-06-referral_partner' : evidenceRole === 'customer_access' ? 'script-03-community_member' : 'script-07-interview_invitation'
     };
   });
-  const sources = channels.map((channel, index) => ({ sourceId: 'source-' + (index + 1), title: 'Source ' + (index + 1), url: 'https://example.com/source-' + (index + 1), publisher: 'Fixture', accessedAt: generatedAt, evidenceDate: '2026-08-01T12:00:00.000Z', evidenceDateSource: 'provider_activity' as const, evidenceRecency: 'current' as const, supports: [channel.channelId] }));
+  const reviewSources = Array.from({ length: 3 }, (_, index) => ({
+    sourceId: 'review-source-' + (index + 1),
+    title: 'First-person review ' + (index + 1),
+    url: 'https://reviews.example/review-' + (index + 1),
+    publisher: 'Review Fixture',
+    accessedAt: generatedAt,
+    evidenceDate: '2026-08-01T12:00:00.000Z',
+    evidenceDateSource: 'published_metadata' as const,
+    evidenceRecency: 'current' as const,
+    supports: ['Observed first-person problem language.']
+  }));
+  const sources = [
+    ...channels.map((channel, index) => ({ sourceId: 'source-' + (index + 1), title: 'Source ' + (index + 1), url: 'https://example.com/source-' + (index + 1), publisher: 'Fixture', accessedAt: generatedAt, evidenceDate: '2026-08-01T12:00:00.000Z', evidenceDateSource: 'provider_activity' as const, evidenceRecency: 'current' as const, supports: [channel.channelId] })),
+    ...reviewSources
+  ];
+  const competitorReviewIntelligence = {
+    schemaVersion: 'competitor-review-intelligence-v1' as const,
+    orderId: 'step5-order',
+    sourceVerdictId: 'step5-verdict',
+    productSpecific: true as const,
+    generatedAt,
+    status: 'complete' as const,
+    competitorSeedIds: ['s1', 's2'],
+    observations: reviewSources.map((source, index) => ({
+      observationId: 'review-observation-' + (index + 1),
+      competitorSeedId: index % 2 ? 's2' : 's1',
+      competitorName: index % 2 ? 'Seed Two' : 'Seed One',
+      sourceId: source.sourceId,
+      sourceUrl: source.url,
+      sourceTitle: source.title,
+      accessedAt: generatedAt,
+      evidenceDate: source.evidenceDate,
+      customerLanguage: ['I had difficulty choosing a family game that worked for everyone.']
+    })),
+    patterns: [],
+    customerLanguagePhrases: ['difficulty choosing a family game'],
+    productImplications: [],
+    sources: reviewSources,
+    limitations: []
+  };
   return {
-    research: { status: 'complete', researchDate, sources, channels, publicExpertsAndPartners: [] },
+    research: { status: 'complete', researchDate, sources, channels, publicExpertsAndPartners: [], competitorReviewIntelligence },
     receipt: {
-      provider: 'distribution_footprint', model: 'gemini-2.5-flash', requestedAt: generatedAt, completedAt: generatedAt, packs: ['customer_access'], webSearchQueries: [], attemptedSourceCount: 6, successfulSourceCount: 6, sourceTypeCount: 3, candidateChannelCount: 10, verifiedChannelCount: 10, rejectedUrls: [], failedSources: [], sourceDefinitionIds: ['dataforseo:s1','podcast:s1','youtube:s1','dataforseo:s2','podcast:s2','youtube:s2'], seedDomains: ['seed-one.example','seed-two.example'], targetTypeCounts: { podcast: 3, youtube_creator: 3, newsletter_or_publication: 4 }, responseHash: 'fixture'
+      provider: 'distribution_footprint', model: 'gemini-2.5-flash', requestedAt: generatedAt, completedAt: generatedAt, packs: ['customer_access'], webSearchQueries: [], attemptedSourceCount: 6, successfulSourceCount: 6, sourceTypeCount: 1, candidateChannelCount: 5, verifiedChannelCount: 10, rejectedUrls: [], failedSources: [], sourceDefinitionIds: ['web:1'], seedDomains: ['seed-one.example','seed-two.example'], targetTypeCounts: { community: 5, review_site: 2, youtube_creator: 2, complementary_partner: 1 }, responseHash: 'fixture',
+      evidenceSufficiency: { currentCustomerAccessCount: 5, problemLanguageObservationCount: 3, competitiveAlternativeSourceCount: 2, coveredRoles: ['customer_access','problem_language','competitive_alternative'], missingRoles: [], independentEvidenceUrls: 10, sufficient: true }
     }
   };
 }
@@ -98,6 +139,15 @@ function expectCode(mutator: (input: ReturnType<typeof fixture>) => void, code: 
 
 describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
   it('passes the complete fixture', () => expect(evaluateBlueprintReleaseQualityGateV21(fixture()).passed).toBe(true));
+
+  it('does not require ten candidates or two providers when role-based evidence is sufficient', () => {
+    const input = fixture();
+    input.research.receipt.candidateChannelCount = 5;
+    input.research.receipt.sourceTypeCount = 1;
+    const codes = evaluateBlueprintReleaseQualityGateV21(input).blockers.map(blocker => blocker.code);
+    expect(codes).not.toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.fewerThanTenVerifiedCandidates);
+    expect(codes).not.toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.requiredProviderAttemptsNotExecuted);
+  });
 
   it('does not promote media-only research into customer access', () => {
     const input = fixture();
@@ -174,7 +224,6 @@ describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
     ['no manual fulfillment', i => { i.blueprint.manualFulfillmentPlan.onboardingSteps = []; }, C.strategy.noManualFulfillmentMethod],
     ['missing risk boundary', i => { i.blueprint.executiveDecision.founderTimeRiskHours = 0; }, C.strategy.missingTimeOrCashBoundary],
     ['too few seeds', i => { i.research.receipt.seedDomains = ['one.example']; }, C.research.fewerThanTwoConfirmedSeeds],
-    ['missing provider attempts', i => { i.research.receipt.attemptedSourceCount = 5; }, C.research.requiredProviderAttemptsNotExecuted],
     ['insufficient verification dimensions', i => {
       i.blueprint.startingStateAudit.verifiedFacts = [];
       i.blueprint.customerAccessPack.channels.forEach(channel => {
@@ -184,8 +233,9 @@ describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
       });
       i.research.research.publicExpertsAndPartners = [];
     }, C.research.insufficientVerificationDimensions],
-    ['too few candidates', i => { i.research.receipt.candidateChannelCount = 9; }, C.research.fewerThanTenVerifiedCandidates],
     ['too few direct customer-access targets', i => { i.blueprint.customerAccessPack.channels.filter(channel => channel.evidenceRole === 'customer_access').slice(2).forEach(channel => { channel.targetType = 'podcast'; channel.evidenceRole = 'media_pr'; }); }, C.research.fewerThanThreeCustomerAccessTargets],
+    ['too few problem-language observations', i => { if (i.blueprint.competitorReviewIntelligence) i.blueprint.competitorReviewIntelligence.observations = i.blueprint.competitorReviewIntelligence.observations.slice(0, 2); }, C.research.insufficientProblemLanguageEvidence],
+    ['too few competitive-alternative sources', i => { i.blueprint.customerAccessPack.channels.forEach((channel, index) => { if (index !== 5) channel.competitorEvidence = []; }); }, C.research.insufficientCompetitiveAlternativeEvidence],
     ['missing public source', i => { i.blueprint.customerAccessPack.channels[0].publicUrl = ''; }, C.research.missingPublicSource],
     ['missing research date', i => { i.blueprint.customerAccessPack.channels[0].researchDate = ''; }, C.research.missingResearchDate],
     ['missing research execution metadata', i => { i.blueprint.customerAccessPack.channels[0].accessPath = ''; }, C.research.missingExecutionMetadata],

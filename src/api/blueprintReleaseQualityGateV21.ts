@@ -2,6 +2,7 @@ import type { Env } from './env';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
 import type { GhostTownLaunchBlueprintV21, BlueprintGenerationEvidenceReceipt } from '../types/launchBlueprintV21';
 import { currentCustomerAccessChannels, directCustomerAccessChannels, researchEvidenceRole } from './researchEvidenceRole';
+import { RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS } from './researchEvidenceSufficiency';
 
 export type BlueprintReleaseBlockerCategoryV21 = 'strategy' | 'research' | 'asset' | 'calendar' | 'delivery';
 export type ResearchVerificationDimensionV21 =
@@ -32,6 +33,9 @@ export const BLUEPRINT_RELEASE_BLOCKER_CODES_V21 = {
     insufficientVerificationDimensions: 'RESEARCH_INSUFFICIENT_VERIFICATION_DIMENSIONS',
     fewerThanTenVerifiedCandidates: 'RESEARCH_FEWER_THAN_TEN_VERIFIED_CANDIDATES',
     fewerThanThreeCustomerAccessTargets: 'RESEARCH_FEWER_THAN_THREE_CUSTOMER_ACCESS_TARGETS',
+    insufficientProblemLanguageEvidence: 'RESEARCH_INSUFFICIENT_PROBLEM_LANGUAGE_EVIDENCE',
+    insufficientCompetitiveAlternativeEvidence: 'RESEARCH_INSUFFICIENT_COMPETITIVE_ALTERNATIVE_EVIDENCE',
+    insufficientEvidenceRoleCoverage: 'RESEARCH_INSUFFICIENT_EVIDENCE_ROLE_COVERAGE',
     missingRecencyMetadata: 'RESEARCH_MISSING_EVIDENCE_RECENCY_METADATA',
     inconsistentCurrentActivityClaim: 'RESEARCH_INCONSISTENT_CURRENT_ACTIVITY_CLAIM',
     missingPublicSource: 'RESEARCH_MISSING_PUBLIC_SOURCE',
@@ -256,7 +260,6 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
 
   const receipt = research.receipt;
   const seedCount = receipt.seedDomains.length;
-  const expectedProviderAttempts = Math.max(receipt.sourceDefinitionIds.length, seedCount * 3);
   const verificationDimensions = researchVerificationDimensionsV21(blueprint, research);
   const sourceIds = new Set(blueprint.sources.map(source => source.sourceId));
   const channels = blueprint.customerAccessPack.channels;
@@ -284,11 +287,42 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
     || !hasText(channel.accessPath) || !hasText(channel.risk) || !hasText(channel.preparedAsset)
     || !hasText(channel.outreachScriptId) || !hasText(channel.firstAction));
 
+  const reviewObservationUrls = new Set(
+    (blueprint.competitorReviewIntelligence?.observations || [])
+      .filter(observation => observation.customerLanguage?.some(value => value.trim()))
+      .map(observation => observation.sourceUrl.trim().toLowerCase().replace(/\/$/, ''))
+      .filter(Boolean)
+  );
+  const reviewUrlBySourceId = new Map(
+    (blueprint.competitorReviewIntelligence?.observations || [])
+      .map(observation => [observation.sourceId, observation.sourceUrl.trim().toLowerCase().replace(/\/$/, '')] as const)
+      .filter(([, url]) => Boolean(url))
+  );
+  const competitivePatternKinds = new Set(['strength', 'weakness', 'switching_signal', 'pricing_signal', 'support_signal', 'requested_improvement']);
+  const competitiveReviewUrls = (blueprint.competitorReviewIntelligence?.patterns || [])
+    .filter(pattern => competitivePatternKinds.has(pattern.kind))
+    .flatMap(pattern => pattern.sourceIds)
+    .map(sourceId => reviewUrlBySourceId.get(sourceId) || '')
+    .filter(Boolean);
+  const competitiveAlternativeUrls = new Set([
+    ...competitiveReviewUrls,
+    ...channels
+      .filter(channel => channel.competitorEvidence?.some(value => value.trim()))
+      .map(channel => channel.publicUrl.trim().toLowerCase().replace(/\/$/, ''))
+      .filter(Boolean)
+  ]);
+  const evidenceRolesCovered = [
+    customerAccess.length >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.currentCustomerAccess,
+    reviewObservationUrls.size >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations,
+    competitiveAlternativeUrls.size >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.competitiveAlternativeSources
+  ].filter(Boolean).length;
+
   add(blockers, 'research', C.research.fewerThanTwoConfirmedSeeds, 'Fewer than two confirmed seeds.', 'research.receipt.seedDomains', seedCount < 2);
-  add(blockers, 'research', C.research.requiredProviderAttemptsNotExecuted, 'Required provider attempts not executed.', 'research.receipt.attemptedSourceCount', receipt.attemptedSourceCount < expectedProviderAttempts);
   add(blockers, 'research', C.research.insufficientVerificationDimensions, 'Fewer than three independent idea-verification dimensions.', 'research.verificationDimensions', verificationDimensions.length < 3);
-  add(blockers, 'research', C.research.fewerThanTenVerifiedCandidates, 'Fewer than ten verified candidates.', 'research.receipt.candidateChannelCount', receipt.candidateChannelCount < 10);
-  add(blockers, 'research', C.research.fewerThanThreeCustomerAccessTargets, `Fewer than three currently verified direct customer-access targets. Found ${roleEligibleCustomerAccess.length} role-eligible targets but only ${customerAccess.length} with current activity verified.`, 'customerAccessPack.channels', customerAccess.length < 3);
+  add(blockers, 'research', C.research.fewerThanThreeCustomerAccessTargets, `Fewer than three currently verified direct customer-access targets. Found ${roleEligibleCustomerAccess.length} role-eligible targets but only ${customerAccess.length} with current activity verified.`, 'customerAccessPack.channels', customerAccess.length < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.currentCustomerAccess);
+  add(blockers, 'research', C.research.insufficientProblemLanguageEvidence, `Fewer than ${RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations} independent verified first-person problem-language observations.`, 'competitorReviewIntelligence.observations', reviewObservationUrls.size < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations);
+  add(blockers, 'research', C.research.insufficientCompetitiveAlternativeEvidence, `Fewer than ${RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.competitiveAlternativeSources} independent competitive/alternative evidence sources.`, 'customerAccessPack.channels.competitorEvidence', competitiveAlternativeUrls.size < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.competitiveAlternativeSources);
+  add(blockers, 'research', C.research.insufficientEvidenceRoleCoverage, 'Required evidence roles are not all covered: customer access, problem language, and competitive/alternative evidence.', 'research.evidenceSufficiency', evidenceRolesCovered < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.evidenceRoles);
   add(blockers, 'research', C.research.missingRecencyMetadata, 'Evidence recency and current-activity verification metadata must be explicit for every researched target and source.', 'customerAccessPack.channels', missingRecencyMetadata);
   add(blockers, 'research', C.research.inconsistentCurrentActivityClaim, 'A target cannot be labeled recent or active unless current activity was independently verified.', 'customerAccessPack.channels', inconsistentCurrentActivityClaim);
   add(blockers, 'research', C.research.missingPublicSource, 'Missing public source.', 'sources', missingPublicSource);

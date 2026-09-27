@@ -81,12 +81,24 @@ function validateContract(contract) {
   if (contract.safety?.productionAutoDeploy !== false) {
     throw new Error('SAFETY_STOP: production auto-deploy must remain disabled');
   }
+  const sufficiency = contract.safety?.evidenceSufficiency;
   if (
-    contract.safety?.minimumVerifiedTargets !== 10 ||
-    contract.safety?.minimumCurrentCustomerAccessTargets !== 3 ||
-    contract.safety?.minimumIndependentProviderTypes !== 2
+    sufficiency?.minimumCurrentCustomerAccess !== 3 ||
+    sufficiency?.minimumProblemLanguageObservations !== 3 ||
+    sufficiency?.minimumCompetitiveAlternativeSources !== 2 ||
+    JSON.stringify(sufficiency?.requiredEvidenceRoles) !== JSON.stringify([
+      'customer_access',
+      'problem_language',
+      'competitive_alternative'
+    ])
   ) {
-    throw new Error('SAFETY_STOP: Phase-1 10/3/2 evidence gate was weakened');
+    throw new Error('SAFETY_STOP: Step 11 role-based evidence sufficiency contract changed unexpectedly');
+  }
+  if (
+    contract.safety?.providerDiversityIsReadinessGate !== false ||
+    contract.safety?.providerAttemptCountIsReadinessGate !== false
+  ) {
+    throw new Error('SAFETY_STOP: provider health must remain separate from customer-readiness evidence');
   }
   if (contract.safety?.exactZipFileCount !== 16) {
     throw new Error('SAFETY_STOP: exact 16-file ZIP contract changed');

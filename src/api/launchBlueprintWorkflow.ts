@@ -50,9 +50,9 @@ function batchSize(value: string | undefined): number {
   return Number.isFinite(parsed) ? Math.min(6, Math.max(2, Math.floor(parsed))) : 3;
 }
 
-export function customerAccessResearchUncertaintyGate(
+export function researchEvidenceUncertaintyGate(
   context: Awaited<ReturnType<typeof loadLaunchBlueprintWorkflowContext>>,
-  reason: string
+  error: ResearchOutcomeError
 ): VertexStrategicCoherenceGate {
   const { order, verdict } = context;
   const supported = [
@@ -62,37 +62,81 @@ export function customerAccessResearchUncertaintyGate(
     ['current_alternative', order.intake.currentWorkaround || verdict.idea.currentAlternative, 'Founder supplied the current workaround.'],
     ['test', order.intake.offerHypothesis || verdict.deterministicScores.recommendedNextTest, 'The current intake/verdict supplies a bounded first test.'],
     ['commitment', order.intake.expectedPrice ? `A paid test at ${order.intake.expectedPrice}` : 'A concrete observable commitment', 'The Sprint has a defined commitment hypothesis.'],
-    ['fulfillment', order.intake.offerHypothesis || 'Manual founder-delivered pilot', 'The first test is intended to be manually fulfillable before software is built.']
+    ['fulfillment', order.intake.offerHypothesis || 'Manual founder-delivered pilot', 'The first test is intended to be manually fulfillable before software is built.'],
+    ['access_path', 'Verified public buyer-access routes', 'GhostTown must verify current places where the intended buyer can actually be reached.']
   ] as const;
+
+  const role = error.code === 'MIN_PROBLEM_LANGUAGE_OBSERVATIONS'
+    ? {
+        link: 'problem' as const,
+        value: 'Insufficient verified first-person problem language',
+        code: 'PROBLEM_EVIDENCE_NOT_VERIFIED',
+        summary: 'GhostTown could not verify enough independent first-person evidence that the target market experiences the problem strongly enough to support a reliable 30-Day Sprint.',
+        message: 'GhostTown needs more verified first-person problem evidence before turning the founder hypothesis into a 30-Day Sprint.',
+        requiredEvidence: 'Collect or identify additional public first-person reviews, discussions, or customer conversations that describe the problem, workaround, consequence, switching reason, or buying trigger.'
+      }
+    : error.code === 'MIN_COMPETITIVE_ALTERNATIVE_EVIDENCE'
+      ? {
+          link: 'current_alternative' as const,
+          value: 'Insufficient verified competitive or alternative evidence',
+          code: 'ALTERNATIVE_EVIDENCE_NOT_VERIFIED',
+          summary: 'GhostTown could not verify enough independent evidence about what the target market currently uses, compares, complains about, or substitutes.',
+          message: 'GhostTown needs more verified competitive or alternative evidence before producing the 30-Day Sprint.',
+          requiredEvidence: 'Verify additional independent sources showing a current competitor, workaround, substitute, comparison, complaint, or switching alternative.'
+        }
+      : {
+          link: 'access_path' as const,
+          value: 'No release-safe direct customer-access path verified',
+          code: 'ACCESS_PATH_NOT_VERIFIED',
+          summary: 'GhostTown could not verify a direct path to at least three current prospective buyers. The 30-Day Sprint is paused until customer access is resolved.',
+          message: 'GhostTown could not verify at least three current places where you can directly reach the intended buyer or payer.',
+          requiredEvidence: 'Name or verify at least three current communities, discussion threads, groups, customer lists, events, or other direct routes where the intended buyer/payer can actually be reached.'
+        };
 
   return {
     passed: false,
-    chainSummary: 'GhostTown could not verify a direct path to at least three current prospective buyers. The 30-Day Sprint is paused until customer access is resolved.',
+    chainSummary: role.summary,
     links: [
-      ...supported.map(([link, value, linkReason]) => ({
-        link,
-        value: value || 'Founder hypothesis',
-        status: 'testable_hypothesis' as const,
-        reason: linkReason,
-        evidenceIds: [],
-        channelIds: []
-      })),
+      ...supported
+        .filter(([link]) => link !== role.link)
+        .map(([link, value, linkReason]) => ({
+          link,
+          value: value || 'Founder hypothesis',
+          status: 'testable_hypothesis' as const,
+          reason: linkReason,
+          evidenceIds: [],
+          channelIds: []
+        })),
       {
-        link: 'access_path',
-        value: 'No release-safe direct customer-access path verified',
+        link: role.link,
+        value: role.value,
         status: 'unresolved',
-        reason,
+        reason: error.customerSafeMessage,
         evidenceIds: [],
         channelIds: []
       }
     ],
     blockers: [{
-      code: 'ACCESS_PATH_NOT_VERIFIED',
-      link: 'access_path',
-      message: 'GhostTown could not verify at least three current places where you can directly reach the intended buyer or payer.',
-      requiredEvidence: 'Name or verify at least three current communities, discussion threads, groups, customer lists, events, or other direct routes where the intended buyer/payer can actually be reached.'
+      code: role.code,
+      link: role.link,
+      message: role.message,
+      requiredEvidence: role.requiredEvidence
     }]
   };
+}
+
+export function customerAccessResearchUncertaintyGate(
+  context: Awaited<ReturnType<typeof loadLaunchBlueprintWorkflowContext>>,
+  reason: string
+): VertexStrategicCoherenceGate {
+  return researchEvidenceUncertaintyGate(
+    context,
+    new ResearchOutcomeError({
+      outcome: 'INSUFFICIENT_EVIDENCE',
+      code: 'MIN_CURRENT_CUSTOMER_ACCESS',
+      detail: reason
+    })
+  );
 }
 
 export function isCustomerAccessResearchUncertainty(error: unknown): boolean {
@@ -138,7 +182,7 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
 
       const usedAdaptiveIntentIds = new Set<string>();
       for (let adaptiveRound = 1; adaptiveRound <= 3; adaptiveRound += 1) {
-        const gap = summarizeResearchGap(completedBatches);
+        const gap = summarizeResearchGap(completedBatches, competitorReviewIntelligence);
         if (!needsAdaptiveSecondPass(gap)) break;
         if (adaptiveResearchExhausted(plan, usedAdaptiveIntentIds)) break;
 
@@ -177,7 +221,7 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
           return { orderId, status: order.status };
         }
         if (!isResearchOutcomeError(error, 'INSUFFICIENT_EVIDENCE')) throw error;
-        const gate = customerAccessResearchUncertaintyGate(context, error.customerSafeMessage);
+        const gate = researchEvidenceUncertaintyGate(context, error);
         const order = await step.do('persist 3-day customer-access uncertainty Sprint', async () =>
           markLaunchBlueprintUncertaintyV21(this.env, orderId, gate)
         );

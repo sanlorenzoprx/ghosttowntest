@@ -107,7 +107,7 @@ export interface CustomerAccessChannel {
   targetType?: DistributionTargetType;
   evidenceRole?: ResearchEvidenceRole;
   evidenceRoleReason?: string;
-  discoveredThrough?: 'competitor_backlink' | 'podcast_search' | 'youtube_search' | 'grounded_customer_access_search' | 'customer_seed' | 'original_source';
+  discoveredThrough?: 'competitor_backlink' | 'web_search' | 'podcast_search' | 'youtube_search' | 'grounded_customer_access_search' | 'customer_seed' | 'original_source';
   competitorEvidence?: string[];
   audienceOwner?: string;
   accessPath?: string;

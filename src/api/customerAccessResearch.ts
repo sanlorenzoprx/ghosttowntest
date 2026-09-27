@@ -5,6 +5,11 @@ import type { BlueprintSource, CompetitorReviewIntelligence, CustomerAccessChann
 import { currentCustomerAccessChannels, researchEvidenceRoleForTargetType, researchEvidenceRoleReason } from './researchEvidenceRole';
 import { researchShortfallError } from './researchOutcome';
 import {
+  evaluateResearchEvidenceSufficiency,
+  primaryResearchEvidenceShortfall,
+  researchEvidenceSufficiencyDetail
+} from './researchEvidenceSufficiency';
+import {
   finalizeCustomerAccessResearch as finalizeDistributionFootprintResearch,
   planCustomerAccessResearch,
   runResearchBatch,
@@ -30,7 +35,6 @@ export {
   type ProviderBreakerState
 };
 
-const MIN_VERIFIED_CANDIDATES = 10;
 const MAX_DELIVERED_TARGETS = 25;
 
 function clean(value: string): string {
@@ -47,11 +51,13 @@ function recoveryScore(candidate: FootprintCandidate): number {
 function discoveredThrough(provider: DistributionProvider): NonNullable<CustomerAccessChannel['discoveredThrough']> {
   return provider === 'dataforseo_backlinks' || provider === 'rankparse_backlinks'
     ? 'competitor_backlink'
-    : provider === 'podcast_index'
-      ? 'podcast_search'
-      : provider === 'google_grounded_customer_access'
-        ? 'grounded_customer_access_search'
-        : 'youtube_search';
+    : provider === 'brave_search'
+      ? 'web_search'
+      : provider === 'podcast_index'
+        ? 'podcast_search'
+        : provider === 'google_grounded_customer_access'
+          ? 'grounded_customer_access_search'
+          : 'youtube_search';
 }
 
 function outreachScript(type: DistributionTargetType): string {
@@ -99,10 +105,12 @@ export function recoverCustomerAccessFromVerifiedCandidates(
   }
 
   const candidates = [...deduped.values()].sort((left, right) => recoveryScore(right) - recoveryScore(left));
-  if (candidates.length < MIN_VERIFIED_CANDIDATES) {
+  const sufficiency = evaluateResearchEvidenceSufficiency(batches, competitorReviewIntelligence);
+  const shortfall = primaryResearchEvidenceShortfall(sufficiency);
+  if (shortfall) {
     throw researchShortfallError(
-      'MIN_VERIFIED_CANDIDATES',
-      `Distribution Footprint recovery found only ${candidates.length} verified candidates; ${MIN_VERIFIED_CANDIDATES} are required`,
+      shortfall,
+      `Distribution Footprint recovery did not satisfy the role-based evidence gate: ${researchEvidenceSufficiencyDetail(sufficiency)}`,
       attempts
     );
   }
@@ -112,27 +120,15 @@ export function recoverCustomerAccessFromVerifiedCandidates(
     && candidate.currentActivityStatus === 'verified_current'
     && Boolean(candidate.currentActivityVerifiedAt)
   );
-  if (currentAccessCandidates.length < 3) {
-    const accessAttempts = attempts
-      .filter(attempt => attempt.sourceId.startsWith('customer_access:') || attempt.sourceId.startsWith('youtube_access:'))
-      .map(attempt => `${attempt.sourceId}=${attempt.success ? `ok:${attempt.candidateCount}` : `failed:${attempt.error || 'unknown'}`}`)
-      .join(' | ');
-    const candidateDiagnostics = candidates
-      .filter(candidate => candidate.targetTypeHint === 'community')
-      .slice(0, 8)
-      .map(candidate => `${candidate.provider}:${candidate.currentActivityStatus}:${candidate.evidenceDate || 'undated'}:${candidate.publicUrl}`)
-      .join(' | ');
-    throw researchShortfallError(
-      'MIN_CURRENT_CUSTOMER_ACCESS',
-      `Distribution Footprint recovery found only ${currentAccessCandidates.length} currently verified customer-access candidates; at least 3 are required. ` +
-        `Access attempts: ${accessAttempts || 'none'}. Community candidates: ${candidateDiagnostics || 'none'}`,
-      attempts
-    );
-  }
   const priorityAccess = currentAccessCandidates.slice(0, 5);
-  const priorityIds = new Set(priorityAccess.map(candidate => candidate.candidateId));
+  const accessIds = new Set(priorityAccess.map(candidate => candidate.candidateId));
+  const priorityCompetitive = candidates
+    .filter(candidate => candidate.competitorEvidence.some(value => value.trim()) && !accessIds.has(candidate.candidateId))
+    .slice(0, 2);
+  const priorityIds = new Set([...priorityAccess, ...priorityCompetitive].map(candidate => candidate.candidateId));
   const selected = [
     ...priorityAccess,
+    ...priorityCompetitive,
     ...candidates.filter(candidate => !priorityIds.has(candidate.candidateId))
   ].slice(0, MAX_DELIVERED_TARGETS);
   const researchDate = new Date().toISOString().slice(0, 10);
@@ -240,7 +236,8 @@ export function recoverCustomerAccessFromVerifiedCandidates(
       sourceDefinitionIds: attempts.map(attempt => attempt.sourceId),
       seedDomains: plan.seedDomains,
       targetTypeCounts,
-      responseHash: `verified-provider-recovery:${selected.map(candidate => candidate.candidateId).join(',')}`
+      responseHash: `verified-provider-recovery:${selected.map(candidate => candidate.candidateId).join(',')}`,
+      evidenceSufficiency: sufficiency
     }
   };
 }

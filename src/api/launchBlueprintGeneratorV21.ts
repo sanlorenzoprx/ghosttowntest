@@ -306,8 +306,14 @@ export function validateGhostTownLaunchBlueprintV21(
   blueprint: GhostTownLaunchBlueprintV21
 ): GhostTownLaunchBlueprintV21['qualityGate'] {
   const baseGate = validateGhostTownLaunchBlueprint({ ...blueprint, blueprintVersion: '2.0' } as GhostTownLaunchBlueprint);
-  const failures = [...baseGate.failures];
+  const failures = baseGate.failures.filter(
+    failure => failure !== 'Customer Access Pack must contain 10–25 prioritized channels.'
+  );
   const warnings = [...baseGate.warnings];
+
+  if (blueprint.customerAccessPack.channels.length < 3 || blueprint.customerAccessPack.channels.length > 25) {
+    failures.push('Executable Blueprint must retain 3–25 verified research channels; evidence-role sufficiency is enforced by the release gate.');
+  }
 
   if (blueprint.blueprintVersion !== '2.1') failures.push('Executable Blueprint version must be 2.1.');
   if (blueprint.contractVersion !== '2.1.1') failures.push('Canonical Blueprint contract version must be 2.1.1.');

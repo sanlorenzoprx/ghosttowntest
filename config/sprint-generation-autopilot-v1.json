@@ -23,9 +23,6 @@
   "safety": {
     "productionAutoDeploy": false,
     "weakenEvidenceGate": false,
-    "minimumVerifiedTargets": 10,
-    "minimumCurrentCustomerAccessTargets": 3,
-    "minimumIndependentProviderTypes": 2,
     "exactZipFileCount": 16,
     "currentCommercialLadder": [
       "free_verdict",
@@ -34,7 +31,19 @@
     ],
     "sprintIncludesLaunchSite": false,
     "recordSecretValues": false,
-    "acceptanceConcurrencyGroup": "ghosttown-acceptance"
+    "acceptanceConcurrencyGroup": "ghosttown-acceptance",
+    "evidenceSufficiency": {
+      "minimumCurrentCustomerAccess": 3,
+      "minimumProblemLanguageObservations": 3,
+      "minimumCompetitiveAlternativeSources": 2,
+      "requiredEvidenceRoles": [
+        "customer_access",
+        "problem_language",
+        "competitive_alternative"
+      ]
+    },
+    "providerDiversityIsReadinessGate": false,
+    "providerAttemptCountIsReadinessGate": false
   },
   "execution": {
     "continueAfterPass": true,
@@ -233,19 +242,19 @@
     {
       "id": 9,
       "slug": "adaptive-second-pass",
-      "title": "Add adaptive second-pass research",
+      "title": "Add adaptive role-gap research",
       "dependsOn": [
         8
       ],
       "handler": "node scripts/sprint-autopilot/step-09-adaptive-research.mjs",
       "verify": [
-        "npx vitest run tests/adaptiveResearch.test.ts tests/researchOutcomeRouting.test.ts --no-file-parallelism",
+        "npx vitest run tests/researchEvidenceSufficiency.test.ts tests/adaptiveResearch.test.ts tests/researchOutcomeRouting.test.ts --no-file-parallelism",
         "npm run type-check"
       ],
       "externalInputs": [],
       "completion": [
-        "gap analysis",
-        "alternate provider expansion",
+        "role-based gap analysis",
+        "bounded alternate-provider expansion for actionable gaps",
         "original-source reverification",
         "precise insufficient-vs-blocked terminal outcome"
       ]
@@ -286,9 +295,10 @@
         "declared_human_artifact_review:semantic_READY_review"
       ],
       "completion": [
-        "READY",
+        "role-based evidence sufficiency passes",
+        "Strategic Coherence passes",
+        "product-specific 30-day execution survives",
         "JSON/PDF/exact-16 ZIP",
-        "review/research/coherence receipts",
         "manual and mechanical semantic audit"
       ]
     },

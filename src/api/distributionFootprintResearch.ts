@@ -22,6 +22,12 @@ import {
   normalizedEvidenceDate
 } from './evidenceRecency';
 import { researchShortfallError } from './researchOutcome';
+import {
+  evaluateResearchEvidenceSufficiency,
+  primaryResearchEvidenceShortfall,
+  researchEvidenceSufficiencyDetail,
+  type ResearchEvidenceSufficiency
+} from './researchEvidenceSufficiency';
 import { isProviderRequestError, isRetryableProviderOutcome, opensProviderCircuit, providerHttpError, providerSemanticError, type ProviderOutcome } from './providerOutcome';
 import { braveSearchProvider } from './braveSearchProvider';
 import { buildResearchExpansionMatrix, type ResearchExpansionIntent } from './researchExpansionMatrix';
@@ -33,10 +39,6 @@ const YOUTUBE_ENDPOINT = 'https://www.googleapis.com/youtube/v3/search';
 const YOUTUBE_COMMENTS_ENDPOINT = 'https://www.googleapis.com/youtube/v3/commentThreads';
 const MIN_RANKPARSE_VERIFIED_PAGES_BEFORE_DATAFORSEO = 4;
 const MIN_RANKPARSE_EVIDENCE_ROLES_BEFORE_DATAFORSEO = 2;
-const MIN_ATTEMPTS = 6;
-const MIN_SUCCESSES = 4;
-const MIN_PROVIDER_TYPES = 2;
-const MIN_CHANNELS = 10;
 const MAX_CHANNELS = 25;
 const MAX_CANDIDATES_FOR_MODEL = 80;
 // Paid Workflows provide enough subrequest headroom to preserve the original
@@ -68,6 +70,7 @@ export interface CustomerAccessResearchReceipt {
   targetTypeCounts: Record<string, number>;
   responseHash: string;
   unknownCandidateIds?: string[];
+  evidenceSufficiency?: ResearchEvidenceSufficiency;
 }
 
 export interface CustomerAccessResearchResult {
@@ -245,6 +248,8 @@ interface SelectionPayload {
     outreachScriptId?: unknown;
   }>;
 }
+
+type SelectionChannel = NonNullable<SelectionPayload['channels']>[number];
 
 interface VerifiedPage {
   finalUrl: string;
@@ -1401,7 +1406,7 @@ const SELECTION_RESPONSE_SCHEMA: GenerativeAIResponseSchema = {
   properties: {
     channels: {
       type: 'ARRAY',
-      minItems: 10,
+      minItems: 3,
       maxItems: 25,
       items: {
         type: 'OBJECT',
@@ -1443,7 +1448,7 @@ Problem: ${order.intake.problem}
 Geography: ${order.intake.geography || 'not specified'}
 Confirmed competitor seeds: ${(order.intake.competitorSeeds || []).map(seed => `${seed.name} (${seed.domain})`).join(', ')}
 
-Select 10-25 high-signal evidence targets only from the immutable candidate IDs below. Keep four roles conceptually separate: direct customer access, market/competitor evidence, media/PR, and partnerships. A podcast, creator, publication, event, review site, backlink, association, or partner is not direct customer access merely because its audience appears relevant. Direct customer access requires a public community/discussion route where prospective buyers themselves may be approached. If at least three customer_access candidates exist, retain at least three of them, preferably five, before adding supporting media/market/partner targets. Do not relabel a media or partner candidate as a community to make it usable for sales. Preserve useful market/media/partner evidence even when it is not a sales channel. Do not invent a target, URL, metric, rule, contact, or claim. Treat factualSignals and competitorEvidence as the only evidence.
+Select 3-25 high-signal evidence targets only from the immutable candidate IDs below. Keep four roles conceptually separate: direct customer access, market/competitor evidence, media/PR, and partnerships. A podcast, creator, publication, event, review site, backlink, association, or partner is not direct customer access merely because its audience appears relevant. Direct customer access requires a public community/discussion route where prospective buyers themselves may be approached. If at least three customer_access candidates exist, retain at least three of them, preferably five, before adding supporting media/market/partner targets. Do not relabel a media or partner candidate as a community to make it usable for sales. Preserve useful market/media/partner evidence even when it is not a sales channel. Do not invent a target, URL, metric, rule, contact, or claim. Treat factualSignals and competitorEvidence as the only evidence.
 
 For each selected target:
 - explain why its audience fits this exact buyer;
@@ -1525,11 +1530,13 @@ function parseSelection(value: string): SelectionPayload {
 function discoveredThrough(provider: DistributionProvider): NonNullable<CustomerAccessChannel['discoveredThrough']> {
   return provider === 'dataforseo_backlinks' || provider === 'rankparse_backlinks'
     ? 'competitor_backlink'
-    : provider === 'podcast_index'
-      ? 'podcast_search'
-      : provider === 'google_grounded_customer_access'
-        ? 'grounded_customer_access_search'
-        : 'youtube_search';
+    : provider === 'brave_search'
+      ? 'web_search'
+      : provider === 'podcast_index'
+        ? 'podcast_search'
+        : provider === 'google_grounded_customer_access'
+          ? 'grounded_customer_access_search'
+          : 'youtube_search';
 }
 
 function score(candidate: FootprintCandidate): number {
@@ -1557,22 +1564,6 @@ export async function finalizeCustomerAccessResearch(
     batches.flatMap(batch => batch.candidates.map(candidate => candidate.provider))
   );
   const rejectedUrls = batches.flatMap(batch => batch.rejectedUrls);
-  if (attempts.length < MIN_ATTEMPTS) throw new Error(`Distribution Footprint attempted only ${attempts.length} tasks; ${MIN_ATTEMPTS} are required`);
-  if (successful.length < MIN_SUCCESSES) {
-    throw researchShortfallError(
-      'MIN_SUCCESSFUL_PROVIDER_TASKS',
-      `Distribution Footprint completed only ${successful.length} provider tasks; ${MIN_SUCCESSES} are required`,
-      attempts
-    );
-  }
-  if (sourceTypes.size < MIN_PROVIDER_TYPES) {
-    throw researchShortfallError(
-      'MIN_PROVIDER_TYPES',
-      `Distribution Footprint used only ${sourceTypes.size} provider types; ${MIN_PROVIDER_TYPES} are required`,
-      attempts
-    );
-  }
-
   const deduped = new Map<string, FootprintCandidate>();
   for (const candidate of batches.flatMap(batch => batch.candidates)) {
     const key = candidate.publicUrl.toLowerCase().replace(/\/$/, '');
@@ -1580,7 +1571,9 @@ export async function finalizeCustomerAccessResearch(
     if (!existing || score(candidate) > score(existing)) deduped.set(key, candidate);
   }
   const candidates = [...deduped.values()].sort((left, right) => score(right) - score(left)).slice(0, MAX_CANDIDATES_FOR_MODEL);
-  if (candidates.length < MIN_CHANNELS) {
+  const sufficiency = evaluateResearchEvidenceSufficiency(batches, competitorReviewIntelligence);
+  const shortfall = primaryResearchEvidenceShortfall(sufficiency);
+  if (shortfall) {
     const attemptDiagnostics = attempts
       .map(attempt => `${attempt.sourceId}=${attempt.success ? `ok:${attempt.candidateCount}` : `failed:${attempt.error || 'unknown'}`}`)
       .join(' | ');
@@ -1589,8 +1582,8 @@ export async function finalizeCustomerAccessResearch(
       .map(item => `${item.url}=${item.reason}`)
       .join(' | ');
     throw researchShortfallError(
-      'MIN_VERIFIED_CANDIDATES',
-      `Distribution Footprint found only ${candidates.length} verified candidates; ${MIN_CHANNELS} are required. ` +
+      shortfall,
+      `Distribution Footprint did not satisfy the role-based evidence gate: ${researchEvidenceSufficiencyDetail(sufficiency)}. ` +
         `Provider attempts: ${attemptDiagnostics || 'none'}. Rejections: ${rejectionDiagnostics || 'none'}`,
       attempts
     );
@@ -1614,11 +1607,26 @@ export async function finalizeCustomerAccessResearch(
   if (unknownCandidateIds.length) {
     throw new Error(`STEP5_RESEARCH_UNKNOWN_CANDIDATE_ID: Model returned candidate IDs outside the immutable candidate set: ${unknownCandidateIds.join(', ')}`);
   }
+  const requiredCandidates = [
+    ...candidates.filter(candidate =>
+      candidate.targetTypeHint === 'community'
+      && candidate.currentActivityStatus === 'verified_current'
+      && Boolean(candidate.currentActivityVerifiedAt)
+    ).slice(0, 3),
+    ...candidates.filter(candidate => candidate.competitorEvidence.some(value => value.trim())).slice(0, 2)
+  ];
+  const selectionById = new Map<string, SelectionChannel>((selection.channels || []).map(selected => [text(selected.candidateId), selected]));
+  const requiredIds = new Set(requiredCandidates.map(candidate => candidate.candidateId));
+  const orderedSelection: SelectionChannel[] = [
+    ...requiredCandidates.map(candidate => selectionById.get(candidate.candidateId) || { candidateId: candidate.candidateId }),
+    ...(selection.channels || []).filter(selected => !requiredIds.has(text(selected.candidateId)))
+  ];
+
   const researchDate = new Date().toISOString().slice(0, 10);
   const channels: CustomerAccessChannel[] = [];
   const sources: BlueprintSource[] = [...(competitorReviewIntelligence?.sources || [])];
   const seen = new Set<string>();
-  for (const selected of selection.channels || []) {
+  for (const selected of orderedSelection) {
     const idValue = text(selected.candidateId);
     const candidate = byId.get(idValue);
     if (!candidate || seen.has(candidate.publicUrl)) continue;
@@ -1678,10 +1686,18 @@ export async function finalizeCustomerAccessResearch(
     counts[key] = (counts[key] || 0) + 1;
     return counts;
   }, {});
-  const mediaTypes = new Set(channels.map(channel => channel.targetType).filter(Boolean));
-  const customerAccessCount = channels.filter(channel => channel.evidenceRole === 'customer_access' && channel.currentActivityStatus === 'verified_current' && channel.currentActivityVerifiedAt).length;
-  const complete = channels.length >= MIN_CHANNELS && mediaTypes.size >= 3 && customerAccessCount >= 3;
-  if (!complete) throw new Error(`Research & Customer Access failed its quality gate: ${channels.length} targets across ${mediaTypes.size} target types, with ${customerAccessCount} direct customer-access targets; at least 3 are required`);
+  const customerAccessCount = channels.filter(channel =>
+    channel.evidenceRole === 'customer_access'
+    && channel.currentActivityStatus === 'verified_current'
+    && channel.currentActivityVerifiedAt
+  ).length;
+  if (customerAccessCount < 3 || !sufficiency.sufficient) {
+    throw researchShortfallError(
+      'RESEARCH_QUALITY_GATE',
+      `Selected research did not preserve the role-based evidence gate: customer_access=${customerAccessCount}/3, ${researchEvidenceSufficiencyDetail(sufficiency)}`,
+      attempts
+    );
+  }
 
   const publicExpertsAndPartners = channels
     .filter(channel => channel.evidenceRole === 'partnership')
@@ -1721,7 +1737,8 @@ export async function finalizeCustomerAccessResearch(
       seedDomains: plan.seedDomains,
       targetTypeCounts: typeCounts,
       responseHash: ai.receipt.responseHash,
-      unknownCandidateIds: []
+      unknownCandidateIds: [],
+      evidenceSufficiency: sufficiency
     }
   };
 }

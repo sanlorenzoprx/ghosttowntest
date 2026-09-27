@@ -234,11 +234,38 @@ function auditReady(status) {
   assert(review?.schemaVersion === 'competitor-review-intelligence-v1', 'READY Sprint is missing competitor review intelligence');
   assert(review.productSpecific === true, 'Competitor review intelligence must be product-specific');
   assert(review.orderId === status.order.orderId, 'Competitor review intelligence order provenance mismatch');
-  assert(Array.isArray(review.observations) && review.observations.length >= 2, 'READY Sprint needs at least two verified review observations');
+  assert(Array.isArray(review.observations) && review.observations.length >= 3, 'READY Sprint needs at least three verified first-person problem-language observations');
+  const observedReviewUrls = new Set(review.observations.map(o => String(o.sourceUrl || '').toLowerCase().replace(/\/$/, '')).filter(Boolean));
+  assert(observedReviewUrls.size >= 3, 'READY Sprint needs problem-language evidence from at least three independent source URLs');
   const observedSourceIds = new Set(review.observations.map(o => o.sourceId));
   assert(review.observations.every(o => o.sourceUrl && o.customerLanguage?.length && o.sourceId), 'Review observations must retain source URL, source ID, and observed language');
   assert((review.patterns || []).every(p => Array.isArray(p.sourceIds) && p.sourceIds.length >= 2 && p.sourceIds.every(id => observedSourceIds.has(id))), 'Review patterns must cite at least two verified observations');
   assert((review.productImplications || []).every(i => Array.isArray(i.sourceIds) && i.sourceIds.length && i.sourceIds.every(id => observedSourceIds.has(id))), 'Review product hypotheses must cite verified observations');
+
+  const observedUrlBySourceId = new Map(
+    review.observations.map(observation => [
+      observation.sourceId,
+      String(observation.sourceUrl || '').toLowerCase().replace(/\/$/, '')
+    ])
+  );
+  const competitivePatternKinds = new Set(['strength', 'weakness', 'switching_signal', 'pricing_signal', 'support_signal', 'requested_improvement']);
+  const competitiveReviewUrls = (review.patterns || [])
+    .filter(pattern => competitivePatternKinds.has(pattern.kind))
+    .flatMap(pattern => pattern.sourceIds || [])
+    .map(sourceId => observedUrlBySourceId.get(sourceId) || '')
+    .filter(Boolean);
+  const competitiveAlternativeUrls = new Set([
+    ...competitiveReviewUrls,
+    ...channels
+      .filter(channel => channel.competitorEvidence?.some(value => String(value || '').trim()))
+      .map(channel => String(channel.publicUrl || '').toLowerCase().replace(/\/$/, ''))
+      .filter(Boolean)
+  ]);
+  assert(competitiveAlternativeUrls.size >= 2, 'READY Sprint needs at least two independent competitive/alternative evidence sources');
+  assert(research?.evidenceSufficiency?.sufficient === true, 'READY research receipt did not pass role-based evidence sufficiency');
+  assert(research.evidenceSufficiency.currentCustomerAccessCount >= 3, 'READY receipt has fewer than three current Customer Access sources');
+  assert(research.evidenceSufficiency.problemLanguageObservationCount >= 3, 'READY receipt has fewer than three problem-language observations');
+  assert(research.evidenceSufficiency.competitiveAlternativeSourceCount >= 2, 'READY receipt has fewer than two competitive/alternative sources');
 
   const receipt = blueprint.generationReceipt;
   assert(receipt?.pipelineVersion === 'vertex-blueprint-staged-v3', 'READY Sprint must carry the staged Vertex v3 generation receipt');
@@ -253,6 +280,8 @@ function auditReady(status) {
     messageCount: blueprint.customerAccessPack.outreachScripts.length,
     reviewObservationCount: review.observations.length,
     reviewPatternCount: review.patterns.length,
+    evidenceRoles: research.evidenceSufficiency.coveredRoles,
+    independentEvidenceUrls: research.evidenceSufficiency.independentEvidenceUrls,
     generationStages: stages,
     passed: true
   };
