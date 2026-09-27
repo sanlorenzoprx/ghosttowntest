@@ -19,7 +19,7 @@ describe('product-specific daily execution synchronization', () => {
         estimatedMinutes: 31 + day.dayNumber
       }))
     };
-    const synchronized = synchronizeDailyExecutionPackets(vertexDraft, checkoutAccessibilityVerdict);
+    const synchronized = synchronizeDailyExecutionPackets(vertexDraft, checkoutAccessibilityVerdict, true);
 
     for (const day of synchronized.dailyCalendar) {
       expect(day.title).toBe(`Vertex Day ${day.dayNumber}: checkout-specific strategy`);

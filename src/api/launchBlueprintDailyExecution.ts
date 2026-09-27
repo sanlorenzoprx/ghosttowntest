@@ -171,7 +171,8 @@ function branches(day: number, threshold: string, failure: string): BranchRule[]
 
 export function synchronizeDailyExecutionPackets(
   blueprint: GhostTownLaunchBlueprintV21,
-  verdict?: EvaluationResult
+  verdict?: EvaluationResult,
+  preserveGeneratedStrategy = false
 ): GhostTownLaunchBlueprintV21 {
   const decision = sourceDecision(blueprint, verdict);
   const q1Batch = `${verdict?.verdictDecisionV2?.cheapestFalsification.target || ''} ${decision.firstAction}`.match(/\b([1-9]\d?)\b/);
@@ -238,10 +239,9 @@ export function synchronizeDailyExecutionPackets(
 
     const targetIds = targets.map(target => target.targetId);
     const [fallbackInstruction, quantity, fallbackEvidence] = contracts[index];
-    // The first pass builds the canonical deterministic packet. A later pass
-    // receives an existing packet and may contain Vertex-authored daily fields;
-    // preserve those substantive changes instead of overwriting them.
-    const preserveGeneratedStrategy = Boolean(legacy.executionPacket);
+    // The caller explicitly decides whether this is a deterministic rebuild or
+    // a projection of already-generated strategy. Never infer authorship merely
+    // from the presence of an older execution packet.
     const substantiveTitle = preserveGeneratedStrategy && legacy.title?.trim() ? legacy.title.trim() : titles[index];
     const substantiveObjective = preserveGeneratedStrategy && legacy.primaryObjective?.trim() ? legacy.primaryObjective.trim() : objectives[index];
     const substantiveWhy = preserveGeneratedStrategy && legacy.whyItMatters?.trim()

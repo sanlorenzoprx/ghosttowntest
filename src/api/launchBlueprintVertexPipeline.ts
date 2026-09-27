@@ -1442,7 +1442,7 @@ export function applyVertexPipelineDraft(
 
   // Vertex may improve canonical offer, scripts, guides, and daily aliases. Rebuild
   // the additive Q2 packet projection after those changes so no surface drifts.
-  return synchronizeDailyExecutionPackets(next, context.verdict);
+  return synchronizeDailyExecutionPackets(next, context.verdict, true);
 }
 
 function validateRedTeam(data: VertexRedTeamReview): VertexRedTeamReview {
