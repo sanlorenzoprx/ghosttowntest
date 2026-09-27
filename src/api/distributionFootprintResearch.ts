@@ -546,6 +546,7 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
     'youtube:category',
     'customer_access:buyer',
     'customer_access:problem',
+    'customer_access:problem_only',
     'customer_access:buyer_problem',
     'youtube_access:buyer',
     'youtube_access:problem'
@@ -554,7 +555,10 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
   queryBySourceId['podcast:category'] = buyerDiscussionQuery || topic;
   queryBySourceId['youtube:category'] = `${buyerDiscussionQuery || topic} review interview`.trim().slice(0, 180);
   queryBySourceId['customer_access:buyer'] = `${buyerQuery} community question ${geography}`.trim().slice(0, 220);
-  queryBySourceId['customer_access:problem'] = `${problemQuery} forum discussion ${geography}`.trim().slice(0, 220);
+  // Preserve the historical task ID with buyer context for compatibility while
+  // adding a distinct problem-only intent below.
+  queryBySourceId['customer_access:problem'] = `${buyerDiscussionQuery} forum discussion ${geography}`.trim().slice(0, 220);
+  queryBySourceId['customer_access:problem_only'] = `${problemQuery} forum discussion ${geography}`.trim().slice(0, 220);
   queryBySourceId['customer_access:buyer_problem'] = `${buyerProblemQuery} forum discussion ${geography}`.trim().slice(0, 220);
   queryBySourceId['youtube_access:buyer'] = buyerQuery;
   queryBySourceId['youtube_access:problem'] = buyerProblemQuery;
