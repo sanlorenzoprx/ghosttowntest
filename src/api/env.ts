@@ -66,6 +66,7 @@ export interface Env {
   GEMINI_API_KEY?: string;
   DATAFORSEO_LOGIN?: string;
   DATAFORSEO_PASSWORD?: string;
+  RANKPARSE_API_KEY?: string;
   PODCAST_INDEX_API_KEY?: string;
   PODCAST_INDEX_API_SECRET?: string;
   YOUTUBE_API_KEY?: string;
