@@ -394,7 +394,7 @@ async function readLimitedText(response: Response, limit = 65536): Promise<strin
 
 function pageSupportsClaim(page: VerifiedPage, claim: string): boolean {
   const tokens = Array.from(new Set(
-    claim.toLowerCase().match(/[a-z0-9]{4,}/g)?.filter(token => !CLAIM_STOPWORDS.has(token)) || []
+    claim.toLowerCase().match(/[a-z0-9]{4,}/g)?.filter(token => !CLAIM_STOP_WORDS.has(token)) || []
   ));
   if (!tokens.length) return true;
   const haystack = `${page.title} ${page.description} ${page.visibleText}`.toLowerCase();
