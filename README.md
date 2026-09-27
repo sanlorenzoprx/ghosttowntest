@@ -18,7 +18,7 @@ The commercial ladder is intentionally separate:
 
 - **Free - Evidence Scan + Verdict:** understand outside market signs, what remains unproven, and whether the idea is clear enough to test.
 - **$97 - 30-Day Evidence Sprint:** decide what to test, what to do next, and what result means keep going, revise, pause, or stop.
-- **$119 - Get My Test Live:** **upcoming; not shipped in this release.** It will turn the Sprint test into a live customer-facing lead-generation page.
+- **$297 - Get Me Live:** turn the Sprint test into a live customer-facing business with guided setup, lead capture, tracking, publishing, and a release receipt.
 - **Story Studio:** separate acquisition/distribution upsell after a test exists.
 
 The **$97 Evidence Sprint does not include a live website, domain, publishing, or payment setup**. Existing Launch Site infrastructure remains reusable implementation capability; it is not part of the current $97 customer promise.
@@ -124,7 +124,7 @@ Deploy `dist/` to your static frontend host.
 - Recipients: no registration required to open a shared result link
 - Paid fallback: ten additional tests for $14.97 through Stripe Checkout when the testing allowance is exhausted
 - Paid plan: one **30-Day Evidence Sprint** for $97.00 through Stripe Checkout
-- Upcoming separate product: **Get My Test Live — $119**; not included in the Sprint and not marked shipped until its release is complete
+- Separate activation product: **Get Me Live — $297 one-time**; not included in the Sprint
 - Separate acquisition upsell: **Story Studio**
 
 The deterministic engine is always calculated and returned. On the browser path, the Evidence Scan runs first; generative analyze/score/verdict stages use Vertex through AI Gateway when configured, while deterministic scoring remains the fallback if those generative stages fail. The evidence hierarchy and Verdict V3 truth boundaries still apply to fallback output.

@@ -4,7 +4,7 @@ import type { PrePurchaseResearchSignals } from './researchSignals';
 import type { CommercialAttributionEnvelope } from './commercialAttribution';
 
 export type TruthLabel = 'Verified' | 'Inferred' | 'Test';
-export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'awaiting_seeds' | 'researching' | 'generating' | 'ready' | 'failed' | 'refunded';
+export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'awaiting_seeds' | 'researching' | 'generating' | 'uncertainty' | 'ready' | 'failed' | 'refunded';
 export type StripeMode = 'test' | 'live';
 export type PaidArtifactType = 'legacy_report_v1' | 'execution_plan_30day_v1' | 'launch_blueprint_v2';
 export type PaidPlanOfferId = typeof GHOSTTOWN_30_DAY_PLAN_V1.offerId;
@@ -32,6 +32,53 @@ export interface CompetitorSeedSuggestion {
   verified: boolean;
 }
 
+export type StrategicUncertaintyLink =
+  | 'customer'
+  | 'problem'
+  | 'buyer_payer'
+  | 'current_alternative'
+  | 'test'
+  | 'commitment'
+  | 'fulfillment'
+  | 'access_path';
+
+export interface StrategicClarificationResponse {
+  questionId: string;
+  link: StrategicUncertaintyLink;
+  question: string;
+  answer: string;
+  answeredAt: string;
+}
+
+export interface StrategicUncertaintyQuestion {
+  questionId: string;
+  link: StrategicUncertaintyLink;
+  question: string;
+  whyItMatters: string;
+  requiredEvidence: string;
+  answer?: string;
+}
+
+export interface StrategicUncertaintySprint {
+  schemaVersion: 'strategic-uncertainty-sprint-v1';
+  orderId: string;
+  sourceVerdictId: string;
+  createdAt: string;
+  horizonDays: 3;
+  status: 'open' | 'submitted';
+  chainSummary: string;
+  unresolvedLinks: StrategicUncertaintyLink[];
+  blockers: Array<{
+    code: string;
+    link: StrategicUncertaintyLink;
+    message: string;
+    requiredEvidence: string;
+  }>;
+  questions: StrategicUncertaintyQuestion[];
+  unlockCondition: string;
+  submittedAt?: string;
+}
+
 export interface PaidTestIntake {
   verdictId: string;
   targetBuyer: string;
@@ -45,6 +92,7 @@ export interface PaidTestIntake {
   competitorSeeds?: CompetitorSeed[];
   landingPageLink?: string;
   customerNotes?: string;
+  strategicClarifications?: StrategicClarificationResponse[];
   researchSignals?: PrePurchaseResearchSignals;
   /** Transport-only checkout lineage; the Worker moves this onto PaidTestOrder. */
   attribution?: CommercialAttributionEnvelope;
@@ -94,6 +142,7 @@ export interface PaidTestOrder {
   fulfillmentError?: string;
   fulfillmentWorkflowId?: string;
   fulfillmentAttemptCount?: number;
+  uncertaintySprint?: StrategicUncertaintySprint;
 }
 
 export interface ReportClaim {

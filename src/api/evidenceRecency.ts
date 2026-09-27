@@ -56,6 +56,43 @@ export function activityLevelFromDate(
   return 'uncertain';
 }
 
+function latestPlausibleDate(values: Array<string | number | undefined>, now: number): string | undefined {
+  const dates = values
+    .map(timestamp)
+    .filter((value): value is number => value !== undefined && value <= now + 86_400_000);
+  return dates.length ? new Date(Math.max(...dates)).toISOString() : undefined;
+}
+
+export function extractDiscussionActivityDateFromText(value: string, now = Date.now()): string | undefined {
+  const dates: Array<string | number | undefined> = [];
+  const monthPattern = /\b(?:Posted|Replied|Updated|Published|Last\s+(?:reply|post|activity)|Latest\s+(?:reply|post|activity))[:\s-]*(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+(\d{1,2}),?\s+(20\d{2})(?:\s+(?:at\s+)?\d{1,2}:\d{2}(?:\s*[AP]M)?)?/gi;
+  for (const match of value.matchAll(monthPattern)) {
+    dates.push(`${match[1]} ${match[2]}, ${match[3]} UTC`);
+  }
+
+  const isoPattern = /\b(?:Posted|Replied|Updated|Published|Last\s+(?:reply|post|activity)|Latest\s+(?:reply|post|activity))[:\s-]*(20\d{2}-\d{2}-\d{2})(?:[T\s][0-9:.+-Z]+)?/gi;
+  for (const match of value.matchAll(isoPattern)) dates.push(match[1]);
+
+  const relativePattern = /\b(?:(\d+)\s+)?(minute|hour|day|week)s?\s+ago\b/gi;
+  for (const match of value.matchAll(relativePattern)) {
+    const count = Number(match[1] || '1');
+    const unitMs = { minute: 60_000, hour: 3_600_000, day: 86_400_000, week: 604_800_000 }[match[2].toLowerCase() as 'minute' | 'hour' | 'day' | 'week'];
+    if (Number.isFinite(count) && count >= 0 && count <= 120) dates.push(now - (count * unitMs));
+  }
+
+  return latestPlausibleDate(dates, now);
+}
+
+export function extractDiscussionActivityDateFromHtml(html: string, visibleText = '', now = Date.now()): string | undefined {
+  const structuredDates: Array<string | number | undefined> = [
+    ...Array.from(html.matchAll(/<time[^>]+datetime=["']([^"']+)["']/gi)).map(match => match[1]),
+    ...Array.from(html.matchAll(/"(?:dateModified|dateCreated|datePublished|lastActivityAt|updatedAt|createdAt)"\s*:\s*"([^"]+)"/gi)).map(match => match[1]),
+    ...Array.from(html.matchAll(/(?:data-(?:time|timestamp)|datetime)=["'](\d{10,13})["']/gi)).map(match => Number(match[1]))
+  ];
+  const textDate = extractDiscussionActivityDateFromText(visibleText, now);
+  return latestPlausibleDate([...structuredDates, textDate], now);
+}
+
 export interface ExtractedEvidenceDate {
   date?: string;
   source: EvidenceDateSource;

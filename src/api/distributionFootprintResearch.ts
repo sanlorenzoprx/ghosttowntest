@@ -10,12 +10,13 @@ import type {
   EvidenceRecency
 } from '../types/launchBlueprint';
 import type { CustomerAccessResearchInput } from './launchBlueprintGenerator';
-import { generateAI } from './generativeAIService';
+import { generateAI, type GenerativeAIResponseSchema } from './generativeAIService';
 import { researchEvidenceRoleForTargetType, researchEvidenceRoleReason } from './researchEvidenceRole';
 import {
   activityLevelFromDate,
   currentActivityStatusFromDate,
   evidenceRecencyFromDate,
+  extractDiscussionActivityDateFromHtml,
   extractEvidenceDateFromHtml,
   normalizedEvidenceDate
 } from './evidenceRecency';
@@ -23,6 +24,7 @@ import {
 const DATAFORSEO_ENDPOINT = 'https://api.dataforseo.com/v3/backlinks/backlinks/live';
 const PODCAST_INDEX_ENDPOINT = 'https://api.podcastindex.org/api/1.0/search/byterm';
 const YOUTUBE_ENDPOINT = 'https://www.googleapis.com/youtube/v3/search';
+const YOUTUBE_COMMENTS_ENDPOINT = 'https://www.googleapis.com/youtube/v3/commentThreads';
 const MIN_ATTEMPTS = 6;
 const MIN_SUCCESSES = 4;
 const MIN_PROVIDER_TYPES = 2;
@@ -171,6 +173,22 @@ interface YouTubeResponse {
   error?: { message?: string };
 }
 
+interface YouTubeCommentThreadsResponse {
+  items?: Array<{
+    snippet?: {
+      topLevelComment?: {
+        snippet?: {
+          textDisplay?: string;
+          textOriginal?: string;
+          publishedAt?: string;
+          updatedAt?: string;
+        };
+      };
+    };
+  }>;
+  error?: { message?: string };
+}
+
 interface SelectionPayload {
   channels?: Array<{
     candidateId?: unknown;
@@ -193,6 +211,8 @@ interface VerifiedPage {
   title: string;
   publisher: string;
   description: string;
+  visibleText: string;
+  rawHtml: string;
   evidenceDate?: string;
   evidenceDateSource: EvidenceDateSource;
 }
@@ -273,6 +293,68 @@ function pageDescription(html: string): string {
   return stripHtml(match?.[1] || '').slice(0, 280);
 }
 
+export function sourcePageUsabilityFailure(
+  finalUrl: URL,
+  html: string,
+  title: string,
+  description: string
+): string | undefined {
+  const queryText = [...finalUrl.searchParams.values()].join(' ');
+  if (/invalid\s+.*site|page\s+not\s+found|not\s+found|content\s+unavailable|page\s+unavailable|does\s+not\s+exist/i.test(queryText)) {
+    return 'URL contains an explicit error/not-found state';
+  }
+
+  const titleText = title.trim();
+  const summary = `${titleText} ${description}`.trim();
+  const visible = stripHtml(html).slice(0, 12000);
+  const strongError = /^(?:error\b|404\b|403\b|410\b|page not found\b|not found\b|site not found\b|invalid .* site\b|content unavailable\b|page unavailable\b|account suspended\b|domain (?:is )?for sale\b)/i;
+  if (strongError.test(titleText) || strongError.test(summary)) {
+    return 'Source title/description identifies an error or unavailable page';
+  }
+
+  const leadingVisible = visible.slice(0, 1400);
+  if (/(?:the requested page could not be found|this page (?:could not be found|does not exist|is no longer available)|invalid podbean site|site has been suspended|content is unavailable|page is unavailable|domain is for sale)/i.test(leadingVisible)) {
+    return 'Source body identifies an error, removed page, or unavailable site';
+  }
+
+  if (`${summary} ${visible}`.trim().length < 40) return 'Source page contains too little usable public content';
+  return undefined;
+}
+
+const CLAIM_STOP_WORDS = new Set([
+  'about', 'across', 'before', 'buyer', 'buyers', 'community', 'complete', 'current', 'discussion', 'each', 'first',
+  'forum', 'founder', 'global', 'group', 'help', 'into', 'managing', 'more', 'multiple', 'need',
+  'needs', 'online', 'people', 'problem', 'proof', 'public', 'required', 'states', 'support', 'than',
+  'that', 'their', 'them', 'these', 'they', 'this', 'those', 'through', 'united', 'using',
+  'what', 'when', 'where', 'which', 'with', 'without'
+]);
+
+function claimTokens(value: string): string[] {
+  return [...new Set((value.toLowerCase().match(/[a-z0-9]{4,}/g) || [])
+    .filter(token => !CLAIM_STOP_WORDS.has(token)))];
+}
+
+export function sourceClaimSupportFailure(claim: string, pageText: string): string | undefined {
+  const tokens = claimTokens(claim);
+  if (!tokens.length) return undefined;
+  const haystack = pageText.toLowerCase();
+  const matched = tokens.filter(token => haystack.includes(token));
+  const required = tokens.length >= 7 ? 3 : tokens.length >= 3 ? 2 : 1;
+  if (matched.length < required) {
+    return `Source page supports only ${matched.length} of ${required} required claim terms`;
+  }
+  return undefined;
+}
+
+export function customerAccessUsabilityFailure(finalUrl: URL, visibleText: string): string | undefined {
+  const urlSignal = /reddit\.com\/r\/|groups\.io\/g\/|\/(?:forum|forums|community|communities|discuss|discussion|thread|threads|topic|topics|question|questions)(?:\/|$)/i.test(finalUrl.toString());
+  const participationSignal = /\b(?:join|reply|replies|comment|comments|post|posts|members|member|new topic|start a discussion|ask a question|create account|sign up)\b/i.test(visibleText.slice(0, 8000));
+  if (!urlSignal && !participationSignal) {
+    return 'Customer-access source has no visible participation or conversation path';
+  }
+  return undefined;
+}
+
 async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 12000): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort('Request timed out'), timeoutMs);
@@ -320,23 +402,30 @@ async function verifyOriginalPage(rawUrl: string): Promise<VerifiedPage> {
     }
   });
   const final = safePublicUrl(response.url || safe.toString());
-  if (!final || response.status >= 500) {
+  if (!final || !response.ok) {
     await response.body?.cancel();
     throw new Error(`Original source returned HTTP ${response.status}`);
   }
   const contentType = response.headers.get('content-type') || '';
-  const html = /(text\/html|application\/xhtml\+xml|text\/plain)/i.test(contentType)
-    ? await readLimitedText(response)
-    : '';
-  if (!html) await response.body?.cancel().catch(() => undefined);
+  if (!/(text\/html|application\/xhtml\+xml|text\/plain)/i.test(contentType)) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new Error(`Original source returned unsupported content type: ${contentType || 'unknown'}`);
+  }
+  const html = await readLimitedText(response);
   const publisher = final.hostname.replace(/^www\./, '');
   const title = pageTitle(html) || publisher;
+  const description = pageDescription(html);
+  const visibleText = stripHtml(html).slice(0, 12000);
+  const unusable = sourcePageUsabilityFailure(final, html, title, description);
+  if (unusable) throw new Error(`Original source is not commercially usable: ${unusable}`);
   const dated = extractEvidenceDateFromHtml(html, final.toString(), title);
   return {
     finalUrl: final.toString().replace(/\/$/, ''),
     title,
     publisher,
-    description: pageDescription(html),
+    description,
+    visibleText,
+    rawHtml: html,
     evidenceDate: dated.date,
     evidenceDateSource: dated.source
   };
@@ -365,6 +454,15 @@ function coreTopic(order: PaidTestOrder, verdict: EvaluationResult): string {
   return `${verdict.idea.ideaName} ${order.intake.targetBuyer} ${order.intake.problem}`.replace(/\s+/g, ' ').trim().slice(0, 220);
 }
 
+function directBuyerDiscussionQuery(order: PaidTestOrder): string {
+  const buyerTokens = claimTokens(order.intake.targetBuyer).slice(0, 5);
+  const buyerSet = new Set(buyerTokens);
+  const problemTokens = claimTokens(order.intake.problem)
+    .filter(token => !buyerSet.has(token))
+    .slice(0, 5);
+  return [...new Set([...buyerTokens, ...problemTokens])].slice(0, 8).join(' ');
+}
+
 export function planCustomerAccessResearch(order: PaidTestOrder, verdict: EvaluationResult): DistributionFootprintPlan {
   const seeds = order.intake.competitorSeeds || [];
   if (seeds.length < 2 || seeds.length > 3) throw new Error('Distribution Footprint requires two or three confirmed competitor seeds');
@@ -378,11 +476,21 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
     }
   }
   const topic = coreTopic(order, verdict);
-  sourceIds.push('podcast:category', 'youtube:category', 'customer_access:problem', 'customer_access:buyer');
+  const buyerDiscussionQuery = directBuyerDiscussionQuery(order);
+  sourceIds.push(
+    'podcast:category',
+    'youtube:category',
+    'customer_access:problem',
+    'customer_access:buyer',
+    'youtube_access:problem',
+    'youtube_access:buyer'
+  );
   queryBySourceId['podcast:category'] = topic;
   queryBySourceId['youtube:category'] = `${topic} review interview`;
-  queryBySourceId['customer_access:problem'] = `${order.intake.problem} public forum community discussion support group ${text(order.intake.geography, 'global')}`.slice(0, 300);
-  queryBySourceId['customer_access:buyer'] = `${order.intake.targetBuyer} ${order.intake.problem} public forum community discussion where people ask for help ${text(order.intake.geography, 'global')}`.slice(0, 300);
+  queryBySourceId['customer_access:problem'] = `${buyerDiscussionQuery} forum discussion ${text(order.intake.geography, 'global')}`.slice(0, 180);
+  queryBySourceId['customer_access:buyer'] = `${buyerDiscussionQuery} community question ${text(order.intake.geography, 'global')}`.slice(0, 180);
+  queryBySourceId['youtube_access:problem'] = buyerDiscussionQuery;
+  queryBySourceId['youtube_access:buyer'] = claimTokens(order.intake.targetBuyer).slice(0, 6).join(' ');
   const researchSignals = order.intake.researchSignals;
   for (const type of ['audience', 'ecosystem'] as const) {
     const signal = researchSignals?.[type];
@@ -587,26 +695,154 @@ async function youtubeCandidates(env: Env, query: string, seedName?: string): Pr
   return candidates;
 }
 
-async function groundedCustomerAccessCandidates(env: Env, query: string): Promise<FootprintCandidate[]> {
-  const generated = await generateAI(env, {
-    task: 'grounded_research',
-    googleSearch: true,
-    temperature: 0,
-    maxOutputTokens: 5000,
-    timeoutMs: 45_000,
-    prompt: [
-      'Find public online places where the target buyers themselves currently discuss this problem and where a founder can participate or request a conversation.',
-      'Prioritize public forums, discussion communities, support communities, message boards, public groups, and question/discussion pages with a visible post/activity date within the last 120 days.',
-      'Exclude podcasts, creator channels, news articles, generic blogs, vendor pages, directories, review articles, conferences, and associations unless the returned URL itself is a public buyer discussion/community surface.',
-      'Do not claim that audience members are buyers unless the source itself shows the target people discussing the problem.',
-      'Return a concise research summary grounded in Google Search; source selection matters more than prose.',
-      `Search need: ${query}`
-    ].join('\n')
-  });
+async function youtubeCustomerAccessCandidates(env: Env, query: string): Promise<FootprintCandidate[]> {
+  if (!env.YOUTUBE_API_KEY?.trim()) throw new Error('YouTube Data API key is not configured');
 
+  const verificationQuery = query;
+  const tokens = claimTokens(query);
+  const searchQueries = [...new Set([
+    query,
+    tokens.slice(0, 5).join(' '),
+    [...tokens.slice(0, 4), ...tokens.slice(-2)].join(' ')
+  ])].filter(value => value.trim().length >= 4);
+  const candidates: FootprintCandidate[] = [];
+  const seenVideoIds = new Set<string>();
+
+  for (const searchQuery of searchQueries) {
+    const searchUrl = new URL(YOUTUBE_ENDPOINT);
+    searchUrl.searchParams.set('part', 'snippet');
+    searchUrl.searchParams.set('type', 'video');
+    searchUrl.searchParams.set('q', searchQuery);
+    searchUrl.searchParams.set('maxResults', '8');
+    searchUrl.searchParams.set('order', 'date');
+    searchUrl.searchParams.set('relevanceLanguage', 'en');
+    searchUrl.searchParams.set('safeSearch', 'moderate');
+    searchUrl.searchParams.set('publishedAfter', new Date(Date.now() - (120 * 86_400_000)).toISOString());
+    searchUrl.searchParams.set('key', env.YOUTUBE_API_KEY);
+
+    const response = await fetchWithTimeout(searchUrl.toString());
+    const body = await response.json() as YouTubeResponse;
+    if (!response.ok) throw new Error(body.error?.message || `YouTube returned HTTP ${response.status}`);
+
+    for (const item of body.items || []) {
+      const videoId = text(item.id?.videoId);
+      if (!videoId || seenVideoIds.has(videoId)) continue;
+      seenVideoIds.add(videoId);
+
+      const commentsUrl = new URL(YOUTUBE_COMMENTS_ENDPOINT);
+      commentsUrl.searchParams.set('part', 'snippet');
+      commentsUrl.searchParams.set('videoId', videoId);
+      commentsUrl.searchParams.set('maxResults', '50');
+      commentsUrl.searchParams.set('order', 'time');
+      commentsUrl.searchParams.set('textFormat', 'plainText');
+      commentsUrl.searchParams.set('key', env.YOUTUBE_API_KEY);
+
+      try {
+        const commentsResponse = await fetchWithTimeout(commentsUrl.toString());
+        const commentsBody = await commentsResponse.json() as YouTubeCommentThreadsResponse;
+        if (!commentsResponse.ok) continue;
+
+        const videoContext = `${text(item.snippet?.title)} ${text(item.snippet?.description)}`.trim();
+        const verificationTokens = claimTokens(verificationQuery);
+        const qualifying = (commentsBody.items || []).map(comment => {
+          const snippet = comment.snippet?.topLevelComment?.snippet;
+          const commentText = text(snippet?.textOriginal || snippet?.textDisplay);
+          const activityDate = normalizedEvidenceDate(snippet?.updatedAt || snippet?.publishedAt);
+          return { commentText, activityDate };
+        }).filter(comment => {
+          if (!comment.commentText || !comment.activityDate || currentActivityStatusFromDate(comment.activityDate) !== 'verified_current') return false;
+          const commentHaystack = comment.commentText.toLowerCase();
+          const commentHasRelevantTerm = verificationTokens.some(token => commentHaystack.includes(token));
+          return commentHasRelevantTerm && !sourceClaimSupportFailure(verificationQuery, `${videoContext} ${comment.commentText}`);
+        });
+        if (!qualifying.length) continue;
+
+        const latestActivity = qualifying
+          .map(comment => comment.activityDate as string)
+          .sort((left, right) => Date.parse(right) - Date.parse(left))[0];
+        const observedAt = new Date().toISOString();
+        const videoTitle = text(item.snippet?.title, 'YouTube discussion');
+        const channelTitle = text(item.snippet?.channelTitle, 'YouTube channel');
+        const publicUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+
+        candidates.push({
+          candidateId: candidateId('youtube_api', `comments:${publicUrl}`),
+          provider: 'youtube_api',
+          targetTypeHint: 'community',
+          title: `${videoTitle} — public discussion`,
+          publicUrl,
+          publisher: channelTitle,
+          platform: 'YouTube public discussion',
+          activity: activityLevelFromDate(latestActivity),
+          confidence: 'high',
+          evidenceDate: latestActivity,
+          evidenceDateSource: 'provider_activity',
+          evidenceRecency: evidenceRecencyFromDate(latestActivity),
+          currentActivityStatus: 'verified_current',
+          currentActivityVerifiedAt: observedAt,
+          currentActivityEvidence: `YouTube API verified ${qualifying.length} recent public top-level comment(s) whose video/comment context supports the buyer/problem terms; latest qualifying activity was ${latestActivity.slice(0, 10)}.`,
+          factualSignals: [
+            `Matching current video: ${videoTitle}`,
+            `${qualifying.length} recent public comments contained at least one buyer/problem term while the video/comment context supported the full access query.`,
+            'The video has a public comment thread where a founder can participate subject to current channel moderation rules.'
+          ],
+          competitorEvidence: [],
+          audienceOwner: `${channelTitle} public comment thread`,
+          observedAt
+        });
+        if (candidates.length >= 6) return candidates;
+      } catch {
+        continue;
+      }
+    }
+    if (candidates.length >= 3) break;
+  }
+  return candidates;
+}
+
+async function runGroundedCustomerAccessSearch(env: Env, query: string) {
+  const cutoffDate = new Date(Date.now() - (120 * 86_400_000)).toISOString().slice(0, 10);
+  const prompt = [
+    'Search broadly for 8-12 candidate public discussion or community pages where people matching this buyer category discuss the problem area.',
+    'Prioritize forums, discussion communities, support communities, message boards, public groups, and question/discussion pages that can be opened without logging in.',
+    'Maximize candidate recall at this stage. Do not discard a plausible discussion page merely because you cannot prove its date or participation path from the search snippet; GhostTown will fetch and verify the destination itself.',
+    'Prefer direct discussion/thread/community URLs over homepages, search-result pages, news articles, generic blogs, vendor pages, directories, podcasts, conferences, and associations.',
+    'Do not claim that a source is current, buyer-accessible, or relevant unless the destination later proves it. Your job here is only to return grounded candidate URLs.',
+    'Return a short grounded summary with a Google Search citation for every candidate page.',
+    `Search need: ${query}`,
+    `GhostTown will independently require visible activity on or after ${cutoffDate} before any candidate can count as current Customer Access.`
+  ].join('\n');
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await generateAI(env, {
+        task: 'grounded_research',
+        googleSearch: true,
+        temperature: 0,
+        maxOutputTokens: attempt === 0 ? 1600 : 900,
+        timeoutMs: attempt === 0 ? 60_000 : 90_000,
+        prompt: attempt === 0
+          ? prompt
+          : `Find current public discussion pages for: ${query}. Return only a short grounded summary with Google Search citations. Prefer forums or community threads with visible recent dates and visible reply/comment/join paths.`
+      });
+    } catch (error) {
+      lastError = error;
+      if (!(error instanceof Error) || !/(?:MALFORMED_FUNCTION_CALL|timed out)/i.test(error.message) || attempt === 1) throw error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Grounded customer-access search failed');
+}
+
+async function groundedCustomerAccessCandidates(env: Env, query: string): Promise<FootprintCandidate[]> {
+  const generated = await runGroundedCustomerAccessSearch(env, query);
   const chunks = generated.groundingMetadata?.groundingChunks || [];
   const seen = new Set<string>();
   const candidates: FootprintCandidate[] = [];
+  let reachableCount = 0;
+  let communityCount = 0;
+  let claimSupportedCount = 0;
+  let usableAccessCount = 0;
+  const rejectionDiagnostics: string[] = [];
   for (const chunk of chunks) {
     const rawUrl = text(chunk.web?.uri);
     if (!rawUrl) continue;
@@ -617,16 +853,43 @@ async function groundedCustomerAccessCandidates(env: Env, query: string): Promis
     seen.add(key);
 
     const groundedTitle = text(chunk.web?.title);
-    if (inferTargetType(`${groundedTitle} ${safe.toString()}`, 'google_grounded_customer_access') !== 'community') continue;
 
     try {
+      // Vertex grounding URLs can be redirect URLs whose pre-fetch hostname/title
+      // does not reveal that the destination is a forum or discussion page.
+      // Classify only after following the redirect and inspecting the destination.
       const page = await verifyOriginalPage(safe.toString());
-      const type = inferTargetType(`${page.finalUrl} ${groundedTitle} ${page.title} ${page.description}`, 'google_grounded_customer_access');
-      if (type !== 'community') continue;
+      reachableCount += 1;
+      const type = inferTargetType(`${page.finalUrl} ${groundedTitle} ${page.title} ${page.description} ${page.visibleText.slice(0, 2200)}`, 'google_grounded_customer_access');
+      if (type !== 'community') {
+        rejectionDiagnostics.push(`type:${page.finalUrl}`);
+        continue;
+      }
+      communityCount += 1;
+      const claimFailure = sourceClaimSupportFailure(query, `${page.title} ${page.description} ${page.visibleText}`);
+      if (claimFailure) {
+        rejectionDiagnostics.push(`claim:${page.finalUrl}`);
+        continue;
+      }
+      claimSupportedCount += 1;
+      const accessFailure = customerAccessUsabilityFailure(new URL(page.finalUrl), page.visibleText);
+      if (accessFailure) {
+        rejectionDiagnostics.push(`access:${page.finalUrl}`);
+        continue;
+      }
+      usableAccessCount += 1;
+
       const observedAt = new Date().toISOString();
-      const currentActivityStatus = page.evidenceDateSource === 'published_metadata'
-        ? currentActivityStatusFromDate(page.evidenceDate)
-        : 'unverified';
+      const discussionActivityDate = extractDiscussionActivityDateFromHtml(page.rawHtml, page.visibleText);
+      const currentActivityDate = discussionActivityDate
+        || (page.evidenceDateSource === 'published_metadata' ? page.evidenceDate : undefined);
+      const currentActivityStatus = currentActivityStatusFromDate(currentActivityDate);
+      const evidenceDate = page.evidenceDate || discussionActivityDate;
+      const evidenceDateSource: EvidenceDateSource = page.evidenceDate
+        ? page.evidenceDateSource
+        : discussionActivityDate
+          ? 'page_activity_text'
+          : 'unknown';
       candidates.push({
         candidateId: candidateId('google_grounded_customer_access', page.finalUrl),
         provider: 'google_grounded_customer_access',
@@ -635,18 +898,16 @@ async function groundedCustomerAccessCandidates(env: Env, query: string): Promis
         publicUrl: page.finalUrl,
         publisher: page.publisher,
         platform: 'Public buyer community',
-        activity: activityLevelFromDate(page.evidenceDate),
+        activity: activityLevelFromDate(currentActivityDate),
         confidence: currentActivityStatus === 'verified_current' ? 'high' : 'medium',
-        evidenceDate: page.evidenceDate,
-        evidenceDateSource: page.evidenceDateSource,
-        evidenceRecency: evidenceRecencyFromDate(page.evidenceDate),
+        evidenceDate,
+        evidenceDateSource,
+        evidenceRecency: evidenceRecencyFromDate(evidenceDate),
         currentActivityStatus,
         currentActivityVerifiedAt: currentActivityStatus === 'unverified' ? undefined : observedAt,
-        currentActivityEvidence: currentActivityStatus !== 'unverified' && page.evidenceDate
-          ? `The public discussion page is reachable now and exposes dated page/activity metadata from ${page.evidenceDate.slice(0, 10)}.`
-          : page.evidenceDate
-            ? `The public discussion page is reachable now and contains a year/date clue (${page.evidenceDate.slice(0, 10)}), but GhostTown could not independently verify it as current page/activity metadata.`
-            : 'The public discussion page is reachable now, but GhostTown could not verify a dated recent activity signal.',
+        currentActivityEvidence: currentActivityDate
+          ? `The public discussion page is reachable now, has a visible participation path, and exposes discussion activity dated ${currentActivityDate.slice(0, 10)}.`
+          : 'The public discussion page is reachable now and has a visible participation path, but GhostTown could not verify a dated recent activity signal.',
         factualSignals: [
           `Google-grounded search returned this public discussion/community source for the direct customer-access query: ${query}.`,
           page.description
@@ -656,9 +917,24 @@ async function groundedCustomerAccessCandidates(env: Env, query: string): Promis
         observedAt
       });
       if (candidates.length >= 12) break;
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      rejectionDiagnostics.push(`fetch:${safe.hostname}:${message.slice(0, 100)}`);
       continue;
     }
+  }
+  const currentCount = candidates.filter(candidate =>
+    candidate.currentActivityStatus === 'verified_current' && Boolean(candidate.currentActivityVerifiedAt)
+  ).length;
+  if (chunks.length && currentCount === 0) {
+    const sampleCandidates = candidates.slice(0, 3).map(candidate =>
+      `${candidate.publicUrl}|${candidate.evidenceDateSource}|${candidate.evidenceDate || 'undated'}|${candidate.currentActivityStatus}`
+    ).join(';');
+    throw new Error(
+      `Grounded customer-access found ${chunks.length} grounded sources but retained no currently usable buyer-access target ` +
+      `(reachable=${reachableCount}, community=${communityCount}, claim_supported=${claimSupportedCount}, usable_access=${usableAccessCount}, candidates=${candidates.length}; ` +
+      `samples=${sampleCandidates || 'none'}; rejects=${rejectionDiagnostics.slice(0, 5).join(';') || 'none'})`
+    );
   }
   return candidates;
 }
@@ -685,13 +961,15 @@ export async function runResearchBatch(
     const query = plan.queryBySourceId[taskId] || '';
     const seed = seedForTask(order, taskId);
     try {
-      const result = provider === 'dataforseo_backlinks'
-        ? seed ? await dataForSeoCandidates(env, seed) : []
-        : provider === 'podcast_index'
-          ? await podcastCandidates(env, query, seed?.name)
-          : provider === 'google_grounded_customer_access'
-            ? await groundedCustomerAccessCandidates(env, query)
-            : await youtubeCandidates(env, query, seed?.name);
+      const result = taskId.startsWith('youtube_access:')
+        ? await youtubeCustomerAccessCandidates(env, query)
+        : provider === 'dataforseo_backlinks'
+          ? seed ? await dataForSeoCandidates(env, seed) : []
+          : provider === 'podcast_index'
+            ? await podcastCandidates(env, query, seed?.name)
+            : provider === 'google_grounded_customer_access'
+              ? await groundedCustomerAccessCandidates(env, query)
+              : await youtubeCandidates(env, query, seed?.name);
       candidates.push(...result);
       attempts.push({ sourceId: taskId, sourceType: provider, success: true, query, candidateCount: result.length });
     } catch (error) {
@@ -708,6 +986,36 @@ export async function runResearchBatch(
     rejectedUrls
   };
 }
+
+const SELECTION_RESPONSE_SCHEMA: GenerativeAIResponseSchema = {
+  type: 'OBJECT',
+  properties: {
+    channels: {
+      type: 'ARRAY',
+      minItems: 10,
+      maxItems: 25,
+      items: {
+        type: 'OBJECT',
+        properties: {
+          candidateId: { type: 'STRING' },
+          targetType: { type: 'STRING', enum: ['podcast', 'youtube_creator', 'newsletter_or_publication', 'event', 'association', 'review_site', 'complementary_partner', 'community'] },
+          relevance: { type: 'STRING' },
+          participationRules: { type: 'STRING' },
+          recommendedApproach: { type: 'STRING' },
+          usefulTopic: { type: 'STRING' },
+          risk: { type: 'STRING' },
+          firstAction: { type: 'STRING' },
+          audienceOwner: { type: 'STRING' },
+          accessPath: { type: 'STRING' },
+          preparedAsset: { type: 'STRING' },
+          outreachScriptId: { type: 'STRING', enum: ['script-03-community_member', 'script-05-association_member', 'script-06-referral_partner', 'script-07-interview_invitation', 'script-08-offer_test_invitation'] }
+        },
+        required: ['candidateId', 'targetType', 'relevance', 'participationRules', 'recommendedApproach', 'usefulTopic', 'risk', 'firstAction', 'audienceOwner', 'accessPath', 'preparedAsset', 'outreachScriptId']
+      }
+    }
+  },
+  required: ['channels']
+};
 
 function selectionPrompt(order: PaidTestOrder, verdict: EvaluationResult, candidates: FootprintCandidate[]): string {
   const allowedScripts = [

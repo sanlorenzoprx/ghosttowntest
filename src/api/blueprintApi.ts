@@ -3,7 +3,7 @@ import type { Env } from './env';
 import type { PaidTestOrder } from '../types/paidTest';
 import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
-import { queueLaunchBlueprintOrder } from './blueprintFulfillment';
+import { queueLaunchBlueprintOrder, startLaunchBlueprintWorkflow } from './blueprintFulfillment';
 import {
   loadBlueprintPdf,
   loadBlueprintAssets,
@@ -92,8 +92,13 @@ export async function ownedLaunchBlueprintOrder(request: Request, env: Env, orde
         : 'Launch Blueprint is not ready'),
       status: order.status,
       workflowId: order.fulfillmentWorkflowId,
-      nextAction: order.status === 'awaiting_seeds' || order.status === 'paid' ? 'confirm_competitor_seeds' : undefined
-    }, order.status === 'failed' ? 409 : 425);
+      nextAction: order.status === 'awaiting_seeds' || order.status === 'paid'
+        ? 'confirm_competitor_seeds'
+        : order.status === 'uncertainty'
+          ? 'answer_uncertainty_sprint'
+          : undefined,
+      uncertaintySprint: order.status === 'uncertainty' ? order.uncertaintySprint : undefined
+    }, order.status === 'failed' || order.status === 'uncertainty' ? 409 : 425);
   }
   return { order, email: auth.email };
 }
@@ -226,12 +231,66 @@ export async function handleLaunchBlueprintProgress(request: Request, env: Env, 
   }, 200, { 'Cache-Control': 'private, no-store' });
 }
 
+export async function handleLaunchBlueprintUncertainty(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedLaunchBlueprintOrder(request, env, orderId, false);
+  if (owned instanceof Response) return owned;
+  const sprint = owned.order.uncertaintySprint;
+  if (!sprint) return json({ error: 'No strategic uncertainty Sprint is available for this order' }, 404);
+  if (request.method === 'GET') return json({ status: owned.order.status, sprint });
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  if (owned.order.status !== 'uncertainty' || sprint.status !== 'open') {
+    return json({ error: 'This strategic uncertainty Sprint is not waiting for answers' }, 409);
+  }
+
+  const body = await request.json<{ answers?: Array<{ questionId?: string; answer?: string }> }>();
+  const supplied = new Map((body.answers || []).map(item => [String(item.questionId || ''), String(item.answer || '').trim()]));
+  const now = new Date().toISOString();
+  const responses = sprint.questions.map(question => {
+    const answer = supplied.get(question.questionId) || '';
+    if (answer.length < 3) throw new Error('Answer required: ' + question.question);
+    if (answer.length > 4000) throw new Error('Answer is too long: ' + question.questionId);
+    return {
+      questionId: question.questionId,
+      link: question.link,
+      question: question.question,
+      answer,
+      answeredAt: now
+    };
+  });
+
+  const previousIds = new Set(sprint.questions.map(question => question.questionId));
+  owned.order.intake.strategicClarifications = [
+    ...(owned.order.intake.strategicClarifications || []).filter(item => !previousIds.has(item.questionId)),
+    ...responses
+  ];
+  owned.order.uncertaintySprint = {
+    ...sprint,
+    status: 'submitted',
+    submittedAt: now,
+    questions: sprint.questions.map(question => ({ ...question, answer: supplied.get(question.questionId) || '' }))
+  };
+  owned.order.updatedAt = now;
+  owned.order.fulfillmentError = undefined;
+  await env.KV.put('paid_test_order_' + orderId, JSON.stringify(owned.order));
+
+  const queued = await startLaunchBlueprintWorkflow(env, orderId, 'uncertainty_resolved_' + crypto.randomUUID());
+  return json({
+    orderId,
+    status: queued.order.status,
+    workflowId: queued.workflowId,
+    message: 'Answers saved. GhostTown is rerunning the Strategic Coherence Gate before building the 30-Day Sprint.'
+  }, 202);
+}
+
 export async function handleLaunchBlueprintRetry(request: Request, env: Env, orderId: string): Promise<Response> {
   const owned = await ownedLaunchBlueprintOrder(request, env, orderId, false);
   if (owned instanceof Response) return owned;
   if (owned.order.status === 'ready' && owned.order.artifactType === 'launch_blueprint_v2') return json({ error: 'Launch Blueprint is already ready' }, 409);
   if (owned.order.status === 'awaiting_seeds' || owned.order.status === 'paid') {
     return json({ error: 'Confirm competitor seeds before starting research', nextAction: 'confirm_competitor_seeds' }, 409);
+  }
+  if (owned.order.status === 'uncertainty') {
+    return json({ error: 'Answer the strategic uncertainty Sprint before retrying the 30-Day Sprint', nextAction: 'answer_uncertainty_sprint' }, 409);
   }
   if (owned.order.status === 'researching' || owned.order.status === 'generating') {
     const workflowStatus = await workflowStatusForRetry(env, owned.order.fulfillmentWorkflowId);

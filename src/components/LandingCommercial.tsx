@@ -37,7 +37,7 @@ export default function LandingCommercial({
         'Mensajes para contactar clientes',
         'Metas semanales fáciles de medir',
         'Qué hacer cada día por 30 días',
-        'Un sitio web real para lanzar tu idea',
+        'Investigación, mensajes y archivos listos para usar',
         'Todo guardado en tu cuenta para volver a usarlo'
       ]
     : [...GHOSTTOWN_30_DAY_PLAN_V1.customerPromise];
@@ -45,14 +45,14 @@ export default function LandingCommercial({
   const faq = es
     ? [
         ['¿Qué recibo gratis?', 'Un veredicto claro sobre tu idea, el mayor riesgo que vemos y qué hacer después. No necesitas tarjeta.'],
-        ['¿Qué recibo por $97?', 'Un plan de 30 días hecho para tu idea, con oferta, precio, clientes, mensajes, tareas diarias y un sitio web real para lanzar.'],
+        ['¿Qué recibo por $97?', 'Un Sprint de 30 días hecho para tu idea, con oferta, precio, clientes, mensajes, tareas diarias, investigación, reglas de evidencia y decisiones claras sobre qué hacer después. El sitio web en vivo no está incluido; Get Me Live es un producto separado de $297, pago único.'],
         ['¿GhostTown garantiza que mi negocio funcionará?', 'No. Nadie puede prometer eso. GhostTown te ayuda a aprender antes de gastar meses y dinero.'],
         ['¿Tengo que construir algo primero?', 'No. La meta es probar primero las partes que pueden matar la idea.'],
         ['¿Puedo volver a descargar mi plan?', 'Sí. Tu plan y tus archivos terminados se guardan en tu cuenta.']
       ]
     : [
         ['What do I get free?', 'A clear verdict on your idea, the biggest risk we see, and what to do next. No credit card needed.'],
-        ['What do I get for $97?', 'A 30-day plan made for your idea, with your offer, price, customer, messages, daily steps, and a real website to launch with.'],
+        ['What do I get for $97?', 'A 30-day Sprint made for your idea, with your offer, price, customer, messages, daily steps, research, evidence rules, and clear decisions about what to do next. A live website is not included; Get Me Live is a separate $297 one-time product.'],
         ['Does GhostTown promise my business will work?', 'No. Nobody can promise that. GhostTown helps you learn before you lose months and money.'],
         ['Do I have to build something first?', 'No. The goal is to test the parts that could kill the idea before you build.'],
         ['Can I download my plan again?', 'Yes. Your plan and finished files stay in your account.']
@@ -221,7 +221,7 @@ export default function LandingCommercial({
                 ]).map(([label, value]) => <div key={label} className="grid gap-1 py-4 sm:grid-cols-[8rem_1fr] sm:gap-5"><dt className="text-base font-bold text-[#F0B28F]">{label}</dt><dd className="text-base leading-7 text-white/88">{value}</dd></div>)}
               </dl>
             </div>
-            <div><p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Menos trabajo en blanco' : 'Less blank-page work'}</p><h3 className="mt-4 font-display text-4xl font-semibold leading-[1.04] tracking-[-0.035em] sm:text-5xl">{es ? 'No te decimos “haz marketing”. Te damos el trabajo.' : 'We do not tell you to “do marketing.” We give you the work.'}</h3><p className="mt-6 text-xl leading-9 text-[#3F4944]">{es ? 'Mensajes, copy de ventas, tareas diarias y un sitio web real ya quedan organizados alrededor de tu idea.' : 'Messages, sales copy, daily steps, and a real website are already organized around your idea.'}</p></div>
+            <div><p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Menos trabajo en blanco' : 'Less blank-page work'}</p><h3 className="mt-4 font-display text-4xl font-semibold leading-[1.04] tracking-[-0.035em] sm:text-5xl">{es ? 'No te decimos “haz marketing”. Te damos el trabajo.' : 'We do not tell you to “do marketing.” We give you the work.'}</h3><p className="mt-6 text-xl leading-9 text-[#3F4944]">{es ? 'Mensajes, copy de ventas, investigación, reglas de evidencia y tareas diarias ya quedan organizados alrededor de tu idea.' : 'Messages, sales copy, research, evidence rules, and daily steps are already organized around your idea.'}</p></div>
           </div>
 
           <div className="mt-16 grid gap-x-10 gap-y-8 border-y border-[#CFC6B8] py-10 md:grid-cols-2">
@@ -233,9 +233,9 @@ export default function LandingCommercial({
       <section className="bg-white">
         <div className="mx-auto grid max-w-[82rem] gap-14 px-4 py-24 sm:px-6 sm:py-32 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-20 lg:px-8">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Incluido' : 'Included'}</p>
-            <h2 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">{es ? 'Tu sitio web de lanzamiento.' : 'Your Custom Launch Website.'}</h2>
-            <p className="mt-7 text-xl leading-9 text-[#3F4944]">{es ? 'Un sitio web real creado alrededor de tu idea, tu oferta y el cliente que quieres alcanzar. No es una plantilla vacía.' : 'A real website built around your idea, your offer, and the customer you want to reach. Not an empty template.'}</p>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Siguiente paso opcional' : 'Optional next step'}</p>
+            <h2 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">{es ? 'Get Me Live cuando estés listo.' : 'Get Me Live when you are ready.'}</h2>
+            <p className="mt-7 text-xl leading-9 text-[#3F4944]">{es ? 'Get Me Live es un producto separado de $297, pago único. Convierte la oferta probada de tu Sprint en una experiencia en vivo para clientes, con captura de interesados, seguimiento, publicación y comprobante de lanzamiento.' : 'Get Me Live is a separate $297 one-time product. It turns the tested offer from your Sprint into a live customer experience with lead capture, tracking, publishing, and release proof.'}</p>
             <ul className="mt-8 space-y-3 text-lg font-semibold text-[#303934]">{(es ? ['Tu mensaje', 'Tu oferta y precio', 'Tu llamada a la acción', 'Listo para mostrar a clientes'] : ['Your message', 'Your offer and price', 'Your call to action', 'Ready to show customers']).map(item => <li key={item}>✓ {item}</li>)}</ul>
           </div>
 
@@ -253,12 +253,12 @@ export default function LandingCommercial({
             {(es ? [
               ['“¿Y si mi idea no es buena?”', 'Haz primero la prueba gratis. No compres el plan hasta ver tu veredicto.'],
               ['“¿Y si debo parar?”', 'Parar puede ser la respuesta correcta. Ahorrar seis meses también es ganar.'],
-              ['“¿Esto es solo otro PDF?”', 'No. Recibes pasos diarios, mensajes, copy, archivos y un sitio web real para usar.'],
+              ['“¿Esto es solo otro PDF?”', 'No. Recibes pasos diarios, investigación, mensajes, copy, archivos y reglas claras para decidir qué hacer después.'],
               ['“¿Y si hago el plan y no pasa nada?”', 'La política publicada incluye una garantía condicional de devolución del 100% cuando puedes demostrar que hiciste el trabajo y no obtuviste resultados.']
             ] : [
               ['“What if my idea is bad?”', 'Take the free test first. Do not buy the plan until you see your verdict.'],
               ['“What if I should stop?”', 'Stopping can be the right answer. Saving six months is also a win.'],
-              ['“Is this just another PDF?”', 'No. You get daily steps, messages, sales copy, finished files, and a real website to use.'],
+              ['“Is this just another PDF?”', 'No. You get daily steps, research, messages, sales copy, finished files, and clear rules for deciding what to do next.'],
               ['“What if I do the plan and nothing happens?”', 'The published policy includes a conditional 100% money-back guarantee when you can document full implementation and no results.']
             ]).map(([question, answer]) => <div key={question} className="grid gap-3 py-7 md:grid-cols-[0.8fr_1.2fr] md:gap-10"><h3 className="text-xl font-bold">{question}</h3><p className="text-lg leading-8 text-[#414A45]">{answer}</p></div>)}
           </div>

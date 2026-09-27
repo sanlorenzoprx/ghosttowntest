@@ -2,6 +2,8 @@ import type { Env } from './env';
 import type { PaidTestOrder } from '../types/paidTest';
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
+import type { VertexStrategicCoherenceGate } from './launchBlueprintVertexPipeline';
+import { createStrategicUncertaintySprint } from './strategicUncertaintySprint';
 import { loadLaunchBlueprintWorkflowContext } from './blueprintFulfillment';
 import { renderLaunchBlueprintPdfV21WithBrowser } from './blueprintPdfV21';
 import { createGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
@@ -144,6 +146,18 @@ export async function markLaunchBlueprintGeneratingV21(
   const { order, verdict } = await loadLaunchBlueprintWorkflowContext(env, orderId);
   order.status = 'generating';
   order.fulfillmentError = undefined;
+  return persistLifecycle(env, order, verdict.idea.ideaName);
+}
+
+export async function markLaunchBlueprintUncertaintyV21(
+  env: Env,
+  orderId: string,
+  gate: VertexStrategicCoherenceGate
+): Promise<PaidTestOrder> {
+  const { order, verdict } = await loadLaunchBlueprintWorkflowContext(env, orderId);
+  order.status = 'uncertainty';
+  order.fulfillmentError = undefined;
+  order.uncertaintySprint = createStrategicUncertaintySprint(order.orderId, order.verdictId, gate);
   return persistLifecycle(env, order, verdict.idea.ideaName);
 }
 

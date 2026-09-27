@@ -3,6 +3,7 @@ import { apiUrl, authHeaders } from "../lib/api";
 import CompetitorSeedStep from "./CompetitorSeedStep";
 import GetMeLiveUpsell from "./GetMeLiveUpsell";
 import SprintShareMoment from "./SprintShareMoment";
+import StrategicUncertaintySprintPanel from "./StrategicUncertaintySprintPanel";
 
 interface Props {
   orderId: string;
@@ -16,6 +17,7 @@ interface BlueprintStatusResponse {
 export default function ActionPlanSuccess({ orderId, onDone }: Props) {
   const [ready, setReady] = useState(false);
   const [needsSeeds, setNeedsSeeds] = useState(false);
+  const [needsUncertainty, setNeedsUncertainty] = useState(false);
   const [pollVersion, setPollVersion] = useState(0);
   const [stage, setStage] = useState(
     "Confirming payment and opening your paid research intake...",
@@ -59,6 +61,12 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
           setStage(
             "Payment received. Confirm the competitor footprints GhostTown should research.",
           );
+          setError("");
+          return;
+        }
+        if (body.status === "uncertainty") {
+          setNeedsUncertainty(true);
+          setStage("GhostTown found a strategy gap. Answer a few questions before the 30-Day Sprint is built.");
           setError("");
           return;
         }
@@ -110,6 +118,18 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
       setDownloading("");
     }
   };
+
+  if (needsUncertainty) {
+    return <StrategicUncertaintySprintPanel
+      orderId={orderId}
+      onBack={onDone}
+      onSubmitted={() => {
+        setNeedsUncertainty(false);
+        setStage("Thanks. GhostTown is checking the business chain again before building your 30 days.");
+        setPollVersion(version => version + 1);
+      }}
+    />;
+  }
 
   if (needsSeeds) {
     return (

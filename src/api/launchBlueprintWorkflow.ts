@@ -8,7 +8,8 @@ import {
 import {
   completeLaunchBlueprintOrderV21,
   failLaunchBlueprintOrderV21,
-  markLaunchBlueprintGeneratingV21
+  markLaunchBlueprintGeneratingV21,
+  markLaunchBlueprintUncertaintyV21
 } from './blueprintFulfillmentV21';
 import {
   finalizeCustomerAccessResearch,
@@ -26,7 +27,7 @@ import {
   runVertexCustomerCopyEditStage,
   runVertexEvidenceNormalizationStage,
   runVertexRedTeamReviewStage,
-  runVertexStrategicCoherenceGateStage,
+  runVertexStrategicCoherenceAssessmentStage,
   runVertexStrategySynthesisStage
 } from './launchBlueprintVertexPipeline';
 import { assertVertexDailyAssetCompleteness } from './launchBlueprintVertexAssetGuard';
@@ -116,8 +117,15 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         const coherence = await step.do(
           'vertex strategic coherence gate',
           { retries: { limit: 2, delay: '15 seconds', backoff: 'exponential' } },
-          async () => runVertexStrategicCoherenceGateStage(this.env, vertexContext, evidence.data, strategy.data)
+          async () => runVertexStrategicCoherenceAssessmentStage(this.env, vertexContext, evidence.data, strategy.data)
         );
+
+        if (!coherence.data.passed) {
+          const order = await step.do('persist 3-day strategic uncertainty Sprint', async () =>
+            markLaunchBlueprintUncertaintyV21(this.env, orderId, coherence.data)
+          );
+          return { orderId, status: order.status };
+        }
 
         const assets = await step.do(
           'vertex stage 3 asset generation',

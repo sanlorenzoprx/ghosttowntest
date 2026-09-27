@@ -3,6 +3,8 @@ import {
   activityLevelFromDate,
   currentActivityStatusFromDate,
   evidenceRecencyFromDate,
+  extractDiscussionActivityDateFromHtml,
+  extractDiscussionActivityDateFromText,
   extractEvidenceDateFromHtml
 } from '../src/api/evidenceRecency';
 
@@ -55,5 +57,48 @@ describe('evidence recency integrity', () => {
     expect(evidenceRecencyFromDate(activityDate, NOW)).toBe('current');
     expect(currentActivityStatusFromDate(activityDate, NOW)).toBe('verified_current');
     expect(activityLevelFromDate(activityDate, NOW)).toBe('recent');
+  });
+
+  it('uses explicit forum post/reply dates as current-activity evidence without confusing membership dates', () => {
+    const activityDate = extractDiscussionActivityDateFromText(
+      'Member since September 25, 2025. Posted April 13, 2026 23:54. Replied September 18, 2026 16:02.',
+      NOW
+    );
+
+    expect(activityDate).toBe('2026-09-18T00:00:00.000Z');
+    expect(currentActivityStatusFromDate(activityDate, NOW)).toBe('verified_current');
+  });
+
+  it('ignores future-looking forum dates when verifying current activity', () => {
+    const activityDate = extractDiscussionActivityDateFromText(
+      'Posted October 20, 2026 12:00. Replied May 10, 2026 09:00.',
+      NOW
+    );
+
+    expect(activityDate).toBe('2026-05-10T00:00:00.000Z');
+  });
+
+  it('uses structured forum timestamps and keeps the latest actual discussion activity', () => {
+    const activityDate = extractDiscussionActivityDateFromHtml(
+      '<article><time datetime="2026-04-02T10:00:00Z">April 2</time></article>' +
+      '<div data-state="reply"><time datetime="2026-09-24T18:30:00Z">2 days ago</time></div>' +
+      '<script type="application/ld+json">{"dateModified":"2026-09-23T12:00:00Z"}</script>',
+      'Original post April 2. Latest reply 2 days ago.',
+      NOW
+    );
+
+    expect(activityDate).toBe('2026-09-24T18:30:00.000Z');
+    expect(currentActivityStatusFromDate(activityDate, NOW)).toBe('verified_current');
+  });
+
+  it('recognizes abbreviated and relative discussion dates without using unrelated membership dates', () => {
+    const abbreviated = extractDiscussionActivityDateFromText(
+      'Member since Sep 2023. Last reply: Sep. 20, 2026. Updated Sep 21, 2026.',
+      NOW
+    );
+    const relative = extractDiscussionActivityDateFromText('Joined 2020. 3 days ago · Reply · Like', NOW);
+
+    expect(abbreviated).toBe('2026-09-21T00:00:00.000Z');
+    expect(relative).toBe('2026-09-23T16:00:00.000Z');
   });
 });

@@ -5,6 +5,7 @@ import type { EvaluationResult } from "../types/lit";
 import LaunchBlueprintRouter from "./LaunchBlueprintRouter";
 import CompetitorSeedStep from "./CompetitorSeedStep";
 import GetMeLiveUpsell from "./GetMeLiveUpsell";
+import StrategicUncertaintySprintPanel from "./StrategicUncertaintySprintPanel";
 
 interface ResultSummary {
   resultId: string;
@@ -24,6 +25,7 @@ interface PaidOrderSummary {
     | "awaiting_seeds"
     | "researching"
     | "generating"
+    | "uncertainty"
     | "ready"
     | "failed"
     | "refunded";
@@ -67,6 +69,7 @@ export default function UserDashboard({
   const [planError, setPlanError] = useState("");
   const [openBlueprintOrderId, setOpenBlueprintOrderId] = useState("");
   const [seedOrderId, setSeedOrderId] = useState("");
+  const [uncertaintyOrderId, setUncertaintyOrderId] = useState("");
   const [retryingOrderId, setRetryingOrderId] = useState("");
   const [getMeLiveOrders, setGetMeLiveOrders] = useState<GetMeLiveSummary[]>([]);
 
@@ -217,6 +220,14 @@ export default function UserDashboard({
       setRetryingOrderId("");
     }
   };
+
+  if (uncertaintyOrderId) {
+    return <StrategicUncertaintySprintPanel
+      orderId={uncertaintyOrderId}
+      onBack={() => { setUncertaintyOrderId(""); void loadPaidPlans(); }}
+      onSubmitted={() => { setUncertaintyOrderId(""); void loadPaidPlans(); }}
+    />;
+  }
 
   if (seedOrderId) {
     return (
@@ -398,9 +409,11 @@ export default function UserDashboard({
                 plan.status === "researching" || plan.status === "generating";
               const badge = awaitingSeeds
                 ? "Action required"
-                : working
-                  ? "Building"
-                  : plan.status;
+                : plan.status === "uncertainty"
+                  ? "Needs answers"
+                  : working
+                    ? "Building"
+                    : plan.status;
               return (
                 <article
                   key={plan.orderId}
@@ -441,6 +454,11 @@ export default function UserDashboard({
                           events, reviewers, associations, and partners.
                         </p>
                       )}
+                      {plan.status === "uncertainty" && (
+                        <p className="mt-2 text-sm font-bold text-amber-800">
+                          GhostTown stopped before building 30 days because the business chain needs a few concrete answers first.
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {awaitingSeeds && isBlueprint && (
@@ -449,6 +467,14 @@ export default function UserDashboard({
                           className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-black text-white"
                         >
                           Choose research seeds
+                        </button>
+                      )}
+                      {isBlueprint && plan.status === "uncertainty" && (
+                        <button
+                          onClick={() => setUncertaintyOrderId(plan.orderId)}
+                          className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-black text-white"
+                        >
+                          Answer questions
                         </button>
                       )}
                       {isBlueprint && plan.status === "ready" && (

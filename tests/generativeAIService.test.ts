@@ -181,6 +181,39 @@ describe('GenerativeAIService', () => {
     expect(JSON.stringify(result.receipt)).not.toContain('fixture-gateway-token');
   });
 
+  it('accepts grounding-only research when Google returns usable source citations without prose', async () => {
+    const configured = await env();
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === 'https://oauth2.googleapis.com/token') {
+        return Response.json({ access_token: 'vertex-short-lived-token', expires_in: 3600 });
+      }
+      return Response.json({
+        candidates: [{
+          groundingMetadata: {
+            webSearchQueries: ['short term rental host forum turnover cleaners'],
+            groundingChunks: [
+              { web: { uri: 'https://example.com/forum/thread', title: 'Host discussion' } }
+            ]
+          }
+        }],
+        modelVersion: 'gemini-3.5-flash',
+        responseId: 'grounding-only-1'
+      });
+    }));
+
+    const result = await generateAI(configured, {
+      task: 'grounded_research',
+      prompt: 'Find current public buyer discussions.',
+      googleSearch: true,
+      temperature: 0
+    });
+
+    expect(result.text).toBe('');
+    expect(result.groundingMetadata?.groundingChunks?.[0]?.web?.uri).toBe('https://example.com/forum/thread');
+    expect(result.receipt.responseHash).toMatch(/^[0-9a-f]{8}$/);
+  });
+
   it('preserves schema-controlled structured output through the same service', async () => {
     const configured = await env();
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
