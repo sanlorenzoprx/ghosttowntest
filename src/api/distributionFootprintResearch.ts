@@ -845,10 +845,13 @@ async function braveCandidates(env: Env, query: string): Promise<FootprintCandid
       const page = await verifyOriginalPage(result.url);
       if (!pageSupportsClaim(page, query)) return null;
       const type = inferTargetType(`${page.title} ${page.description} ${page.finalUrl}`, 'brave_search');
-      const discussion = type === 'community'
-        ? extractDiscussionActivityDateFromHtml(page.rawHtml, page.finalUrl, page.title)
-        : { date: page.evidenceDate, source: page.evidenceDateSource };
-      const evidenceDate = discussion.date || page.evidenceDate;
+      const discussionActivityDate = type === 'community'
+        ? extractDiscussionActivityDateFromHtml(page.rawHtml, page.visibleText)
+        : undefined;
+      const evidenceDate = discussionActivityDate || page.evidenceDate;
+      const evidenceDateSource: EvidenceDateSource = discussionActivityDate
+        ? 'page_activity_text'
+        : page.evidenceDateSource;
       const currentActivityStatus = type === 'community'
         ? currentActivityStatusFromDate(evidenceDate)
         : 'unverified' as const;
@@ -868,7 +871,7 @@ async function braveCandidates(env: Env, query: string): Promise<FootprintCandid
         activity: type === 'community' ? activityLevelFromDate(evidenceDate) : 'uncertain' as const,
         confidence: 'high' as const,
         evidenceDate,
-        evidenceDateSource: discussion.source || page.evidenceDateSource,
+        evidenceDateSource,
         evidenceRecency: evidenceRecencyFromDate(evidenceDate),
         currentActivityStatus,
         currentActivityVerifiedAt: currentActivityStatus === 'verified_current' ? observedAt : undefined,
