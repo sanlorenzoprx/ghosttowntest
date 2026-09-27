@@ -51,11 +51,13 @@ function recoveryScore(candidate: FootprintCandidate): number {
 function discoveredThrough(provider: DistributionProvider): NonNullable<CustomerAccessChannel['discoveredThrough']> {
   return provider === 'dataforseo_backlinks' || provider === 'rankparse_backlinks'
     ? 'competitor_backlink'
-    : provider === 'podcast_index'
-      ? 'podcast_search'
-      : provider === 'google_grounded_customer_access'
-        ? 'grounded_customer_access_search'
-        : 'youtube_search';
+    : provider === 'brave_search'
+      ? 'web_search'
+      : provider === 'podcast_index'
+        ? 'podcast_search'
+        : provider === 'google_grounded_customer_access'
+          ? 'grounded_customer_access_search'
+          : 'youtube_search';
 }
 
 function outreachScript(type: DistributionTargetType): string {
