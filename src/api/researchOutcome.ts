@@ -7,6 +7,9 @@ export type ResearchShortfallCode =
   | 'MIN_PROVIDER_TYPES'
   | 'MIN_VERIFIED_CANDIDATES'
   | 'MIN_CURRENT_CUSTOMER_ACCESS'
+  | 'MIN_PROBLEM_LANGUAGE_OBSERVATIONS'
+  | 'MIN_COMPETITIVE_ALTERNATIVE_EVIDENCE'
+  | 'EVIDENCE_ROLE_COVERAGE'
   | 'RESEARCH_QUALITY_GATE';
 
 export interface ResearchAttemptLike {
@@ -44,7 +47,7 @@ export class ResearchOutcomeError extends Error {
     this.failedProviderTypes = unique(attempts.filter(attempt => !attempt.success).map(attempt => attempt.sourceType));
     this.customerSafeMessage = options.outcome === 'PROVIDER_BLOCKED'
       ? 'GhostTown could not complete enough research because one or more research providers were unavailable. We will retry automatically; this is not a judgment about your business idea.'
-      : 'GhostTown completed the available research paths but did not verify enough evidence to build a reliable 30-Day Sprint yet.';
+      : 'GhostTown completed the available research paths but did not verify enough independent evidence across the required roles to build a reliable 30-Day Sprint yet.';
   }
 }
 
