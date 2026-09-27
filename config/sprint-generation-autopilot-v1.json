@@ -1,0 +1,401 @@
+{
+  "schemaVersion": "ghosttown-sprint-roadmap-autopilot-v1",
+  "roadmapId": "ghosttown-30-day-sprint-generation-v1",
+  "title": "GhostTown 30-Day Sprint Generation",
+  "sourceGuide": "docs/GHOSTTOWN_SPRINT_AUTOPILOT_IMPLEMENTATION.md",
+  "workingBranch": "acceptance/fresh-sprint-e2e",
+  "mainBranch": "main",
+  "statePath": "roadmap/sprint-generation-autopilot-state.json",
+  "receiptDirectory": "github-acceptance/sprint-autopilot",
+  "statusValues": [
+    "PENDING",
+    "RUNNING",
+    "PASS",
+    "BLOCKED_INTERNAL",
+    "WAITING_EXTERNAL_INPUT",
+    "COMPLETE"
+  ],
+  "handlerExitCodes": {
+    "pass": 0,
+    "waitingExternalInput": 2,
+    "blockedInternal": 3
+  },
+  "safety": {
+    "productionAutoDeploy": false,
+    "weakenEvidenceGate": false,
+    "minimumVerifiedTargets": 10,
+    "minimumCurrentCustomerAccessTargets": 3,
+    "minimumIndependentProviderTypes": 2,
+    "exactZipFileCount": 16,
+    "currentCommercialLadder": [
+      "free_verdict",
+      "97_sprint",
+      "297_get_me_live"
+    ],
+    "sprintIncludesLaunchSite": false,
+    "recordSecretValues": false,
+    "acceptanceConcurrencyGroup": "ghosttown-acceptance"
+  },
+  "execution": {
+    "continueAfterPass": true,
+    "stopOnInternalBlock": true,
+    "stopOnExternalInput": true,
+    "maxStepAttempts": 5,
+    "commitAfterProgress": true,
+    "realProviderTestsOnPush": false
+  },
+  "externalInputClasses": [
+    "provider_account_enablement",
+    "secret_installation",
+    "billing_or_quota_approval",
+    "oauth_or_domain_verification",
+    "manual_production_approval",
+    "declared_human_artifact_review"
+  ],
+  "steps": [
+    {
+      "id": 0,
+      "slug": "freeze-baseline",
+      "title": "Freeze current baseline",
+      "dependsOn": [],
+      "handler": "node scripts/sprint-autopilot/step-00-freeze-baseline.mjs",
+      "verify": [
+        "node scripts/sprint-autopilot/step-00-verify-baseline.mjs"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "branch/main SHAs recorded",
+        "current type-check and focused-test baseline recorded",
+        "known E2E blocker recorded"
+      ]
+    },
+    {
+      "id": 1,
+      "slug": "repair-branch-plumbing",
+      "title": "Repair compilation and competitor-review plumbing",
+      "dependsOn": [
+        0
+      ],
+      "handler": "node scripts/sprint-autopilot/step-01-verify-branch.mjs",
+      "verify": [
+        "npm run type-check",
+        "npx vitest run tests/generativeAIService.test.ts tests/customerAccessResearch.test.ts tests/customerAccessUncertaintyRouting.test.ts tests/competitorReviewIntelligence.test.ts --no-file-parallelism"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "TypeScript passes",
+        "review intelligence reaches the customer-research wrapper",
+        "review evidence date uses source date and derived recency"
+      ]
+    },
+    {
+      "id": 2,
+      "slug": "safe-canonical-harness",
+      "title": "Make canonical Fresh Sprint harness safe",
+      "dependsOn": [
+        1
+      ],
+      "handler": "node scripts/sprint-autopilot/step-02-verify-harness.mjs",
+      "verify": [
+        "node --check scripts/fresh-sprint-acceptance.mjs"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "real E2E removed from ordinary pushes",
+        "single acceptance concurrency lock",
+        "exact main SHA restoration",
+        "type-check included"
+      ]
+    },
+    {
+      "id": 3,
+      "slug": "product-specific-search",
+      "title": "Fix product-specific search construction",
+      "dependsOn": [
+        2
+      ],
+      "handler": "node scripts/sprint-autopilot/step-03-product-specific-search.mjs",
+      "verify": [
+        "npx vitest run tests/customerAccessResearch.test.ts tests/sprintSearchSpecificity.test.ts --no-file-parallelism",
+        "npm run type-check"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "short category terms retained",
+        "ideaName excluded from discovery",
+        "separate intent tasks",
+        "intent-specific source verification"
+      ]
+    },
+    {
+      "id": 4,
+      "slug": "product-specific-daily-plan",
+      "title": "Preserve product-specific daily strategy",
+      "dependsOn": [
+        3
+      ],
+      "handler": "node scripts/sprint-autopilot/step-04-product-specific-daily-plan.mjs",
+      "verify": [
+        "npx vitest run tests/launchBlueprintDailyExecution.test.ts tests/launchBlueprintVertexPipeline.test.ts --no-file-parallelism",
+        "npm run type-check"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "Vertex day strategy survives synchronization",
+        "outreach days reference verified Customer Access",
+        "no Get Me Live work bundled into $97 Sprint",
+        "lane-aware fallback copy"
+      ]
+    },
+    {
+      "id": 5,
+      "slug": "typed-research-outcomes",
+      "title": "Introduce typed research outcomes",
+      "dependsOn": [
+        4
+      ],
+      "handler": "node scripts/sprint-autopilot/step-05-typed-research-outcomes.mjs",
+      "verify": [
+        "npx vitest run tests/customerAccessUncertaintyRouting.test.ts tests/researchOutcomeRouting.test.ts --no-file-parallelism",
+        "npm run type-check"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "COMPLETE/INSUFFICIENT_EVIDENCE/PROVIDER_BLOCKED contract",
+        "provider failure cannot become uncertainty",
+        "research_blocked receipt",
+        "founder clarification feeds persisted evidence"
+      ]
+    },
+    {
+      "id": 6,
+      "slug": "provider-state-circuit-breakers",
+      "title": "Add provider states and circuit breakers",
+      "dependsOn": [
+        5
+      ],
+      "handler": "node scripts/sprint-autopilot/step-06-provider-state-circuit-breakers.mjs",
+      "verify": [
+        "npx vitest run tests/providerOutcome.test.ts tests/generativeAIService.test.ts tests/customerAccessResearch.test.ts --no-file-parallelism",
+        "npm run type-check"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "HTTP status parsed before body",
+        "quota/rate/payment/no-results typed",
+        "per-Sprint breakers",
+        "retryable errors reach Workflow retries"
+      ]
+    },
+    {
+      "id": 7,
+      "slug": "independent-web-discovery",
+      "title": "Add independent web discovery and provider budget guard",
+      "dependsOn": [
+        6
+      ],
+      "handler": "node scripts/sprint-autopilot/step-07-independent-web-discovery.mjs",
+      "verify": [
+        "npx vitest run tests/searchProvider.test.ts tests/customerAccessResearch.test.ts --no-file-parallelism",
+        "npm run type-check"
+      ],
+      "externalInputs": [
+        "secret_installation:BRAVE_SEARCH_API_KEY_if_missing"
+      ],
+      "completion": [
+        "SearchProvider interface",
+        "Brave discovery only",
+        "RankParse-first/DataForSEO-selective fallback",
+        "$25 monthly Brave meter",
+        "paid YouTube capacity protected"
+      ]
+    },
+    {
+      "id": 8,
+      "slug": "deterministic-expansion-matrix",
+      "title": "Build deterministic expansion matrix",
+      "dependsOn": [
+        7
+      ],
+      "handler": "node scripts/sprint-autopilot/step-08-expansion-matrix.mjs",
+      "verify": [
+        "npx vitest run tests/sprintSearchSpecificity.test.ts tests/researchExpansionMatrix.test.ts --no-file-parallelism",
+        "npm run type-check"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "8-15 bounded product-specific intents",
+        "review-language-derived tasks",
+        "no speculative query explosion"
+      ]
+    },
+    {
+      "id": 9,
+      "slug": "adaptive-second-pass",
+      "title": "Add adaptive second-pass research",
+      "dependsOn": [
+        8
+      ],
+      "handler": "node scripts/sprint-autopilot/step-09-adaptive-research.mjs",
+      "verify": [
+        "npx vitest run tests/adaptiveResearch.test.ts tests/researchOutcomeRouting.test.ts --no-file-parallelism",
+        "npm run type-check"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "gap analysis",
+        "alternate provider expansion",
+        "original-source reverification",
+        "precise insufficient-vs-blocked terminal outcome"
+      ]
+    },
+    {
+      "id": 10,
+      "slug": "harden-review-intelligence",
+      "title": "Harden competitor review intelligence and provenance",
+      "dependsOn": [
+        9
+      ],
+      "handler": "node scripts/sprint-autopilot/step-10-review-provenance.mjs",
+      "verify": [
+        "npx vitest run tests/competitorReviewIntelligence.test.ts tests/reviewProvenance.test.ts --no-file-parallelism",
+        "npm run type-check"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "first-person/user-content checks",
+        "exact phrase provenance",
+        "model phrases validated against observations",
+        "pattern vs hypothesis separated"
+      ]
+    },
+    {
+      "id": 11,
+      "slug": "genuine-ready-sprint",
+      "title": "Produce and audit one genuine READY Sprint",
+      "dependsOn": [
+        10
+      ],
+      "handler": "node scripts/sprint-autopilot/step-11-ready-sprint.mjs",
+      "verify": [
+        "node scripts/sprint-autopilot/step-11-audit-ready-artifacts.mjs"
+      ],
+      "externalInputs": [
+        "secret_installation:required_acceptance_provider_secret_if_missing",
+        "declared_human_artifact_review:semantic_READY_review"
+      ],
+      "completion": [
+        "READY",
+        "JSON/PDF/exact-16 ZIP",
+        "review/research/coherence receipts",
+        "manual and mechanical semantic audit"
+      ]
+    },
+    {
+      "id": 12,
+      "slug": "three-outcome-checkpoint",
+      "title": "Run READY, uncertainty, and provider-blocked checkpoint",
+      "dependsOn": [
+        11
+      ],
+      "handler": "node scripts/sprint-autopilot/step-12-three-outcome-checkpoint.mjs",
+      "verify": [
+        "node scripts/sprint-autopilot/step-12-verify-checkpoint.mjs"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "READY fixture correct",
+        "uncertainty fixture correct",
+        "provider-blocked fixture correct"
+      ]
+    },
+    {
+      "id": 13,
+      "slug": "four-lane-premerge",
+      "title": "Run four-lane pre-merge acceptance",
+      "dependsOn": [
+        12
+      ],
+      "handler": "node scripts/sprint-autopilot/step-13-four-lane-premerge.mjs",
+      "verify": [
+        "node scripts/sprint-autopilot/step-13-verify-four-lane.mjs",
+        "npm run type-check",
+        "npm run build"
+      ],
+      "externalInputs": [
+        "declared_human_artifact_review:final_multi_lane_semantic_review"
+      ],
+      "completion": [
+        "AI app B2B",
+        "consumer",
+        "local service",
+        "niche B2B",
+        "no fixture tuned merely to force READY"
+      ]
+    },
+    {
+      "id": 14,
+      "slug": "merge-core-to-main",
+      "title": "Merge validated Sprint core to main",
+      "dependsOn": [
+        13
+      ],
+      "handler": "node scripts/sprint-autopilot/step-14-merge-core.mjs",
+      "verify": [
+        "node scripts/sprint-autopilot/step-14-verify-main.mjs"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "PR green",
+        "merged",
+        "remote main SHA recorded",
+        "post-merge acceptance smoke"
+      ]
+    },
+    {
+      "id": 15,
+      "slug": "persistence-caching-retry-refund",
+      "title": "Add persistence, caching, retries, and refund protection",
+      "dependsOn": [
+        14
+      ],
+      "handler": "node scripts/sprint-autopilot/step-15-persistence-retry-refund.mjs",
+      "verify": [
+        "npx vitest run tests/researchPersistence.test.ts tests/researchRetryRefund.test.ts --no-file-parallelism",
+        "npm run type-check"
+      ],
+      "externalInputs": [
+        "secret_installation:Stripe_test_secret_if_missing"
+      ],
+      "completion": [
+        "24h seed cache",
+        "per-order D1 corpus",
+        "retry schedule",
+        "atomic retry limits",
+        "48h idempotent refund protection"
+      ]
+    },
+    {
+      "id": 16,
+      "slug": "gate-hardening-measurement",
+      "title": "Harden gates and provider measurement",
+      "dependsOn": [
+        15
+      ],
+      "handler": "node scripts/sprint-autopilot/step-16-gate-hardening.mjs",
+      "verify": [
+        "npm run type-check",
+        "npm run build",
+        "npx vitest run tests/blueprintReleaseQualityGateV21.test.ts tests/providerMeasurement.test.ts --no-file-parallelism"
+      ],
+      "externalInputs": [],
+      "completion": [
+        "retained-evidence provider diversity",
+        "planned-vs-executed gate",
+        "freshness hardening",
+        "provider cost/contribution receipts",
+        "final roadmap complete"
+      ]
+    }
+  ]
+}
