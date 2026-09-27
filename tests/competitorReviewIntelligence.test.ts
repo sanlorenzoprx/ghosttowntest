@@ -210,7 +210,10 @@ describe('product-specific competitor review intelligence', () => {
 
     const plan = planCustomerAccessResearch(order, verdict, intelligence.customerLanguagePhrases);
     expect(plan.packs).toContain('competitor_review_intelligence');
-    expect(plan.queryBySourceId['customer_access:problem']).toMatch(/authentication setup was confusing/i);
-    expect(plan.queryBySourceId['customer_access:problem']).toMatch(/billing was hard to finish/i);
+    const reviewQueries = plan.sourceIds
+      .filter(id => id.startsWith('customer_access:review_'))
+      .map(id => plan.queryBySourceId[id]);
+    expect(reviewQueries.some(query => /authentication setup confusing/i.test(query))).toBe(true);
+    expect(reviewQueries.some(query => /billing hard finish/i.test(query))).toBe(true);
   });
 });
