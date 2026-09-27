@@ -200,8 +200,31 @@ let finalStatus = null;
 try {
   wrangler(['deploy', TEMP, '--env', 'acceptance']);
   deployed = true;
-  await sleep(4000);
-  const startRes = await fetch(WORKER_URL + START_PATH, { method: 'POST', headers: { 'x-acceptance-token': TOKEN } });
+
+  // Cloudflare can briefly serve the prior Worker version after deploy. Probe
+  // the acceptance-only route until the temporary verifier is actually live,
+  // then create exactly one fresh order.
+  const verifierDeadline = Date.now() + 90_000;
+  let verifierReady = false;
+  while (Date.now() < verifierDeadline) {
+    try {
+      const probe = await fetch(WORKER_URL + START_PATH, {
+        method: 'GET',
+        headers: { 'x-acceptance-token': TOKEN, 'cache-control': 'no-cache' }
+      });
+      if (probe.status === 405) {
+        verifierReady = true;
+        break;
+      }
+    } catch {}
+    await sleep(3000);
+  }
+  assert(verifierReady, 'Fresh Sprint verifier did not become active at the acceptance Worker URL');
+
+  const startRes = await fetch(WORKER_URL + START_PATH, {
+    method: 'POST',
+    headers: { 'x-acceptance-token': TOKEN, 'cache-control': 'no-cache' }
+  });
   const start = await startRes.json();
   assert(startRes.ok && start.ok, 'Fresh Sprint start failed: ' + JSON.stringify(start));
   jsonFile('fresh-input-receipt.json', start);
