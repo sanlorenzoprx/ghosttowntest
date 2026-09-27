@@ -68,6 +68,7 @@ function result(): CustomerAccessResearchResult {
       sourceIds: ['source-' + (index + 1)],
       targetType,
       evidenceRole,
+      competitorEvidence: evidenceRole === 'market_evidence' ? ['Observed competitor or current-alternative evidence.'] : [],
       accessPath: 'Public contact route',
       preparedAsset: 'Prepared educational asset',
       outreachScriptId: evidenceRole === 'partnership' ? 'script-06-referral_partner' : evidenceRole === 'customer_access' ? 'script-03-community_member' : 'script-07-interview_invitation'
