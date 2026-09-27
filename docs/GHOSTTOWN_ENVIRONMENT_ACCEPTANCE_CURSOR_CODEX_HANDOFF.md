@@ -1,5 +1,12 @@
 # GhostTown Launch Blueprint — Environment Acceptance Handoff
 
+> **CURRENT COMMERCIAL SCOPE — supersedes older Launch Site wording in this document**
+>
+> The active customer ladder is **Free Verdict → $97 30-Day Sprint → $297 Get Me Live**.
+> The $97 Sprint does **not** include a live website, domain, publishing, or payment setup.
+> Get Me Live is the separate $297 one-time implementation product. Older Launch Site language below is retained only where it documents historical implementation architecture or acceptance work.
+
+
 **Repository:** `sanlorenzoprx/ghosttowntest`  
 **Authoritative branch:** `feat/launch-blueprint-spa`  
 **Pull request:** `#7`  

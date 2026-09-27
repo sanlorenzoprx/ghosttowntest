@@ -2,6 +2,7 @@ import type { GhostTownLaunchBlueprintV21, DailyExecutionPacket, DeliverableAsse
 import type { ResearchEvidenceRole } from '../types/launchBlueprint';
 import type { TruthLabel } from '../types/paidTest';
 import { researchEvidenceRole } from './researchEvidenceRole';
+import { DEFAULT_GET_ME_LIVE_DISPLAY_PRICE } from '../lib/getMeLiveOffer';
 
 /**
  * A read-only, deterministic presentation projection.  The v2.1 Blueprint is
@@ -216,7 +217,7 @@ export function composeBlueprintDocumentModel(blueprint: GhostTownLaunchBlueprin
     { sectionId: 'fulfillment_economics', title: 'Manual Fulfillment and Economics', content: [blueprint.firstRevenuePath.firstOfferFormat, blueprint.manualFulfillmentPlan.successfulDeliveryDefinition, blueprint.manualFulfillmentPlan.grossMarginGuardrail], sourceRefs: [] },
     { sectionId: 'first_revenue_legacy_reference', title: 'First-Revenue Path', content: [blueprint.firstRevenuePath.firstAsk, blueprint.firstRevenuePath.successThreshold], sourceRefs: [] },
     { sectionId: 'prepared_content', title: 'Prepared Content and Conversations', content: [...blueprint.customerAccessPack.helpfulPosts.map(post => post.body), blueprint.customerInterviewGuide.opening, blueprint.offerConversationGuide.opening], sourceRefs: [] },
-    { sectionId: 'launch_site', title: 'Launch Site', content: [blueprint.launchSite.offer.headline, blueprint.launchSite.offer.callToAction], sourceRefs: [] },
+    { sectionId: 'get_me_live_handoff', title: 'Optional Next Step: Get Me Live', content: [`The $97 30-Day Sprint does not include a live website, domain, publishing, or payment setup. Get Me Live is a separate ${DEFAULT_GET_ME_LIVE_DISPLAY_PRICE.replace('.00', '')} one-time product.`, `Customer: ${blueprint.offer.targetCustomer}`, `Offer: ${blueprint.offer.offerName}`, `First commitment: ${blueprint.firstRevenuePath.firstAsk}`], sourceRefs: [] },
     { sectionId: 'full_30_day_plan', title: 'Full 30-Day Plan', content: blueprint.dailyCalendar.map(day => `Day ${day.dayNumber}: ${day.executionPacket?.completionDefinition || day.expectedDeliverable}`), sourceRefs: unique(blueprint.dailyCalendar.flatMap(day => day.executionPacket?.targets.flatMap(target => target.sourceIds) || [])) },
     { sectionId: 'evidence_checkpoints', title: 'Behavioral Evidence Hierarchy and Adaptive Checkpoint Reviews', content: [...blueprint.evidenceHierarchy.strong, ...blueprint.adaptiveCheckpoints.flatMap(checkpoint => [checkpoint.title, ...checkpoint.evidenceRequired])], sourceRefs: [] },
     { sectionId: 'sources_receipt', title: 'Sources and Receipt', content: [...blueprint.sources.map(source => `${source.title} — ${source.url}`), `Canonical Git blob SHA-1: ${blueprint.generationReceipt.canonicalContract.gitBlobSha1}`, 'Every Factory slice must revalidate its exact hash before execution.'], sourceRefs: sources }
@@ -283,8 +284,8 @@ export function validateBlueprintDocumentAgainstCanonical(model: BlueprintDocume
   if (byId.get('first_offer')?.decision !== `${blueprint.offer.offerName} - ${blueprint.offer.oneSentencePromise}`) failures.push('cross-surface:first-offer');
   if (byId.get('first_revenue')?.decision !== blueprint.firstRevenuePath.firstAsk) failures.push('cross-surface:first-revenue');
   if (!byId.get('first_revenue')?.evidence.some(item => item.evidenceId === 'revenue:price' && item.statement === blueprint.firstRevenuePath.firstPrice)) failures.push('cross-surface:revenue-price');
-  const launchSite = model.supportingSections.find(section => section.sectionId === 'launch_site');
-  if (!launchSite || launchSite.content[0] !== blueprint.launchSite.offer.headline || launchSite.content[1] !== blueprint.launchSite.offer.callToAction) failures.push('cross-surface:launch-site');
+  const getMeLive = model.supportingSections.find(section => section.sectionId === 'get_me_live_handoff');
+  if (!getMeLive || !getMeLive.content[0]?.includes('separate $297 one-time product') || getMeLive.content.some(item => item === blueprint.launchSite.offer.headline)) failures.push('cross-surface:get-me-live-boundary');
   if (model.presentation.title !== blueprint.offer.offerName || model.presentation.subtitle !== blueprint.offer.oneSentencePromise || model.presentation.customer !== blueprint.offer.targetCustomer) failures.push('cross-surface:presentation');
   const accessTargets = byId.get('customer_access_network')?.accessGroups?.flatMap(group => group.targets) || [];
   for (const target of accessTargets) {

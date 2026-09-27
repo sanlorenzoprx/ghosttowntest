@@ -1,7 +1,9 @@
 import type { Env } from './env';
-import type { PaidTestOrder, StrategicUncertaintySprint } from '../types/paidTest';
+import type { PaidTestOrder } from '../types/paidTest';
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
+import type { VertexStrategicCoherenceGate } from './launchBlueprintVertexPipeline';
+import { createStrategicUncertaintySprint } from './strategicUncertaintySprint';
 import { loadLaunchBlueprintWorkflowContext } from './blueprintFulfillment';
 import { renderLaunchBlueprintPdfV21WithBrowser } from './blueprintPdfV21';
 import { createGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
@@ -15,85 +17,11 @@ import {
   evaluateBlueprintReleaseQualityGateV21
 } from './blueprintReleaseQualityGateV21';
 import { verifyBlueprintDeliveryStateExactV21 } from './blueprintDeliveryVerifierV21';
-import { StrategicCoherenceGateError, type StrategicCoherenceLink } from './launchBlueprintVertexPipeline';
+import { StrategicCoherenceGateError } from './launchBlueprintVertexPipeline';
 
 const orderKey = (id: string) => `paid_test_order_${id}`;
 const userOrdersKey = (email: string) => `paid_test_orders_${email.trim().toLowerCase()}`;
 const normalizedOwner = (value: string) => value.trim().toLowerCase();
-
-const UNCERTAINTY_QUESTION_BY_LINK: Record<StrategicCoherenceLink, string> = {
-  customer: 'Which specific person has this problem now? Describe three recent examples or conversations.',
-  problem: 'When did this problem last happen, and what did it cost, delay, prevent, or frustrate?',
-  buyer_payer: 'Who can authorize or pay for this exact test? What evidence shows that this person controls the decision?',
-  current_alternative: 'What are these people doing today instead? Record three recent examples of the actual workaround.',
-  test: 'What is the smallest safe test that preserves the same customer, problem, value mechanism, and outcome as the proposed product?',
-  commitment: 'What observable commitment would show this matters now? Ask at least three qualified buyers for that exact commitment.',
-  fulfillment: 'Dry-run the proposed test. Record founder hours, direct cost, responsibilities, failure points, and any safety or operational boundary.',
-  access_path: 'Name at least three currently usable places or routes that directly reach the buyer/payer, and verify each route works now.'
-};
-
-function buildStrategicUncertaintySprint(error: StrategicCoherenceGateError): StrategicUncertaintySprint {
-  const failedLinks = error.gate.links.filter(item => item.status === 'unresolved' || item.status === 'contradictory');
-  const byLink = new Map(error.gate.blockers.map(blocker => [blocker.link, blocker]));
-  const blockers = failedLinks.map(item => {
-    const blocker = byLink.get(item.link);
-    return {
-      code: blocker?.code || `strategic_${item.link}_unresolved`,
-      link: item.link,
-      question: UNCERTAINTY_QUESTION_BY_LINK[item.link],
-      requiredEvidence: blocker?.requiredEvidence || item.reason
-    };
-  });
-  for (const blocker of error.gate.blockers) {
-    if (blockers.some(item => item.link === blocker.link)) continue;
-    blockers.push({
-      code: blocker.code,
-      link: blocker.link,
-      question: UNCERTAINTY_QUESTION_BY_LINK[blocker.link],
-      requiredEvidence: blocker.requiredEvidence
-    });
-  }
-  const durationDays: 2 | 3 = blockers.length <= 2 ? 2 : 3;
-  const days: StrategicUncertaintySprint['days'] = [
-    {
-      day: 1,
-      title: 'Name the missing decision',
-      actions: blockers.slice(0, Math.max(1, Math.ceil(blockers.length / 2))).map(item => item.question),
-      completion: 'Record concrete answers and the evidence behind them. Do not guess.'
-    },
-    {
-      day: 2,
-      title: 'Test the uncertain link',
-      actions: blockers.slice(Math.max(1, Math.ceil(blockers.length / 2))).map(item => item.question).concat(
-        'Check the proposed buyer, commitment, fulfillment, and access route against what actually happened.'
-      ),
-      completion: 'Every blocker has a concrete answer supported by an observation, decision, or bounded test.'
-    }
-  ];
-  if (durationDays === 3) {
-    days.push({
-      day: 3,
-      title: 'Resolve contradictions',
-      actions: [
-        'Compare the new answers against the original customer, problem, buyer, test, commitment, fulfillment, and access path.',
-        'Change only the links that the new evidence disproves.',
-        'Save the final answers, then re-run the Strategic Coherence Gate.'
-      ],
-      completion: 'No unresolved or contradictory chain link remains before 30-day asset generation is retried.'
-    });
-  }
-  return {
-    version: '1.0',
-    status: 'open',
-    createdAt: new Date().toISOString(),
-    durationDays,
-    objective: 'Resolve only the strategic unknowns blocking a coherent 30-Day Sprint.',
-    chainSummary: error.gate.chainSummary,
-    blockers,
-    days,
-    unlockRule: 'The 30-Day Sprint unlocks only after the Strategic Coherence Gate re-runs with every link coherent or a bounded testable hypothesis.'
-  };
-}
 
 export interface CompleteLaunchBlueprintOrderV21Options {
   blueprint?: GhostTownLaunchBlueprintV21;
@@ -224,6 +152,18 @@ export async function markLaunchBlueprintGeneratingV21(
   return persistLifecycle(env, order, verdict.idea.ideaName);
 }
 
+export async function markLaunchBlueprintUncertaintyV21(
+  env: Env,
+  orderId: string,
+  gate: VertexStrategicCoherenceGate
+): Promise<PaidTestOrder> {
+  const { order, verdict } = await loadLaunchBlueprintWorkflowContext(env, orderId);
+  order.status = 'uncertainty';
+  order.fulfillmentError = undefined;
+  order.uncertaintySprint = createStrategicUncertaintySprint(order.orderId, order.verdictId, gate);
+  return persistLifecycle(env, order, verdict.idea.ideaName);
+}
+
 export async function failLaunchBlueprintOrderV21(
   env: Env,
   orderId: string,
@@ -231,9 +171,13 @@ export async function failLaunchBlueprintOrderV21(
 ): Promise<void> {
   const context = await loadLaunchBlueprintWorkflowContext(env, orderId).catch(() => null);
   if (!context) return;
-  context.order.status = 'failed';
+  context.order.status = error instanceof StrategicCoherenceGateError ? 'uncertainty' : 'failed';
   if (error instanceof StrategicCoherenceGateError) {
-    context.order.uncertaintySprint = buildStrategicUncertaintySprint(error);
+    context.order.uncertaintySprint = createStrategicUncertaintySprint(
+      context.order.orderId,
+      context.order.verdictId,
+      error.gate
+    );
     context.order.fulfillmentError = '30-Day Sprint paused: resolve the Strategic Uncertainty Sprint before retrying.';
   } else {
     context.order.fulfillmentError = error instanceof Error

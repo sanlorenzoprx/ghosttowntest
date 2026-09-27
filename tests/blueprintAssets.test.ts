@@ -12,7 +12,10 @@ describe('canonical Blueprint asset package', () => {
     expect(files.map(file => file.name.replace('ghosttown-launch-blueprint/', ''))).toEqual(BLUEPRINT_ASSET_FILENAMES);
     const text = new TextDecoder().decode(files.find(file => file.name.endsWith('blueprint.json'))!.data);
     expect(JSON.parse(text)).toEqual(blueprint);
-    expect(new TextDecoder().decode(files.find(file => file.name.endsWith('launch-site-config.json'))!.data)).toBe(JSON.stringify(blueprint.launchSite, null, 2));
+    const handoff = new TextDecoder().decode(files.find(file => file.name.endsWith('get-me-live-handoff.md'))!.data);
+    expect(handoff).toContain('Get Me Live');
+    expect(handoff).toContain('separate $297 one-time product');
+    expect(handoff).toContain('does not include a live website');
     expect(new TextDecoder().decode(files.find(file => file.name.endsWith('media-and-distribution-network.csv'))!.data)).toContain(blueprint.customerAccessPack.channels[0].publicUrl);
   });
 

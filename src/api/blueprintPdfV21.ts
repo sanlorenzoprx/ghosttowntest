@@ -215,7 +215,7 @@ export class V21PdfBuilder {
       '04 - Manual fulfillment and economics',
       '05 - Research roles and direct customer access',
       '06 - Prepared content, interview, and sales assets',
-      '07 - Launch Site and 30-day execution calendar',
+      '07 - Optional Get Me Live handoff and 30-day execution calendar',
       '08 - Adaptive checkpoints and evidence hierarchy',
       '09 - Continue, revise, pivot, pause, or stop decision',
       '10 - Sources and canonical generation receipt'
@@ -243,7 +243,7 @@ export class V21PdfBuilder {
       { label: 'First customer', value: card.firstCustomer },
       { label: 'First offer', value: card.firstOffer },
       { label: 'First commitment', value: card.firstCommitmentRequest },
-      { label: 'Launch Site preview', value: card.launchSitePreviewReady ? 'Ready from the canonical Blueprint.' : 'Blocked by incomplete canonical Launch Site data.' }
+      { label: 'Live website boundary', value: 'Not included in the $97 Sprint. Get Me Live is a separate $297 one-time product.' }
     ], COLORS.gold);
     this.title('First three approaches');
     card.firstThreeApproaches.forEach((approach, index) => this.card(`${index + 1}. ${approach.name}`, [

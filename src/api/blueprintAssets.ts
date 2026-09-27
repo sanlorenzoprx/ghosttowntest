@@ -4,6 +4,7 @@ import type {
   GhostTownLaunchBlueprintV21,
 } from "../types/launchBlueprintV21";
 import { researchEvidenceRole } from "./researchEvidenceRole";
+import { DEFAULT_GET_ME_LIVE_DISPLAY_PRICE } from "../lib/getMeLiveOffer";
 
 export const BLUEPRINT_ASSET_FILENAMES = [
   "README.md",
@@ -16,7 +17,7 @@ export const BLUEPRINT_ASSET_FILENAMES = [
   "outreach-scripts.md",
   "helpful-posts.md",
   "landing-page-copy.md",
-  "launch-site-config.json",
+  "get-me-live-handoff.md",
   "thirty-day-calendar.csv",
   "weekly-milestones.md",
   "metrics-template.csv",
@@ -217,7 +218,7 @@ export function buildBlueprintAssetFiles(
   const files: Record<(typeof BLUEPRINT_ASSET_FILENAMES)[number], Uint8Array> =
     {
       "README.md": encoded(
-        `# GhostTown Launch Blueprint\n\nAll files in this package were derived from canonical Blueprint ${blueprint.blueprintId} (${blueprint.schemaVersion}${v21 ? `, contract ${v21.contractVersion}` : ""}). The public Launch Site uses this same record; edit the Blueprint generation inputs rather than creating a conflicting copy.${v21 ? `\n\nCanonical source hash: ${v21.generationReceipt.canonicalContract.gitBlobSha1}. Every Factory slice must verify this exact hash before execution.` : ""}\n`,
+        `# GhostTown Launch Blueprint\n\nAll files in this package were derived from canonical Blueprint ${blueprint.blueprintId} (${blueprint.schemaVersion}${v21 ? `, contract ${v21.contractVersion}` : ""}). The $97 Sprint does not include a live website. Get Me Live is a separate $297 one-time product; use the Sprint as the strategy and evidence handoff.${v21 ? `\n\nCanonical source hash: ${v21.generationReceipt.canonicalContract.gitBlobSha1}. Every Factory slice must verify this exact hash before execution.` : ""}\n`,
       ),
       "blueprint.json": encoded(JSON.stringify(blueprint, null, 2)),
       "launch-blueprint.pdf": pdf,
@@ -294,8 +295,8 @@ export function buildBlueprintAssetFiles(
       "landing-page-copy.md": encoded(
         `# ${blueprint.landingPageCopy.headline}\n\n${blueprint.landingPageCopy.subheadline}\n\n## Problem\n${blueprint.landingPageCopy.problemSection}\n\n## Offer\n${blueprint.landingPageCopy.offerDescription}\n\n**Price:** ${blueprint.landingPageCopy.pricePresentation}\n\n**CTA:** ${blueprint.landingPageCopy.primaryCallToAction}${v21 ? `\n\n## Validation-stage proof boundary\n${v21.foundingCustomerPilotBrief.proofBoundary}` : ""}\n`,
       ),
-      "launch-site-config.json": encoded(
-        JSON.stringify(blueprint.launchSite, null, 2),
+      "get-me-live-handoff.md": encoded(
+        `# Get Me Live — optional next step\n\nThe $97 30-Day Sprint does not include a live website, domain, publishing, or payment setup. **Get Me Live is a separate ${DEFAULT_GET_ME_LIVE_DISPLAY_PRICE.replace(".00", "")} one-time product.**\n\n## Sprint handoff\n\n**Customer:** ${blueprint.offer.targetCustomer}\n\n**Offer:** ${blueprint.offer.offerName}\n\n**Promise:** ${blueprint.offer.oneSentencePromise}\n\n**First commitment:** ${v21 ? v21.firstRevenuePath.firstAsk : blueprint.offer.oneSentencePromise}\n\nUse this validated strategy and evidence only after you choose Get Me Live.\n`,
       ),
       "thirty-day-calendar.csv": encoded(
         csv([

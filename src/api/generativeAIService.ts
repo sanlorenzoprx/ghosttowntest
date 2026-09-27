@@ -386,10 +386,22 @@ export async function generateAI(env: Env, options: GenerateOptions): Promise<Ge
   }
   const candidate = body.candidates?.[0];
   const output = candidate?.content?.parts?.map(part => part.text || '').join('\n').trim() || '';
-  if (!output) throw new Error(body.promptFeedback?.blockReason || candidate?.finishReason || `Vertex ${options.task} returned no content`);
+  const groundingMetadata = candidate?.groundingMetadata;
+  const groundedWebChunks = (groundingMetadata?.groundingChunks || [])
+    .filter(chunk => text(chunk.web?.uri));
+  const groundingOnlyResult = options.task === 'grounded_research'
+    && options.googleSearch === true
+    && groundedWebChunks.length > 0;
+  if (!output && !groundingOnlyResult) {
+    throw new Error(body.promptFeedback?.blockReason || candidate?.finishReason || `Vertex ${options.task} returned no content`);
+  }
+  const responseMaterial = output || JSON.stringify(groundedWebChunks.map(chunk => ({
+    uri: text(chunk.web?.uri),
+    title: text(chunk.web?.title)
+  })));
   return {
     text: output,
-    groundingMetadata: candidate?.groundingMetadata,
+    groundingMetadata,
     receipt: {
       provider: 'google_vertex_ai',
       gateway: 'cloudflare_ai_gateway',
@@ -399,7 +411,7 @@ export async function generateAI(env: Env, options: GenerateOptions): Promise<Ge
       modelVersion: body.modelVersion,
       responseId: body.responseId,
       promptHash: fnvHash(options.prompt),
-      responseHash: fnvHash(output),
+      responseHash: fnvHash(responseMaterial),
       promptTokenCount: body.usageMetadata?.promptTokenCount,
       candidatesTokenCount: body.usageMetadata?.candidatesTokenCount,
       totalTokenCount: body.usageMetadata?.totalTokenCount,

@@ -884,7 +884,7 @@ export function assertStrategicCoherenceGate(data: VertexStrategicCoherenceGate)
   throw new StrategicCoherenceGateError(data);
 }
 
-export async function runVertexStrategicCoherenceGateStage(
+export async function runVertexStrategicCoherenceAssessmentStage(
   env: Env,
   context: LaunchBlueprintVertexContext,
   evidence: VertexEvidenceNormalization,
@@ -960,6 +960,16 @@ export async function runVertexStrategicCoherenceGateStage(
   });
 
   result.data = validateStrategicCoherenceGate(context, result.data);
+  return result;
+}
+
+export async function runVertexStrategicCoherenceGateStage(
+  env: Env,
+  context: LaunchBlueprintVertexContext,
+  evidence: VertexEvidenceNormalization,
+  strategy: VertexStrategySynthesis
+): Promise<VertexStructuredStageResult<VertexStrategicCoherenceGate>> {
+  const result = await runVertexStrategicCoherenceAssessmentStage(env, context, evidence, strategy);
   assertStrategicCoherenceGate(result.data);
   return result;
 }

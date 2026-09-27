@@ -1,5 +1,12 @@
 # Launch Blueprint v2 acceptance fixture
 
+> **CURRENT COMMERCIAL SCOPE — supersedes older Launch Site wording in this document**
+>
+> The active customer ladder is **Free Verdict → $97 30-Day Sprint → $297 Get Me Live**.
+> The $97 Sprint does **not** include a live website, domain, publishing, or payment setup.
+> Get Me Live is the separate $297 one-time implementation product. Older Launch Site language below is retained only where it documents historical implementation architecture or acceptance work.
+
+
 The board-game subscription purchase from July 31, 2026 is the first regression fixture.
 
 The v2 product must not pass acceptance unless it produces one coherent **GhostTown Launch Blueprint** containing strategy, current distribution research, prepared assets, a working Launch Site, account storage, and the complete thirty-day execution system.

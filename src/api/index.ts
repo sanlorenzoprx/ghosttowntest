@@ -415,7 +415,7 @@ export default {
         applyCors(response, corsHeaders);
         return response;
       }
-            const blueprintRetryMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/retry$/);
+      const blueprintRetryMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/retry$/);
       if (blueprintRetryMatch && method === 'POST') {
         const response = await handleLaunchBlueprintRetry(request, env, blueprintRetryMatch[1]);
         applyCors(response, corsHeaders);

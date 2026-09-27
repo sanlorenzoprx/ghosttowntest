@@ -162,11 +162,11 @@ Bad:
 
 Better:
 
-> **Get Me Live — $297**
+> **Get Me Live — $297 one-time**
 >
-> Turn the test from your Sprint into a live page you can send to real customers.
+> Turn the tested offer from your Sprint into a live customer-facing business you can send to real customers.
 
-This is a separate product from the $97 Evidence Sprint. The internal implementation can reuse Cloudflare and the canonical `Launch Site` model, but customer-facing naming should describe the outcome rather than the infrastructure.
+This is a separate product from the $97 30-Day Sprint. The internal implementation can reuse Cloudflare and the canonical `Launch Site` model, but customer-facing naming should describe the outcome rather than the infrastructure.
 
 ### GhostTown commercial product boundary
 
@@ -174,7 +174,7 @@ This is a separate product from the $97 Evidence Sprint. The internal implementa
 |---|---|---|
 | Free | Evidence Scan + Verdict | See what outside market signs exist, what is still unproven, and whether the idea is clear enough to test. |
 | $97 | 30-Day Evidence Sprint | Decide **what to test**, what to do next, and what evidence means keep going, revise, pause, or stop. No live website, domain, publishing, or payment setup is included. |
-| $297 | Get Me Live | Turn the Sprint offer into a customer-ready live page with lead capture, guided setup, publishing, and a release receipt. This is a separate active product. |
+| $297 one-time | Get Me Live | Turn the Sprint test into a live customer-facing business with guided setup, lead capture, tracking, publishing, and release proof. |
 | Separate upsell | Story Studio | Help more people find the test. Distribution is separate from deciding what to test and separate from manufacturing the live page. |
 
 ## 9. Truth and offer safety

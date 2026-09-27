@@ -3,11 +3,12 @@ import type { Env } from '../src/api/env';
 import type { EvaluationResult } from '../src/types/lit';
 import type { PaidTestOrder } from '../src/types/paidTest';
 
-const aiState = vi.hoisted(() => ({ mode: 'valid' as 'valid' | 'unknown' }));
+const aiState = vi.hoisted(() => ({ mode: 'valid' as 'valid' | 'unknown' | 'grounded_error' | 'invalid_control' }));
 
 vi.mock('../src/api/generativeAIService', () => ({
   generateAI: async (_env: unknown, options: { prompt: string; task?: string; googleSearch?: boolean }) => {
     if (options.googleSearch || options.task === 'grounded_research') {
+      if (aiState.mode === 'grounded_error') throw new Error('Vertex grounded_research returned no content');
       const groundingChunks = Array.from({ length: 5 }, (_, index) => ({
         web: {
           uri: `https://family-buyer-community-${index + 1}.example.com/forum/parents`,
@@ -78,8 +79,12 @@ vi.mock('../src/api/generativeAIService', () => ({
       channels[0] = { ...channels[0], candidateId: 'candidate_model_invented' };
       channels.splice(5);
     }
+    let selectionText = JSON.stringify({ channels });
+    if (aiState.mode === 'invalid_control') {
+      selectionText = selectionText.replace('family game-selection resource', 'family game-selection\nresource');
+    }
     return {
-      text: JSON.stringify({ channels }),
+      text: selectionText,
       receipt: {
         provider: 'google_vertex_ai',
         gateway: 'cloudflare_ai_gateway',
@@ -95,7 +100,7 @@ vi.mock('../src/api/generativeAIService', () => ({
 }));
 
 import { researchCustomerAccess } from '../src/api/customerAccessResearch';
-import { planCustomerAccessResearch } from '../src/api/distributionFootprintResearch';
+import { customerAccessUsabilityFailure, planCustomerAccessResearch, sourceClaimSupportFailure, sourcePageUsabilityFailure } from '../src/api/distributionFootprintResearch';
 
 const order = {
   orderId: 'gtt_research_1',
@@ -219,26 +224,98 @@ function youtubeResponse(query: string) {
   };
 }
 
+function youtubeCommentsResponse() {
+  return {
+    items: Array.from({ length: 4 }, (_, index) => ({
+      snippet: {
+        topLevelComment: {
+          snippet: {
+            textOriginal: index === 0
+              ? 'Parents in families with children spend money on games their children do not enjoy. We keep looking for better family game choices.'
+              : 'Our children enjoy family games more when parents can compare what other families liked before spending money.',
+            publishedAt: `2026-09-${String(25 - index).padStart(2, '0')}T12:00:00.000Z`,
+            updatedAt: `2026-09-${String(25 - index).padStart(2, '0')}T12:00:00.000Z`
+          }
+        }
+      }
+    }))
+  };
+}
+
 function mockProviders() {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
     const url = String(input);
     if (url.includes('api.dataforseo.com')) return new Response(JSON.stringify(dataForSeoResponse('seed')), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (url.includes('api.podcastindex.org')) return new Response(JSON.stringify(podcastResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (url.includes('youtube/v3/commentThreads')) return new Response(JSON.stringify(youtubeCommentsResponse()), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (url.includes('www.youtube.com/oembed')) return new Response(JSON.stringify({ title: 'KiwiCo BoardGameGeek board game subscription families children ages review video', author_name: 'Family Games Creator' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (url.includes('www.googleapis.com/youtube')) return new Response(JSON.stringify(youtubeResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    if (url.includes('www.youtube.com/channel/')) {
-      return new Response('<html><head><title>Family Games Creator</title><meta name="description" content="Family games review video creator channel with current family game coverage."></head><body>Family games review video creator channel.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+    if (url.includes('family-buyer-community')) {
+      return new Response('<html><head><title>Family buyer discussion community</title><meta property="article:published_time" content="2026-09-25T12:00:00.000Z"><meta name="description" content="Parents and families with children discuss buying games, what children enjoy, and family game choices."></head><body>Members can reply, comment, ask a question, and start a new topic about family games and buying choices.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
     }
-    if (url.includes('family-buyer-community-')) {
-      const communityNumber = url.match(/community-(\d+)/)?.[1] || '1';
-      return new Response(`<html><head><title>Family buyer discussion community ${communityNumber}</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="Parents and buyers discuss choosing family games in this public community."></head><body>Family buyer discussion community ${communityNumber}. Recent public discussion about choosing and buying games.</body></html>`, { status: 200, headers: { 'Content-Type': 'text/html' } });
-    }
-    return new Response('<html><head><title>Family Games Media</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="Active media source covering family games, KiwiCo, kiwico.com, BoardGameGeek, boardgamegeek.com, podcasts, reviews, events, and activities."></head><body>Public source about KiwiCo, BoardGameGeek, family games and current podcasts.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+    return new Response('<html><head><title>KiwiCo BoardGameGeek Family Games Podcast Media</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="Active source covering KiwiCo, BoardGameGeek, board games, podcasts, reviews, events, and family activities."></head><body>Current public source about KiwiCo, BoardGameGeek, family board games, podcasts, reviews, and events.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
   });
 }
 
 afterEach(() => {
   aiState.mode = 'valid';
   vi.restoreAllMocks();
+});
+
+describe('source usability gate', () => {
+  it('rejects the historical Invalid Podbean Site error URL even when fetched today', () => {
+    expect(sourcePageUsabilityFailure(
+      new URL('https://example.com/podcast?error=Invalid%20Podbean%20Site(2)'),
+      '<html><head><title>Podcast</title></head><body>Podcast page</body></html>',
+      'Podcast',
+      ''
+    )).toMatch(/explicit error/i);
+  });
+
+  it('rejects a 200 error page that says the requested page could not be found', () => {
+    expect(sourcePageUsabilityFailure(
+      new URL('https://example.com/old-story'),
+      '<html><head><title>Archive</title></head><body>The requested page could not be found. Please return home.</body></html>',
+      'Archive',
+      ''
+    )).toMatch(/removed page|unavailable/i);
+  });
+
+  it('keeps a substantive public source that does not expose error semantics', () => {
+    expect(sourcePageUsabilityFailure(
+      new URL('https://example.com/current-story'),
+      '<html><head><title>Medication reminder research</title><meta name="description" content="Current public research and discussion."></head><body>This article describes medication reminder behavior, caregiver coordination, and current alternatives in detail for readers.</body></html>',
+      'Medication reminder research',
+      'Current public research and discussion.'
+    )).toBeUndefined();
+  });
+
+  it('rejects a long soft-404 page instead of letting boilerplate hide the error', () => {
+    const html = '<html><head><title>Archive</title></head><body>The requested page could not be found. ' + 'Navigation and archive links. '.repeat(250) + '</body></html>';
+    expect(sourcePageUsabilityFailure(new URL('https://example.com/archive/item'), html, 'Archive', '')).toMatch(/removed page|unavailable/i);
+  });
+
+  it('requires the destination to contain evidence for the claim it is supporting', () => {
+    expect(sourceClaimSupportFailure(
+      'independent short-term rental hosts cleaner turnover photos checklist',
+      'A public discussion where short-term rental hosts compare cleaner turnover checklists and required photos.'
+    )).toBeUndefined();
+    expect(sourceClaimSupportFailure(
+      'independent short-term rental hosts cleaner turnover photos checklist',
+      'A general technology article about venture funding and software engineering.'
+    )).toMatch(/supports only/i);
+  });
+
+  it('requires a usable participation path before a source can count as Customer Access', () => {
+    expect(customerAccessUsabilityFailure(
+      new URL('https://example.com/news/host-cleaning-trends'),
+      'A current news article describing industry trends and vendor statistics.'
+    )).toMatch(/participation|conversation/i);
+    expect(customerAccessUsabilityFailure(
+      new URL('https://example.com/forum/host-cleaning'),
+      'Members can reply, comment, and start a new topic.'
+    )).toBeUndefined();
+  });
 });
 
 describe('customer access distribution footprint provider', () => {
@@ -264,8 +341,14 @@ describe('customer access distribution footprint provider', () => {
     expect(plan.queryBySourceId['youtube:audience']).toContain('Family game podcasts');
     expect(plan.queryBySourceId['podcast:ecosystem']).toContain('Family recreation associations');
     expect(plan.queryBySourceId['youtube:ecosystem']).toContain('Family recreation associations');
-    expect(plan.queryBySourceId['customer_access:problem']).toContain(order.intake.problem);
-    expect(plan.queryBySourceId['customer_access:buyer']).toContain(order.intake.targetBuyer);
+    expect(plan.queryBySourceId['customer_access:problem']).toContain('families');
+    expect(plan.queryBySourceId['customer_access:problem']).toContain('forum discussion');
+    expect(plan.queryBySourceId['customer_access:buyer']).toContain('families');
+    expect(plan.queryBySourceId['customer_access:buyer']).toContain('community question');
+    expect(plan.queryBySourceId['youtube_access:problem']).toContain('families');
+    expect(plan.queryBySourceId['youtube_access:problem']).toContain('game');
+    expect(plan.queryBySourceId['youtube_access:buyer']).toContain('families');
+    expect(plan.queryBySourceId['youtube_access:buyer']).toContain('children');
   });
 
   it('builds a verified media and distribution network from competitor seeds using Vertex selection', async () => {
@@ -291,6 +374,20 @@ describe('customer access distribution footprint provider', () => {
     expect(result.receipt.model).toBe('gemini-3.5-flash-lite');
   });
 
+  it('keeps real Customer Access when grounded search fails by using recent relevant YouTube buyer discussions, not creators', async () => {
+    aiState.mode = 'grounded_error';
+    mockProviders();
+    const result = await researchCustomerAccess(env(), order, verdict);
+    const customerAccess = result.research.channels.filter(channel => channel.evidenceRole === 'customer_access');
+
+    expect(result.research.status).toBe('complete');
+    expect(customerAccess.length).toBeGreaterThanOrEqual(3);
+    expect(customerAccess.every(channel => channel.platform === 'YouTube public discussion')).toBe(true);
+    expect(customerAccess.every(channel => channel.targetType === 'community')).toBe(true);
+    expect(customerAccess.every(channel => channel.currentActivityStatus === 'verified_current')).toBe(true);
+    expect(result.research.channels.filter(channel => channel.platform === 'YouTube creator').every(channel => channel.evidenceRole !== 'customer_access')).toBe(true);
+  });
+
   it('recovers an unknown Vertex candidate ID from the provider-verified candidate pool', async () => {
     aiState.mode = 'unknown';
     mockProviders();
@@ -301,6 +398,15 @@ describe('customer access distribution footprint provider', () => {
     expect(result.receipt.model).toBe('verified-provider-recovery');
     expect(result.receipt.candidateChannelCount).toBeGreaterThanOrEqual(10);
     expect(result.research.channels.every(channel => channel.publicUrl.startsWith('https://'))).toBe(true);
+  });
+
+  it('repairs raw control characters inside candidate-selection JSON strings without weakening source gates', async () => {
+    aiState.mode = 'invalid_control';
+    mockProviders();
+    const result = await researchCustomerAccess(env(), order, verdict);
+    expect(result.research.status).toBe('complete');
+    expect(result.research.channels.length).toBeGreaterThanOrEqual(10);
+    expect(result.research.channels.filter(channel => channel.evidenceRole === 'customer_access').length).toBeGreaterThanOrEqual(3);
   });
 
   it('rejects HTTP 404 and removed-page destinations instead of counting them as verified sources', async () => {
