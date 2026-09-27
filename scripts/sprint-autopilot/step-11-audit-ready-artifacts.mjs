@@ -49,8 +49,20 @@ assert(review.observations.every(observation => observation.sourceUrl && observa
 assert((review.patterns || []).every(pattern => pattern.sourceIds?.length >= 2 && pattern.sourceIds.every(id => observationSources.has(id))), 'Review pattern lacks two-source provenance');
 assert((review.productImplications || []).every(implication => implication.sourceIds?.length && implication.sourceIds.every(id => observationSources.has(id))), 'Review hypothesis lacks observed-source provenance');
 
+const observationUrlBySourceId = new Map(
+  review.observations.map(observation => [
+    observation.sourceId,
+    String(observation.sourceUrl || '').toLowerCase().replace(/\/$/, '')
+  ])
+);
+const competitivePatternKinds = new Set(['strength', 'weakness', 'switching_signal', 'pricing_signal', 'support_signal', 'requested_improvement']);
+const competitiveReviewUrls = (review.patterns || [])
+  .filter(pattern => competitivePatternKinds.has(pattern.kind))
+  .flatMap(pattern => pattern.sourceIds || [])
+  .map(sourceId => observationUrlBySourceId.get(sourceId) || '')
+  .filter(Boolean);
 const competitiveAlternativeUrls = new Set([
-  ...observationUrls,
+  ...competitiveReviewUrls,
   ...channels
     .filter(channel => channel.competitorEvidence?.some(value => String(value || '').trim()))
     .map(channel => String(channel.publicUrl || '').toLowerCase().replace(/\/$/, ''))
