@@ -3,6 +3,7 @@ import type { EvaluationResult } from '../types/lit';
 import type { PaidTestOrder, CompetitorSeed } from '../types/paidTest';
 import type {
   BlueprintSource,
+  CompetitorReviewIntelligence,
   CurrentActivityStatus,
   CustomerAccessChannel,
   DistributionTargetType,
@@ -502,12 +503,17 @@ function directBuyerDiscussionQuery(order: PaidTestOrder, _verdict: EvaluationRe
   return [...new Set([...buyerTokens, ...problemTokens])].slice(0, 8).join(' ');
 }
 
-export function planCustomerAccessResearch(order: PaidTestOrder, verdict: EvaluationResult): DistributionFootprintPlan {
+export function planCustomerAccessResearch(order: PaidTestOrder, verdict: EvaluationResult, reviewLanguage: string[] = []): DistributionFootprintPlan {
   const seeds = order.intake.competitorSeeds || [];
   if (seeds.length < 2 || seeds.length > 3) throw new Error('Distribution Footprint requires two or three confirmed competitor seeds');
   const sourceIds: string[] = [];
   const queryBySourceId: Record<string, string> = {};
   const buyerDiscussionQuery = directBuyerDiscussionQuery(order, verdict);
+  const reviewLanguageQuery = [...new Set(reviewLanguage.map(value => text(value)).filter(Boolean))]
+    .slice(0, 6)
+    .join(' ')
+    .slice(0, 180);
+  const accessLanguage = [buyerDiscussionQuery, reviewLanguageQuery].filter(Boolean).join(' ').slice(0, 220);
   for (const seed of seeds) {
     for (const provider of ['dataforseo', 'podcast', 'youtube'] as const) {
       const taskId = `${provider}:${seed.seedId}`;
@@ -528,9 +534,9 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
   );
   queryBySourceId['podcast:category'] = buyerDiscussionQuery || topic;
   queryBySourceId['youtube:category'] = `${buyerDiscussionQuery || topic} review interview`.slice(0, 160);
-  queryBySourceId['customer_access:problem'] = `${buyerDiscussionQuery} forum discussion ${text(order.intake.geography, 'global')}`.slice(0, 180);
-  queryBySourceId['customer_access:buyer'] = `${buyerDiscussionQuery} community question ${text(order.intake.geography, 'global')}`.slice(0, 180);
-  queryBySourceId['youtube_access:problem'] = buyerDiscussionQuery;
+  queryBySourceId['customer_access:problem'] = `${accessLanguage} forum discussion ${text(order.intake.geography, 'global')}`.slice(0, 220);
+  queryBySourceId['customer_access:buyer'] = `${accessLanguage} community question ${text(order.intake.geography, 'global')}`.slice(0, 220);
+  queryBySourceId['youtube_access:problem'] = accessLanguage;
   queryBySourceId['youtube_access:buyer'] = claimTokens(order.intake.targetBuyer).slice(0, 6).join(' ');
   const researchSignals = order.intake.researchSignals;
   for (const type of ['audience', 'ecosystem'] as const) {
@@ -545,7 +551,7 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
   return {
     planVersion: 'distribution-footprint-plan-v1',
     createdAt: new Date().toISOString(),
-    packs: ['customer_access', 'market_evidence', 'media_distribution', 'partnerships'],
+    packs: ['competitor_review_intelligence', 'customer_access', 'market_evidence', 'media_distribution', 'partnerships'],
     sourceIds,
     queryBySourceId,
     seedDomains: seeds.map(seed => seed.domain),
@@ -1323,7 +1329,8 @@ export async function finalizeCustomerAccessResearch(
   order: PaidTestOrder,
   verdict: EvaluationResult,
   plan: DistributionFootprintPlan,
-  batches: ResearchBatchResult[]
+  batches: ResearchBatchResult[],
+  competitorReviewIntelligence?: CompetitorReviewIntelligence
 ): Promise<CustomerAccessResearchResult> {
   const requestedAt = plan.createdAt;
   const attempts = batches.flatMap(batch => batch.attempts);
@@ -1375,7 +1382,7 @@ export async function finalizeCustomerAccessResearch(
   }
   const researchDate = new Date().toISOString().slice(0, 10);
   const channels: CustomerAccessChannel[] = [];
-  const sources: BlueprintSource[] = [];
+  const sources: BlueprintSource[] = [...(competitorReviewIntelligence?.sources || [])];
   const seen = new Set<string>();
   for (const selected of selection.channels || []) {
     const idValue = text(selected.candidateId);
@@ -1459,7 +1466,8 @@ export async function finalizeCustomerAccessResearch(
       researchDate,
       sources,
       channels,
-      publicExpertsAndPartners
+      publicExpertsAndPartners,
+      competitorReviewIntelligence
     },
     receipt: {
       provider: 'distribution_footprint',
@@ -1484,8 +1492,8 @@ export async function finalizeCustomerAccessResearch(
   };
 }
 
-export async function researchCustomerAccess(env: Env, order: PaidTestOrder, verdict: EvaluationResult): Promise<CustomerAccessResearchResult> {
-  const plan = planCustomerAccessResearch(order, verdict);
+export async function researchCustomerAccess(env: Env, order: PaidTestOrder, verdict: EvaluationResult, competitorReviewIntelligence?: CompetitorReviewIntelligence): Promise<CustomerAccessResearchResult> {
+  const plan = planCustomerAccessResearch(order, verdict, competitorReviewIntelligence?.customerLanguagePhrases || []);
   const batch = await runResearchBatch(env, order, plan, plan.sourceIds);
-  return finalizeCustomerAccessResearch(env, order, verdict, plan, [batch]);
+  return finalizeCustomerAccessResearch(env, order, verdict, plan, [batch], competitorReviewIntelligence);
 }
