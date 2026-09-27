@@ -1,13 +1,22 @@
 {
   "schemaVersion": "ghosttown-sprint-roadmap-autopilot-state-v1",
   "roadmapId": "ghosttown-30-day-sprint-generation-v1",
-  "status": "BLOCKED_INTERNAL",
+  "status": "WAITING_EXTERNAL_INPUT",
   "currentStep": 7,
   "workingBranch": "acceptance/fresh-sprint-e2e",
   "lastGoodSha": "f9e86e5ded07f143ef76e60292941cda76a4db74",
   "startedAt": "2026-09-27T18:33:53.879Z",
-  "updatedAt": "2026-09-27T19:26:30.372Z",
-  "externalInput": null,
+  "updatedAt": "2026-09-27T19:30:07.801Z",
+  "externalInput": {
+    "stepId": 7,
+    "step": "independent-web-discovery",
+    "requirements": [
+      "provider_account_enablement:Brave_Search_API_if_missing",
+      "secret_installation:BRAVE_SEARCH_API_KEY_if_missing"
+    ],
+    "requestedAt": "2026-09-27T19:30:07.798Z",
+    "instruction": "Complete only the named external account/credential/approval action, never paste secret values into logs or chat, then rerun with --resume-external."
+  },
   "steps": {
     "0": {
       "status": "PASS",
@@ -73,13 +82,13 @@
       "message": "Completion gate passed"
     },
     "7": {
-      "status": "BLOCKED_INTERNAL",
-      "attempts": 1,
+      "status": "WAITING_EXTERNAL_INPUT",
+      "attempts": 2,
       "startedAt": "2026-09-27T19:26:30.344Z",
       "completedAt": null,
       "lastSha": null,
-      "receipt": "github-acceptance/sprint-autopilot/step-07-attempt-1.json",
-      "message": "Handler failed with exit code 1"
+      "receipt": "github-acceptance/sprint-autopilot/step-07-attempt-2.json",
+      "message": "Handler requires an external input"
     },
     "8": {
       "status": "PENDING",
