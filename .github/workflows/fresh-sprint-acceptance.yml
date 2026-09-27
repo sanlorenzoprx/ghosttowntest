@@ -58,6 +58,7 @@ jobs:
           tests/generativeAIService.test.ts
           tests/customerAccessResearch.test.ts
           tests/customerAccessUncertaintyRouting.test.ts
+          tests/competitorReviewIntelligence.test.ts
           --no-file-parallelism
 
       - name: Checkpoint focused regression — 7 files / 76 tests
