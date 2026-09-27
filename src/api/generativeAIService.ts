@@ -284,6 +284,37 @@ export function responseSchemaForVertexRequest(
   task: GenerativeAITask,
   schema: GenerativeAIResponseSchema
 ): GenerativeAIResponseSchema {
+  if (task === 'candidate_selection' && schema.type === 'OBJECT' && schema.properties) {
+    const channels = schema.properties.channels;
+    const item = channels?.items;
+    if (channels?.type === 'ARRAY' && item?.type === 'OBJECT' && item.properties) {
+      const relaxedProperties = Object.fromEntries(
+        Object.entries(item.properties).map(([key, value]) => {
+          if (key === 'targetType' || key === 'outreachScriptId') {
+            const { enum: _enum, ...rest } = value;
+            return [key, rest];
+          }
+          return [key, value];
+        })
+      ) as Record<string, GenerativeAIResponseSchema>;
+      const { minItems: _minItems, maxItems: _maxItems, ...relaxedChannels } = channels;
+      return {
+        ...schema,
+        properties: {
+          ...schema.properties,
+          channels: {
+            ...relaxedChannels,
+            items: {
+              ...item,
+              properties: relaxedProperties
+            }
+          }
+        }
+      };
+    }
+    return schema;
+  }
+
   if (task !== 'blueprint' || schema.type !== 'OBJECT' || !schema.properties) return schema;
   const dailyActions = schema.properties.dailyActions;
   if (!dailyActions || dailyActions.type !== 'ARRAY' || dailyActions.minItems !== 30 || dailyActions.maxItems !== 30) {
