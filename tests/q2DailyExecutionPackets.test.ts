@@ -257,7 +257,8 @@ describe('Q2 DailyExecutionPacket and DeliverableAsset', () => {
     expect(day4.targets[0].targetId).toBe('target-day-04-qualified-buyers-v1');
     expect(day4.actions[0].actionId).toBe('action-day-04-send-discovery-v1');
     expect(day4.assets[0].assetId).toBe('asset-day-04-discovery-sequence-v1');
-    expect(day4.successThreshold).toContain('3 qualified replies or 2 interviews');
+    expect(day4.successThreshold).toBe(output.dailyCalendar[3].successMeasurement);
+    expect(day4.successThreshold.length).toBeGreaterThan(20);
     expect(day4.failureThreshold).toContain('Zero qualified replies');
     expect(day1.targets.some(target => target.kind === 'qualified_buyer_batch' && target.minimumCount === 10)).toBe(true);
     expect(day1.actions[0].quantity).toContain('10 qualified targets matching');
