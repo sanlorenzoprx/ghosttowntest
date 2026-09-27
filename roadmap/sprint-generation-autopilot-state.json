@@ -1,13 +1,19 @@
 {
   "schemaVersion": "ghosttown-sprint-roadmap-autopilot-state-v1",
   "roadmapId": "ghosttown-30-day-sprint-generation-v1",
-  "status": "BLOCKED_INTERNAL",
+  "status": "WAITING_EXTERNAL_INPUT",
   "currentStep": 5,
   "workingBranch": "acceptance/fresh-sprint-e2e",
   "lastGoodSha": "efa398ebd2ad40f621ba31dcb99afe2f0dfa7e4a",
   "startedAt": "2026-09-27T18:33:53.879Z",
-  "updatedAt": "2026-09-27T18:52:13.749Z",
-  "externalInput": null,
+  "updatedAt": "2026-09-27T19:20:04.411Z",
+  "externalInput": {
+    "stepId": 5,
+    "step": "typed-research-outcomes",
+    "requirements": [],
+    "requestedAt": "2026-09-27T19:20:04.407Z",
+    "instruction": "Complete only the named external account/credential/approval action, never paste secret values into logs or chat, then rerun with --resume-external."
+  },
   "steps": {
     "0": {
       "status": "PASS",
@@ -55,13 +61,13 @@
       "message": "Completion gate passed"
     },
     "5": {
-      "status": "BLOCKED_INTERNAL",
-      "attempts": 1,
+      "status": "WAITING_EXTERNAL_INPUT",
+      "attempts": 2,
       "startedAt": "2026-09-27T18:52:13.717Z",
       "completedAt": null,
       "lastSha": null,
-      "receipt": "github-acceptance/sprint-autopilot/step-05-attempt-1.json",
-      "message": "Handler failed with exit code 1"
+      "receipt": "github-acceptance/sprint-autopilot/step-05-attempt-2.json",
+      "message": "Verification requires an external input"
     },
     "6": {
       "status": "PENDING",
