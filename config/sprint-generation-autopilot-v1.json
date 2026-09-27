@@ -40,7 +40,7 @@
     "continueAfterPass": true,
     "stopOnInternalBlock": true,
     "stopOnExternalInput": true,
-    "maxStepAttempts": 5,
+    "maxStepAttempts": 12,
     "commitAfterProgress": true,
     "realProviderTestsOnPush": false
   },
