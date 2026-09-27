@@ -293,8 +293,19 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
       .map(observation => observation.sourceUrl.trim().toLowerCase().replace(/\/$/, ''))
       .filter(Boolean)
   );
+  const reviewUrlBySourceId = new Map(
+    (blueprint.competitorReviewIntelligence?.observations || [])
+      .map(observation => [observation.sourceId, observation.sourceUrl.trim().toLowerCase().replace(/\/$/, '')] as const)
+      .filter(([, url]) => Boolean(url))
+  );
+  const competitivePatternKinds = new Set(['strength', 'weakness', 'switching_signal', 'pricing_signal', 'support_signal', 'requested_improvement']);
+  const competitiveReviewUrls = (blueprint.competitorReviewIntelligence?.patterns || [])
+    .filter(pattern => competitivePatternKinds.has(pattern.kind))
+    .flatMap(pattern => pattern.sourceIds)
+    .map(sourceId => reviewUrlBySourceId.get(sourceId) || '')
+    .filter(Boolean);
   const competitiveAlternativeUrls = new Set([
-    ...reviewObservationUrls,
+    ...competitiveReviewUrls,
     ...channels
       .filter(channel => channel.competitorEvidence?.some(value => value.trim()))
       .map(channel => channel.publicUrl.trim().toLowerCase().replace(/\/$/, ''))
