@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "ghosttown-sprint-roadmap-autopilot-state-v1",
+  "roadmapId": "ghosttown-30-day-sprint-generation-v1",
+  "status": "RUNNING",
+  "currentStep": 0,
+  "workingBranch": "acceptance/fresh-sprint-e2e",
+  "lastGoodSha": null,
+  "startedAt": null,
+  "updatedAt": null,
+  "externalInput": null,
+  "steps": {
+    "0": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "1": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "2": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "3": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "4": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "5": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "6": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "7": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "8": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "9": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "10": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "11": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "12": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "13": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "14": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "15": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    },
+    "16": {
+      "status": "PENDING",
+      "attempts": 0,
+      "startedAt": null,
+      "completedAt": null,
+      "lastSha": null,
+      "receipt": null,
+      "message": null
+    }
+  }
+}
