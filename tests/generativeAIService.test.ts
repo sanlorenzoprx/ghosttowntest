@@ -267,7 +267,7 @@ describe('GenerativeAIService', () => {
       googleSearch: true
     }).catch(value => value);
     expect(error).toBeInstanceOf(ProviderRequestError);
-    expect((error as ProviderRequestError).outcome).toBe('RATE_LIMITED');
+    expect((error as ProviderRequestError).outcome).toBe('QUOTA_EXHAUSTED');
     expect((error as ProviderRequestError).retryAfterSeconds).toBe(9);
   });
 
