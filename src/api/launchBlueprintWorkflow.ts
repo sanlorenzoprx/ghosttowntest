@@ -17,6 +17,7 @@ import {
   runResearchBatch,
   type ResearchBatchResult
 } from './customerAccessResearch';
+import { researchCompetitorReviews } from './competitorReviewIntelligence';
 import { createGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
 import {
   applyVertexPipelineDraft,
@@ -102,11 +103,21 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         loadLaunchBlueprintWorkflowContext(this.env, orderId)
       );
 
-      const plan = await step.do('plan competitor media distribution footprint', async () =>
-        planCustomerAccessResearch(context.order, context.verdict)
+      const researchEnv = researchEnvForPaidBlueprint(this.env, context.order);
+
+      const competitorReviewIntelligence = await step.do(
+        'research product-specific competitor reviews',
+        { retries: { limit: 2, delay: '15 seconds', backoff: 'linear' } },
+        async () => researchCompetitorReviews(researchEnv, context.order, context.verdict)
       );
 
-      const researchEnv = researchEnvForPaidBlueprint(this.env, context.order);
+      const plan = await step.do('plan competitor media distribution footprint', async () =>
+        planCustomerAccessResearch(
+          context.order,
+          context.verdict,
+          competitorReviewIntelligence.customerLanguagePhrases
+        )
+      );
       const completedBatches: ResearchBatchResult[] = [];
       const size = batchSize(this.env.DISTRIBUTION_FOOTPRINT_BATCH_SIZE);
       for (let index = 0; index < plan.sourceIds.length; index += size) {
@@ -124,7 +135,7 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         result = await step.do(
           'verify and structure media distribution network',
           { retries: { limit: 2, delay: '15 seconds', backoff: 'linear' } },
-          async () => finalizeCustomerAccessResearch(researchEnv, context.order, context.verdict, plan, completedBatches)
+          async () => finalizeCustomerAccessResearch(researchEnv, context.order, context.verdict, plan, completedBatches, competitorReviewIntelligence)
         );
       } catch (error) {
         if (!isCustomerAccessResearchUncertainty(error)) throw error;
