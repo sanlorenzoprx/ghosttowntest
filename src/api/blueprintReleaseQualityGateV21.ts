@@ -293,12 +293,13 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
       .map(observation => observation.sourceUrl.trim().toLowerCase().replace(/\/$/, ''))
       .filter(Boolean)
   );
-  const competitiveAlternativeUrls = new Set(
-    channels
+  const competitiveAlternativeUrls = new Set([
+    ...reviewObservationUrls,
+    ...channels
       .filter(channel => channel.competitorEvidence?.some(value => value.trim()))
       .map(channel => channel.publicUrl.trim().toLowerCase().replace(/\/$/, ''))
       .filter(Boolean)
-  );
+  ]);
   const evidenceRolesCovered = [
     customerAccess.length >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.currentCustomerAccess,
     reviewObservationUrls.size >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations,
