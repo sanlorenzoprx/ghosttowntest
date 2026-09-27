@@ -32,6 +32,11 @@ export interface CompetitorSeedSuggestion {
   verified: boolean;
 }
 
+export interface StrategicUncertaintyResolution {
+  answeredAt: string;
+  answers: Record<string, string>;
+}
+
 export type StrategicUncertaintyLink =
   | 'customer'
   | 'problem'
