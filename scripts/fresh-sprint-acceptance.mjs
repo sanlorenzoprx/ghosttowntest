@@ -283,7 +283,8 @@ try {
     workflowStatus: finalStatus.workflowStatus,
     finalOrderStatus: finalStatus.order.status,
     audit,
-    sep26EvaluationClosed: audit.passed === true
+    freshAcceptancePassed: audit.passed === true,
+    sep26EvaluationClosed: audit.passed === true && audit.outcome === 'ready'
   };
   jsonFile('final-acceptance-receipt.json', receipt);
   console.log(JSON.stringify(receipt, null, 2));
