@@ -45,23 +45,23 @@ async function start(env) {
     resultId: verdictId,
     generatedAt: now,
     idea: {
-      ideaName: 'Family Game Match Concierge',
-      description: 'A manual concierge that recommends one family board game matched to children ages, family size, and play-time preferences before the parent buys it.',
-      targetUser: 'Parents of children ages 6 to 14 who buy family board games',
-      painfulProblem: 'Parents spend money on board games that their children do not enjoy or that do not fit the family.',
-      currentAlternative: 'Retailer reviews, BoardGameGeek, friends, libraries, and trial and error.',
-      motivation: 'Reduce wasted purchases and make family game night easier.'
+      ideaName: 'WooCommerce Checkout Friction Audit',
+      description: 'A manual checkout-friction audit for small WooCommerce store owners, focused on identifying confusing checkout steps before they buy more software or traffic.',
+      targetUser: 'Small WooCommerce store owners who personally manage their online store and checkout',
+      painfulProblem: 'Small WooCommerce store owners lose potential orders when checkout steps, shipping choices, or payment setup confuse buyers.',
+      currentAlternative: 'WooCommerce documentation, WordPress support forums, hosting support, plugins, and trial-and-error configuration changes.',
+      motivation: 'Find checkout friction before spending more on plugins, redesigns, or paid traffic.'
     },
     deterministicScores: {
       ghostTownScore: 3, ghostTownRisk: 'medium', leverageScore: 3, insightScore: 3, timingScore: 3,
       litScore: 3, litBand: 'unclear', highWallsScore: 2, highWallsBand: 'weak',
-      businessDnaType: 'service', businessDnaTrap: 'Recommendation quality may not create enough willingness to pay',
-      businessDnaWinStrategy: 'Sell a small manual recommendation pilot before building software',
-      finalVerdict: 'test_first', verdictHeadline: 'Test willingness to pay for better game matching',
-      verdictExplanation: 'The problem is understandable, but payment and repeat demand are not yet proven.',
-      recommendedNextTest: 'Ask qualified parents to pay for a manual game-match recommendation.',
-      doNotBuildUntil: 'At least a few qualified parents pay or make another meaningful commitment.',
-      oneSentenceAdvice: 'Sell the recommendation outcome before building a recommendation app.'
+      businessDnaType: 'service', businessDnaTrap: 'Store owners may not pay for an audit before they see evidence that checkout friction is costing orders',
+      businessDnaWinStrategy: 'Sell a small manual checkout audit before building software',
+      finalVerdict: 'test_first', verdictHeadline: 'Test willingness to pay for a focused checkout-friction audit',
+      verdictExplanation: 'The checkout problem is understandable, but willingness to pay for a focused audit is not yet proven.',
+      recommendedNextTest: 'Ask qualified WooCommerce store owners to pay for a manual checkout-friction audit.',
+      doNotBuildUntil: 'At least a few qualified store owners pay or make another meaningful commitment.',
+      oneSentenceAdvice: 'Sell the audit outcome before building checkout software.'
     },
     usedAI: false, cacheHit: false, answers: {}
   };
@@ -80,17 +80,17 @@ async function start(env) {
     updatedAt: now,
     intake: {
       verdictId,
-      targetBuyer: 'Parents of children ages 6 to 14 who personally buy family board games',
+      targetBuyer: 'Small WooCommerce store owners who personally manage checkout and can approve a small business purchase',
       geography: 'United States',
-      problem: 'Parents spend money on board games that their children do not enjoy or that do not fit the family.',
-      currentWorkaround: 'Retailer reviews, BoardGameGeek, friends, libraries, and trial and error.',
-      offerHypothesis: 'A $29 manual Family Game Match: a short preference intake plus one matched game recommendation with two backup options.',
-      expectedPrice: '$29',
+      problem: 'Small WooCommerce store owners lose potential orders when checkout steps, shipping choices, or payment setup confuse buyers.',
+      currentWorkaround: 'WooCommerce documentation, WordPress support forums, hosting support, plugins, and trial-and-error configuration changes.',
+      offerHypothesis: 'A $49 manual Checkout Friction Audit: review the store's checkout flow and deliver a prioritized list of the top three friction points with screenshots and fixes to test.',
+      expectedPrice: '$49',
       currentStage: 'New idea with no paid customers yet',
-      customerNotes: 'The parent is both the user-side decision maker and payer. The first test is advice only: no childcare, medical, financial, or safety-critical service.',
+      customerNotes: 'The store owner is both the user-side decision maker and payer. The first test is an advisory audit only: no payment processing, credential handling, financial advice, or changes to the live store.',
       competitorSeeds: [
-        { seedId: 'seed_kiwico_' + stamp, name: 'KiwiCo', website: 'https://www.kiwico.com', domain: 'kiwico.com', relationship: 'adjacent_product', origin: 'customer_confirmed', reason: 'Parents buy curated family activities.', verifiedAt: now },
-        { seedId: 'seed_bgg_' + stamp, name: 'BoardGameGeek', website: 'https://boardgamegeek.com', domain: 'boardgamegeek.com', relationship: 'current_alternative', origin: 'customer_confirmed', reason: 'Parents use game reviews and recommendations today.', verifiedAt: now }
+        { seedId: 'seed_kiwico_' + stamp, name: 'WooCommerce', website: 'https://woocommerce.com', domain: 'woocommerce.com', relationship: 'adjacent_product', origin: 'customer_confirmed', reason: 'Store owners already use WooCommerce as the checkout platform being evaluated.', verifiedAt: now },
+        { seedId: 'seed_bgg_' + stamp, name: 'CartFlows', website: 'https://cartflows.com', domain: 'cartflows.com', relationship: 'current_alternative', origin: 'customer_confirmed', reason: 'Store owners use checkout optimization plugins and funnels as a current alternative.', verifiedAt: now }
       ]
     }
   };
