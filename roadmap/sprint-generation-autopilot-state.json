@@ -2,11 +2,11 @@
   "schemaVersion": "ghosttown-sprint-roadmap-autopilot-state-v1",
   "roadmapId": "ghosttown-30-day-sprint-generation-v1",
   "status": "BLOCKED_INTERNAL",
-  "currentStep": 5,
+  "currentStep": 6,
   "workingBranch": "acceptance/fresh-sprint-e2e",
-  "lastGoodSha": "efa398ebd2ad40f621ba31dcb99afe2f0dfa7e4a",
+  "lastGoodSha": "f3d563875346cc7010085a82e09fbb2df4c4aed2",
   "startedAt": "2026-09-27T18:33:53.879Z",
-  "updatedAt": "2026-09-27T19:20:49.621Z",
+  "updatedAt": "2026-09-27T19:21:32.512Z",
   "externalInput": null,
   "steps": {
     "0": {
@@ -55,22 +55,22 @@
       "message": "Completion gate passed"
     },
     "5": {
-      "status": "BLOCKED_INTERNAL",
-      "attempts": 2,
+      "status": "PASS",
+      "attempts": 3,
       "startedAt": "2026-09-27T18:52:13.717Z",
-      "completedAt": null,
-      "lastSha": null,
-      "receipt": "github-acceptance/sprint-autopilot/step-05-attempt-2.json",
-      "message": "TypeScript verification failed; internal repair applied. Ready to rerun."
+      "completedAt": "2026-09-27T19:21:32.475Z",
+      "lastSha": "f3d563875346cc7010085a82e09fbb2df4c4aed2",
+      "receipt": "github-acceptance/sprint-autopilot/step-05-attempt-3.json",
+      "message": "Completion gate passed"
     },
     "6": {
-      "status": "PENDING",
-      "attempts": 0,
-      "startedAt": null,
+      "status": "BLOCKED_INTERNAL",
+      "attempts": 1,
+      "startedAt": "2026-09-27T19:21:32.476Z",
       "completedAt": null,
       "lastSha": null,
-      "receipt": null,
-      "message": null
+      "receipt": "github-acceptance/sprint-autopilot/step-06-attempt-1.json",
+      "message": "Handler failed with exit code 1"
     },
     "7": {
       "status": "PENDING",
