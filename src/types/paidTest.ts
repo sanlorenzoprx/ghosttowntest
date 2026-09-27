@@ -32,6 +32,34 @@ export interface CompetitorSeedSuggestion {
   verified: boolean;
 }
 
+export interface StrategicUncertaintyResolution {
+  answeredAt: string;
+  answers: Record<string, string>;
+}
+
+export interface StrategicUncertaintySprint {
+  version: '1.0';
+  status: 'open' | 'answered';
+  createdAt: string;
+  answeredAt?: string;
+  durationDays: 2 | 3;
+  objective: string;
+  chainSummary: string;
+  blockers: Array<{
+    code: string;
+    link: string;
+    question: string;
+    requiredEvidence: string;
+  }>;
+  days: Array<{
+    day: 1 | 2 | 3;
+    title: string;
+    actions: string[];
+    completion: string;
+  }>;
+  unlockRule: string;
+}
+
 export interface PaidTestIntake {
   verdictId: string;
   targetBuyer: string;
@@ -46,6 +74,7 @@ export interface PaidTestIntake {
   landingPageLink?: string;
   customerNotes?: string;
   researchSignals?: PrePurchaseResearchSignals;
+  uncertaintyResolution?: StrategicUncertaintyResolution;
   /** Transport-only checkout lineage; the Worker moves this onto PaidTestOrder. */
   attribution?: CommercialAttributionEnvelope;
 }
@@ -94,6 +123,7 @@ export interface PaidTestOrder {
   fulfillmentError?: string;
   fulfillmentWorkflowId?: string;
   fulfillmentAttemptCount?: number;
+  uncertaintySprint?: StrategicUncertaintySprint;
 }
 
 export interface ReportClaim {
