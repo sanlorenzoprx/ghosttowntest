@@ -248,12 +248,12 @@ function mockProviders() {
     if (url.includes('api.dataforseo.com')) return new Response(JSON.stringify(dataForSeoResponse('seed')), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (url.includes('api.podcastindex.org')) return new Response(JSON.stringify(podcastResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (url.includes('youtube/v3/commentThreads')) return new Response(JSON.stringify(youtubeCommentsResponse()), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    if (url.includes('www.youtube.com/oembed')) return new Response(JSON.stringify({ title: 'Family games review video', author_name: 'Family Games Creator' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (url.includes('www.youtube.com/oembed')) return new Response(JSON.stringify({ title: 'KiwiCo BoardGameGeek board game subscription families children ages review video', author_name: 'Family Games Creator' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (url.includes('www.googleapis.com/youtube')) return new Response(JSON.stringify(youtubeResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (url.includes('family-buyer-community')) {
       return new Response('<html><head><title>Family buyer discussion community</title><meta property="article:published_time" content="2026-09-25T12:00:00.000Z"><meta name="description" content="Parents and families with children discuss buying games, what children enjoy, and family game choices."></head><body>Members can reply, comment, ask a question, and start a new topic about family games and buying choices.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
     }
-    return new Response('<html><head><title>Family Games Media</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="Active media source covering family games, reviews, events, and activities."></head><body>Public source</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+    return new Response('<html><head><title>KiwiCo BoardGameGeek Family Games Podcast Media</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="Active source covering KiwiCo, BoardGameGeek, board games, podcasts, reviews, events, and family activities."></head><body>Current public source about KiwiCo, BoardGameGeek, family board games, podcasts, reviews, and events.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
   });
 }
 
@@ -346,7 +346,7 @@ describe('customer access distribution footprint provider', () => {
     expect(plan.queryBySourceId['customer_access:buyer']).toContain('families');
     expect(plan.queryBySourceId['customer_access:buyer']).toContain('community question');
     expect(plan.queryBySourceId['youtube_access:problem']).toContain('families');
-    expect(plan.queryBySourceId['youtube_access:problem']).toContain('games');
+    expect(plan.queryBySourceId['youtube_access:problem']).toContain('game');
     expect(plan.queryBySourceId['youtube_access:buyer']).toContain('families');
     expect(plan.queryBySourceId['youtube_access:buyer']).toContain('children');
   });
