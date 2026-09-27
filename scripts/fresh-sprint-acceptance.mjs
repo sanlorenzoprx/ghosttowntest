@@ -11,6 +11,7 @@ const WORKER_URL = 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.
 const START_PATH = '/__acceptance/fresh-sprint/start';
 const STATUS_PATH = '/__acceptance/fresh-sprint/status';
 const TOKEN = crypto.randomUUID() + crypto.randomUUID();
+const VERIFIER_MARKER = `fresh-sprint-verifier-${crypto.randomUUID()}`;
 const RESTORE_WORKTREE = join(ROOT, 'github-acceptance', 'main-restore-worktree');
 
 function git(args) {
@@ -51,6 +52,7 @@ import { GHOSTTOWN_30_DAY_PLAN_V1 } from '../../src/lib/ghosttownOffer.ts';
 export { LaunchBlueprintWorkflow } from '../../src/api/launchBlueprintWorkflow.ts';
 
 const TOKEN = ${JSON.stringify(TOKEN)};
+const VERIFIER_MARKER = ${JSON.stringify(VERIFIER_MARKER)};
 const ok = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
 const auth = request => request.headers.get('x-acceptance-token') === TOKEN;
 
@@ -152,6 +154,7 @@ export default {
     if (u.pathname === '${START_PATH}' || u.pathname === '${STATUS_PATH}') {
       if (env.DEPLOYMENT_ENV !== 'acceptance') return new Response('Not found', { status: 404 });
       if (!auth(request)) return new Response('Unauthorized', { status: 401 });
+      if (u.pathname === '${START_PATH}' && request.method === 'GET') return ok({ ok: true, verifierMarker: VERIFIER_MARKER });
       if (u.pathname === '${START_PATH}' && request.method === 'POST') return start(env);
       if (u.pathname === '${STATUS_PATH}' && request.method === 'GET') return status(env, u.searchParams.get('order_id') || '');
       return new Response('Method not allowed', { status: 405 });
@@ -304,9 +307,12 @@ try {
         method: 'GET',
         headers: { 'x-acceptance-token': TOKEN, 'cache-control': 'no-cache' }
       });
-      if (probe.status === 405) {
-        verifierReady = true;
-        break;
+      if (probe.ok) {
+        const readiness = await probe.json().catch(() => null);
+        if (readiness?.ok === true && readiness?.verifierMarker === VERIFIER_MARKER) {
+          verifierReady = true;
+          break;
+        }
       }
     } catch {}
     await sleep(3000);
