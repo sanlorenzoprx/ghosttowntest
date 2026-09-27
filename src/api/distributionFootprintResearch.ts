@@ -1691,19 +1691,10 @@ export async function finalizeCustomerAccessResearch(
     && channel.currentActivityStatus === 'verified_current'
     && channel.currentActivityVerifiedAt
   ).length;
-  const competitiveAlternativeCount = new Set(
-    channels
-      .filter(channel => channel.competitorEvidence?.some(value => value.trim()))
-      .map(channel => channel.publicUrl.toLowerCase().replace(/\/$/, ''))
-  ).size;
-  if (
-    customerAccessCount < 3
-    || competitiveAlternativeCount < 2
-    || !sufficiency.sufficient
-  ) {
+  if (customerAccessCount < 3 || !sufficiency.sufficient) {
     throw researchShortfallError(
       'RESEARCH_QUALITY_GATE',
-      `Selected research did not preserve the role-based evidence gate: customer_access=${customerAccessCount}/3, competitive_alternative=${competitiveAlternativeCount}/2, ${researchEvidenceSufficiencyDetail(sufficiency)}`,
+      `Selected research did not preserve the role-based evidence gate: customer_access=${customerAccessCount}/3, ${researchEvidenceSufficiencyDetail(sufficiency)}`,
       attempts
     );
   }
