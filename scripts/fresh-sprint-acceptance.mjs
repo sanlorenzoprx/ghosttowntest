@@ -242,8 +242,20 @@ function auditReady(status) {
   assert((review.patterns || []).every(p => Array.isArray(p.sourceIds) && p.sourceIds.length >= 2 && p.sourceIds.every(id => observedSourceIds.has(id))), 'Review patterns must cite at least two verified observations');
   assert((review.productImplications || []).every(i => Array.isArray(i.sourceIds) && i.sourceIds.length && i.sourceIds.every(id => observedSourceIds.has(id))), 'Review product hypotheses must cite verified observations');
 
+  const observedUrlBySourceId = new Map(
+    review.observations.map(observation => [
+      observation.sourceId,
+      String(observation.sourceUrl || '').toLowerCase().replace(/\/$/, '')
+    ])
+  );
+  const competitivePatternKinds = new Set(['strength', 'weakness', 'switching_signal', 'pricing_signal', 'support_signal', 'requested_improvement']);
+  const competitiveReviewUrls = (review.patterns || [])
+    .filter(pattern => competitivePatternKinds.has(pattern.kind))
+    .flatMap(pattern => pattern.sourceIds || [])
+    .map(sourceId => observedUrlBySourceId.get(sourceId) || '')
+    .filter(Boolean);
   const competitiveAlternativeUrls = new Set([
-    ...observedReviewUrls,
+    ...competitiveReviewUrls,
     ...channels
       .filter(channel => channel.competitorEvidence?.some(value => String(value || '').trim()))
       .map(channel => String(channel.publicUrl || '').toLowerCase().replace(/\/$/, ''))
