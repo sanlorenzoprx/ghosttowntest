@@ -209,11 +209,15 @@ try {
   const deadline = Date.now() + 20 * 60 * 1000;
   while (Date.now() < deadline) {
     await sleep(10000);
-    const r = await fetch(WORKER_URL + STATUS_PATH + '?order_id=' + encodeURIComponent(start.orderId), { headers: { 'x-acceptance-token': TOKEN } });
-    const s = await r.json();
-    if (!r.ok) throw new Error('Status failed: ' + JSON.stringify(s));
-    jsonFile('latest-status.json', s);
-    if (['ready', 'uncertainty', 'failed'].includes(s.order?.status)) { finalStatus = s; break; }
+    // Poll durable acceptance state directly instead of depending on a temporary
+    // HTTP verifier version staying at the edge while the Workflow is running.
+    const orderRaw = wrangler(['kv','key','get','paid_test_order_' + start.orderId,'--binding','KV','--remote','--env','acceptance','--text']).trim();
+    if (!orderRaw) continue;
+    const order = JSON.parse(orderRaw);
+    finalStatus = { ok: true, order, workflowStatus: order.fulfillmentWorkflowId ? 'recorded' : 'unknown' };
+    jsonFile('latest-status.json', finalStatus);
+    if (['ready', 'uncertainty', 'failed'].includes(order.status)) break;
+    finalStatus = null;
   }
   assert(finalStatus, 'Fresh Sprint timed out');
   assert(finalStatus.order.status !== 'failed', 'Fresh Sprint failed: ' + (finalStatus.order.fulfillmentError || 'unknown'));
@@ -222,7 +226,15 @@ try {
   if (finalStatus.order.status === 'uncertainty') {
     audit = auditUncertainty(finalStatus);
   } else {
-    assert(finalStatus.blueprintJson && finalStatus.researchReceiptJson, 'READY result missing persisted JSON');
+    const sql = `SELECT blueprint_json, research_receipt_json, pdf_r2_key FROM launch_blueprints WHERE order_id = '${start.orderId.replaceAll("'", "''")}' LIMIT 1;`;
+    const d1Raw = wrangler(['d1','execute','ghosttowntest-blueprints-acceptance','--remote','--env','acceptance','--command',sql,'--json']);
+    const d1 = JSON.parse(d1Raw);
+    const row = d1?.[0]?.results?.[0] || d1?.results?.[0] || null;
+    assert(row?.blueprint_json && row?.research_receipt_json, 'READY result missing persisted JSON');
+    finalStatus.blueprintJson = row.blueprint_json;
+    finalStatus.researchReceiptJson = row.research_receipt_json;
+    const pointerRaw = wrangler(['kv','key','get','paid_test_blueprint_pointer_' + start.orderId,'--binding','KV','--remote','--env','acceptance','--text']).trim();
+    finalStatus.pointer = pointerRaw ? JSON.parse(pointerRaw) : null;
     writeFileSync(join(OUT, 'blueprint.json'), finalStatus.blueprintJson);
     writeFileSync(join(OUT, 'research-receipt.json'), finalStatus.researchReceiptJson);
     const pointer = finalStatus.pointer || {};
