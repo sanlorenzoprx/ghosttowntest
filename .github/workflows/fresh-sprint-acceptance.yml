@@ -48,6 +48,8 @@ jobs:
           tests/currentProductPromise.test.ts
           tests/strategicUncertaintySprint.test.ts
           tests/customerAccessResearch.test.ts
+          tests/customerAccessUncertaintyRouting.test.ts
+          tests/generativeAIService.test.ts
           tests/blueprintReleaseQualityGateV21.test.ts
           --no-file-parallelism
 
