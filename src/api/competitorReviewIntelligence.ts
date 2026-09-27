@@ -9,7 +9,7 @@ import type {
   CompetitorReviewProductImplication
 } from '../types/launchBlueprint';
 import { generateAI, type GenerativeAIResponseSchema } from './generativeAIService';
-import { normalizedEvidenceDate, extractEvidenceDateFromHtml } from './evidenceRecency';
+import { evidenceRecencyFromDate, extractEvidenceDateFromHtml } from './evidenceRecency';
 
 const MAX_GROUNDED_SOURCES_PER_SEED = 10;
 const MAX_REVIEW_PAGES_PER_SEED = 6;
@@ -242,8 +242,9 @@ async function verifyReviewPage(seed: CompetitorSeed, candidate: { url: string; 
 
     const id = sourceId(seed, finalUrl);
     const accessedAt = new Date().toISOString();
-    const evidenceDate = normalizedEvidenceDate(extractEvidenceDateFromHtml(html, visible));
     const title = titleFromHtml(html, candidate.title);
+    const extractedDate = extractEvidenceDateFromHtml(html, finalUrl, title);
+    const evidenceDate = extractedDate.date;
 
     return {
       source: {
@@ -253,8 +254,8 @@ async function verifyReviewPage(seed: CompetitorSeed, candidate: { url: string; 
         publisher: new URL(finalUrl).hostname.replace(/^www\./, ''),
         accessedAt,
         evidenceDate,
-        evidenceDateSource: evidenceDate ? 'published_metadata' : 'unknown',
-        evidenceRecency: evidenceDate ? 'recent' : 'unknown',
+        evidenceDateSource: extractedDate.source,
+        evidenceRecency: evidenceRecencyFromDate(evidenceDate),
         supports: snippets.slice(0, 4)
       },
       observation: {
