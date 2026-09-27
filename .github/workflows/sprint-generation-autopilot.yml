@@ -8,6 +8,7 @@ on:
       - "config/sprint-generation-autopilot-v1.json"
       - "roadmap/sprint-generation-autopilot-state.json"
       - "scripts/sprint-generation-autopilot.mjs"
+      - "scripts/fresh-sprint-acceptance.mjs"
       - "scripts/sprint-autopilot/**"
       - "src/**"
       - "tests/**"
