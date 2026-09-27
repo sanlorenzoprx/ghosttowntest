@@ -1,0 +1,164 @@
+name: Sprint Roadmap Autopilot
+
+on:
+  push:
+    branches:
+      - acceptance/fresh-sprint-e2e
+    paths:
+      - "config/sprint-generation-autopilot-v1.json"
+      - "roadmap/sprint-generation-autopilot-state.json"
+      - "scripts/sprint-generation-autopilot.mjs"
+      - "scripts/sprint-autopilot/**"
+      - "src/**"
+      - "tests/**"
+      - "package.json"
+      - ".gitignore"
+      - ".github/workflows/fresh-sprint-acceptance.yml"
+      - ".github/workflows/sprint-generation-autopilot.yml"
+      - "docs/GHOSTTOWN_SPRINT_AUTOPILOT_IMPLEMENTATION.md"
+  workflow_dispatch:
+    inputs:
+      max_steps:
+        description: "Maximum roadmap steps to execute in this run"
+        required: true
+        default: "17"
+        type: choice
+        options:
+          - "1"
+          - "3"
+          - "5"
+          - "17"
+      resume_external:
+        description: "Acknowledge that the exact external input requested by the saved state has been completed"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: ghosttown-sprint-roadmap-autopilot
+  cancel-in-progress: false
+
+jobs:
+  autopilot:
+    name: sprint-roadmap-autopilot
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: acceptance
+    env:
+      CI: "true"
+      AUTOPILOT_BRANCH: acceptance/fresh-sprint-e2e
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Check out roadmap branch
+        uses: actions/checkout@v7
+        with:
+          ref: acceptance/fresh-sprint-e2e
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Execute Sprint roadmap autopilot
+        id: autopilot
+        shell: bash
+        env:
+          MAX_STEPS: ${{ github.event_name == 'workflow_dispatch' && inputs.max_steps || '17' }}
+          RESUME_EXTERNAL: ${{ github.event_name == 'workflow_dispatch' && inputs.resume_external || 'false' }}
+        run: |
+          set +e
+          EXTRA=()
+          if [ "$RESUME_EXTERNAL" = "true" ]; then
+            EXTRA+=(--resume-external)
+          fi
+          node scripts/sprint-generation-autopilot.mjs "--max-steps=$MAX_STEPS" "${EXTRA[@]}"
+          CODE=$?
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Show saved roadmap status
+        if: always()
+        run: npm run sprint:status
+
+      - name: Guard staged content against obvious live secrets
+        if: always()
+        shell: bash
+        run: |
+          git add \
+            roadmap/sprint-generation-autopilot-state.json \
+            src tests scripts config docs package.json .gitignore .github/workflows || true
+          DIFF_FILE="$(mktemp)"
+          git diff --cached --no-ext-diff > "$DIFF_FILE"
+          if grep -E 'sk_live_[A-Za-z0-9]{12,}|whsec_[A-Za-z0-9]{12,}|-----BEGIN (RSA |EC |)PRIVATE KEY-----' "$DIFF_FILE"; then
+            echo "::error::Potential live secret/private key detected in staged Sprint-autopilot changes."
+            exit 1
+          fi
+
+      - name: Persist roadmap progress
+        if: always()
+        shell: bash
+        run: |
+          if git diff --cached --quiet; then
+            echo "No tracked autopilot progress to commit."
+            exit 0
+          fi
+          git config user.name "GhostTown Sprint Autopilot"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "chore(sprint-autopilot): persist roadmap progress [skip ci]"
+          git push origin "HEAD:$AUTOPILOT_BRANCH"
+
+      - name: Upload Sprint autopilot receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-sprint-autopilot-${{ github.run_id }}
+          path: github-acceptance/sprint-autopilot
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Publish roadmap summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## GhostTown Sprint Roadmap Autopilot"
+            echo
+            echo "\`\`\`text"
+            npm run sprint:status || true
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce autopilot result
+        if: always()
+        shell: bash
+        env:
+          AUTOPILOT_EXIT_CODE: ${{ steps.autopilot.outputs.exit_code }}
+        run: |
+          case "$AUTOPILOT_EXIT_CODE" in
+            0) exit 0 ;;
+            2)
+              echo "::error::WAITING_EXTERNAL_INPUT — complete only the external action recorded in roadmap state, then dispatch with resume_external=true."
+              exit 2
+              ;;
+            3)
+              echo "::error::BLOCKED_INTERNAL — this is an implementation/test blocker, not a user action."
+              exit 3
+              ;;
+            *)
+              echo "::error::Unexpected Sprint autopilot exit code: $AUTOPILOT_EXIT_CODE"
+              exit 1
+              ;;
+          esac
