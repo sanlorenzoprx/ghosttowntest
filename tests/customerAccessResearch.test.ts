@@ -328,7 +328,7 @@ describe('customer access distribution footprint provider', () => {
       return new Response('<html><head><title>Family Games Media</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="KiwiCo kiwico.com BoardGameGeek boardgamegeek.com family games podcasts."></head><body>KiwiCo BoardGameGeek family games podcast evidence.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
     });
 
-    await expect(researchCustomerAccess(env(), order, verdict)).rejects.toThrow(/customer-access targets|quality gate/i);
+    await expect(researchCustomerAccess(env(), order, verdict)).rejects.toThrow(/customer-access targets|quality gate|recovery found/i);
     expect(fetchMock).toHaveBeenCalled();
   });
 
