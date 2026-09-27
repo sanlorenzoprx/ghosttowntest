@@ -66,7 +66,7 @@ describe('GhostTown Customer Journey Law', () => {
     expect(offer).toContain('Open GhostTown each day and see what to do next');
     expect(offer).toContain('Tell GhostTown what happened and get help deciding what to do next');
     expect(offer).toContain('The Sprint does not include a live website, domain, publishing, or payment setup.');
-    expect(law).toContain('Get My Test Live');
+    expect(law).toContain('Get Me Live — $297');
     expect(law).toContain('does **not** include a live website, domain, publishing, or payment setup');
   });
 

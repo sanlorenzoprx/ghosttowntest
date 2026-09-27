@@ -34,6 +34,18 @@ interface PaidOrderSummary {
   offerName?: string;
   sourceVerdictId?: string;
   planVersion?: string;
+  fulfillmentError?: string;
+  uncertaintySprint?: {
+    version: "1.0";
+    status: "open" | "answered";
+    durationDays: 2 | 3;
+    objective: string;
+    chainSummary: string;
+    blockers: Array<{ code: string; link: string; question: string; requiredEvidence: string }>;
+    days: Array<{ day: 1 | 2 | 3; title: string; actions: string[]; completion: string }>;
+    unlockRule: string;
+    answeredAt?: string;
+  };
 }
 
 interface GetMeLiveSummary {
@@ -68,6 +80,8 @@ export default function UserDashboard({
   const [openBlueprintOrderId, setOpenBlueprintOrderId] = useState("");
   const [seedOrderId, setSeedOrderId] = useState("");
   const [retryingOrderId, setRetryingOrderId] = useState("");
+  const [uncertaintyAnswers, setUncertaintyAnswers] = useState<Record<string, Record<string, string>>>({});
+  const [savingUncertaintyOrderId, setSavingUncertaintyOrderId] = useState("");
   const [getMeLiveOrders, setGetMeLiveOrders] = useState<GetMeLiveSummary[]>([]);
 
   const loadGetMeLive = () =>
@@ -215,6 +229,33 @@ export default function UserDashboard({
       );
     } finally {
       setRetryingOrderId("");
+    }
+  };
+
+  const saveUncertaintySprint = async (plan: PaidOrderSummary) => {
+    if (!plan.uncertaintySprint) return;
+    setSavingUncertaintyOrderId(plan.orderId);
+    setPlanError("");
+    try {
+      const answers = uncertaintyAnswers[plan.orderId] || {};
+      const response = await fetch(
+        apiUrl(`/api/paid-test/orders/${encodeURIComponent(plan.orderId)}/blueprint/uncertainty`),
+        {
+          method: "POST",
+          headers: { ...authHeaders(), "Content-Type": "application/json" },
+          body: JSON.stringify({ answers }),
+        },
+      );
+      const body = await response.json<{ error?: string; missingLinks?: string[] }>();
+      if (!response.ok) {
+        const missing = body.missingLinks?.length ? ` Missing: ${body.missingLinks.join(", ")}.` : "";
+        throw new Error((body.error || "Uncertainty Sprint answers could not be saved") + missing);
+      }
+      await loadPaidPlans();
+    } catch (caught) {
+      setPlanError(caught instanceof Error ? caught.message : "Uncertainty Sprint answers could not be saved");
+    } finally {
+      setSavingUncertaintyOrderId("");
     }
   };
 
@@ -441,6 +482,54 @@ export default function UserDashboard({
                           events, reviewers, associations, and partners.
                         </p>
                       )}
+                      {isBlueprint && plan.uncertaintySprint && (
+                        <div className="mt-4 max-w-3xl rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
+                          <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-900">
+                            {plan.uncertaintySprint.durationDays}-Day Uncertainty Sprint
+                          </p>
+                          <h4 className="mt-1 text-lg font-black text-gray-950">
+                            Answer these before GhostTown builds the 30-day plan
+                          </h4>
+                          <p className="mt-2 text-sm text-gray-700">{plan.uncertaintySprint.objective}</p>
+                          <p className="mt-2 text-sm font-semibold text-gray-800">{plan.uncertaintySprint.chainSummary}</p>
+                          {plan.uncertaintySprint.status === "open" ? (
+                            <div className="mt-4 space-y-4">
+                              {plan.uncertaintySprint.blockers.map((blocker) => (
+                                <label key={blocker.code} className="block">
+                                  <span className="block text-sm font-black text-gray-900">{blocker.question}</span>
+                                  <span className="mt-1 block text-xs text-gray-600">What GhostTown needs: {blocker.requiredEvidence}</span>
+                                  <textarea
+                                    value={uncertaintyAnswers[plan.orderId]?.[blocker.link] || ""}
+                                    onChange={(event) => setUncertaintyAnswers((current) => ({
+                                      ...current,
+                                      [plan.orderId]: {
+                                        ...(current[plan.orderId] || {}),
+                                        [blocker.link]: event.target.value,
+                                      },
+                                    }))}
+                                    rows={3}
+                                    className="mt-2 w-full rounded-lg border-2 border-gray-300 bg-white p-3 text-sm"
+                                    placeholder="Write what you observed, decided, or tested."
+                                  />
+                                </label>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => void saveUncertaintySprint(plan)}
+                                disabled={savingUncertaintyOrderId === plan.orderId}
+                                className="rounded-lg bg-amber-900 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                              >
+                                {savingUncertaintyOrderId === plan.orderId ? "Saving…" : "Save answers"}
+                              </button>
+                              <p className="text-xs font-semibold text-amber-950">{plan.uncertaintySprint.unlockRule}</p>
+                            </div>
+                          ) : (
+                            <p className="mt-3 text-sm font-bold text-green-800">
+                              Answers saved. Retry the Blueprint to run the Strategic Coherence Gate again.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {awaitingSeeds && isBlueprint && (
@@ -473,7 +562,7 @@ export default function UserDashboard({
                       {isBlueprint && (plan.status === "failed" || working) && (
                         <button
                           onClick={() => void retryBlueprint(plan.orderId)}
-                          disabled={Boolean(retryingOrderId)}
+                          disabled={Boolean(retryingOrderId) || plan.uncertaintySprint?.status === "open"}
                           className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-black text-white disabled:opacity-50"
                         >
                           {retryingOrderId === plan.orderId

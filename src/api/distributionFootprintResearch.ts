@@ -193,6 +193,7 @@ interface VerifiedPage {
   title: string;
   publisher: string;
   description: string;
+  searchText: string;
   evidenceDate?: string;
   evidenceDateSource: EvidenceDateSource;
 }
@@ -310,6 +311,37 @@ async function readLimitedText(response: Response, limit = 65536): Promise<strin
   return new TextDecoder().decode(bytes);
 }
 
+const SOURCE_ERROR_PATTERNS = [
+  /\b404\b.{0,40}\b(not found|error)\b/i,
+  /\b(page|site|content|resource)\s+(was\s+)?(not found|removed|unavailable|does not exist|doesn't exist)\b/i,
+  /\bno longer available\b/i,
+  /\binvalid\s+[^\n]{0,40}\bsite\b/i,
+  /\bthis page (isn't|is not) available\b/i,
+  /\bsite not found\b/i
+];
+
+const CLAIM_STOPWORDS = new Set([
+  'about', 'after', 'again', 'against', 'being', 'between', 'could', 'family',
+  'from', 'have', 'into', 'more', 'other', 'their', 'there', 'these', 'they',
+  'this', 'those', 'through', 'using', 'with', 'your'
+]);
+
+function sourceLooksUsable(pageText: string): boolean {
+  const normalized = pageText.replace(/\s+/g, ' ').trim();
+  if (normalized.length < 40) return false;
+  return !SOURCE_ERROR_PATTERNS.some(pattern => pattern.test(normalized));
+}
+
+function pageSupportsClaim(page: VerifiedPage, claim: string): boolean {
+  const tokens = Array.from(new Set(
+    claim.toLowerCase().match(/[a-z0-9]{4,}/g)?.filter(token => !CLAIM_STOPWORDS.has(token)) || []
+  ));
+  if (!tokens.length) return true;
+  const haystack = page.searchText.toLowerCase();
+  const required = tokens.length >= 4 ? 2 : 1;
+  return tokens.filter(token => haystack.includes(token)).length >= required;
+}
+
 async function verifyOriginalPage(rawUrl: string): Promise<VerifiedPage> {
   const safe = safePublicUrl(rawUrl);
   if (!safe) throw new Error('URL is not a public HTTPS address');
@@ -320,7 +352,7 @@ async function verifyOriginalPage(rawUrl: string): Promise<VerifiedPage> {
     }
   });
   const final = safePublicUrl(response.url || safe.toString());
-  if (!final || response.status >= 500) {
+  if (!final || !response.ok) {
     await response.body?.cancel();
     throw new Error(`Original source returned HTTP ${response.status}`);
   }
@@ -331,12 +363,18 @@ async function verifyOriginalPage(rawUrl: string): Promise<VerifiedPage> {
   if (!html) await response.body?.cancel().catch(() => undefined);
   const publisher = final.hostname.replace(/^www\./, '');
   const title = pageTitle(html) || publisher;
+  const description = pageDescription(html);
+  const searchText = [title, description, html].join(' ').replace(/\s+/g, ' ').trim();
+  if (!sourceLooksUsable(searchText)) {
+    throw new Error('Original source is not a usable public evidence page');
+  }
   const dated = extractEvidenceDateFromHtml(html, final.toString(), title);
   return {
     finalUrl: final.toString().replace(/\/$/, ''),
     title,
     publisher,
-    description: pageDescription(html),
+    description,
+    searchText,
     evidenceDate: dated.date,
     evidenceDateSource: dated.source
   };
@@ -436,6 +474,10 @@ async function dataForSeoCandidates(env: Env, seed: CompetitorSeed): Promise<Foo
   const verified = await Promise.all(eligible.map(async item => {
     try {
       const page = await verifyOriginalPage(text(item.url_from));
+      const claimedBacklink = [seed.name, seed.domain].filter(Boolean).join(' ');
+      if (!pageSupportsClaim(page, claimedBacklink)) {
+        throw new Error('Original source does not contain the claimed competitor/backlink evidence');
+      }
       const evidence = [
         `${page.publisher} links to ${seed.name}.`,
         `DataForSEO referring-page rank: ${item.page_from_rank ?? item.rank ?? 'not reported'}.`,
@@ -500,6 +542,10 @@ async function podcastCandidates(env: Env, query: string, seedName?: string): Pr
   const verified = await Promise.all(feeds.map(async feed => {
     try {
       const page = await verifyOriginalPage(text(feed.link));
+      const podcastClaim = [text(feed.title), text(feed.author)].filter(Boolean).join(' ');
+      if (!pageSupportsClaim(page, podcastClaim)) {
+        throw new Error('Original source does not contain the claimed podcast identity evidence');
+      }
       const title = text(feed.title, page.title);
       const observedAt = new Date().toISOString();
       const evidenceDate = normalizedEvidenceDate(feed.lastUpdateTime);
@@ -556,32 +602,39 @@ async function youtubeCandidates(env: Env, query: string, seedName?: string): Pr
     seen.add(channelIdValue);
     const publicUrl = `https://www.youtube.com/channel/${encodeURIComponent(channelIdValue)}`;
     const channelTitle = text(item.snippet?.channelTitle, 'YouTube creator');
-    const observedAt = new Date().toISOString();
-    const evidenceDate = normalizedEvidenceDate(item.snippet?.publishedAt);
-    const currentActivityStatus = currentActivityStatusFromDate(item.snippet?.publishedAt);
-    candidates.push({
-      candidateId: candidateId('youtube_api', publicUrl),
-      provider: 'youtube_api',
-      targetTypeHint: 'youtube_creator',
-      title: channelTitle,
-      publicUrl,
-      publisher: channelTitle,
-      platform: 'YouTube creator',
-      activity: activityLevelFromDate(item.snippet?.publishedAt),
-      confidence: 'high',
-      evidenceDate,
-      evidenceDateSource: evidenceDate ? 'provider_activity' : 'unknown',
-      evidenceRecency: evidenceRecencyFromDate(item.snippet?.publishedAt),
-      currentActivityStatus,
-      currentActivityVerifiedAt: currentActivityStatus === 'unverified' ? undefined : observedAt,
-      currentActivityEvidence: evidenceDate
-        ? `YouTube returned a matching video published on ${evidenceDate.slice(0, 10)}; this date, not the research date, is the activity signal.`
-        : 'YouTube did not provide a usable matching-video publication date.',
-      factualSignals: [text(item.snippet?.title) ? `Matching video: ${text(item.snippet?.title)}` : '', text(item.snippet?.description).slice(0, 240)].filter(Boolean),
-      competitorEvidence: [seedName ? `YouTube returned a matching video from this creator for competitor seed ${seedName}.` : `YouTube returned a relevant video for category query: ${query}.`],
-      audienceOwner: channelTitle,
-      observedAt
-    });
+    try {
+      const page = await verifyOriginalPage(publicUrl);
+      const claimedIdentity = [channelTitle, text(item.snippet?.title)].filter(Boolean).join(' ');
+      if (!pageSupportsClaim(page, claimedIdentity)) continue;
+      const observedAt = new Date().toISOString();
+      const evidenceDate = normalizedEvidenceDate(item.snippet?.publishedAt);
+      const currentActivityStatus = currentActivityStatusFromDate(item.snippet?.publishedAt);
+      candidates.push({
+        candidateId: candidateId('youtube_api', page.finalUrl),
+        provider: 'youtube_api',
+        targetTypeHint: 'youtube_creator',
+        title: channelTitle,
+        publicUrl: page.finalUrl,
+        publisher: channelTitle,
+        platform: 'YouTube creator',
+        activity: activityLevelFromDate(item.snippet?.publishedAt),
+        confidence: 'high',
+        evidenceDate,
+        evidenceDateSource: evidenceDate ? 'provider_activity' : 'unknown',
+        evidenceRecency: evidenceRecencyFromDate(item.snippet?.publishedAt),
+        currentActivityStatus,
+        currentActivityVerifiedAt: currentActivityStatus === 'unverified' ? undefined : observedAt,
+        currentActivityEvidence: evidenceDate
+          ? `YouTube returned a matching video published on ${evidenceDate.slice(0, 10)}, and GhostTown independently re-opened the public channel destination.`
+          : 'GhostTown independently re-opened the public channel destination, but YouTube did not provide a usable matching-video publication date.',
+        factualSignals: [text(item.snippet?.title) ? `Matching video: ${text(item.snippet?.title)}` : '', text(item.snippet?.description).slice(0, 240)].filter(Boolean),
+        competitorEvidence: [seedName ? `YouTube returned a matching video from this creator for competitor seed ${seedName}.` : `YouTube returned a relevant video for category query: ${query}.`],
+        audienceOwner: channelTitle,
+        observedAt
+      });
+    } catch {
+      continue;
+    }
     if (candidates.length >= 12) break;
   }
   return candidates;
@@ -621,6 +674,9 @@ async function groundedCustomerAccessCandidates(env: Env, query: string): Promis
 
     try {
       const page = await verifyOriginalPage(safe.toString());
+      if (groundedTitle && !pageSupportsClaim(page, groundedTitle)) {
+        throw new Error('Grounded source does not contain the claimed discussion/community evidence');
+      }
       const type = inferTargetType(`${page.finalUrl} ${groundedTitle} ${page.title} ${page.description}`, 'google_grounded_customer_access');
       if (type !== 'community') continue;
       const observedAt = new Date().toISOString();

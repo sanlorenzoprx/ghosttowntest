@@ -773,6 +773,8 @@ export interface PaidOrderSummary {
   offerName: string;
   sourceVerdictId: string;
   planVersion?: string;
+  fulfillmentError?: string;
+  uncertaintySprint?: PaidTestOrder['uncertaintySprint'];
 }
 
 async function savePaidOrderSummary(env: Env, order: PaidTestOrder, ideaName: string): Promise<void> {
@@ -789,7 +791,9 @@ async function savePaidOrderSummary(env: Env, order: PaidTestOrder, ideaName: st
     artifactType,
     offerName: artifactType === 'execution_plan_30day_v1' ? GHOSTTOWN_30_DAY_PLAN_V1.name : LEGACY_7_DAY_PLAN_LABEL,
     sourceVerdictId: order.verdictId,
-    planVersion: artifactType === 'execution_plan_30day_v1' ? order.planVersion ?? PLAN_VERSION : order.reportVersion
+    planVersion: artifactType === 'execution_plan_30day_v1' ? order.planVersion ?? PLAN_VERSION : order.reportVersion,
+    fulfillmentError: order.fulfillmentError,
+    uncertaintySprint: order.uncertaintySprint
   };
   const orders = [summary, ...existing.filter(item => item.orderId !== order.orderId)]
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
@@ -822,7 +826,9 @@ export async function handlePaidTestOrders(request: Request, env: Env): Promise<
       artifactType,
       offerName: artifactType === 'execution_plan_30day_v1' ? GHOSTTOWN_30_DAY_PLAN_V1.name : LEGACY_7_DAY_PLAN_LABEL,
       sourceVerdictId: order.verdictId,
-      planVersion: artifactType === 'execution_plan_30day_v1' ? order.planVersion ?? PLAN_VERSION : order.reportVersion
+      planVersion: artifactType === 'execution_plan_30day_v1' ? order.planVersion ?? PLAN_VERSION : order.reportVersion,
+      fulfillmentError: order.fulfillmentError,
+      uncertaintySprint: order.uncertaintySprint
     });
   }
   orders.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
@@ -842,7 +848,9 @@ function normalizeSummaries(items: Partial<PaidOrderSummary>[]): PaidOrderSummar
       artifactType,
       offerName: item.offerName ?? (artifactType === 'execution_plan_30day_v1' ? GHOSTTOWN_30_DAY_PLAN_V1.name : LEGACY_7_DAY_PLAN_LABEL),
       sourceVerdictId: String(item.sourceVerdictId ?? ''),
-      planVersion: item.planVersion
+      planVersion: item.planVersion,
+      fulfillmentError: item.fulfillmentError,
+      uncertaintySprint: item.uncertaintySprint
     };
   });
 }

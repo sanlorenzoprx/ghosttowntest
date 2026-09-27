@@ -863,15 +863,25 @@ export function validateStrategicCoherenceGate(
   return data;
 }
 
+export class StrategicCoherenceGateError extends Error {
+  readonly gate: VertexStrategicCoherenceGate;
+
+  constructor(gate: VertexStrategicCoherenceGate) {
+    const failedLinks = gate.links.filter(item => item.status === 'unresolved' || item.status === 'contradictory');
+    const reasons = [
+      ...failedLinks.map(item => `${item.link}: ${item.reason}`),
+      ...gate.blockers.map(item => `${item.code}: ${item.message} Required: ${item.requiredEvidence}`)
+    ];
+    super(`Launch Blueprint strategic coherence gate failed: ${reasons.join(' | ') || 'commercial chain did not pass'}`);
+    this.name = 'StrategicCoherenceGateError';
+    this.gate = gate;
+  }
+}
+
 export function assertStrategicCoherenceGate(data: VertexStrategicCoherenceGate): void {
   const failedLinks = data.links.filter(item => item.status === 'unresolved' || item.status === 'contradictory');
   if (data.passed && !failedLinks.length && !data.blockers.length) return;
-
-  const reasons = [
-    ...failedLinks.map(item => `${item.link}: ${item.reason}`),
-    ...data.blockers.map(item => `${item.code}: ${item.message} Required: ${item.requiredEvidence}`)
-  ];
-  throw new Error(`Launch Blueprint strategic coherence gate failed: ${reasons.join(' | ') || 'commercial chain did not pass'}`);
+  throw new StrategicCoherenceGateError(data);
 }
 
 export async function runVertexStrategicCoherenceGateStage(

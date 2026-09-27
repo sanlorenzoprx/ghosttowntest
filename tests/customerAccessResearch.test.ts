@@ -225,7 +225,14 @@ function mockProviders() {
     if (url.includes('api.dataforseo.com')) return new Response(JSON.stringify(dataForSeoResponse('seed')), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (url.includes('api.podcastindex.org')) return new Response(JSON.stringify(podcastResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
     if (url.includes('www.googleapis.com/youtube')) return new Response(JSON.stringify(youtubeResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    return new Response('<html><head><title>Family Games Media</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="Active media source covering family games, reviews, events, and activities."></head><body>Public source</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+    if (url.includes('www.youtube.com/channel/')) {
+      return new Response('<html><head><title>Family Games Creator</title><meta name="description" content="Family games review video creator channel with current family game coverage."></head><body>Family games review video creator channel.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+    }
+    if (url.includes('family-buyer-community-')) {
+      const communityNumber = url.match(/community-(\d+)/)?.[1] || '1';
+      return new Response(`<html><head><title>Family buyer discussion community ${communityNumber}</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="Parents and buyers discuss choosing family games in this public community."></head><body>Family buyer discussion community ${communityNumber}. Recent public discussion about choosing and buying games.</body></html>`, { status: 200, headers: { 'Content-Type': 'text/html' } });
+    }
+    return new Response('<html><head><title>Family Games Media</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="Active media source covering family games, KiwiCo, kiwico.com, BoardGameGeek, boardgamegeek.com, podcasts, reviews, events, and activities."></head><body>Public source about KiwiCo, BoardGameGeek, family games and current podcasts.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
   });
 }
 
@@ -294,6 +301,35 @@ describe('customer access distribution footprint provider', () => {
     expect(result.receipt.model).toBe('verified-provider-recovery');
     expect(result.receipt.candidateChannelCount).toBeGreaterThanOrEqual(10);
     expect(result.research.channels.every(channel => channel.publicUrl.startsWith('https://'))).toBe(true);
+  });
+
+  it('rejects HTTP 404 and removed-page destinations instead of counting them as verified sources', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      const url = String(input);
+      if (url.includes('api.dataforseo.com')) return new Response(JSON.stringify(dataForSeoResponse('seed')), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url.includes('api.podcastindex.org')) return new Response(JSON.stringify(podcastResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url.includes('www.googleapis.com/youtube')) return new Response(JSON.stringify(youtubeResponse(new URL(url).searchParams.get('q') || 'family games')), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url.includes('www.youtube.com/channel/')) {
+        return new Response('<html><head><title>Family Games Creator</title><meta name="description" content="Family games review video creator channel with current family game coverage."></head><body>Family games review video creator channel.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+      }
+      if (url.includes('family-buyer-community-1.example.com')) {
+        return new Response('<html><head><title>Page not found</title></head><body>404 - this page is not available.</body></html>', { status: 404, headers: { 'Content-Type': 'text/html' } });
+      }
+      if (url.includes('family-buyer-community-2.example.com')) {
+        return new Response('<html><head><title>Invalid Community Site</title></head><body>This page was removed and is no longer available.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+      }
+      if (url.includes('family-buyer-community-3.example.com')) {
+        return new Response('<html><head><title>Community unavailable</title></head><body>The requested resource does not exist.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+      }
+      if (url.includes('family-buyer-community-')) {
+        const n = url.match(/community-(\d+)/)?.[1] || '3';
+        return new Response(`<html><head><title>Family buyer discussion community ${n}</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="Parents and buyers discuss choosing family games in this public community."></head><body>Recent family buyer discussion community.</body></html>`, { status: 200, headers: { 'Content-Type': 'text/html' } });
+      }
+      return new Response('<html><head><title>Family Games Media</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="KiwiCo kiwico.com BoardGameGeek boardgamegeek.com family games podcasts."></head><body>KiwiCo BoardGameGeek family games podcast evidence.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+    });
+
+    await expect(researchCustomerAccess(env(), order, verdict)).rejects.toThrow(/customer-access targets|quality gate|recovery found/i);
+    expect(fetchMock).toHaveBeenCalled();
   });
 
   it('fails closed when Distribution Footprint research is disabled', async () => {
