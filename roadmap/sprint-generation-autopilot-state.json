@@ -2,11 +2,11 @@
   "schemaVersion": "ghosttown-sprint-roadmap-autopilot-state-v1",
   "roadmapId": "ghosttown-30-day-sprint-generation-v1",
   "status": "BLOCKED_INTERNAL",
-  "currentStep": 4,
+  "currentStep": 5,
   "workingBranch": "acceptance/fresh-sprint-e2e",
-  "lastGoodSha": "c382ffab07d8715b9320ac76be1ef2c1f578244f",
+  "lastGoodSha": "efa398ebd2ad40f621ba31dcb99afe2f0dfa7e4a",
   "startedAt": "2026-09-27T18:33:53.879Z",
-  "updatedAt": "2026-09-27T18:50:41.034Z",
+  "updatedAt": "2026-09-27T18:52:13.749Z",
   "externalInput": null,
   "steps": {
     "0": {
@@ -46,22 +46,22 @@
       "message": "Completion gate passed"
     },
     "4": {
-      "status": "BLOCKED_INTERNAL",
-      "attempts": 5,
+      "status": "PASS",
+      "attempts": 6,
       "startedAt": "2026-09-27T18:42:17.315Z",
-      "completedAt": null,
-      "lastSha": null,
-      "receipt": "github-acceptance/sprint-autopilot/step-04-attempt-5.json",
-      "message": "Verification failed: npx vitest run tests/launchBlueprintDailyExecution.test.ts tests/q2DailyExecutionPackets.test.ts tests/launchBlueprintVertexPipeline.test.ts --no-file-parallelism"
+      "completedAt": "2026-09-27T18:52:13.717Z",
+      "lastSha": "efa398ebd2ad40f621ba31dcb99afe2f0dfa7e4a",
+      "receipt": "github-acceptance/sprint-autopilot/step-04-attempt-6.json",
+      "message": "Completion gate passed"
     },
     "5": {
-      "status": "PENDING",
-      "attempts": 0,
-      "startedAt": null,
+      "status": "BLOCKED_INTERNAL",
+      "attempts": 1,
+      "startedAt": "2026-09-27T18:52:13.717Z",
       "completedAt": null,
       "lastSha": null,
-      "receipt": null,
-      "message": null
+      "receipt": "github-acceptance/sprint-autopilot/step-05-attempt-1.json",
+      "message": "Handler failed with exit code 1"
     },
     "6": {
       "status": "PENDING",
