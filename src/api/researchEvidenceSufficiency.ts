@@ -55,8 +55,27 @@ export function evaluateResearchEvidenceSufficiency(
     reviewByUrl.set(key, observation);
   }
 
+  const reviewUrlBySourceId = new Map(
+    (competitorReviewIntelligence?.observations || [])
+      .map(observation => [observation.sourceId, normalizedUrl(observation.sourceUrl)] as const)
+      .filter(([, url]) => Boolean(url))
+  );
+  const competitivePatternKinds = new Set([
+    'strength',
+    'weakness',
+    'switching_signal',
+    'pricing_signal',
+    'support_signal',
+    'requested_improvement'
+  ]);
+  const competitiveReviewUrls = (competitorReviewIntelligence?.patterns || [])
+    .filter(pattern => competitivePatternKinds.has(pattern.kind))
+    .flatMap(pattern => pattern.sourceIds)
+    .map(sourceId => reviewUrlBySourceId.get(sourceId) || '')
+    .filter(Boolean);
+
   const competitiveAlternativeUrls = new Set([
-    ...reviewByUrl.keys(),
+    ...competitiveReviewUrls,
     ...candidates
       .filter(candidate => candidate.competitorEvidence.some(value => value.trim()))
       .map(candidate => normalizedUrl(candidate.publicUrl))
