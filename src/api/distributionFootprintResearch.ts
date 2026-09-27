@@ -22,6 +22,7 @@ import {
   normalizedEvidenceDate
 } from './evidenceRecency';
 import { researchShortfallError } from './researchOutcome';
+import { isProviderRequestError, isRetryableProviderOutcome, opensProviderCircuit, providerHttpError, providerSemanticError, type ProviderOutcome } from './providerOutcome';
 
 const DATAFORSEO_ENDPOINT = 'https://api.dataforseo.com/v3/backlinks/backlinks/live';
 const RANKPARSE_BACKLINKS_ENDPOINT = 'https://api.rankparse.com/v1/backlinks';
@@ -104,13 +105,18 @@ export interface FootprintCandidate {
   observedAt: string;
 }
 
+export type ProviderBreakerState = Partial<Record<DistributionProvider, ProviderOutcome>>;
+
 export interface ResearchSourceAttempt {
   sourceId: string;
   sourceType: DistributionProvider;
   success: boolean;
+  outcome: ProviderOutcome;
   query: string;
   candidateCount: number;
   error?: string;
+  skipped?: boolean;
+  retryAfterSeconds?: number;
 }
 
 export interface ResearchBatchResult {
@@ -119,6 +125,7 @@ export interface ResearchBatchResult {
   attempts: ResearchSourceAttempt[];
   candidates: FootprintCandidate[];
   rejectedUrls: Array<{ url: string; reason: string }>;
+  breakerState: ProviderBreakerState;
 }
 
 interface DataForSeoBacklink {
@@ -608,7 +615,7 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
 }
 
 async function dataForSeoCandidates(env: Env, seed: CompetitorSeed): Promise<FootprintCandidate[]> {
-  if (!env.DATAFORSEO_LOGIN?.trim() || !env.DATAFORSEO_PASSWORD?.trim()) throw new Error('DataForSEO credentials are not configured');
+  if (!env.DATAFORSEO_LOGIN?.trim() || !env.DATAFORSEO_PASSWORD?.trim()) throw providerSemanticError('dataforseo_backlinks', 'DataForSEO credentials are not configured');
   const response = await fetchWithTimeout(DATAFORSEO_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -623,10 +630,17 @@ async function dataForSeoCandidates(env: Env, seed: CompetitorSeed): Promise<Foo
       backlinks_status_type: 'live'
     }])
   }, 20000);
+  if (!response.ok) {
+    const bodyText = await response.text();
+    throw providerHttpError('dataforseo_backlinks', response.status, bodyText, response.headers.get('retry-after'));
+  }
   const body = await response.json() as DataForSeoResponse;
   const task = body.tasks?.[0];
-  if (!response.ok || body.status_code !== 20000 || task?.status_code !== 20000) {
-    throw new Error(task?.status_message || body.status_message || `DataForSEO returned HTTP ${response.status}`);
+  if (body.status_code !== 20000 || task?.status_code !== 20000) {
+    throw providerSemanticError(
+      'dataforseo_backlinks',
+      task?.status_message || body.status_message || 'DataForSEO request failed'
+    );
   }
   const rawItems = task.result?.flatMap(result => result.items || []) || [];
   const blocked = /(^|\.)(facebook|instagram|linkedin|reddit|x|twitter|pinterest|tiktok)\.com$/i;
@@ -681,7 +695,7 @@ async function dataForSeoCandidates(env: Env, seed: CompetitorSeed): Promise<Foo
 
 async function rankParseCandidates(env: Env, seed: CompetitorSeed): Promise<FootprintCandidate[]> {
   const apiKey = env.RANKPARSE_API_KEY?.trim();
-  if (!apiKey) throw new Error('RankParse API key is not configured');
+  if (!apiKey) throw providerSemanticError('rankparse_backlinks', 'RankParse API key is not configured');
 
   const url = new URL(RANKPARSE_BACKLINKS_ENDPOINT);
   url.searchParams.set('domain', seed.domain);
@@ -691,11 +705,11 @@ async function rankParseCandidates(env: Env, seed: CompetitorSeed): Promise<Foot
   const response = await fetchWithTimeout(url.toString(), {
     headers: { 'X-API-Key': apiKey }
   }, 20000);
-  const body = await response.json() as RankParseBacklinksResponse;
   if (!response.ok) {
-    const reason = typeof body.error === 'string' ? body.error : body.error?.message;
-    throw new Error(reason || `RankParse returned HTTP ${response.status}`);
+    const bodyText = await response.text();
+    throw providerHttpError('rankparse_backlinks', response.status, bodyText, response.headers.get('retry-after'));
   }
+  const body = await response.json() as RankParseBacklinksResponse;
 
   const blocked = /(^|\.)(facebook|instagram|linkedin|reddit|x|twitter|pinterest|tiktok)\.com$/i;
   const eligible = (body.data || []).filter(item => {
@@ -789,7 +803,7 @@ async function sha1Hex(value: string): Promise<string> {
 }
 
 async function podcastCandidates(env: Env, query: string, seedName?: string): Promise<FootprintCandidate[]> {
-  if (!env.PODCAST_INDEX_API_KEY?.trim() || !env.PODCAST_INDEX_API_SECRET?.trim()) throw new Error('Podcast Index credentials are not configured');
+  if (!env.PODCAST_INDEX_API_KEY?.trim() || !env.PODCAST_INDEX_API_SECRET?.trim()) throw providerSemanticError('podcast_index', 'Podcast Index credentials are not configured');
   const authDate = Math.floor(Date.now() / 1000).toString();
   const authorization = await sha1Hex(`${env.PODCAST_INDEX_API_KEY}${env.PODCAST_INDEX_API_SECRET}${authDate}`);
   const url = new URL(PODCAST_INDEX_ENDPOINT);
@@ -804,8 +818,12 @@ async function podcastCandidates(env: Env, query: string, seedName?: string): Pr
       Authorization: authorization
     }
   });
+  if (!response.ok) {
+    const bodyText = await response.text();
+    throw providerHttpError('podcast_index', response.status, bodyText, response.headers.get('retry-after'));
+  }
   const body = await response.json() as PodcastIndexResponse;
-  if (!response.ok || body.status === 'false') throw new Error(body.description || `Podcast Index returned HTTP ${response.status}`);
+  if (body.status === 'false') throw providerSemanticError('podcast_index', body.description || 'Podcast Index request failed');
   const feeds = (body.feeds || []).filter(feed => feed.dead !== 1 && feed.link).slice(0, MAX_PODCAST_PAGE_VERIFICATIONS_PER_QUERY);
   const verified = await Promise.all(feeds.map(async feed => {
     try {
@@ -866,7 +884,7 @@ async function verifyYoutubeVideo(videoId: string, claimedTitle: string): Promis
 }
 
 async function youtubeCandidates(env: Env, query: string, seedName?: string): Promise<FootprintCandidate[]> {
-  if (!env.YOUTUBE_API_KEY?.trim()) throw new Error('YouTube Data API key is not configured');
+  if (!env.YOUTUBE_API_KEY?.trim()) throw providerSemanticError('youtube_api', 'YouTube Data API key is not configured');
   const url = new URL(YOUTUBE_ENDPOINT);
   url.searchParams.set('part', 'snippet');
   url.searchParams.set('type', 'video');
@@ -877,8 +895,11 @@ async function youtubeCandidates(env: Env, query: string, seedName?: string): Pr
   url.searchParams.set('safeSearch', 'moderate');
   url.searchParams.set('key', env.YOUTUBE_API_KEY);
   const response = await fetchWithTimeout(url.toString());
+  if (!response.ok) {
+    const bodyText = await response.text();
+    throw providerHttpError('youtube_api', response.status, bodyText, response.headers.get('retry-after'));
+  }
   const body = await response.json() as YouTubeResponse;
-  if (!response.ok) throw new Error(body.error?.message || `YouTube returned HTTP ${response.status}`);
   const seen = new Set<string>();
   const candidates: FootprintCandidate[] = [];
   for (const item of body.items || []) {
@@ -1179,16 +1200,32 @@ export async function runResearchBatch(
   env: Env,
   order: PaidTestOrder,
   plan: DistributionFootprintPlan,
-  sourceIds: string[]
+  sourceIds: string[],
+  initialBreakerState: ProviderBreakerState = {}
 ): Promise<ResearchBatchResult> {
   if (env.DISTRIBUTION_FOOTPRINT_ENABLED !== 'true') throw new Error('Distribution Footprint research is not enabled');
   const attempts: ResearchSourceAttempt[] = [];
   const candidates: FootprintCandidate[] = [];
   const rejectedUrls: Array<{ url: string; reason: string }> = [];
+  const breakerState: ProviderBreakerState = { ...initialBreakerState };
   for (const taskId of sourceIds) {
     const provider = providerForTask(taskId);
     const query = plan.queryBySourceId[taskId] || '';
     const seed = seedForTask(order, taskId);
+    const blockedOutcome = breakerState[provider];
+    if (blockedOutcome && opensProviderCircuit(blockedOutcome)) {
+      attempts.push({
+        sourceId: taskId,
+        sourceType: provider,
+        success: false,
+        outcome: blockedOutcome,
+        query,
+        candidateCount: 0,
+        error: `Skipped because the ${provider} circuit is open for this Sprint run`,
+        skipped: true
+      });
+      continue;
+    }
     try {
       let result: FootprintCandidate[];
       let actualProvider = provider;
@@ -1210,10 +1247,41 @@ export async function runResearchBatch(
         result = await youtubeCandidates(env, query, seed?.name);
       }
       candidates.push(...result);
-      attempts.push({ sourceId: taskId, sourceType: actualProvider, success: true, query, candidateCount: result.length });
+      attempts.push({
+        sourceId: taskId,
+        sourceType: actualProvider,
+        success: result.length > 0,
+        outcome: result.length > 0 ? 'SUCCESS' : 'NO_RESULTS',
+        query,
+        candidateCount: result.length
+      });
     } catch (error) {
+      if (isProviderRequestError(error)) {
+        if (isRetryableProviderOutcome(error.outcome)) throw error;
+        if (opensProviderCircuit(error.outcome)) breakerState[provider] = error.outcome;
+        attempts.push({
+          sourceId: taskId,
+          sourceType: provider,
+          success: false,
+          outcome: error.outcome,
+          query,
+          candidateCount: 0,
+          error: error.message,
+          retryAfterSeconds: error.retryAfterSeconds
+        });
+        rejectedUrls.push({ url: taskId, reason: error.message });
+        continue;
+      }
       const reason = error instanceof Error ? error.message : 'Provider request failed';
-      attempts.push({ sourceId: taskId, sourceType: provider, success: false, query, candidateCount: 0, error: reason });
+      attempts.push({
+        sourceId: taskId,
+        sourceType: provider,
+        success: false,
+        outcome: 'SOURCE_VERIFICATION_FAILED',
+        query,
+        candidateCount: 0,
+        error: reason
+      });
       rejectedUrls.push({ url: taskId, reason });
     }
   }
@@ -1222,7 +1290,8 @@ export async function runResearchBatch(
     completedAt: new Date().toISOString(),
     attempts,
     candidates,
-    rejectedUrls
+    rejectedUrls,
+    breakerState
   };
 }
 

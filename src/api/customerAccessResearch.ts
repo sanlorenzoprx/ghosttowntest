@@ -14,7 +14,8 @@ import {
   type DistributionProvider,
   type FootprintCandidate,
   type ResearchBatchResult,
-  type ResearchSourceAttempt
+  type ResearchSourceAttempt,
+  type ProviderBreakerState
 } from './distributionFootprintResearch';
 
 export {
@@ -25,7 +26,8 @@ export {
   type DistributionFootprintPlan,
   type FootprintCandidate,
   type ResearchBatchResult,
-  type ResearchSourceAttempt
+  type ResearchSourceAttempt,
+  type ProviderBreakerState
 };
 
 const MIN_VERIFIED_CANDIDATES = 10;

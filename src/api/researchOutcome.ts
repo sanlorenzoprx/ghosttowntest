@@ -1,3 +1,5 @@
+import type { ProviderOutcome } from './providerOutcome';
+
 export type ResearchOutcome = 'COMPLETE' | 'INSUFFICIENT_EVIDENCE' | 'PROVIDER_BLOCKED';
 
 export type ResearchShortfallCode =
@@ -11,6 +13,7 @@ export interface ResearchAttemptLike {
   sourceType: string;
   success: boolean;
   candidateCount: number;
+  outcome?: ProviderOutcome;
 }
 
 export interface ResearchOutcomeErrorOptions {
@@ -48,9 +51,16 @@ export class ResearchOutcomeError extends Error {
 export function classifyResearchShortfall(
   attempts: ResearchAttemptLike[]
 ): Exclude<ResearchOutcome, 'COMPLETE'> {
-  return attempts.some(attempt => !attempt.success)
-    ? 'PROVIDER_BLOCKED'
-    : 'INSUFFICIENT_EVIDENCE';
+  const providerBlocked = attempts.some(attempt => {
+    if (attempt.outcome === 'NO_RESULTS' || attempt.outcome === 'SOURCE_VERIFICATION_FAILED') return false;
+    if (attempt.outcome === 'RATE_LIMITED'
+      || attempt.outcome === 'QUOTA_EXHAUSTED'
+      || attempt.outcome === 'PAYMENT_REQUIRED'
+      || attempt.outcome === 'TEMPORARY_PROVIDER_FAILURE'
+      || attempt.outcome === 'PERMANENT_PROVIDER_FAILURE') return true;
+    return !attempt.outcome && !attempt.success;
+  });
+  return providerBlocked ? 'PROVIDER_BLOCKED' : 'INSUFFICIENT_EVIDENCE';
 }
 
 export function researchShortfallError(

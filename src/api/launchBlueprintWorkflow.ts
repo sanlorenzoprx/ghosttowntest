@@ -16,7 +16,8 @@ import {
   finalizeCustomerAccessResearch,
   planCustomerAccessResearch,
   runResearchBatch,
-  type ResearchBatchResult
+  type ResearchBatchResult,
+  type ProviderBreakerState
 } from './customerAccessResearch';
 import { researchCompetitorReviews } from './competitorReviewIntelligence';
 import { createGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
@@ -40,7 +41,8 @@ import {
 import { vertexBlueprintRequired } from './vertexStructuredGeneration';
 import { researchEnvForPaidBlueprint } from './paidBlueprintResearch';
 import type { VertexStrategicCoherenceGate } from './launchBlueprintVertexPipeline';
-import { isResearchOutcomeError } from './researchOutcome';
+import { isResearchOutcomeError, ResearchOutcomeError } from './researchOutcome';
+import { isProviderRequestError } from './providerOutcome';
 
 function batchSize(value: string | undefined): number {
   const parsed = Number(value);
@@ -120,15 +122,17 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         )
       );
       const completedBatches: ResearchBatchResult[] = [];
+      let providerBreakers: ProviderBreakerState = {};
       const size = batchSize(this.env.DISTRIBUTION_FOOTPRINT_BATCH_SIZE);
       for (let index = 0; index < plan.sourceIds.length; index += size) {
         const sourceIds = plan.sourceIds.slice(index, index + size);
         const batch = await step.do(
           `research distribution batch ${Math.floor(index / size) + 1}`,
           { retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' } },
-          async () => runResearchBatch(researchEnv, context.order, plan, sourceIds)
+          async () => runResearchBatch(researchEnv, context.order, plan, sourceIds, providerBreakers)
         );
         completedBatches.push(batch);
+        providerBreakers = batch.breakerState;
       }
 
       let result;
@@ -269,6 +273,21 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
       );
       return { orderId, status: order.status };
     } catch (error) {
+      if (isProviderRequestError(error)) {
+        const blocked = new ResearchOutcomeError({
+          outcome: 'PROVIDER_BLOCKED',
+          code: 'MIN_SUCCESSFUL_PROVIDER_TASKS',
+          detail: error.message,
+          attempts: [{
+            sourceType: error.provider,
+            success: false,
+            candidateCount: 0,
+            outcome: error.outcome
+          }]
+        });
+        const order = await markLaunchBlueprintResearchBlockedV21(this.env, orderId, blocked);
+        return { orderId, status: order.status };
+      }
       if (isResearchOutcomeError(error, 'PROVIDER_BLOCKED')) {
         const order = await markLaunchBlueprintResearchBlockedV21(this.env, orderId, error);
         return { orderId, status: order.status };

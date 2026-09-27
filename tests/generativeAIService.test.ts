@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../src/api/env';
+import { ProviderRequestError } from '../src/api/providerOutcome';
 import {
   aiGatewayVertexUrl,
   generateAI,
@@ -245,6 +246,29 @@ describe('GenerativeAIService', () => {
     expect(result.text).toBe('');
     expect(result.groundingMetadata?.groundingChunks?.[0]?.web?.uri).toBe('https://example.com/forum/thread');
     expect(result.receipt.responseHash).toMatch(/^[0-9a-f]{8}$/);
+  });
+
+  it('classifies Vertex 429 before attempting to parse a success body', async () => {
+    const configured = await env();
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === 'https://oauth2.googleapis.com/token') {
+        return Response.json({ access_token: 'vertex-short-lived-token', expires_in: 3600 });
+      }
+      return new Response('{"error":{"message":"Resource exhausted. Please try again later."}}', {
+        status: 429,
+        headers: { 'Retry-After': '9', 'Content-Type': 'application/json' }
+      });
+    }));
+
+    const error = await generateAI(configured, {
+      task: 'grounded_research',
+      prompt: 'Research this fixture.',
+      googleSearch: true
+    }).catch(value => value);
+    expect(error).toBeInstanceOf(ProviderRequestError);
+    expect((error as ProviderRequestError).outcome).toBe('RATE_LIMITED');
+    expect((error as ProviderRequestError).retryAfterSeconds).toBe(9);
   });
 
   it('preserves schema-controlled structured output through the same service', async () => {

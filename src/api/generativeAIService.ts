@@ -1,4 +1,5 @@
 import type { Env } from './env';
+import { providerHttpError } from './providerOutcome';
 
 export type GenerativeAITask =
   | 'verdict'
@@ -242,9 +243,13 @@ async function vertexAccessToken(env: Env, config: VertexServiceAccountConfig): 
       assertion
     })
   });
+  if (!response.ok) {
+    const bodyText = await response.text();
+    throw providerHttpError('vertex_oauth', response.status, bodyText, response.headers.get('retry-after'));
+  }
   const body = await response.json() as GoogleTokenResponse;
-  if (!response.ok || !body.access_token) {
-    throw new Error(body.error_description || body.error || `Vertex OAuth token exchange returned HTTP ${response.status}`);
+  if (!body.access_token) {
+    throw new Error(body.error_description || body.error || 'Vertex OAuth token exchange returned no access token');
   }
   const expiresIn = Math.max(300, Math.min(3600, Number(body.expires_in) || 3600));
   const cached: CachedAccessToken = { accessToken: body.access_token, expiresAt: Date.now() + expiresIn * 1000 };
@@ -413,10 +418,11 @@ export async function generateAI(env: Env, options: GenerateOptions): Promise<Ge
     clearTimeout(timer);
   }
 
-  const body = await response.json() as VertexGenerateContentResponse;
   if (!response.ok) {
-    throw new Error(`Vertex ${options.task} returned HTTP ${response.status}: ${body.error?.message || 'request failed'}`);
+    const bodyText = await response.text();
+    throw providerHttpError('vertex_ai', response.status, bodyText, response.headers.get('retry-after'));
   }
+  const body = await response.json() as VertexGenerateContentResponse;
   const candidate = body.candidates?.[0];
   const output = candidate?.content?.parts?.map(part => part.text || '').join('\n').trim() || '';
   const groundingMetadata = candidate?.groundingMetadata;
