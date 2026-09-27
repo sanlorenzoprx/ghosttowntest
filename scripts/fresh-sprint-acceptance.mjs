@@ -242,12 +242,13 @@ function auditReady(status) {
   assert((review.patterns || []).every(p => Array.isArray(p.sourceIds) && p.sourceIds.length >= 2 && p.sourceIds.every(id => observedSourceIds.has(id))), 'Review patterns must cite at least two verified observations');
   assert((review.productImplications || []).every(i => Array.isArray(i.sourceIds) && i.sourceIds.length && i.sourceIds.every(id => observedSourceIds.has(id))), 'Review product hypotheses must cite verified observations');
 
-  const competitiveAlternativeUrls = new Set(
-    channels
+  const competitiveAlternativeUrls = new Set([
+    ...observedReviewUrls,
+    ...channels
       .filter(channel => channel.competitorEvidence?.some(value => String(value || '').trim()))
       .map(channel => String(channel.publicUrl || '').toLowerCase().replace(/\/$/, ''))
       .filter(Boolean)
-  );
+  ]);
   assert(competitiveAlternativeUrls.size >= 2, 'READY Sprint needs at least two independent competitive/alternative evidence sources');
   assert(research?.evidenceSufficiency?.sufficient === true, 'READY research receipt did not pass role-based evidence sufficiency');
   assert(research.evidenceSufficiency.currentCustomerAccessCount >= 3, 'READY receipt has fewer than three current Customer Access sources');
