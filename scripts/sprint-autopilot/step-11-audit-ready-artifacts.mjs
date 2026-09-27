@@ -49,12 +49,13 @@ assert(review.observations.every(observation => observation.sourceUrl && observa
 assert((review.patterns || []).every(pattern => pattern.sourceIds?.length >= 2 && pattern.sourceIds.every(id => observationSources.has(id))), 'Review pattern lacks two-source provenance');
 assert((review.productImplications || []).every(implication => implication.sourceIds?.length && implication.sourceIds.every(id => observationSources.has(id))), 'Review hypothesis lacks observed-source provenance');
 
-const competitiveAlternativeUrls = new Set(
-  channels
+const competitiveAlternativeUrls = new Set([
+  ...observationUrls,
+  ...channels
     .filter(channel => channel.competitorEvidence?.some(value => String(value || '').trim()))
     .map(channel => String(channel.publicUrl || '').toLowerCase().replace(/\/$/, ''))
     .filter(Boolean)
-);
+]);
 assert(competitiveAlternativeUrls.size >= 2, 'READY Sprint has fewer than 2 independent competitive/alternative evidence sources');
 
 const sufficiency = research?.evidenceSufficiency;
