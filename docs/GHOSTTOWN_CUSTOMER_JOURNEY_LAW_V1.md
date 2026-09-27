@@ -195,13 +195,13 @@ Immediately acknowledge payment, show what GhostTown is doing, and give one clea
 
 The $97 Evidence Sprint does **not** include a live website, domain, publishing, or payment setup.
 
-When the separate product is shipped and enabled, the immediate optional next decision may be:
+After the Sprint is ready, the immediate optional next decision may be:
 
 > **Want us to get your test live?**
 >
-> **Get My Test Live — $119**
+> **Get Me Live — $297**
 
-That is a separate purchase. Until it is actually shipped and enabled, documentation may call it upcoming, but the live customer flow must not present it as available.
+That is a separate purchase. It must remain separate from the $97 Sprint in copy, QA, pricing, and acceptance tests.
 
 ### Stage 7 — Research and examples
 
