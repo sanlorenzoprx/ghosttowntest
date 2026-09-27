@@ -2,11 +2,11 @@
   "schemaVersion": "ghosttown-sprint-roadmap-autopilot-state-v1",
   "roadmapId": "ghosttown-30-day-sprint-generation-v1",
   "status": "BLOCKED_INTERNAL",
-  "currentStep": 9,
+  "currentStep": 10,
   "workingBranch": "acceptance/fresh-sprint-e2e",
-  "lastGoodSha": "3a0abf0ab97aa412e1538db754dde3c99073f67b",
+  "lastGoodSha": "773367d81c4305efc6585e838318ad2542e992e3",
   "startedAt": "2026-09-27T18:33:53.879Z",
-  "updatedAt": "2026-09-27T20:00:06.875Z",
+  "updatedAt": "2026-09-27T20:02:53.475Z",
   "externalInput": null,
   "steps": {
     "0": {
@@ -91,22 +91,22 @@
       "message": "Completion gate passed"
     },
     "9": {
-      "status": "BLOCKED_INTERNAL",
-      "attempts": 1,
+      "status": "PASS",
+      "attempts": 2,
       "startedAt": "2026-09-27T20:00:06.820Z",
-      "completedAt": null,
-      "lastSha": null,
-      "receipt": "github-acceptance/sprint-autopilot/step-09-attempt-1.json",
-      "message": "Handler failed with exit code 1"
+      "completedAt": "2026-09-27T20:02:53.441Z",
+      "lastSha": "773367d81c4305efc6585e838318ad2542e992e3",
+      "receipt": "github-acceptance/sprint-autopilot/step-09-attempt-2.json",
+      "message": "Completion gate passed"
     },
     "10": {
-      "status": "PENDING",
-      "attempts": 0,
-      "startedAt": null,
+      "status": "BLOCKED_INTERNAL",
+      "attempts": 1,
+      "startedAt": "2026-09-27T20:02:53.441Z",
       "completedAt": null,
       "lastSha": null,
-      "receipt": null,
-      "message": null
+      "receipt": "github-acceptance/sprint-autopilot/step-10-attempt-1.json",
+      "message": "Handler failed with exit code 1"
     },
     "11": {
       "status": "PENDING",
