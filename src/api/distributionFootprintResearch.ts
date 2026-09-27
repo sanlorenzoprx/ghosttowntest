@@ -485,13 +485,14 @@ function coreTopic(order: PaidTestOrder, verdict: EvaluationResult): string {
   return `${verdict.idea.ideaName} ${order.intake.targetBuyer} ${order.intake.problem}`.replace(/\s+/g, ' ').trim().slice(0, 220);
 }
 
-function directBuyerDiscussionQuery(order: PaidTestOrder): string {
-  const buyerTokens = claimTokens(order.intake.targetBuyer).slice(0, 5);
-  const buyerSet = new Set(buyerTokens);
+function directBuyerDiscussionQuery(order: PaidTestOrder, verdict: EvaluationResult): string {
+  const identityTokens = claimTokens(`${verdict.idea.ideaName} ${order.intake.targetBuyer}`).slice(0, 8);
+  if (identityTokens.length >= 4) return identityTokens.join(' ');
+  const identitySet = new Set(identityTokens);
   const problemTokens = claimTokens(order.intake.problem)
-    .filter(token => !buyerSet.has(token))
-    .slice(0, 5);
-  return [...new Set([...buyerTokens, ...problemTokens])].slice(0, 8).join(' ');
+    .filter(token => !identitySet.has(token))
+    .slice(0, 4);
+  return [...new Set([...identityTokens, ...problemTokens])].slice(0, 8).join(' ');
 }
 
 export function planCustomerAccessResearch(order: PaidTestOrder, verdict: EvaluationResult): DistributionFootprintPlan {
@@ -499,7 +500,7 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
   if (seeds.length < 2 || seeds.length > 3) throw new Error('Distribution Footprint requires two or three confirmed competitor seeds');
   const sourceIds: string[] = [];
   const queryBySourceId: Record<string, string> = {};
-  const buyerDiscussionQuery = directBuyerDiscussionQuery(order);
+  const buyerDiscussionQuery = directBuyerDiscussionQuery(order, verdict);
   for (const seed of seeds) {
     for (const provider of ['dataforseo', 'podcast', 'youtube'] as const) {
       const taskId = `${provider}:${seed.seedId}`;
@@ -683,6 +684,23 @@ async function podcastCandidates(env: Env, query: string, seedName?: string): Pr
   return verified.filter((item): item is NonNullable<typeof item> => Boolean(item));
 }
 
+async function verifyYoutubeVideo(videoId: string, claimedTitle: string): Promise<{ publicUrl: string; title: string; authorName: string }> {
+  const publicUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+  const oembed = new URL('https://www.youtube.com/oembed');
+  oembed.searchParams.set('url', publicUrl);
+  oembed.searchParams.set('format', 'json');
+  const response = await fetchWithTimeout(oembed.toString());
+  if (!response.ok) throw new Error(`YouTube destination returned HTTP ${response.status}`);
+  const body = await response.json() as { title?: string; author_name?: string };
+  const title = text(body.title);
+  const authorName = text(body.author_name);
+  if (!title || !authorName) throw new Error('YouTube destination did not return public title/author metadata');
+  if (sourceClaimSupportFailure(claimedTitle, `${title} ${authorName}`)) {
+    throw new Error('YouTube destination does not support the claimed video identity');
+  }
+  return { publicUrl, title, authorName };
+}
+
 async function youtubeCandidates(env: Env, query: string, seedName?: string): Promise<FootprintCandidate[]> {
   if (!env.YOUTUBE_API_KEY?.trim()) throw new Error('YouTube Data API key is not configured');
   const url = new URL(YOUTUBE_ENDPOINT);
@@ -705,22 +723,19 @@ async function youtubeCandidates(env: Env, query: string, seedName?: string): Pr
     seen.add(channelIdValue);
     const videoIdValue = text(item.id?.videoId);
     if (!videoIdValue) continue;
-    const publicUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoIdValue)}`;
     const channelTitle = text(item.snippet?.channelTitle, 'YouTube creator');
     try {
-      const page = await verifyOriginalPage(publicUrl);
-      const claimedIdentity = text(item.snippet?.title, channelTitle);
-      if (!pageSupportsClaim(page, claimedIdentity)) continue;
+      const verifiedVideo = await verifyYoutubeVideo(videoIdValue, text(item.snippet?.title, channelTitle));
       const observedAt = new Date().toISOString();
       const evidenceDate = normalizedEvidenceDate(item.snippet?.publishedAt);
       const currentActivityStatus = currentActivityStatusFromDate(item.snippet?.publishedAt);
       candidates.push({
-        candidateId: candidateId('youtube_api', page.finalUrl),
+        candidateId: candidateId('youtube_api', verifiedVideo.publicUrl),
         provider: 'youtube_api',
         targetTypeHint: 'youtube_creator',
-        title: channelTitle,
-        publicUrl: page.finalUrl,
-        publisher: channelTitle,
+        title: verifiedVideo.authorName,
+        publicUrl: verifiedVideo.publicUrl,
+        publisher: verifiedVideo.authorName,
         platform: 'YouTube creator',
         activity: activityLevelFromDate(item.snippet?.publishedAt),
         confidence: 'high',
@@ -730,11 +745,11 @@ async function youtubeCandidates(env: Env, query: string, seedName?: string): Pr
         currentActivityStatus,
         currentActivityVerifiedAt: currentActivityStatus === 'unverified' ? undefined : observedAt,
         currentActivityEvidence: evidenceDate
-          ? `YouTube returned a matching video published on ${evidenceDate.slice(0, 10)}, and GhostTown independently re-opened the public channel destination.`
-          : 'GhostTown independently re-opened the public channel destination, but YouTube did not provide a usable matching-video publication date.',
+          ? `YouTube returned a matching video published on ${evidenceDate.slice(0, 10)}, and GhostTown independently verified the exact public watch URL through YouTube's public metadata endpoint.`
+          : `GhostTown independently verified the exact public watch URL through YouTube's public metadata endpoint, but YouTube did not provide a usable matching-video publication date.`,
         factualSignals: [text(item.snippet?.title) ? `Matching video: ${text(item.snippet?.title)}` : '', text(item.snippet?.description).slice(0, 240)].filter(Boolean),
         competitorEvidence: [seedName ? `YouTube returned a matching video from this creator for competitor seed ${seedName}.` : `YouTube returned a relevant video for category query: ${query}.`],
-        audienceOwner: channelTitle,
+        audienceOwner: verifiedVideo.authorName,
         observedAt
       });
     } catch {
@@ -813,7 +828,8 @@ async function youtubeCustomerAccessCandidates(env: Env, query: string): Promise
         const observedAt = new Date().toISOString();
         const videoTitle = text(item.snippet?.title, 'YouTube discussion');
         const channelTitle = text(item.snippet?.channelTitle, 'YouTube channel');
-        const publicUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+        const verifiedVideo = await verifyYoutubeVideo(videoId, videoTitle);
+        const publicUrl = verifiedVideo.publicUrl;
 
         candidates.push({
           candidateId: candidateId('youtube_api', `comments:${publicUrl}`),
@@ -821,7 +837,7 @@ async function youtubeCustomerAccessCandidates(env: Env, query: string): Promise
           targetTypeHint: 'community',
           title: `${videoTitle} — public discussion`,
           publicUrl,
-          publisher: channelTitle,
+          publisher: verifiedVideo.authorName,
           platform: 'YouTube public discussion',
           activity: activityLevelFromDate(latestActivity),
           confidence: 'high',
@@ -837,7 +853,7 @@ async function youtubeCustomerAccessCandidates(env: Env, query: string): Promise
             'The video has a public comment thread where a founder can participate subject to current channel moderation rules.'
           ],
           competitorEvidence: [],
-          audienceOwner: `${channelTitle} public comment thread`,
+          audienceOwner: `${verifiedVideo.authorName} public comment thread`,
           observedAt
         });
         if (candidates.length >= 6) return candidates;
