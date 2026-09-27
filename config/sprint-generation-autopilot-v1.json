@@ -248,7 +248,7 @@
       ],
       "handler": "node scripts/sprint-autopilot/step-09-adaptive-research.mjs",
       "verify": [
-        "npx vitest run tests/adaptiveResearch.test.ts tests/researchOutcomeRouting.test.ts --no-file-parallelism",
+        "npx vitest run tests/researchEvidenceSufficiency.test.ts tests/adaptiveResearch.test.ts tests/researchOutcomeRouting.test.ts --no-file-parallelism",
         "npm run type-check"
       ],
       "externalInputs": [],
