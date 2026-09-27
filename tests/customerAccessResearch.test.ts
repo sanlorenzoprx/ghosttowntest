@@ -342,6 +342,7 @@ describe('customer access distribution footprint provider', () => {
     expect(plan.queryBySourceId['podcast:ecosystem']).toContain('Family recreation associations');
     expect(plan.queryBySourceId['youtube:ecosystem']).toContain('Family recreation associations');
     expect(plan.queryBySourceId['customer_access:problem']).toContain('families');
+    expect(plan.queryBySourceId['customer_access:problem']).not.toContain('subscription');
     expect(plan.queryBySourceId['customer_access:problem']).toContain('forum discussion');
     expect(plan.queryBySourceId['customer_access:buyer']).toContain('families');
     expect(plan.queryBySourceId['customer_access:buyer']).toContain('community question');
