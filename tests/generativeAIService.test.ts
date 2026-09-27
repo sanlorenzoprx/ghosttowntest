@@ -119,6 +119,39 @@ describe('GenerativeAIService', () => {
     expect(responseSchemaForVertexRequest('custom_website', schema)).toBe(schema);
   });
 
+  it('relaxes candidate-selection transport complexity without weakening deterministic selection rules', () => {
+    const schema: GenerativeAIResponseSchema = {
+      type: 'OBJECT',
+      properties: {
+        channels: {
+          type: 'ARRAY',
+          minItems: 10,
+          maxItems: 25,
+          items: {
+            type: 'OBJECT',
+            properties: {
+              candidateId: { type: 'STRING' },
+              targetType: { type: 'STRING', enum: ['community', 'podcast', 'youtube_creator'] },
+              relevance: { type: 'STRING' },
+              outreachScriptId: { type: 'STRING', enum: ['script-03-community_member', 'script-07-interview_invitation'] }
+            },
+            required: ['candidateId', 'targetType', 'relevance', 'outreachScriptId']
+          }
+        }
+      },
+      required: ['channels']
+    };
+
+    const relaxed = responseSchemaForVertexRequest('candidate_selection', schema);
+    expect(relaxed).not.toBe(schema);
+    expect(relaxed.properties?.channels.minItems).toBeUndefined();
+    expect(relaxed.properties?.channels.maxItems).toBeUndefined();
+    expect(relaxed.properties?.channels.items?.properties?.targetType.enum).toBeUndefined();
+    expect(relaxed.properties?.channels.items?.properties?.outreachScriptId.enum).toBeUndefined();
+    expect(relaxed.properties?.channels.items?.required).toEqual(['candidateId', 'targetType', 'relevance', 'outreachScriptId']);
+    expect(relaxed.properties?.channels.items?.properties?.candidateId.type).toBe('STRING');
+  });
+
   it('builds the provider-native Cloudflare AI Gateway URL for Vertex', async () => {
     const configured = await env();
     await expect(aiGatewayVertexUrl(configured, 'candidate_selection')).resolves.toBe(
