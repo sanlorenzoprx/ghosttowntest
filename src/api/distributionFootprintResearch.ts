@@ -499,15 +499,17 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
   if (seeds.length < 2 || seeds.length > 3) throw new Error('Distribution Footprint requires two or three confirmed competitor seeds');
   const sourceIds: string[] = [];
   const queryBySourceId: Record<string, string> = {};
+  const buyerDiscussionQuery = directBuyerDiscussionQuery(order);
   for (const seed of seeds) {
     for (const provider of ['dataforseo', 'podcast', 'youtube'] as const) {
       const taskId = `${provider}:${seed.seedId}`;
       sourceIds.push(taskId);
-      queryBySourceId[taskId] = seed.name;
+      queryBySourceId[taskId] = provider === 'dataforseo'
+        ? seed.name
+        : `${seed.name} ${buyerDiscussionQuery}`.trim().slice(0, 160);
     }
   }
   const topic = coreTopic(order, verdict);
-  const buyerDiscussionQuery = directBuyerDiscussionQuery(order);
   sourceIds.push(
     'podcast:category',
     'youtube:category',
@@ -516,8 +518,8 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
     'youtube_access:problem',
     'youtube_access:buyer'
   );
-  queryBySourceId['podcast:category'] = topic;
-  queryBySourceId['youtube:category'] = `${topic} review interview`;
+  queryBySourceId['podcast:category'] = buyerDiscussionQuery || topic;
+  queryBySourceId['youtube:category'] = `${buyerDiscussionQuery || topic} review interview`.slice(0, 160);
   queryBySourceId['customer_access:problem'] = `${buyerDiscussionQuery} forum discussion ${text(order.intake.geography, 'global')}`.slice(0, 180);
   queryBySourceId['customer_access:buyer'] = `${buyerDiscussionQuery} community question ${text(order.intake.geography, 'global')}`.slice(0, 180);
   queryBySourceId['youtube_access:problem'] = buyerDiscussionQuery;
@@ -643,7 +645,7 @@ async function podcastCandidates(env: Env, query: string, seedName?: string): Pr
   const verified = await Promise.all(feeds.map(async feed => {
     try {
       const page = await verifyOriginalPage(text(feed.link));
-      const podcastClaim = [text(feed.title), text(feed.author)].filter(Boolean).join(' ');
+      const podcastClaim = text(feed.title);
       if (!pageSupportsClaim(page, podcastClaim)) {
         throw new Error('Original source does not contain the claimed podcast identity evidence');
       }
@@ -701,11 +703,13 @@ async function youtubeCandidates(env: Env, query: string, seedName?: string): Pr
     const channelIdValue = text(item.snippet?.channelId);
     if (!channelIdValue || seen.has(channelIdValue)) continue;
     seen.add(channelIdValue);
-    const publicUrl = `https://www.youtube.com/channel/${encodeURIComponent(channelIdValue)}`;
+    const videoIdValue = text(item.id?.videoId);
+    if (!videoIdValue) continue;
+    const publicUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoIdValue)}`;
     const channelTitle = text(item.snippet?.channelTitle, 'YouTube creator');
     try {
       const page = await verifyOriginalPage(publicUrl);
-      const claimedIdentity = [channelTitle, text(item.snippet?.title)].filter(Boolean).join(' ');
+      const claimedIdentity = text(item.snippet?.title, channelTitle);
       if (!pageSupportsClaim(page, claimedIdentity)) continue;
       const observedAt = new Date().toISOString();
       const evidenceDate = normalizedEvidenceDate(item.snippet?.publishedAt);
