@@ -6,7 +6,7 @@
   "workingBranch": "acceptance/fresh-sprint-e2e",
   "lastGoodSha": "c382ffab07d8715b9320ac76be1ef2c1f578244f",
   "startedAt": "2026-09-27T18:33:53.879Z",
-  "updatedAt": "2026-09-27T18:49:43.268Z",
+  "updatedAt": "2026-09-27T18:50:41.034Z",
   "externalInput": null,
   "steps": {
     "0": {
@@ -47,12 +47,12 @@
     },
     "4": {
       "status": "BLOCKED_INTERNAL",
-      "attempts": 4,
+      "attempts": 5,
       "startedAt": "2026-09-27T18:42:17.315Z",
       "completedAt": null,
       "lastSha": null,
-      "receipt": "github-acceptance/sprint-autopilot/step-04-attempt-4.json",
-      "message": "Handler failed with exit code 1"
+      "receipt": "github-acceptance/sprint-autopilot/step-04-attempt-5.json",
+      "message": "Verification failed: npx vitest run tests/launchBlueprintDailyExecution.test.ts tests/q2DailyExecutionPackets.test.ts tests/launchBlueprintVertexPipeline.test.ts --no-file-parallelism"
     },
     "5": {
       "status": "PENDING",
