@@ -1,49 +1,49 @@
 {
   "schemaVersion": "ghosttown-sprint-roadmap-autopilot-state-v1",
   "roadmapId": "ghosttown-30-day-sprint-generation-v1",
-  "status": "RUNNING",
-  "currentStep": 0,
+  "status": "BLOCKED_INTERNAL",
+  "currentStep": 3,
   "workingBranch": "acceptance/fresh-sprint-e2e",
-  "lastGoodSha": null,
-  "startedAt": null,
-  "updatedAt": null,
+  "lastGoodSha": "498539ee2f587a0953fe133e912841b6563fd499",
+  "startedAt": "2026-09-27T18:33:53.879Z",
+  "updatedAt": "2026-09-27T18:34:07.637Z",
   "externalInput": null,
   "steps": {
     "0": {
-      "status": "PENDING",
-      "attempts": 0,
-      "startedAt": null,
-      "completedAt": null,
-      "lastSha": null,
-      "receipt": null,
-      "message": null
+      "status": "PASS",
+      "attempts": 1,
+      "startedAt": "2026-09-27T18:33:53.879Z",
+      "completedAt": "2026-09-27T18:34:00.622Z",
+      "lastSha": "498539ee2f587a0953fe133e912841b6563fd499",
+      "receipt": "github-acceptance/sprint-autopilot/step-00-attempt-1.json",
+      "message": "Completion gate passed"
     },
     "1": {
-      "status": "PENDING",
-      "attempts": 0,
-      "startedAt": null,
-      "completedAt": null,
-      "lastSha": null,
-      "receipt": null,
-      "message": null
+      "status": "PASS",
+      "attempts": 1,
+      "startedAt": "2026-09-27T18:34:00.623Z",
+      "completedAt": "2026-09-27T18:34:07.562Z",
+      "lastSha": "498539ee2f587a0953fe133e912841b6563fd499",
+      "receipt": "github-acceptance/sprint-autopilot/step-01-attempt-1.json",
+      "message": "Completion gate passed"
     },
     "2": {
-      "status": "PENDING",
-      "attempts": 0,
-      "startedAt": null,
-      "completedAt": null,
-      "lastSha": null,
-      "receipt": null,
-      "message": null
+      "status": "PASS",
+      "attempts": 1,
+      "startedAt": "2026-09-27T18:34:07.563Z",
+      "completedAt": "2026-09-27T18:34:07.611Z",
+      "lastSha": "498539ee2f587a0953fe133e912841b6563fd499",
+      "receipt": "github-acceptance/sprint-autopilot/step-02-attempt-1.json",
+      "message": "Completion gate passed"
     },
     "3": {
-      "status": "PENDING",
-      "attempts": 0,
-      "startedAt": null,
+      "status": "BLOCKED_INTERNAL",
+      "attempts": 1,
+      "startedAt": "2026-09-27T18:34:07.611Z",
       "completedAt": null,
       "lastSha": null,
-      "receipt": null,
-      "message": null
+      "receipt": "github-acceptance/sprint-autopilot/step-03-attempt-1.json",
+      "message": "Handler failed with exit code 1"
     },
     "4": {
       "status": "PENDING",
