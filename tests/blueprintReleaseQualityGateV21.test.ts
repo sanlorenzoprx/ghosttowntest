@@ -140,6 +140,15 @@ function expectCode(mutator: (input: ReturnType<typeof fixture>) => void, code: 
 describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
   it('passes the complete fixture', () => expect(evaluateBlueprintReleaseQualityGateV21(fixture()).passed).toBe(true));
 
+  it('does not require ten candidates or two providers when role-based evidence is sufficient', () => {
+    const input = fixture();
+    input.research.receipt.candidateChannelCount = 5;
+    input.research.receipt.sourceTypeCount = 1;
+    const codes = evaluateBlueprintReleaseQualityGateV21(input).blockers.map(blocker => blocker.code);
+    expect(codes).not.toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.fewerThanTenVerifiedCandidates);
+    expect(codes).not.toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.requiredProviderAttemptsNotExecuted);
+  });
+
   it('does not promote media-only research into customer access', () => {
     const input = fixture();
     input.research.receipt.sourceTypeCount = 1;
@@ -215,7 +224,6 @@ describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
     ['no manual fulfillment', i => { i.blueprint.manualFulfillmentPlan.onboardingSteps = []; }, C.strategy.noManualFulfillmentMethod],
     ['missing risk boundary', i => { i.blueprint.executiveDecision.founderTimeRiskHours = 0; }, C.strategy.missingTimeOrCashBoundary],
     ['too few seeds', i => { i.research.receipt.seedDomains = ['one.example']; }, C.research.fewerThanTwoConfirmedSeeds],
-    ['missing provider attempts', i => { i.research.receipt.attemptedSourceCount = 5; }, C.research.requiredProviderAttemptsNotExecuted],
     ['insufficient verification dimensions', i => {
       i.blueprint.startingStateAudit.verifiedFacts = [];
       i.blueprint.customerAccessPack.channels.forEach(channel => {
@@ -225,8 +233,9 @@ describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
       });
       i.research.research.publicExpertsAndPartners = [];
     }, C.research.insufficientVerificationDimensions],
-    ['too few candidates', i => { i.research.receipt.candidateChannelCount = 9; }, C.research.fewerThanTenVerifiedCandidates],
     ['too few direct customer-access targets', i => { i.blueprint.customerAccessPack.channels.filter(channel => channel.evidenceRole === 'customer_access').slice(2).forEach(channel => { channel.targetType = 'podcast'; channel.evidenceRole = 'media_pr'; }); }, C.research.fewerThanThreeCustomerAccessTargets],
+    ['too few problem-language observations', i => { if (i.blueprint.competitorReviewIntelligence) i.blueprint.competitorReviewIntelligence.observations = i.blueprint.competitorReviewIntelligence.observations.slice(0, 2); }, C.research.insufficientProblemLanguageEvidence],
+    ['too few competitive-alternative sources', i => { i.blueprint.customerAccessPack.channels.forEach((channel, index) => { if (index !== 5) channel.competitorEvidence = []; }); }, C.research.insufficientCompetitiveAlternativeEvidence],
     ['missing public source', i => { i.blueprint.customerAccessPack.channels[0].publicUrl = ''; }, C.research.missingPublicSource],
     ['missing research date', i => { i.blueprint.customerAccessPack.channels[0].researchDate = ''; }, C.research.missingResearchDate],
     ['missing research execution metadata', i => { i.blueprint.customerAccessPack.channels[0].accessPath = ''; }, C.research.missingExecutionMetadata],
