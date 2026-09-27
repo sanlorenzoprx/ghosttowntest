@@ -6,6 +6,7 @@ import type {
   BlueprintDailyAction,
   BlueprintSource,
   CustomerAccessChannel,
+  CompetitorReviewIntelligence,
   GhostTownLaunchBlueprint,
   HelpfulPost,
   LandingPageCopy,
@@ -28,6 +29,7 @@ export interface CustomerAccessResearchInput {
     relevance: string;
     sourceIds: string[];
   }>;
+  competitorReviewIntelligence?: CompetitorReviewIntelligence;
 }
 
 type BusinessModel =
@@ -307,22 +309,32 @@ function offerFor(model: BusinessModel, order: PaidTestOrder, verdict: Evaluatio
   };
 }
 
-function positioningFor(model: BusinessModel, order: PaidTestOrder, verdict: EvaluationResult, offer: OfferAndPricing): PositioningPlan {
+function positioningFor(model: BusinessModel, order: PaidTestOrder, verdict: EvaluationResult, offer: OfferAndPricing, research?: CustomerAccessResearchInput): PositioningPlan {
   const workaround = correctCustomerSurfaceSpelling(clean(order.intake.currentWorkaround, verdict.idea.currentAlternative || 'the current approach'));
   const alternatives = workaround
     .split(/,|;|\bor\b/i)
     .map(item => withoutEndPunctuation(item))
     .filter(Boolean);
+  const review = research?.competitorReviewIntelligence;
+  const reviewWeaknesses = (review?.patterns || [])
+    .filter(pattern => pattern.kind === 'weakness' || pattern.kind === 'requested_improvement')
+    .map(pattern => `Competitor-review pattern to test: ${pattern.theme}`)
+    .slice(0, 3);
+  const reviewLanguage = (review?.customerLanguagePhrases || [])
+    .map(value => clean(value, ''))
+    .filter(Boolean)
+    .slice(0, 5);
+  const implication = review?.productImplications?.[0];
   return {
     firstTargetCustomer: offer.targetCustomer,
     triggerEvents: MODEL_TEMPLATES[model].triggers,
     currentAlternatives: alternatives,
-    alternativeWeaknesses: [
+    alternativeWeaknesses: reviewWeaknesses.length ? reviewWeaknesses : [
       `The current approach still leaves the buyer responsible for solving ${withoutEndPunctuation(offer.painfulProblem)}.`,
       'Generic alternatives may not account for the buyer’s specific constraints.',
       'The buyer may receive options or activity without a clear first useful result.'
     ],
-    buyerLanguage: [
+    buyerLanguage: reviewLanguage.length ? reviewLanguage : [
       '“I do not want to waste more money trying the wrong option.”',
       `“I need a simpler way to handle ${withoutEndPunctuation(offer.painfulProblem)}.”`,
       '“I need to know exactly what I receive and what happens next.”'
@@ -331,7 +343,9 @@ function positioningFor(model: BusinessModel, order: PaidTestOrder, verdict: Eva
     rejectionReasons: ['No recent instance of the problem.', 'A broad or generic offer.', 'A slow first result.', 'A price without concrete scope.', 'Unsupported claims.'],
     notFor: ['People who cannot describe a recent instance of the problem.', 'Buyers outside the initial segment during the first 30 days.', 'Anyone requiring guarantees that a validation-stage offer cannot support.'],
     positioningStatement: `For ${offer.targetCustomer}, who is struggling with ${withoutEndPunctuation(offer.painfulProblem)}, GhostTown recommends ${offer.offerName}, which helps them reach ${withoutEndPunctuation(offer.desiredOutcome).toLowerCase()} without depending entirely on ${alternatives.join(', ') || 'the current approach'}.`,
-    differentiator: `A narrow, manually supported first result designed around ${withoutEndPunctuation(offer.painfulProblem)}, with explicit deliverables, exclusions, evidence, and a decision after the pilot.`
+    differentiator: implication
+      ? `A narrow, manually supported first result designed around ${withoutEndPunctuation(offer.painfulProblem)}. Competitor-review evidence suggests testing this product hypothesis: ${withoutEndPunctuation(implication.hypothesis)}.`
+      : `A narrow, manually supported first result designed around ${withoutEndPunctuation(offer.painfulProblem)}, with explicit deliverables, exclusions, evidence, and a decision after the pilot.`
   };
 }
 
@@ -707,7 +721,7 @@ export function createGhostTownLaunchBlueprint(
   hydrateEvaluationResultDecisionV2(verdict);
   const model = classifyBusinessModel(verdict);
   const offer = offerFor(model, order, verdict);
-  const positioning = positioningFor(model, order, verdict, offer);
+  const positioning = positioningFor(model, order, verdict, offer, research);
   const posts = helpfulPosts(offer, positioning, research);
   const scripts = outreachScripts(offer);
   const copy = landingPageCopy(offer, positioning);
@@ -783,6 +797,7 @@ export function createGhostTownLaunchBlueprint(
       ]
     },
     sources: research.sources,
+    competitorReviewIntelligence: research.competitorReviewIntelligence,
     qualityGate: { passed: false, failures: [], warnings: [] },
     generationReceipt: {
       sourceVerdictId: verdict.resultId,
