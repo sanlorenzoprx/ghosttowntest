@@ -84,7 +84,7 @@ async function start(env) {
       geography: 'United States',
       problem: 'Small WooCommerce store owners lose potential orders when checkout steps, shipping choices, or payment setup confuse buyers.',
       currentWorkaround: 'WooCommerce documentation, WordPress support forums, hosting support, plugins, and trial-and-error configuration changes.',
-      offerHypothesis: 'A $49 manual Checkout Friction Audit: review the store's checkout flow and deliver a prioritized list of the top three friction points with screenshots and fixes to test.',
+      offerHypothesis: 'A $49 manual Checkout Friction Audit: review the store checkout flow and deliver a prioritized list of the top three friction points with screenshots and fixes to test.',
       expectedPrice: '$49',
       currentStage: 'New idea with no paid customers yet',
       customerNotes: 'The store owner is both the user-side decision maker and payer. The first test is an advisory audit only: no payment processing, credential handling, financial advice, or changes to the live store.',
