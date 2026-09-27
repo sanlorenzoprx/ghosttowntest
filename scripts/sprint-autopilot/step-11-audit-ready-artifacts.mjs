@@ -41,11 +41,31 @@ assert(access.every(channel => channel.currentActivityStatus === 'verified_curre
 const review = blueprint.competitorReviewIntelligence;
 assert(review?.productSpecific === true, 'Review intelligence is not product-specific');
 assert(review.orderId === receipt.orderId, 'Review intelligence orderId does not match READY receipt');
-assert(Array.isArray(review.observations) && review.observations.length >= 2, 'READY Sprint has fewer than 2 review observations');
+assert(Array.isArray(review.observations) && review.observations.length >= 3, 'READY Sprint has fewer than 3 verified first-person problem-language observations');
+const observationUrls = new Set(review.observations.map(observation => String(observation.sourceUrl || '').toLowerCase().replace(/\/$/, '')).filter(Boolean));
+assert(observationUrls.size >= 3, 'READY Sprint problem-language evidence is not independent across at least 3 source URLs');
 const observationSources = new Set(review.observations.map(observation => observation.sourceId));
 assert(review.observations.every(observation => observation.sourceUrl && observation.customerLanguage?.length), 'Review observation lacks source URL or observed language');
 assert((review.patterns || []).every(pattern => pattern.sourceIds?.length >= 2 && pattern.sourceIds.every(id => observationSources.has(id))), 'Review pattern lacks two-source provenance');
 assert((review.productImplications || []).every(implication => implication.sourceIds?.length && implication.sourceIds.every(id => observationSources.has(id))), 'Review hypothesis lacks observed-source provenance');
+
+const competitiveAlternativeUrls = new Set(
+  channels
+    .filter(channel => channel.competitorEvidence?.some(value => String(value || '').trim()))
+    .map(channel => String(channel.publicUrl || '').toLowerCase().replace(/\/$/, ''))
+    .filter(Boolean)
+);
+assert(competitiveAlternativeUrls.size >= 2, 'READY Sprint has fewer than 2 independent competitive/alternative evidence sources');
+
+const sufficiency = research?.evidenceSufficiency;
+assert(sufficiency?.sufficient === true, 'READY research receipt did not pass role-based evidence sufficiency');
+const coveredRoles = new Set(sufficiency?.coveredRoles || []);
+for (const role of ['customer_access', 'problem_language', 'competitive_alternative']) {
+  assert(coveredRoles.has(role), `READY research receipt is missing required evidence role: ${role}`);
+}
+assert(sufficiency.currentCustomerAccessCount >= 3, 'READY receipt has fewer than 3 current customer-access sources');
+assert(sufficiency.problemLanguageObservationCount >= 3, 'READY receipt has fewer than 3 independent problem-language observations');
+assert(sufficiency.competitiveAlternativeSourceCount >= 2, 'READY receipt has fewer than 2 competitive/alternative sources');
 
 const stages = blueprint.generationReceipt?.stages?.map(stage => stage.stage) || [];
 assert(blueprint.generationReceipt?.pipelineVersion === 'vertex-blueprint-staged-v3', 'Missing staged Vertex v3 generation receipt');
@@ -80,6 +100,10 @@ const packet = {
     outreachScripts: outreach.length,
     reviewObservations: review.observations.length,
     reviewPatterns: review.patterns?.length || 0,
+    problemLanguageObservations: sufficiency.problemLanguageObservationCount,
+    competitiveAlternativeSources: sufficiency.competitiveAlternativeSourceCount,
+    evidenceRoles: sufficiency.coveredRoles,
+    independentEvidenceUrls: sufficiency.independentEvidenceUrls,
     zipFiles: manifest.length
   },
   generationStages: stages,
