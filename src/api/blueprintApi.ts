@@ -263,7 +263,8 @@ export async function handleLaunchBlueprintUncertainty(
   }
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
-  const body = await request.json<{ answers?: Record<string, unknown> }>().catch(() => ({}));
+  const body = await request.json<{ answers?: Record<string, unknown> }>()
+    .catch(() => ({ answers: undefined } as { answers?: Record<string, unknown> }));
   const supplied = body.answers || {};
   const answers: Record<string, string> = {};
   const missing: string[] = [];
