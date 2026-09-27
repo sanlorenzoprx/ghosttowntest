@@ -42,9 +42,6 @@ function normalizedEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-const paidOrderKey = (orderId: string) => `paid_test_order_${orderId}`;
-const userOrdersKey = (email: string) => `paid_test_orders_${normalizedEmail(email)}`;
-
 function isV21(blueprint: GhostTownLaunchBlueprint): blueprint is GhostTownLaunchBlueprintV21 {
   return (blueprint as GhostTownLaunchBlueprint & { blueprintVersion?: string }).blueprintVersion === '2.1';
 }
