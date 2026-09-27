@@ -1198,7 +1198,19 @@ export async function finalizeCustomerAccessResearch(
     if (!existing || score(candidate) > score(existing)) deduped.set(key, candidate);
   }
   const candidates = [...deduped.values()].sort((left, right) => score(right) - score(left)).slice(0, MAX_CANDIDATES_FOR_MODEL);
-  if (candidates.length < MIN_CHANNELS) throw new Error(`Distribution Footprint found only ${candidates.length} verified candidates; ${MIN_CHANNELS} are required`);
+  if (candidates.length < MIN_CHANNELS) {
+    const attemptDiagnostics = attempts
+      .map(attempt => `${attempt.sourceId}=${attempt.success ? `ok:${attempt.candidateCount}` : `failed:${attempt.error || 'unknown'}`}`)
+      .join(' | ');
+    const rejectionDiagnostics = rejectedUrls
+      .slice(0, 8)
+      .map(item => `${item.url}=${item.reason}`)
+      .join(' | ');
+    throw new Error(
+      `Distribution Footprint found only ${candidates.length} verified candidates; ${MIN_CHANNELS} are required. ` +
+      `Provider attempts: ${attemptDiagnostics || 'none'}. Rejections: ${rejectionDiagnostics || 'none'}`
+    );
+  }
 
   const ai = await generateAI(env, {
     task: 'candidate_selection',
