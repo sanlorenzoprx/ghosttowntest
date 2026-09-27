@@ -318,6 +318,9 @@ describe('customer access distribution footprint provider', () => {
       if (url.includes('family-buyer-community-2.example.com')) {
         return new Response('<html><head><title>Invalid Community Site</title></head><body>This page was removed and is no longer available.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
       }
+      if (url.includes('family-buyer-community-3.example.com')) {
+        return new Response('<html><head><title>Community unavailable</title></head><body>The requested resource does not exist.</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+      }
       if (url.includes('family-buyer-community-')) {
         const n = url.match(/community-(\d+)/)?.[1] || '3';
         return new Response(`<html><head><title>Family buyer discussion community ${n}</title><meta property="article:published_time" content="2026-07-25T12:00:00.000Z"><meta name="description" content="Parents and buyers discuss choosing family games in this public community."></head><body>Recent family buyer discussion community.</body></html>`, { status: 200, headers: { 'Content-Type': 'text/html' } });
