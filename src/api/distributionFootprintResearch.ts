@@ -23,12 +23,15 @@ import {
 } from './evidenceRecency';
 import { researchShortfallError } from './researchOutcome';
 import { isProviderRequestError, isRetryableProviderOutcome, opensProviderCircuit, providerHttpError, providerSemanticError, type ProviderOutcome } from './providerOutcome';
+import { braveSearchProvider } from './braveSearchProvider';
 
 const DATAFORSEO_ENDPOINT = 'https://api.dataforseo.com/v3/backlinks/backlinks/live';
 const RANKPARSE_BACKLINKS_ENDPOINT = 'https://api.rankparse.com/v1/backlinks';
 const PODCAST_INDEX_ENDPOINT = 'https://api.podcastindex.org/api/1.0/search/byterm';
 const YOUTUBE_ENDPOINT = 'https://www.googleapis.com/youtube/v3/search';
 const YOUTUBE_COMMENTS_ENDPOINT = 'https://www.googleapis.com/youtube/v3/commentThreads';
+const MIN_RANKPARSE_VERIFIED_PAGES_BEFORE_DATAFORSEO = 4;
+const MIN_RANKPARSE_EVIDENCE_ROLES_BEFORE_DATAFORSEO = 2;
 const MIN_ATTEMPTS = 6;
 const MIN_SUCCESSES = 4;
 const MIN_PROVIDER_TYPES = 2;
@@ -43,7 +46,7 @@ const MAX_DATAFORSEO_PAGE_VERIFICATIONS_PER_QUERY = 16;
 const MAX_RANKPARSE_PAGE_VERIFICATIONS_PER_QUERY = 16;
 const MAX_PODCAST_PAGE_VERIFICATIONS_PER_QUERY = 12;
 
-export type DistributionProvider = 'dataforseo_backlinks' | 'rankparse_backlinks' | 'podcast_index' | 'youtube_api' | 'google_grounded_customer_access';
+export type DistributionProvider = 'dataforseo_backlinks' | 'rankparse_backlinks' | 'brave_search' | 'podcast_index' | 'youtube_api' | 'google_grounded_customer_access';
 
 export interface CustomerAccessResearchReceipt {
   provider: 'distribution_footprint';
@@ -550,6 +553,9 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
 
   const topic = coreTopic(order, verdict);
   sourceIds.push(
+    'web:buyer',
+    'web:problem',
+    'web:buyer_problem',
     'podcast:category',
     'youtube:category',
     'customer_access:buyer',
@@ -560,6 +566,9 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
     'youtube_access:problem'
   );
 
+  queryBySourceId['web:buyer'] = `${buyerQuery} community discussion ${geography}`.trim().slice(0, 220);
+  queryBySourceId['web:problem'] = `${problemQuery} forum discussion ${geography}`.trim().slice(0, 220);
+  queryBySourceId['web:buyer_problem'] = `${buyerProblemQuery} community forum ${geography}`.trim().slice(0, 220);
   queryBySourceId['podcast:category'] = buyerDiscussionQuery || topic;
   queryBySourceId['youtube:category'] = `${buyerDiscussionQuery || topic} review interview`.trim().slice(0, 180);
   queryBySourceId['customer_access:buyer'] = `${buyerQuery} community question ${geography}`.trim().slice(0, 220);
@@ -586,8 +595,10 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
 
   reviewQueries.forEach((query, index) => {
     const taskId = `customer_access:review_${index + 1}`;
-    sourceIds.push(taskId);
+    const webTaskId = `web:review_${index + 1}`;
+    sourceIds.push(taskId, webTaskId);
     queryBySourceId[taskId] = `${query} forum discussion ${geography}`.trim().slice(0, 220);
+    queryBySourceId[webTaskId] = `${query} discussion community ${geography}`.trim().slice(0, 220);
   });
 
   const researchSignals = order.intake.researchSignals;
@@ -770,31 +781,110 @@ async function rankParseCandidates(env: Env, seed: CompetitorSeed): Promise<Foot
   return verified.filter((item): item is NonNullable<typeof item> => Boolean(item));
 }
 
+function uniqueCandidates(candidates: FootprintCandidate[]): FootprintCandidate[] {
+  const seen = new Set<string>();
+  return candidates.filter(candidate => {
+    const key = candidate.publicUrl.toLowerCase().replace(/\/$/, '');
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function rankParseCoverageSufficient(candidates: FootprintCandidate[]): boolean {
+  const roles = new Set(candidates.map(candidate => researchEvidenceRoleForTargetType(candidate.targetTypeHint)));
+  return candidates.length >= MIN_RANKPARSE_VERIFIED_PAGES_BEFORE_DATAFORSEO
+    && roles.size >= MIN_RANKPARSE_EVIDENCE_ROLES_BEFORE_DATAFORSEO;
+}
+
 async function competitorBacklinkCandidates(
   env: Env,
   seed: CompetitorSeed
 ): Promise<{ provider: 'dataforseo_backlinks' | 'rankparse_backlinks'; candidates: FootprintCandidate[] }> {
-  let dataForSeoError: unknown;
-  if (env.DATAFORSEO_LOGIN?.trim() && env.DATAFORSEO_PASSWORD?.trim()) {
-    try {
-      return { provider: 'dataforseo_backlinks', candidates: await dataForSeoCandidates(env, seed) };
-    } catch (error) {
-      dataForSeoError = error;
-    }
-  }
+  let rankParseError: unknown;
+  let rankParseVerified: FootprintCandidate[] = [];
 
   if (env.RANKPARSE_API_KEY?.trim()) {
     try {
-      return { provider: 'rankparse_backlinks', candidates: await rankParseCandidates(env, seed) };
-    } catch (rankParseError) {
-      const left = dataForSeoError instanceof Error ? dataForSeoError.message : 'DataForSEO unavailable';
-      const right = rankParseError instanceof Error ? rankParseError.message : 'RankParse unavailable';
-      throw new Error(`Backlink providers unavailable: DataForSEO=${left}; RankParse=${right}`);
+      rankParseVerified = await rankParseCandidates(env, seed);
+      if (rankParseCoverageSufficient(rankParseVerified)) {
+        return { provider: 'rankparse_backlinks', candidates: rankParseVerified };
+      }
+    } catch (error) {
+      rankParseError = error;
     }
   }
 
-  if (dataForSeoError instanceof Error) throw dataForSeoError;
-  throw new Error('No backlink provider is configured');
+  if (env.DATAFORSEO_LOGIN?.trim() && env.DATAFORSEO_PASSWORD?.trim()) {
+    try {
+      const dataForSeoVerified = await dataForSeoCandidates(env, seed);
+      const merged = uniqueCandidates([...rankParseVerified, ...dataForSeoVerified]);
+      return {
+        provider: dataForSeoVerified.length ? 'dataforseo_backlinks' : 'rankparse_backlinks',
+        candidates: merged
+      };
+    } catch (dataForSeoError) {
+      if (rankParseVerified.length) {
+        return { provider: 'rankparse_backlinks', candidates: rankParseVerified };
+      }
+      if (isProviderRequestError(dataForSeoError)) throw dataForSeoError;
+      if (isProviderRequestError(rankParseError)) throw rankParseError;
+      throw dataForSeoError;
+    }
+  }
+
+  if (rankParseVerified.length) return { provider: 'rankparse_backlinks', candidates: rankParseVerified };
+  if (isProviderRequestError(rankParseError)) throw rankParseError;
+  throw providerSemanticError('rankparse_backlinks', 'No backlink provider is configured');
+}
+
+async function braveCandidates(env: Env, query: string): Promise<FootprintCandidate[]> {
+  const discovered = await braveSearchProvider.search(env, query);
+  const verified = await Promise.all(discovered.slice(0, 16).map(async result => {
+    try {
+      const page = await verifyOriginalPage(result.url);
+      if (!pageSupportsClaim(page, query)) return null;
+      const type = inferTargetType(`${page.title} ${page.description} ${page.finalUrl}`, 'brave_search');
+      const discussion = type === 'community'
+        ? extractDiscussionActivityDateFromHtml(page.rawHtml, page.finalUrl, page.title)
+        : { date: page.evidenceDate, source: page.evidenceDateSource };
+      const evidenceDate = discussion.date || page.evidenceDate;
+      const currentActivityStatus = type === 'community'
+        ? currentActivityStatusFromDate(evidenceDate)
+        : 'unverified' as const;
+      if (type === 'community') {
+        const accessFailure = customerAccessUsabilityFailure(new URL(page.finalUrl), page.visibleText);
+        if (accessFailure) return null;
+      }
+      const observedAt = new Date().toISOString();
+      return {
+        candidateId: candidateId('brave_search', page.finalUrl),
+        provider: 'brave_search' as const,
+        targetTypeHint: type,
+        title: page.title,
+        publicUrl: page.finalUrl,
+        publisher: page.publisher,
+        platform: type.replace(/_/g, ' '),
+        activity: type === 'community' ? activityLevelFromDate(evidenceDate) : 'uncertain' as const,
+        confidence: 'high' as const,
+        evidenceDate,
+        evidenceDateSource: discussion.source || page.evidenceDateSource,
+        evidenceRecency: evidenceRecencyFromDate(evidenceDate),
+        currentActivityStatus,
+        currentActivityVerifiedAt: currentActivityStatus === 'verified_current' ? observedAt : undefined,
+        currentActivityEvidence: currentActivityStatus === 'verified_current'
+          ? `Original public page contains current discussion/activity evidence dated ${evidenceDate}.`
+          : 'Original public page was verified, but current direct-participation activity was not established.',
+        factualSignals: [page.title, page.description].filter(Boolean),
+        competitorEvidence: [],
+        audienceOwner: page.publisher,
+        observedAt
+      } satisfies FootprintCandidate;
+    } catch {
+      return null;
+    }
+  }));
+  return verified.filter((item): item is NonNullable<typeof item> => Boolean(item));
 }
 
 async function sha1Hex(value: string): Promise<string> {
@@ -1191,6 +1281,7 @@ async function groundedCustomerAccessCandidates(env: Env, query: string): Promis
 
 function providerForTask(taskId: string): DistributionProvider {
   if (taskId.startsWith('dataforseo:')) return 'dataforseo_backlinks';
+  if (taskId.startsWith('web:')) return 'brave_search';
   if (taskId.startsWith('podcast:')) return 'podcast_index';
   if (taskId.startsWith('customer_access:')) return 'google_grounded_customer_access';
   return 'youtube_api';
@@ -1239,6 +1330,8 @@ export async function runResearchBatch(
           actualProvider = backlink.provider;
           result = backlink.candidates;
         }
+      } else if (provider === 'brave_search') {
+        result = await braveCandidates(env, query);
       } else if (provider === 'podcast_index') {
         result = await podcastCandidates(env, query, seed?.name);
       } else if (provider === 'google_grounded_customer_access') {

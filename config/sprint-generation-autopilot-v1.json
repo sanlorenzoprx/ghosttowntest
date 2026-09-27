@@ -200,6 +200,7 @@
         "npm run type-check"
       ],
       "externalInputs": [
+        "provider_account_enablement:Brave_Search_API_if_missing",
         "secret_installation:BRAVE_SEARCH_API_KEY_if_missing"
       ],
       "completion": [

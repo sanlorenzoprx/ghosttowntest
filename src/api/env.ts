@@ -67,9 +67,11 @@ export interface Env {
   DATAFORSEO_LOGIN?: string;
   DATAFORSEO_PASSWORD?: string;
   RANKPARSE_API_KEY?: string;
+  BRAVE_SEARCH_API_KEY?: string;
   PODCAST_INDEX_API_KEY?: string;
   PODCAST_INDEX_API_SECRET?: string;
   YOUTUBE_API_KEY?: string;
+  YOUTUBE_API_KEY_PAID?: string;
   VERTEX_BLUEPRINT_REQUIRED?: string;
   VERTEX_PROJECT_ID?: string;
   VERTEX_LOCATION?: string;
