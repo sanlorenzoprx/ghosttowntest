@@ -6,7 +6,7 @@
   "workingBranch": "acceptance/fresh-sprint-e2e",
   "lastGoodSha": "f3d563875346cc7010085a82e09fbb2df4c4aed2",
   "startedAt": "2026-09-27T18:33:53.879Z",
-  "updatedAt": "2026-09-27T19:21:32.512Z",
+  "updatedAt": "2026-09-27T19:25:28.931Z",
   "externalInput": null,
   "steps": {
     "0": {
@@ -65,12 +65,12 @@
     },
     "6": {
       "status": "BLOCKED_INTERNAL",
-      "attempts": 1,
+      "attempts": 2,
       "startedAt": "2026-09-27T19:21:32.476Z",
       "completedAt": null,
       "lastSha": null,
-      "receipt": "github-acceptance/sprint-autopilot/step-06-attempt-1.json",
-      "message": "Handler failed with exit code 1"
+      "receipt": "github-acceptance/sprint-autopilot/step-06-attempt-2.json",
+      "message": "Verification failed: npx vitest run tests/providerOutcome.test.ts tests/generativeAIService.test.ts tests/customerAccessResearch.test.ts --no-file-parallelism"
     },
     "7": {
       "status": "PENDING",
