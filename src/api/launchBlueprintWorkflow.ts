@@ -37,10 +37,61 @@ import {
 } from './launchBlueprintVertexGuards';
 import { vertexBlueprintRequired } from './vertexStructuredGeneration';
 import { researchEnvForPaidBlueprint } from './paidBlueprintResearch';
+import type { VertexStrategicCoherenceGate } from './launchBlueprintVertexPipeline';
 
 function batchSize(value: string | undefined): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.min(6, Math.max(2, Math.floor(parsed))) : 3;
+}
+
+function customerAccessResearchUncertaintyGate(
+  context: Awaited<ReturnType<typeof loadLaunchBlueprintWorkflowContext>>,
+  reason: string
+): VertexStrategicCoherenceGate {
+  const { order, verdict } = context;
+  const supported = [
+    ['customer', order.intake.targetBuyer, 'Founder supplied a narrow target customer for the Sprint.'],
+    ['problem', order.intake.problem || verdict.idea.painfulProblem, 'Founder supplied the problem to test.'],
+    ['buyer_payer', order.intake.targetBuyer, 'The current intake identifies the intended first buyer/payer; this remains a hypothesis until customer evidence confirms it.'],
+    ['current_alternative', order.intake.currentWorkaround || verdict.idea.currentAlternative, 'Founder supplied the current workaround.'],
+    ['test', order.intake.offerHypothesis || verdict.deterministicScores.recommendedNextTest, 'The current intake/verdict supplies a bounded first test.'],
+    ['commitment', order.intake.expectedPrice ? `A paid test at ${order.intake.expectedPrice}` : 'A concrete observable commitment', 'The Sprint has a defined commitment hypothesis.'],
+    ['fulfillment', order.intake.offerHypothesis || 'Manual founder-delivered pilot', 'The first test is intended to be manually fulfillable before software is built.']
+  ] as const;
+
+  return {
+    passed: false,
+    chainSummary: 'GhostTown could not verify a direct path to at least three current prospective buyers. The 30-Day Sprint is paused until customer access is resolved.',
+    links: [
+      ...supported.map(([link, value, linkReason]) => ({
+        link,
+        value: value || 'Founder hypothesis',
+        status: 'testable_hypothesis' as const,
+        reason: linkReason,
+        evidenceIds: [],
+        channelIds: []
+      })),
+      {
+        link: 'access_path',
+        value: 'No release-safe direct customer-access path verified',
+        status: 'unresolved',
+        reason,
+        evidenceIds: [],
+        channelIds: []
+      }
+    ],
+    blockers: [{
+      code: 'ACCESS_PATH_NOT_VERIFIED',
+      link: 'access_path',
+      message: 'GhostTown could not verify at least three current places where you can directly reach the intended buyer or payer.',
+      requiredEvidence: 'Name or verify at least three current communities, discussion threads, groups, customer lists, events, or other direct routes where the intended buyer/payer can actually be reached.'
+    }]
+  };
+}
+
+function isCustomerAccessResearchUncertainty(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /(?:currently verified customer-access candidates|currently verified customer-access targets|retained no currently usable buyer-access target)/i.test(message);
 }
 
 export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBlueprintWorkflowParams> {
@@ -68,11 +119,24 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         completedBatches.push(batch);
       }
 
-      const result = await step.do(
-        'verify and structure media distribution network',
-        { retries: { limit: 2, delay: '15 seconds', backoff: 'linear' } },
-        async () => finalizeCustomerAccessResearch(researchEnv, context.order, context.verdict, plan, completedBatches)
-      );
+      let result;
+      try {
+        result = await step.do(
+          'verify and structure media distribution network',
+          { retries: { limit: 2, delay: '15 seconds', backoff: 'linear' } },
+          async () => finalizeCustomerAccessResearch(researchEnv, context.order, context.verdict, plan, completedBatches)
+        );
+      } catch (error) {
+        if (!isCustomerAccessResearchUncertainty(error)) throw error;
+        const gate = customerAccessResearchUncertaintyGate(
+          context,
+          error instanceof Error ? error.message : String(error)
+        );
+        const order = await step.do('persist 3-day customer-access uncertainty Sprint', async () =>
+          markLaunchBlueprintUncertaintyV21(this.env, orderId, gate)
+        );
+        return { orderId, status: order.status };
+      }
 
       await step.do('mark canonical blueprint v2.1 generating', async () =>
         markLaunchBlueprintGeneratingV21(this.env, orderId)
