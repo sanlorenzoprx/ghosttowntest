@@ -60,11 +60,15 @@ export function needsAdaptiveSecondPass(gap: ResearchGapSummary): boolean {
 export function buildAdaptiveExpansionPlan(
   plan: DistributionFootprintPlan,
   gap: ResearchGapSummary,
-  maxTasks = 8
+  maxTasks = 8,
+  excludedIntentIds: Iterable<string> = []
 ): AdaptiveExpansionPlan {
   if (!needsAdaptiveSecondPass(gap)) return { sourceIds: [], queryBySourceId: {}, selectedIntentIds: [] };
 
-  const prioritized = [...plan.expansionIntents].sort((left, right) => {
+  const excluded = new Set(excludedIntentIds);
+  const prioritized = plan.expansionIntents
+    .filter(intent => !excluded.has(intent.intentId))
+    .sort((left, right) => {
     if (gap.missingCurrentCustomerAccess > 0 && left.evidenceGoal !== right.evidenceGoal) {
       return left.evidenceGoal === 'customer_access' ? -1 : 1;
     }
@@ -88,6 +92,14 @@ export function buildAdaptiveExpansionPlan(
   }
 
   return { sourceIds, queryBySourceId, selectedIntentIds };
+}
+
+export function adaptiveResearchExhausted(
+  plan: DistributionFootprintPlan,
+  selectedIntentIds: Iterable<string>
+): boolean {
+  const selected = new Set(selectedIntentIds);
+  return plan.expansionIntents.every(intent => selected.has(intent.intentId));
 }
 
 export function mergeAdaptivePlan(

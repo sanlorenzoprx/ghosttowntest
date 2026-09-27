@@ -11,10 +11,11 @@ const tests = readFileSync(resolve(ROOT, 'tests/adaptiveResearch.test.ts'), 'utf
 const checks = [
   [adaptive.includes('summarizeResearchGap'), 'research gap analysis is missing'],
   [adaptive.includes('missingVerifiedCandidates') && adaptive.includes('missingCurrentCustomerAccess') && adaptive.includes('missingProviderTypes'), 'gap dimensions are incomplete'],
-  [adaptive.includes('buildAdaptiveExpansionPlan') && adaptive.includes('maxTasks = 8'), 'bounded adaptive expansion is missing'],
+  [adaptive.includes('buildAdaptiveExpansionPlan') && adaptive.includes('excludedIntentIds'), 'bounded adaptive expansion with intent de-duplication is missing'],
   [adaptive.includes("web:adaptive:"), 'adaptive research does not use the independent web-search path'],
-  [workflow.includes("'research adaptive second pass'"), 'Workflow does not execute the adaptive second pass'],
+  [workflow.includes('for (let adaptiveRound = 1; adaptiveRound <= 3') && workflow.includes('research adaptive expansion round'), 'Workflow does not execute bounded multi-round adaptive expansion'],
   [workflow.includes('providerBreakers'), 'adaptive pass does not preserve provider breaker state'],
+  [workflow.includes('usedAdaptiveIntentIds'), 'adaptive rounds do not prevent repeated intent execution'],
   [outcome.includes('successfulProviderTypes >= 2'), 'terminal insufficient-vs-blocked classification does not account for healthy alternate providers'],
   [tests.includes('canonical evidence gate') && tests.includes('skips adaptive research'), 'adaptive research completion regression is missing']
 ];

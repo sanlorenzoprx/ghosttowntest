@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DistributionFootprintPlan, ResearchBatchResult } from '../src/api/distributionFootprintResearch';
 import {
+  adaptiveResearchExhausted,
   buildAdaptiveExpansionPlan,
   mergeAdaptivePlan,
   needsAdaptiveSecondPass,
@@ -98,5 +99,23 @@ describe('adaptive second-pass research', () => {
     const gap = summarizeResearchGap([complete]);
     expect(needsAdaptiveSecondPass(gap)).toBe(false);
     expect(buildAdaptiveExpansionPlan(plan(), gap).sourceIds).toEqual([]);
+  });
+});
+
+
+describe('adaptive multi-round expansion', () => {
+  it('advances through distinct intent batches instead of repeating the same queries', () => {
+    const gap = summarizeResearchGap([batch()]);
+    const first = buildAdaptiveExpansionPlan(plan(), gap, 2);
+    const second = buildAdaptiveExpansionPlan(plan(), gap, 2, first.selectedIntentIds);
+    expect(first.selectedIntentIds.length).toBeGreaterThan(0);
+    expect(second.selectedIntentIds.length).toBeGreaterThan(0);
+    expect(second.selectedIntentIds.some(id => first.selectedIntentIds.includes(id))).toBe(false);
+  });
+
+  it('knows when all bounded expansion intents have been exhausted', () => {
+    const p = plan();
+    expect(adaptiveResearchExhausted(p, [])).toBe(false);
+    expect(adaptiveResearchExhausted(p, p.expansionIntents.map(intent => intent.intentId))).toBe(true);
   });
 });

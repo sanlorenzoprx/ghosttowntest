@@ -43,7 +43,7 @@ import { researchEnvForPaidBlueprint } from './paidBlueprintResearch';
 import type { VertexStrategicCoherenceGate } from './launchBlueprintVertexPipeline';
 import { isResearchOutcomeError, ResearchOutcomeError } from './researchOutcome';
 import { isProviderRequestError } from './providerOutcome';
-import { buildAdaptiveExpansionPlan, mergeAdaptivePlan, needsAdaptiveSecondPass, summarizeResearchGap } from './adaptiveResearch';
+import { adaptiveResearchExhausted, buildAdaptiveExpansionPlan, mergeAdaptivePlan, needsAdaptiveSecondPass, summarizeResearchGap } from './adaptiveResearch';
 
 function batchSize(value: string | undefined): number {
   const parsed = Number(value);
@@ -136,25 +136,30 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         providerBreakers = batch.breakerState;
       }
 
-      const firstPassGap = summarizeResearchGap(completedBatches);
-      if (needsAdaptiveSecondPass(firstPassGap)) {
-        const adaptive = buildAdaptiveExpansionPlan(plan, firstPassGap);
-        if (adaptive.sourceIds.length) {
-          const adaptivePlan = mergeAdaptivePlan(plan, adaptive);
-          const adaptiveBatch = await step.do(
-            'research adaptive second pass',
-            { retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' } },
-            async () => runResearchBatch(
-              researchEnv,
-              context.order,
-              adaptivePlan,
-              adaptive.sourceIds,
-              providerBreakers
-            )
-          );
-          completedBatches.push(adaptiveBatch);
-          providerBreakers = adaptiveBatch.breakerState;
-        }
+      const usedAdaptiveIntentIds = new Set<string>();
+      for (let adaptiveRound = 1; adaptiveRound <= 3; adaptiveRound += 1) {
+        const gap = summarizeResearchGap(completedBatches);
+        if (!needsAdaptiveSecondPass(gap)) break;
+        if (adaptiveResearchExhausted(plan, usedAdaptiveIntentIds)) break;
+
+        const adaptive = buildAdaptiveExpansionPlan(plan, gap, 6, usedAdaptiveIntentIds);
+        if (!adaptive.sourceIds.length) break;
+        adaptive.selectedIntentIds.forEach(intentId => usedAdaptiveIntentIds.add(intentId));
+
+        const adaptivePlan = mergeAdaptivePlan(plan, adaptive);
+        const adaptiveBatch = await step.do(
+          `research adaptive expansion round ${adaptiveRound}`,
+          { retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' } },
+          async () => runResearchBatch(
+            researchEnv,
+            context.order,
+            adaptivePlan,
+            adaptive.sourceIds,
+            providerBreakers
+          )
+        );
+        completedBatches.push(adaptiveBatch);
+        providerBreakers = adaptiveBatch.breakerState;
       }
 
       let result;
