@@ -249,6 +249,8 @@ interface SelectionPayload {
   }>;
 }
 
+type SelectionChannel = NonNullable<SelectionPayload['channels']>[number];
+
 interface VerifiedPage {
   finalUrl: string;
   title: string;
@@ -1611,9 +1613,9 @@ export async function finalizeCustomerAccessResearch(
     ).slice(0, 3),
     ...candidates.filter(candidate => candidate.competitorEvidence.some(value => value.trim())).slice(0, 2)
   ];
-  const selectionById = new Map((selection.channels || []).map(selected => [text(selected.candidateId), selected]));
+  const selectionById = new Map<string, SelectionChannel>((selection.channels || []).map(selected => [text(selected.candidateId), selected]));
   const requiredIds = new Set(requiredCandidates.map(candidate => candidate.candidateId));
-  const orderedSelection = [
+  const orderedSelection: SelectionChannel[] = [
     ...requiredCandidates.map(candidate => selectionById.get(candidate.candidateId) || { candidateId: candidate.candidateId }),
     ...(selection.channels || []).filter(selected => !requiredIds.has(text(selected.candidateId)))
   ];
