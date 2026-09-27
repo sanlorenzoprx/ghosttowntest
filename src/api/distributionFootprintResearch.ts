@@ -24,6 +24,7 @@ import {
 import { researchShortfallError } from './researchOutcome';
 import { isProviderRequestError, isRetryableProviderOutcome, opensProviderCircuit, providerHttpError, providerSemanticError, type ProviderOutcome } from './providerOutcome';
 import { braveSearchProvider } from './braveSearchProvider';
+import { buildResearchExpansionMatrix, type ResearchExpansionIntent } from './researchExpansionMatrix';
 
 const DATAFORSEO_ENDPOINT = 'https://api.dataforseo.com/v3/backlinks/backlinks/live';
 const RANKPARSE_BACKLINKS_ENDPOINT = 'https://api.rankparse.com/v1/backlinks';
@@ -84,6 +85,7 @@ export interface DistributionFootprintPlan {
   seedNames: string[];
   language: string;
   geography: string;
+  expansionIntents: ResearchExpansionIntent[];
 }
 
 export interface FootprintCandidate {
@@ -621,7 +623,8 @@ export function planCustomerAccessResearch(order: PaidTestOrder, verdict: Evalua
     seedDomains: seeds.map(seed => seed.domain),
     seedNames: seeds.map(seed => seed.name),
     language: 'en',
-    geography
+    geography,
+    expansionIntents: buildResearchExpansionMatrix(order, reviewLanguage)
   };
 }
 
