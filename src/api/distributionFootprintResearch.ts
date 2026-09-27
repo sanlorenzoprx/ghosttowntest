@@ -464,14 +464,16 @@ function coreTopic(order: PaidTestOrder, verdict: EvaluationResult): string {
   return `${verdict.idea.ideaName} ${order.intake.targetBuyer} ${order.intake.problem}`.replace(/\s+/g, ' ').trim().slice(0, 220);
 }
 
-function directBuyerDiscussionQuery(order: PaidTestOrder, verdict: EvaluationResult): string {
-  const identityTokens = claimTokens(`${verdict.idea.ideaName} ${order.intake.targetBuyer}`).slice(0, 8);
-  if (identityTokens.length >= 4) return identityTokens.join(' ');
-  const identitySet = new Set(identityTokens);
+function directBuyerDiscussionQuery(order: PaidTestOrder, _verdict: EvaluationResult): string {
+  // Search in buyer/problem language, not GhostTown's invented product or offer
+  // name. Product labels are often absent from the real discussions we need to
+  // discover and can collapse recall for a genuinely new idea.
+  const buyerTokens = claimTokens(order.intake.targetBuyer).slice(0, 6);
+  const buyerSet = new Set(buyerTokens);
   const problemTokens = claimTokens(order.intake.problem)
-    .filter(token => !identitySet.has(token))
+    .filter(token => !buyerSet.has(token))
     .slice(0, 4);
-  return [...new Set([...identityTokens, ...problemTokens])].slice(0, 8).join(' ');
+  return [...new Set([...buyerTokens, ...problemTokens])].slice(0, 8).join(' ');
 }
 
 export function planCustomerAccessResearch(order: PaidTestOrder, verdict: EvaluationResult): DistributionFootprintPlan {
