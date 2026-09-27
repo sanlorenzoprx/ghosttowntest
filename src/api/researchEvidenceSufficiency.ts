@@ -95,3 +95,34 @@ export function evaluateResearchEvidenceSufficiency(
     sufficient: coveredRoles.length >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.evidenceRoles
   };
 }
+
+export type ResearchEvidenceShortfallCode =
+  | 'MIN_CURRENT_CUSTOMER_ACCESS'
+  | 'MIN_PROBLEM_LANGUAGE_OBSERVATIONS'
+  | 'MIN_COMPETITIVE_ALTERNATIVE_EVIDENCE'
+  | 'EVIDENCE_ROLE_COVERAGE';
+
+export function primaryResearchEvidenceShortfall(
+  summary: ResearchEvidenceSufficiency
+): ResearchEvidenceShortfallCode | null {
+  if (summary.currentCustomerAccessCount < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.currentCustomerAccess) {
+    return 'MIN_CURRENT_CUSTOMER_ACCESS';
+  }
+  if (summary.problemLanguageObservationCount < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations) {
+    return 'MIN_PROBLEM_LANGUAGE_OBSERVATIONS';
+  }
+  if (summary.competitiveAlternativeSourceCount < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.competitiveAlternativeSources) {
+    return 'MIN_COMPETITIVE_ALTERNATIVE_EVIDENCE';
+  }
+  return summary.sufficient ? null : 'EVIDENCE_ROLE_COVERAGE';
+}
+
+export function researchEvidenceSufficiencyDetail(summary: ResearchEvidenceSufficiency): string {
+  return [
+    `customer_access=${summary.currentCustomerAccessCount}/${RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.currentCustomerAccess}`,
+    `problem_language=${summary.problemLanguageObservationCount}/${RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations}`,
+    `competitive_alternative=${summary.competitiveAlternativeSourceCount}/${RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.competitiveAlternativeSources}`,
+    `roles=${summary.coveredRoles.length}/${RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.evidenceRoles}`,
+    `independent_urls=${summary.independentEvidenceUrls}`
+  ].join(', ');
+}
