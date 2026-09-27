@@ -11,6 +11,7 @@ const WORKER_URL = 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.
 const START_PATH = '/__acceptance/fresh-sprint/start';
 const STATUS_PATH = '/__acceptance/fresh-sprint/status';
 const TOKEN = crypto.randomUUID() + crypto.randomUUID();
+const RESTORE_WORKTREE = join(ROOT, 'github-acceptance', 'main-restore-worktree');
 
 function git(args) {
   const r = spawnSync('git', args, {
@@ -355,22 +356,26 @@ try {
 } finally {
   if (deployed) {
     try {
-      git(['checkout', '--detach', MAIN_SHA]);
-      wrangler(['deploy','--env','acceptance']);
+      // Restore exact main from an isolated detached worktree. The Autopilot
+      // intentionally mutates roadmap state in the primary worktree, so branch
+      // switching there is unsafe and can strand the temporary verifier.
+      try { git(['worktree', 'remove', '--force', RESTORE_WORKTREE]); } catch {}
+      rmSync(RESTORE_WORKTREE, { recursive: true, force: true });
+      git(['worktree', 'add', '--detach', RESTORE_WORKTREE, MAIN_SHA]);
+      wrangler(['deploy','--env','acceptance'], { cwd: RESTORE_WORKTREE });
       jsonFile('restore-receipt.json', {
         schemaVersion: 'ghosttown-acceptance-restore-v1',
         restoredSha: MAIN_SHA,
         requestedFromSha: ORIGINAL_HEAD,
+        restoreMethod: 'isolated_detached_worktree',
         restoredAt: new Date().toISOString()
       });
     } catch (e) {
       console.error('CRITICAL: failed to restore canonical acceptance Worker from exact main SHA:', e);
       process.exitCode = 1;
     } finally {
-      try { git(['checkout', '--detach', ORIGINAL_HEAD]); } catch (e) {
-        console.error('CRITICAL: failed to restore acceptance checkout after main deployment:', e);
-        process.exitCode = 1;
-      }
+      try { git(['worktree', 'remove', '--force', RESTORE_WORKTREE]); } catch {}
+      rmSync(RESTORE_WORKTREE, { recursive: true, force: true });
     }
   }
   rmSync(TEMP, { force: true });

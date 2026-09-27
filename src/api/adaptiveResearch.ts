@@ -39,9 +39,7 @@ export function summarizeResearchGap(
     && Boolean(candidate.currentActivityVerifiedAt)
   ).length;
   const successfulProviderTypes = new Set(
-    batches.flatMap(batch => batch.attempts)
-      .filter(attempt => attempt.outcome === 'SUCCESS' || attempt.success)
-      .map(attempt => attempt.sourceType)
+    candidates.map(candidate => candidate.provider)
   ).size;
   return {
     verifiedCandidateCount: candidates.length,

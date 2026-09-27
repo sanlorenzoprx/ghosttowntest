@@ -1349,7 +1349,9 @@ export async function runResearchBatch(
       attempts.push({
         sourceId: taskId,
         sourceType: actualProvider,
-        success: result.length > 0,
+        // success means the provider task completed normally. NO_RESULTS is a
+        // healthy completed task, not a provider failure.
+        success: true,
         outcome: result.length > 0 ? 'SUCCESS' : 'NO_RESULTS',
         query,
         candidateCount: result.length
@@ -1549,7 +1551,11 @@ export async function finalizeCustomerAccessResearch(
   const requestedAt = plan.createdAt;
   const attempts = batches.flatMap(batch => batch.attempts);
   const successful = attempts.filter(attempt => attempt.success);
-  const sourceTypes = new Set(successful.map(attempt => attempt.sourceType));
+  // Provider diversity is evidence-backed: a provider type counts only when it
+  // contributed an original-source-verified candidate, not merely an attempt.
+  const sourceTypes = new Set(
+    batches.flatMap(batch => batch.candidates.map(candidate => candidate.provider))
+  );
   const rejectedUrls = batches.flatMap(batch => batch.rejectedUrls);
   if (attempts.length < MIN_ATTEMPTS) throw new Error(`Distribution Footprint attempted only ${attempts.length} tasks; ${MIN_ATTEMPTS} are required`);
   if (successful.length < MIN_SUCCESSES) {
