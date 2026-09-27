@@ -1,13 +1,10 @@
 name: Fresh Sprint Acceptance
 
 on:
-  push:
-    branches:
-      - acceptance/fresh-sprint-e2e
   workflow_dispatch:
     inputs:
       mode:
-        description: "debug = smallest failure-focused tests; checkpoint = full 7-file/76-test focused regression before merge"
+        description: "debug = smallest failure-focused tests; checkpoint = full focused regression before merge"
         required: true
         default: debug
         type: choice
@@ -19,14 +16,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: ghosttown-fresh-sprint-acceptance-${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'checkpoint' && 'checkpoint' || 'debug' }}
-  cancel-in-progress: ${{ github.event_name == 'push' || inputs.mode == 'debug' }}
+  group: ghosttown-acceptance
+  cancel-in-progress: false
 
 jobs:
   fresh-sprint:
     name: fresh-sprint
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    environment: acceptance
     env:
       CI: "true"
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -51,8 +49,8 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
 
-      - name: Debug tests for current candidate-selection failure
-        if: ${{ github.event_name == 'push' || inputs.mode == 'debug' }}
+      - name: Debug tests for current Sprint failure
+        if: ${{ inputs.mode == 'debug' }}
         run: >
           npx vitest run
           tests/generativeAIService.test.ts
@@ -61,8 +59,8 @@ jobs:
           tests/competitorReviewIntelligence.test.ts
           --no-file-parallelism
 
-      - name: Checkpoint focused regression — 7 files / 76 tests
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'checkpoint' }}
+      - name: Checkpoint focused regression
+        if: ${{ inputs.mode == 'checkpoint' }}
         run: >
           npx vitest run
           tests/currentProductPromise.test.ts
@@ -73,6 +71,9 @@ jobs:
           tests/blueprintPdfV21.test.ts
           tests/blueprintReleaseQualityGateV21.test.ts
           --no-file-parallelism
+
+      - name: Type check
+        run: npm run type-check
 
       - name: Run completely fresh Sprint acceptance
         run: node scripts/fresh-sprint-acceptance.mjs
