@@ -83,8 +83,6 @@ export default function UserDashboard({
   const [seedOrderId, setSeedOrderId] = useState("");
   const [uncertaintyOrderId, setUncertaintyOrderId] = useState("");
   const [retryingOrderId, setRetryingOrderId] = useState("");
-  const [uncertaintyAnswers, setUncertaintyAnswers] = useState<Record<string, Record<string, string>>>({});
-  const [savingUncertaintyOrderId, setSavingUncertaintyOrderId] = useState("");
   const [getMeLiveOrders, setGetMeLiveOrders] = useState<GetMeLiveSummary[]>([]);
 
   const loadGetMeLive = () =>
