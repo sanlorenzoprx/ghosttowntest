@@ -12,7 +12,8 @@ import {
   handleLaunchBlueprint,
   handleLaunchBlueprintJson,
   handleLaunchBlueprintPdf,
-  handleLaunchBlueprintAssets
+  handleLaunchBlueprintAssets,
+  handleLaunchBlueprintUncertainty
 } from './blueprintApi';
 import { handleLaunchBlueprintProgress, handleLaunchBlueprintRetry } from './blueprintApiMeasurement';
 import { handleBlueprintSeeds, handleBlueprintSeedSuggestions } from './blueprintSeeds';
@@ -408,7 +409,13 @@ export default {
         applyCors(response, corsHeaders);
         return response;
       }
-      const blueprintRetryMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/retry$/);
+      const blueprintUncertaintyMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/uncertainty$/);
+      if (blueprintUncertaintyMatch && (method === 'GET' || method === 'POST')) {
+        const response = await handleLaunchBlueprintUncertainty(request, env, blueprintUncertaintyMatch[1]);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+            const blueprintRetryMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/retry$/);
       if (blueprintRetryMatch && method === 'POST') {
         const response = await handleLaunchBlueprintRetry(request, env, blueprintRetryMatch[1]);
         applyCors(response, corsHeaders);
