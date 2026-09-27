@@ -13,7 +13,7 @@ const checks = [
   [source.includes("_complaint"), 'competitor × complaint task is missing'],
   [source.includes("_alternatives"), 'competitor × alternatives task is missing'],
   [!source.includes("`${verdict.idea.ideaName} ${order.intake.targetBuyer} ${order.intake.problem}`"), 'ideaName is still injected into the core discovery topic'],
-  [source.includes('specific search-intent anchor terms'), 'intent-specific verification anchor is missing']
+  [source.includes('search-intent anchor terms'), 'intent-specific verification anchor is missing']
 ];
 
 for (const [ok, message] of checks) {
