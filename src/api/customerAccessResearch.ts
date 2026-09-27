@@ -105,7 +105,19 @@ export function recoverCustomerAccessFromVerifiedCandidates(
     && Boolean(candidate.currentActivityVerifiedAt)
   );
   if (currentAccessCandidates.length < 3) {
-    throw new Error(`Distribution Footprint recovery found only ${currentAccessCandidates.length} currently verified customer-access candidates; at least 3 are required`);
+    const accessAttempts = attempts
+      .filter(attempt => attempt.sourceId.startsWith('customer_access:') || attempt.sourceId.startsWith('youtube_access:'))
+      .map(attempt => `${attempt.sourceId}=${attempt.success ? `ok:${attempt.candidateCount}` : `failed:${attempt.error || 'unknown'}`}`)
+      .join(' | ');
+    const candidateDiagnostics = candidates
+      .filter(candidate => candidate.targetTypeHint === 'community')
+      .slice(0, 8)
+      .map(candidate => `${candidate.provider}:${candidate.currentActivityStatus}:${candidate.evidenceDate || 'undated'}:${candidate.publicUrl}`)
+      .join(' | ');
+    throw new Error(
+      `Distribution Footprint recovery found only ${currentAccessCandidates.length} currently verified customer-access candidates; at least 3 are required. ` +
+      `Access attempts: ${accessAttempts || 'none'}. Community candidates: ${candidateDiagnostics || 'none'}`
+    );
   }
   const priorityAccess = currentAccessCandidates.slice(0, 5);
   const priorityIds = new Set(priorityAccess.map(candidate => candidate.candidateId));
