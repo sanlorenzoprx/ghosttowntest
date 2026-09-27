@@ -43,6 +43,7 @@ import { researchEnvForPaidBlueprint } from './paidBlueprintResearch';
 import type { VertexStrategicCoherenceGate } from './launchBlueprintVertexPipeline';
 import { isResearchOutcomeError, ResearchOutcomeError } from './researchOutcome';
 import { isProviderRequestError } from './providerOutcome';
+import { buildAdaptiveExpansionPlan, mergeAdaptivePlan, needsAdaptiveSecondPass, summarizeResearchGap } from './adaptiveResearch';
 
 function batchSize(value: string | undefined): number {
   const parsed = Number(value);
@@ -133,6 +134,27 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         );
         completedBatches.push(batch);
         providerBreakers = batch.breakerState;
+      }
+
+      const firstPassGap = summarizeResearchGap(completedBatches);
+      if (needsAdaptiveSecondPass(firstPassGap)) {
+        const adaptive = buildAdaptiveExpansionPlan(plan, firstPassGap);
+        if (adaptive.sourceIds.length) {
+          const adaptivePlan = mergeAdaptivePlan(plan, adaptive);
+          const adaptiveBatch = await step.do(
+            'research adaptive second pass',
+            { retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' } },
+            async () => runResearchBatch(
+              researchEnv,
+              context.order,
+              adaptivePlan,
+              adaptive.sourceIds,
+              providerBreakers
+            )
+          );
+          completedBatches.push(adaptiveBatch);
+          providerBreakers = adaptiveBatch.breakerState;
+        }
       }
 
       let result;

@@ -49,9 +49,10 @@ export class ResearchOutcomeError extends Error {
 }
 
 export function classifyResearchShortfall(
-  attempts: ResearchAttemptLike[]
+  attempts: ResearchAttemptLike[],
+  code?: ResearchShortfallCode
 ): Exclude<ResearchOutcome, 'COMPLETE'> {
-  const providerBlocked = attempts.some(attempt => {
+  const providerFailure = attempts.some(attempt => {
     if (attempt.outcome === 'NO_RESULTS' || attempt.outcome === 'SOURCE_VERIFICATION_FAILED') return false;
     if (attempt.outcome === 'RATE_LIMITED'
       || attempt.outcome === 'QUOTA_EXHAUSTED'
@@ -60,7 +61,22 @@ export function classifyResearchShortfall(
       || attempt.outcome === 'PERMANENT_PROVIDER_FAILURE') return true;
     return !attempt.outcome && !attempt.success;
   });
-  return providerBlocked ? 'PROVIDER_BLOCKED' : 'INSUFFICIENT_EVIDENCE';
+  if (!providerFailure) return 'INSUFFICIENT_EVIDENCE';
+
+  // Capacity is genuinely blocking when too few provider tasks/types can run.
+  if (code === 'MIN_SUCCESSFUL_PROVIDER_TASKS' || code === 'MIN_PROVIDER_TYPES') {
+    return 'PROVIDER_BLOCKED';
+  }
+
+  // After alternate providers have produced verified evidence from at least two
+  // independent provider types, a remaining evidence shortfall is a market
+  // evidence result, not an infrastructure judgment.
+  const successfulProviderTypes = new Set(
+    attempts
+      .filter(attempt => attempt.success || attempt.outcome === 'SUCCESS')
+      .map(attempt => attempt.sourceType)
+  ).size;
+  return successfulProviderTypes >= 2 ? 'INSUFFICIENT_EVIDENCE' : 'PROVIDER_BLOCKED';
 }
 
 export function researchShortfallError(
@@ -69,7 +85,7 @@ export function researchShortfallError(
   attempts: ResearchAttemptLike[]
 ): ResearchOutcomeError {
   return new ResearchOutcomeError({
-    outcome: classifyResearchShortfall(attempts),
+    outcome: classifyResearchShortfall(attempts, code),
     code,
     detail,
     attempts
