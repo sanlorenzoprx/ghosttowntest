@@ -393,15 +393,22 @@ async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Respo
   let body: any; try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
   const ownerId = String(body?.ownerId || '').trim().toLowerCase();
   const orderId = String(body?.orderId || '');
-  if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_')) return json({ error: 'Invalid E2E fixture identity' }, 400);
+  const gmlOrderId = String(body?.gmlOrderId || '');
+  if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_') || !/^gml_e2e_[A-Za-z0-9_-]+$/.test(gmlOrderId)) return json({ error: 'Invalid E2E fixture identity' }, 400);
+  await env.DB.prepare('DELETE FROM get_me_live_leads WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_share_drafts WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_orders WHERE order_id = ? AND owner_id = ?').bind(gmlOrderId, ownerId).run();
   await env.DB.prepare('DELETE FROM blueprint_execution_log WHERE order_id = ?').bind(orderId).run().catch(() => undefined);
   await env.DB.prepare('DELETE FROM launch_blueprints WHERE order_id = ? AND owner_id = ?').bind(orderId, ownerId).run();
   await Promise.all([
+    env.BLUEPRINTS.delete('get-me-live/' + gmlOrderId + '/preview.json'),
+    env.BLUEPRINTS.delete('get-me-live/' + gmlOrderId + '/preview.html'),
+    env.KV.delete('get_me_live_cf_token_' + gmlOrderId),
     env.KV.delete('paid_test_order_' + orderId),
     env.KV.delete('paid_test_orders_' + ownerId),
     env.KV.delete('user_' + ownerId)
   ]);
-  return json({ ok: true, deleted: true, orderId, productionMutated: false });
+  return json({ ok: true, deleted: true, orderId, gmlOrderId, productionMutated: false });
 }
 
 export default {
