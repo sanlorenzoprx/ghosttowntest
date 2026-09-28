@@ -41,7 +41,9 @@ permissions:
   actions: read
 
 concurrency:
-  group: ghosttown-sprint-roadmap-autopilot
+  # Serialize every repo-controlled acceptance deployment. Fresh Sprint
+  # temporarily replaces the acceptance Worker and must own it until terminal.
+  group: ghosttown-acceptance
   cancel-in-progress: false
 
 jobs:

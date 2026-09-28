@@ -14,6 +14,11 @@ const CAPABILITIES_PATH = '/__acceptance/fresh-sprint/capabilities';
 const TOKEN = crypto.randomUUID() + crypto.randomUUID();
 const VERIFIER_MARKER = `fresh-sprint-verifier-${crypto.randomUUID()}`;
 const RESTORE_WORKTREE = join(ROOT, 'github-acceptance', 'main-restore-worktree');
+const DEPLOYMENT_STABLE_WINDOW_MS = 30_000;
+const DEPLOYMENT_STABILITY_DEADLINE_MS = 120_000;
+const DEPLOYMENT_STABLE_PROBE_INTERVAL_MS = 3_000;
+const WORKFLOW_CLEANUP_WAIT_MS = 20 * 60 * 1000;
+const TERMINAL_ORDER_STATUSES = new Set(['ready', 'uncertainty', 'research_blocked', 'failed']);
 
 function git(args) {
   const r = spawnSync('git', args, {
@@ -45,6 +50,18 @@ function wrangler(args, opts = {}) {
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const jsonFile = (name, value) => writeFileSync(join(OUT, name), JSON.stringify(value, null, 2) + '\n', 'utf8');
+
+function readRemoteOrder(orderId) {
+  const raw = wrangler([
+    'kv', 'key', 'get', 'paid_test_order_' + orderId,
+    '--binding', 'KV', '--remote', '--env', 'acceptance', '--text'
+  ]).trim();
+  return raw ? JSON.parse(raw) : null;
+}
+
+function isTerminalOrder(order) {
+  return Boolean(order && TERMINAL_ORDER_STATUSES.has(order.status));
+}
 
 const worker = `
 import app from '../../src/api/worker.ts';
@@ -306,6 +323,9 @@ function auditReady(status) {
 
 let deployed = false;
 let finalStatus = null;
+let workflowStarted = false;
+let startedOrderId = null;
+let terminalOrderObserved = false;
 try {
   const secretListRaw = wrangler(['secret', 'list', '--env', 'acceptance']);
   let secretInventory = [];
@@ -358,6 +378,46 @@ try {
   }
   assert(verifierReady, 'Fresh Sprint verifier did not become active at the acceptance Worker URL');
 
+  // A first successful edge probe is not enough: Cloudflare may still be
+  // rolling the Worker / Durable Object code behind it. Require one continuous
+  // stable window with the exact same verifier marker before starting a Workflow.
+  const stabilityDeadline = Date.now() + DEPLOYMENT_STABILITY_DEADLINE_MS;
+  let stableSince = null;
+  let stableProbeCount = 0;
+  while (Date.now() < stabilityDeadline) {
+    let markerStable = false;
+    try {
+      const probe = await fetch(WORKER_URL + START_PATH, {
+        method: 'GET',
+        headers: { 'x-acceptance-token': TOKEN, 'cache-control': 'no-cache' }
+      });
+      const body = probe.ok ? await probe.json().catch(() => null) : null;
+      markerStable = body?.ok === true && body?.verifierMarker === VERIFIER_MARKER;
+    } catch {}
+
+    if (markerStable) {
+      stableSince ||= Date.now();
+      stableProbeCount += 1;
+      if (Date.now() - stableSince >= DEPLOYMENT_STABLE_WINDOW_MS) break;
+    } else {
+      stableSince = null;
+      stableProbeCount = 0;
+    }
+    await sleep(DEPLOYMENT_STABLE_PROBE_INTERVAL_MS);
+  }
+  assert(
+    stableSince && Date.now() - stableSince >= DEPLOYMENT_STABLE_WINDOW_MS,
+    'Fresh Sprint verifier did not remain stable long enough to start a Workflow'
+  );
+  jsonFile('deployment-stability-receipt.json', {
+    schemaVersion: 'ghosttown-acceptance-deployment-stability-v1',
+    verifierMarker: VERIFIER_MARKER,
+    stableWindowMs: DEPLOYMENT_STABLE_WINDOW_MS,
+    consecutiveStableProbes: stableProbeCount,
+    stableSince: new Date(stableSince).toISOString(),
+    confirmedAt: new Date().toISOString()
+  });
+
   // Prove what the deployed temporary acceptance Worker can actually see.
   // This receipt contains capability booleans only; it never exposes secret values.
   const capabilityRes = await fetch(WORKER_URL + CAPABILITIES_PATH, {
@@ -400,6 +460,8 @@ try {
   });
   const start = await startRes.json();
   assert(startRes.ok && start.ok, 'Fresh Sprint start failed: ' + JSON.stringify(start));
+  workflowStarted = true;
+  startedOrderId = start.orderId;
   jsonFile('fresh-input-receipt.json', start);
 
   const deadline = Date.now() + 20 * 60 * 1000;
@@ -407,12 +469,20 @@ try {
     await sleep(10000);
     // Poll durable acceptance state directly instead of depending on a temporary
     // HTTP verifier version staying at the edge while the Workflow is running.
-    const orderRaw = wrangler(['kv','key','get','paid_test_order_' + start.orderId,'--binding','KV','--remote','--env','acceptance','--text']).trim();
-    if (!orderRaw) continue;
-    const order = JSON.parse(orderRaw);
+    let order = null;
+    try {
+      order = readRemoteOrder(start.orderId);
+    } catch (error) {
+      console.warn('[fresh-sprint] transient order poll failed; preserving deployed Worker:', String(error?.message || error));
+      continue;
+    }
+    if (!order) continue;
     finalStatus = { ok: true, order, workflowStatus: order.fulfillmentWorkflowId ? 'recorded' : 'unknown' };
     jsonFile('latest-status.json', finalStatus);
-    if (['ready', 'uncertainty', 'research_blocked', 'failed'].includes(order.status)) break;
+    if (isTerminalOrder(order)) {
+      terminalOrderObserved = true;
+      break;
+    }
     finalStatus = null;
   }
   assert(finalStatus, 'Fresh Sprint timed out');
@@ -465,27 +535,61 @@ try {
   console.log(JSON.stringify(receipt, null, 2));
 } finally {
   if (deployed) {
-    try {
-      // Restore exact main from an isolated detached worktree. The Autopilot
-      // intentionally mutates roadmap state in the primary worktree, so branch
-      // switching there is unsafe and can strand the temporary verifier.
-      try { git(['worktree', 'remove', '--force', RESTORE_WORKTREE]); } catch {}
-      rmSync(RESTORE_WORKTREE, { recursive: true, force: true });
-      git(['worktree', 'add', '--detach', RESTORE_WORKTREE, MAIN_SHA]);
-      wrangler(['deploy','--env','acceptance'], { cwd: RESTORE_WORKTREE });
-      jsonFile('restore-receipt.json', {
-        schemaVersion: 'ghosttown-acceptance-restore-v1',
-        restoredSha: MAIN_SHA,
-        requestedFromSha: ORIGINAL_HEAD,
-        restoreMethod: 'isolated_detached_worktree',
-        restoredAt: new Date().toISOString()
+    // Once a Workflow has started, restoring/redeploying this Worker can reset
+    // the Durable Object while it is executing. Never restore until the paid
+    // order itself is terminal. If we cannot prove terminal state, leave the
+    // temporary verifier deployed and fail closed for manual recovery.
+    if (workflowStarted && startedOrderId && !terminalOrderObserved) {
+      const cleanupDeadline = Date.now() + WORKFLOW_CLEANUP_WAIT_MS;
+      while (Date.now() < cleanupDeadline && !terminalOrderObserved) {
+        try {
+          const order = readRemoteOrder(startedOrderId);
+          if (isTerminalOrder(order)) {
+            terminalOrderObserved = true;
+            finalStatus ||= { ok: true, order, workflowStatus: order.fulfillmentWorkflowId ? 'recorded' : 'unknown' };
+            jsonFile('latest-status.json', finalStatus);
+            break;
+          }
+        } catch (error) {
+          console.warn('[fresh-sprint] cleanup terminal-state probe failed:', String(error?.message || error));
+        }
+        await sleep(10_000);
+      }
+    }
+
+    if (workflowStarted && !terminalOrderObserved) {
+      jsonFile('restore-deferred-receipt.json', {
+        schemaVersion: 'ghosttown-acceptance-restore-deferred-v1',
+        orderId: startedOrderId,
+        reason: 'workflow_not_proven_terminal',
+        temporaryVerifierLeftDeployed: true,
+        recordedAt: new Date().toISOString()
       });
-    } catch (e) {
-      console.error('CRITICAL: failed to restore canonical acceptance Worker from exact main SHA:', e);
+      console.error('CRITICAL: refusing to restore acceptance Worker while Fresh Sprint Workflow may still be running.');
       process.exitCode = 1;
-    } finally {
-      try { git(['worktree', 'remove', '--force', RESTORE_WORKTREE]); } catch {}
-      rmSync(RESTORE_WORKTREE, { recursive: true, force: true });
+    } else {
+      try {
+        // Restore exact main from an isolated detached worktree only after the
+        // Fresh Sprint reached a terminal state.
+        try { git(['worktree', 'remove', '--force', RESTORE_WORKTREE]); } catch {}
+        rmSync(RESTORE_WORKTREE, { recursive: true, force: true });
+        git(['worktree', 'add', '--detach', RESTORE_WORKTREE, MAIN_SHA]);
+        wrangler(['deploy','--env','acceptance'], { cwd: RESTORE_WORKTREE });
+        jsonFile('restore-receipt.json', {
+          schemaVersion: 'ghosttown-acceptance-restore-v1',
+          restoredSha: MAIN_SHA,
+          requestedFromSha: ORIGINAL_HEAD,
+          restoreMethod: 'isolated_detached_worktree_after_terminal_order',
+          workflowTerminalObserved: terminalOrderObserved,
+          restoredAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.error('CRITICAL: failed to restore canonical acceptance Worker from exact main SHA:', e);
+        process.exitCode = 1;
+      } finally {
+        try { git(['worktree', 'remove', '--force', RESTORE_WORKTREE]); } catch {}
+        rmSync(RESTORE_WORKTREE, { recursive: true, force: true });
+      }
     }
   }
   rmSync(TEMP, { force: true });
