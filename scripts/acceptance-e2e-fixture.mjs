@@ -10,6 +10,8 @@ const ownerId = `ghosttown-e2e-${runId}@example.invalid`;
 const orderId = `gtt_e2e_${runId}_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
 const gmlOrderId = `gml_e2e_${runId}_${randomUUID().replaceAll('-', '').slice(0, 10)}`;
 const password = `E2e!${randomBytes(18).toString('base64url')}`;
+const envFile = process.env.GITHUB_ENV;
+if (!envFile) throw new Error('GITHUB_ENV is unavailable.');
 
 const signup = await fetch(apiUrl + '/api/auth/signup', {
   method: 'POST', headers: { 'content-type': 'application/json' },
@@ -37,8 +39,6 @@ const publishText = await publish.text();
 let publishBody = null; try { publishBody = JSON.parse(publishText); } catch {}
 if (!publish.ok || !publishBody?.publicUrl) throw new Error(`Acceptance Get Me Live fixture publish failed HTTP ${publish.status}: ${publishBody?.error || 'unknown error'}`);
 
-const envFile = process.env.GITHUB_ENV;
-if (!envFile) throw new Error('GITHUB_ENV is unavailable.');
 await appendFile(envFile, [
   `GHOSTTOWN_E2E_BASE_URL=${frontendUrl}`,
   `GHOSTTOWN_E2E_AUTH_TOKEN=${signupBody.token}`,
