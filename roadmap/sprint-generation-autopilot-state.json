@@ -6,7 +6,7 @@
   "workingBranch": "acceptance/fresh-sprint-e2e",
   "lastGoodSha": "72043e20bd67482cd39b8aac95f2fed1f9a76ed9",
   "startedAt": "2026-09-27T18:33:53.879Z",
-  "updatedAt": "2026-09-27T23:41:39.853Z",
+  "updatedAt": "2026-09-28T07:34:16.750Z",
   "externalInput": null,
   "steps": {
     "0": {
@@ -110,11 +110,11 @@
     },
     "11": {
       "status": "BLOCKED_INTERNAL",
-      "attempts": 6,
+      "attempts": 7,
       "startedAt": "2026-09-27T20:07:20.935Z",
       "completedAt": null,
       "lastSha": null,
-      "receipt": "github-acceptance/sprint-autopilot/step-11-attempt-6.json",
+      "receipt": "github-acceptance/sprint-autopilot/step-11-attempt-7.json",
       "message": "Handler failed with exit code 1"
     },
     "12": {
