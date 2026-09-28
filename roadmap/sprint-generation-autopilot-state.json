@@ -1,22 +1,13 @@
 {
   "schemaVersion": "ghosttown-sprint-roadmap-autopilot-state-v1",
   "roadmapId": "ghosttown-30-day-sprint-generation-v1",
-  "status": "WAITING_EXTERNAL_INPUT",
+  "status": "RUNNING",
   "currentStep": 11,
   "workingBranch": "acceptance/fresh-sprint-e2e",
   "lastGoodSha": "72043e20bd67482cd39b8aac95f2fed1f9a76ed9",
   "startedAt": "2026-09-27T18:33:53.879Z",
-  "updatedAt": "2026-09-28T07:39:49.429Z",
-  "externalInput": {
-    "stepId": 11,
-    "step": "genuine-ready-sprint",
-    "requirements": [
-      "cloudflare_acceptance_secret:re-save_or_rotate_BRAVE_SEARCH_API_KEY_if_installed_but_runtime_invisible",
-      "declared_human_artifact_review:semantic_READY_review"
-    ],
-    "requestedAt": "2026-09-28T07:39:49.426Z",
-    "instruction": "Complete only the named external account/credential/approval action, never paste secret values into logs or chat, then rerun with --resume-external."
-  },
+  "updatedAt": "2026-09-28T08:22:00.000Z",
+  "externalInput": null,
   "steps": {
     "0": {
       "status": "PASS",
@@ -118,13 +109,13 @@
       "message": "Completion gate passed"
     },
     "11": {
-      "status": "WAITING_EXTERNAL_INPUT",
+      "status": "PENDING",
       "attempts": 9,
       "startedAt": "2026-09-27T20:07:20.935Z",
       "completedAt": null,
       "lastSha": null,
       "receipt": "github-acceptance/sprint-autopilot/step-11-attempt-9.json",
-      "message": "Handler requires an external input"
+      "message": null
     },
     "12": {
       "status": "PENDING",
