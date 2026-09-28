@@ -35,6 +35,7 @@ run('npx', [
   'vitest', 'run',
   'tests/researchEvidenceSufficiency.test.ts',
   'tests/adaptiveResearch.test.ts',
+  'tests/customerAccessResearch.test.ts',
   'tests/blueprintReleaseQualityGateV21.test.ts',
   'tests/researchOutcomeRouting.test.ts',
   '--no-file-parallelism'

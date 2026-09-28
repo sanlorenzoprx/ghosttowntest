@@ -117,7 +117,7 @@ describe('adaptive role-gap research', () => {
     const secondPass = mergeAdaptivePlan(plan(), adaptive);
     expect(secondPass.sourceIds).toEqual(adaptive.sourceIds);
     expect(secondPass.queryBySourceId).toEqual(adaptive.queryBySourceId);
-    expect(secondPass.expansionIntents).toHaveLength(3);
+    expect(secondPass.expansionIntents).toEqual(plan().expansionIntents);
   });
 
   it('skips adaptive research when the role-based evidence gate is already met', () => {
