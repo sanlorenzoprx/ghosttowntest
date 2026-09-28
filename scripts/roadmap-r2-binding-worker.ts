@@ -2,6 +2,7 @@ interface Env {
   DB: D1Database;
   KV: KVNamespace;
   BLUEPRINTS: R2Bucket;
+  ACCEPTANCE_CLOUDFLARE_API_TOKEN?: string;
 }
 
 const PDF_SUFFIX = '/ghosttown-launch-blueprint-v2.pdf';
@@ -363,6 +364,8 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
   };
   if (!config.domain.cloudflareAccountId) return json({ error: 'Acceptance Cloudflare account ID is required for the disposable Get Me Live site' }, 400);
   const provider = { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false, domainReady: false };
+  const acceptanceCloudflareToken = String(env.ACCEPTANCE_CLOUDFLARE_API_TOKEN || '').trim();
+  if (!acceptanceCloudflareToken) return json({ error: 'Acceptance Cloudflare API token is not bound to the disposable fixture bridge' }, 500);
   await env.DB.prepare(`
     INSERT INTO get_me_live_orders (
       order_id, owner_id, source_sprint_order_id, source_blueprint_id, offer_id, offer_version,
@@ -375,6 +378,12 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
     'acceptance-no-charge', JSON.stringify(config), JSON.stringify(provider), 'get-me-live/' + gmlOrderId + '/preview.json',
     now, now, now
   ).run();
+
+  await env.KV.put('get_me_live_cf_token_' + gmlOrderId, JSON.stringify({
+    accessToken: acceptanceCloudflareToken,
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    scope: 'acceptance-workflow-token'
+  }), { expirationTtl: 3600 });
 
   await env.KV.put('paid_test_order_' + orderId, JSON.stringify(order), { expirationTtl: 86400 });
   await env.KV.put('paid_test_orders_' + ownerId, JSON.stringify([{
