@@ -306,6 +306,72 @@ async function rematerialize(env: Env, request: Request): Promise<Response> {
   }
 }
 
+async function createE2eSprintFixture(env: Env, request: Request): Promise<Response> {
+  let body: any; try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
+  const ownerId = String(body?.ownerId || '').trim().toLowerCase();
+  const orderId = String(body?.orderId || '');
+  if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_')) return json({ error: 'Invalid E2E fixture identity' }, 400);
+
+  const rows = await env.DB.prepare(`
+    SELECT order_id, blueprint_json, research_receipt_json, schema_version, status, pdf_r2_key, created_at
+    FROM launch_blueprints WHERE status = 'ready' ORDER BY updated_at DESC LIMIT 25
+  `).all<any>();
+  let source: any = null; let sourceOrder: any = null;
+  for (const row of rows.results || []) {
+    const raw = await env.KV.get('paid_test_order_' + row.order_id);
+    if (!raw) continue;
+    const order = JSON.parse(raw);
+    if (order?.status === 'ready' && order?.stripeMode === 'test') { source = row; sourceOrder = order; break; }
+  }
+  if (!source || !sourceOrder) return json({ error: 'No ready Stripe-test acceptance Sprint source exists' }, 409);
+
+  const now = new Date().toISOString();
+  const blueprint = JSON.parse(source.blueprint_json);
+  blueprint.orderId = orderId;
+  blueprint.ownerId = ownerId;
+  blueprint.blueprintId = 'bp_e2e_' + crypto.randomUUID();
+  blueprint.createdAt = now;
+  blueprint.updatedAt = now;
+  const sourceVerdictId = String(blueprint.sourceVerdictId || sourceOrder.verdictId || '');
+
+  const order = JSON.parse(JSON.stringify(sourceOrder));
+  order.orderId = orderId; order.email = ownerId; order.status = 'ready';
+  order.stripeCheckoutSessionId = 'cs_test_e2e_fixture_no_charge';
+  order.stripePaymentIntentId = 'pi_test_e2e_fixture_no_charge';
+  order.paidAt = now; order.createdAt = now; order.updatedAt = now;
+  order.idempotencyKey = 'e2e_' + crypto.randomUUID();
+
+  await env.DB.prepare(`
+    INSERT INTO launch_blueprints (
+      order_id, owner_id, source_verdict_id, schema_version, status,
+      blueprint_json, research_receipt_json, pdf_r2_key, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?)
+  `).bind(orderId, ownerId, sourceVerdictId, source.schema_version, JSON.stringify(blueprint),
+    source.research_receipt_json, source.pdf_r2_key, now, now).run();
+  await env.KV.put('paid_test_order_' + orderId, JSON.stringify(order), { expirationTtl: 86400 });
+  await env.KV.put('paid_test_orders_' + ownerId, JSON.stringify([{
+    orderId, ideaName: 'Synthetic Acceptance Sprint', status: 'ready', createdAt: now, updatedAt: now,
+    artifactType: 'execution_plan_30day_v1', offerName: '30-Day Evidence Sprint',
+    sourceVerdictId, planVersion: order.planVersion || '1.0'
+  }]), { expirationTtl: 86400 });
+  return json({ ok: true, orderId, ownerId, sourceOrderId: source.order_id, expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false });
+}
+
+async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Response> {
+  let body: any; try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
+  const ownerId = String(body?.ownerId || '').trim().toLowerCase();
+  const orderId = String(body?.orderId || '');
+  if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_')) return json({ error: 'Invalid E2E fixture identity' }, 400);
+  await env.DB.prepare('DELETE FROM blueprint_execution_log WHERE order_id = ?').bind(orderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM launch_blueprints WHERE order_id = ? AND owner_id = ?').bind(orderId, ownerId).run();
+  await Promise.all([
+    env.KV.delete('paid_test_order_' + orderId),
+    env.KV.delete('paid_test_orders_' + ownerId),
+    env.KV.delete('user_' + ownerId)
+  ]);
+  return json({ ok: true, deleted: true, orderId, productionMutated: false });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -329,6 +395,8 @@ export default {
     }
 
     if (url.pathname === '/rematerialize' && request.method === 'POST') return rematerialize(env, request);
+    if (url.pathname === '/e2e-sprint-fixture' && request.method === 'POST') return createE2eSprintFixture(env, request);
+    if (url.pathname === '/e2e-sprint-fixture' && request.method === 'DELETE') return deleteE2eSprintFixture(env, request);
 
     if (url.pathname !== '/object') return json({ error: 'Not found' }, 404);
     const key = url.searchParams.get('key') || '';
