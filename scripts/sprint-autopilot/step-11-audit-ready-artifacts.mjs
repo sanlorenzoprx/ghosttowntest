@@ -41,9 +41,8 @@ assert(access.every(channel => channel.currentActivityStatus === 'verified_curre
 const review = blueprint.competitorReviewIntelligence;
 assert(review?.productSpecific === true, 'Review intelligence is not product-specific');
 assert(review.orderId === receipt.orderId, 'Review intelligence orderId does not match READY receipt');
-assert(Array.isArray(review.observations) && review.observations.length >= 3, 'READY Sprint has fewer than 3 verified first-person problem-language observations');
+assert(Array.isArray(review.observations), 'READY Sprint review observations must be an array');
 const observationUrls = new Set(review.observations.map(observation => String(observation.sourceUrl || '').toLowerCase().replace(/\/$/, '')).filter(Boolean));
-assert(observationUrls.size >= 3, 'READY Sprint problem-language evidence is not independent across at least 3 source URLs');
 const observationSources = new Set(review.observations.map(observation => observation.sourceId));
 assert(review.observations.every(observation => observation.sourceUrl && observation.customerLanguage?.length), 'Review observation lacks source URL or observed language');
 assert((review.patterns || []).every(pattern => pattern.sourceIds?.length >= 2 && pattern.sourceIds.every(id => observationSources.has(id))), 'Review pattern lacks two-source provenance');
@@ -78,6 +77,7 @@ for (const role of ['customer_access', 'problem_language', 'competitive_alternat
 }
 assert(sufficiency.currentCustomerAccessCount >= 3, 'READY receipt has fewer than 3 current customer-access sources');
 assert(sufficiency.problemLanguageObservationCount >= 3, 'READY receipt has fewer than 3 independent problem-language observations');
+assert(new Set(sufficiency.problemLanguageSourceUrls || []).size >= 3, 'READY receipt lacks 3 independent problem-language source URLs');
 assert(sufficiency.competitiveAlternativeSourceCount >= 2, 'READY receipt has fewer than 2 competitive/alternative sources');
 
 const stages = blueprint.generationReceipt?.stages?.map(stage => stage.stage) || [];
@@ -114,6 +114,7 @@ const packet = {
     reviewObservations: review.observations.length,
     reviewPatterns: review.patterns?.length || 0,
     problemLanguageObservations: sufficiency.problemLanguageObservationCount,
+    problemLanguageSources: sufficiency.problemLanguageSourceUrls || [],
     competitiveAlternativeSources: sufficiency.competitiveAlternativeSourceCount,
     evidenceRoles: sufficiency.coveredRoles,
     independentEvidenceUrls: sufficiency.independentEvidenceUrls,

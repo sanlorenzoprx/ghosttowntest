@@ -122,12 +122,17 @@ export function recoverCustomerAccessFromVerifiedCandidates(
   );
   const priorityAccess = currentAccessCandidates.slice(0, 5);
   const accessIds = new Set(priorityAccess.map(candidate => candidate.candidateId));
+  const priorityProblemLanguage = candidates
+    .filter(candidate => candidate.problemLanguageEvidence?.some(item => item.text.trim()) && !accessIds.has(candidate.candidateId))
+    .slice(0, 3);
+  const accessAndProblemIds = new Set([...priorityAccess, ...priorityProblemLanguage].map(candidate => candidate.candidateId));
   const priorityCompetitive = candidates
-    .filter(candidate => candidate.competitorEvidence.some(value => value.trim()) && !accessIds.has(candidate.candidateId))
+    .filter(candidate => candidate.competitorEvidence.some(value => value.trim()) && !accessAndProblemIds.has(candidate.candidateId))
     .slice(0, 2);
-  const priorityIds = new Set([...priorityAccess, ...priorityCompetitive].map(candidate => candidate.candidateId));
+  const priorityIds = new Set([...priorityAccess, ...priorityProblemLanguage, ...priorityCompetitive].map(candidate => candidate.candidateId));
   const selected = [
     ...priorityAccess,
+    ...priorityProblemLanguage,
     ...priorityCompetitive,
     ...candidates.filter(candidate => !priorityIds.has(candidate.candidateId))
   ].slice(0, MAX_DELIVERED_TARGETS);
@@ -146,7 +151,11 @@ export function recoverCustomerAccessFromVerifiedCandidates(
       evidenceDate: candidate.evidenceDate,
       evidenceDateSource: candidate.evidenceDateSource,
       evidenceRecency: candidate.evidenceRecency,
-      supports: [...candidate.competitorEvidence, ...candidate.factualSignals].slice(0, 8)
+      supports: [
+        ...candidate.competitorEvidence,
+        ...(candidate.problemLanguageEvidence || []).map(item => `Observed first-person problem language: ${item.text}`),
+        ...candidate.factualSignals
+      ].slice(0, 8)
     });
     return {
       channelId: `channel_recovered_${token}`,
@@ -174,6 +183,7 @@ export function recoverCustomerAccessFromVerifiedCandidates(
       evidenceRoleReason: researchEvidenceRoleReason(researchEvidenceRoleForTargetType(type)),
       discoveredThrough: discoveredThrough(candidate.provider),
       competitorEvidence: candidate.competitorEvidence,
+      problemLanguageEvidence: candidate.problemLanguageEvidence,
       audienceOwner: candidate.audienceOwner,
       accessPath: 'Use the target’s current public contact or submission route.',
       preparedAsset: 'Audience-specific interview or educational resource outline.',

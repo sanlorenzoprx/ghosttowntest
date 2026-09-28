@@ -8,7 +8,8 @@ import type {
   CustomerAccessChannel,
   DistributionTargetType,
   EvidenceDateSource,
-  EvidenceRecency
+  EvidenceRecency,
+  ProblemLanguageEvidence
 } from '../types/launchBlueprint';
 import type { CustomerAccessResearchInput } from './launchBlueprintGenerator';
 import { generateAI, type GenerativeAIResponseSchema } from './generativeAIService';
@@ -109,6 +110,7 @@ export interface FootprintCandidate {
   currentActivityEvidence: string;
   factualSignals: string[];
   competitorEvidence: string[];
+  problemLanguageEvidence?: ProblemLanguageEvidence[];
   audienceOwner: string;
   observedAt: string;
 }
@@ -405,6 +407,45 @@ export function sourceClaimSupportFailure(claim: string, pageText: string): stri
   }
   return undefined;
 }
+const FIRST_PERSON_LANGUAGE = /\b(?:i|i['’]m|i['’]ve|i['’]d|i['’]ll|me|my|mine|we|we['’]re|we['’]ve|we['’]d|we['’]ll|us|our|ours)\b/i;
+const PROBLEM_FRICTION_LANGUAGE = /\b(?:can(?:not|'t)|could(?:not|n't)|won(?:not|'t)|do(?:es)?(?: not|n't)|did(?: not|n't)|struggl\w*|stuck|problem\w*|issue\w*|frustrat\w*|difficult\w*|hard|confus\w*|fail\w*|trouble|pain|annoy\w*|need\w*|trying|try|looking for|wish\w*|wast\w*|expensive|cost(?:ly|s|ing)?|slow|manual|broken|blocker\w*|help)\b/i;
+
+export function extractProblemLanguageEvidence(
+  value: string,
+  problemClaim: string,
+  sourceKind: ProblemLanguageEvidence['sourceKind'],
+  observedAt: string,
+  evidenceDate?: string
+): ProblemLanguageEvidence[] {
+  const normalized = value.replace(/[’]/g, "'").replace(/\s+/g, ' ').trim();
+  if (!normalized) return [];
+  const problemTerms = searchTerms(problemClaim).filter(term => term.length >= 3);
+  if (!problemTerms.length) return [];
+
+  const sentenceParts = normalized.split(/(?<=[.!?])\s+/);
+  const chunks = sentenceParts.flatMap(part => {
+    const clean = part.trim();
+    if (clean.length <= 360) return [clean];
+    const pieces = clean.match(/.{20,360}(?:\s|$)/g);
+    return pieces?.map(piece => piece.trim()) || [clean.slice(0, 360)];
+  });
+
+  const seen = new Set<string>();
+  const evidence: ProblemLanguageEvidence[] = [];
+  for (const chunk of chunks) {
+    if (chunk.length < 20 || chunk.length > 360) continue;
+    if (!FIRST_PERSON_LANGUAGE.test(chunk) || !PROBLEM_FRICTION_LANGUAGE.test(chunk)) continue;
+    const lower = chunk.toLowerCase();
+    if (!problemTerms.some(term => lower.includes(term))) continue;
+    const key = lower.replace(/[^a-z0-9]+/g, ' ').trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    evidence.push({ text: chunk, sourceKind, observedAt, evidenceDate });
+    if (evidence.length >= 3) break;
+  }
+  return evidence;
+}
+
 export function customerAccessUsabilityFailure(finalUrl: URL, visibleText: string): string | undefined {
   const urlSignal = /reddit\.com\/r\/|groups\.io\/g\/|\/(?:forum|forums|community|communities|discuss|discussion|thread|threads|topic|topics|question|questions)(?:\/|$)/i.test(finalUrl.toString());
   const participationSignal = /\b(?:join|reply|replies|comment|comments|post|posts|members|member|new topic|start a discussion|ask a question|create account|sign up)\b/i.test(visibleText.slice(0, 8000));
@@ -846,7 +887,7 @@ async function competitorBacklinkCandidates(
   throw providerSemanticError('rankparse_backlinks', 'No backlink provider is configured');
 }
 
-async function braveCandidates(env: Env, query: string): Promise<FootprintCandidate[]> {
+async function braveCandidates(env: Env, query: string, problemClaim: string): Promise<FootprintCandidate[]> {
   const discovered = await braveSearchProvider.search(env, query);
   const verified = await Promise.all(discovered.slice(0, 16).map(async result => {
     try {
@@ -868,6 +909,9 @@ async function braveCandidates(env: Env, query: string): Promise<FootprintCandid
         if (accessFailure) return null;
       }
       const observedAt = new Date().toISOString();
+      const problemLanguageEvidence = type === 'community'
+        ? extractProblemLanguageEvidence(page.visibleText, problemClaim, 'public_discussion', observedAt, evidenceDate)
+        : [];
       return {
         candidateId: candidateId('brave_search', page.finalUrl),
         provider: 'brave_search' as const,
@@ -888,6 +932,7 @@ async function braveCandidates(env: Env, query: string): Promise<FootprintCandid
           : 'Original public page was verified, but current direct-participation activity was not established.',
         factualSignals: [page.title, page.description].filter(Boolean),
         competitorEvidence: [],
+        problemLanguageEvidence,
         audienceOwner: page.publisher,
         observedAt
       } satisfies FootprintCandidate;
@@ -1046,7 +1091,7 @@ async function youtubeCandidates(env: Env, query: string, seedName?: string): Pr
   return candidates;
 }
 
-async function youtubeCustomerAccessCandidates(env: Env, query: string): Promise<FootprintCandidate[]> {
+async function youtubeCustomerAccessCandidates(env: Env, query: string, problemClaim: string): Promise<FootprintCandidate[]> {
   if (!env.YOUTUBE_API_KEY?.trim()) throw new Error('YouTube Data API key is not configured');
 
   const verificationQuery = query;
@@ -1113,8 +1158,17 @@ async function youtubeCustomerAccessCandidates(env: Env, query: string): Promise
           .sort((left, right) => Date.parse(right) - Date.parse(left))[0];
         const observedAt = new Date().toISOString();
         const videoTitle = text(item.snippet?.title, 'YouTube discussion');
-            const verifiedVideo = await verifyYoutubeVideo(videoId, videoTitle);
+        const verifiedVideo = await verifyYoutubeVideo(videoId, videoTitle);
         const publicUrl = verifiedVideo.publicUrl;
+        const problemLanguageEvidence = qualifying
+          .flatMap(comment => extractProblemLanguageEvidence(
+            comment.commentText,
+            problemClaim,
+            'youtube_comment',
+            observedAt,
+            comment.activityDate
+          ))
+          .slice(0, 3);
 
         candidates.push({
           candidateId: candidateId('youtube_api', `comments:${publicUrl}`),
@@ -1138,6 +1192,7 @@ async function youtubeCustomerAccessCandidates(env: Env, query: string): Promise
             'The video has a public comment thread where a founder can participate subject to current channel moderation rules.'
           ],
           competitorEvidence: [],
+          problemLanguageEvidence,
           audienceOwner: `${verifiedVideo.authorName} public comment thread`,
           observedAt
         });
@@ -1184,7 +1239,7 @@ async function runGroundedCustomerAccessSearch(env: Env, query: string) {
   throw lastError instanceof Error ? lastError : new Error('Grounded customer-access search failed');
 }
 
-async function groundedCustomerAccessCandidates(env: Env, query: string): Promise<FootprintCandidate[]> {
+async function groundedCustomerAccessCandidates(env: Env, query: string, problemClaim: string): Promise<FootprintCandidate[]> {
   const generated = await runGroundedCustomerAccessSearch(env, query);
   const chunks = generated.groundingMetadata?.groundingChunks || [];
   const seen = new Set<string>();
@@ -1241,6 +1296,13 @@ async function groundedCustomerAccessCandidates(env: Env, query: string): Promis
         : discussionActivityDate
           ? 'page_activity_text'
           : 'unknown';
+      const problemLanguageEvidence = extractProblemLanguageEvidence(
+        page.visibleText,
+        problemClaim,
+        'public_discussion',
+        observedAt,
+        evidenceDate
+      );
       candidates.push({
         candidateId: candidateId('google_grounded_customer_access', page.finalUrl),
         provider: 'google_grounded_customer_access',
@@ -1264,6 +1326,7 @@ async function groundedCustomerAccessCandidates(env: Env, query: string): Promis
           page.description
         ].filter(Boolean),
         competitorEvidence: [],
+        problemLanguageEvidence,
         audienceOwner: page.publisher,
         observedAt
       });
@@ -1332,7 +1395,7 @@ export async function runResearchBatch(
       let result: FootprintCandidate[];
       let actualProvider = provider;
       if (taskId.startsWith('youtube_access:')) {
-        result = await youtubeCustomerAccessCandidates(env, query);
+        result = await youtubeCustomerAccessCandidates(env, query, order.intake.problem);
       } else if (provider === 'dataforseo_backlinks') {
         if (!seed) {
           result = [];
@@ -1342,11 +1405,11 @@ export async function runResearchBatch(
           result = backlink.candidates;
         }
       } else if (provider === 'brave_search') {
-        result = await braveCandidates(env, query);
+        result = await braveCandidates(env, query, order.intake.problem);
       } else if (provider === 'podcast_index') {
         result = await podcastCandidates(env, query, seed?.name);
       } else if (provider === 'google_grounded_customer_access') {
-        result = await groundedCustomerAccessCandidates(env, query);
+        result = await groundedCustomerAccessCandidates(env, query, order.intake.problem);
       } else {
         result = await youtubeCandidates(env, query, seed?.name);
       }
@@ -1477,7 +1540,8 @@ ${JSON.stringify(candidates.map(candidate => ({
     currentActivityStatus: candidate.currentActivityStatus,
     currentActivityEvidence: candidate.currentActivityEvidence,
     factualSignals: candidate.factualSignals,
-    competitorEvidence: candidate.competitorEvidence
+    competitorEvidence: candidate.competitorEvidence,
+    problemLanguageEvidence: candidate.problemLanguageEvidence
   })))} `;
 }
 
@@ -1607,14 +1671,15 @@ export async function finalizeCustomerAccessResearch(
   if (unknownCandidateIds.length) {
     throw new Error(`STEP5_RESEARCH_UNKNOWN_CANDIDATE_ID: Model returned candidate IDs outside the immutable candidate set: ${unknownCandidateIds.join(', ')}`);
   }
-  const requiredCandidates = [
+  const requiredCandidates = uniqueCandidates([
     ...candidates.filter(candidate =>
       candidate.targetTypeHint === 'community'
       && candidate.currentActivityStatus === 'verified_current'
       && Boolean(candidate.currentActivityVerifiedAt)
     ).slice(0, 3),
+    ...candidates.filter(candidate => candidate.problemLanguageEvidence?.some(item => item.text.trim())).slice(0, 3),
     ...candidates.filter(candidate => candidate.competitorEvidence.some(value => value.trim())).slice(0, 2)
-  ];
+  ]);
   const selectionById = new Map<string, SelectionChannel>((selection.channels || []).map(selected => [text(selected.candidateId), selected]));
   const requiredIds = new Set(requiredCandidates.map(candidate => candidate.candidateId));
   const orderedSelection: SelectionChannel[] = [
@@ -1662,6 +1727,7 @@ export async function finalizeCustomerAccessResearch(
       evidenceRoleReason: researchEvidenceRoleReason(researchEvidenceRoleForTargetType(type)),
       discoveredThrough: discoveredThrough(candidate.provider),
       competitorEvidence: candidate.competitorEvidence,
+      problemLanguageEvidence: candidate.problemLanguageEvidence,
       audienceOwner: text(selected.audienceOwner, candidate.audienceOwner),
       accessPath: text(selected.accessPath, 'Use the target’s current public contact or submission route.'),
       preparedAsset: text(selected.preparedAsset, 'Audience-specific interview or educational resource outline.'),
@@ -1676,7 +1742,11 @@ export async function finalizeCustomerAccessResearch(
       evidenceDate: candidate.evidenceDate,
       evidenceDateSource: candidate.evidenceDateSource,
       evidenceRecency: candidate.evidenceRecency,
-      supports: [...candidate.competitorEvidence, ...candidate.factualSignals].slice(0, 8)
+      supports: [
+        ...candidate.competitorEvidence,
+        ...(candidate.problemLanguageEvidence || []).map(item => `Observed first-person problem language: ${item.text}`),
+        ...candidate.factualSignals
+      ].slice(0, 8)
     });
     if (channels.length >= MAX_CHANNELS) break;
   }

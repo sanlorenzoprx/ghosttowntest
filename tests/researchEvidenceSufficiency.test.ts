@@ -10,6 +10,7 @@ function candidate(index: number, options: {
   community?: boolean;
   current?: boolean;
   competitor?: boolean;
+  problemLanguage?: boolean;
   provider?: 'brave_search' | 'rankparse_backlinks';
 } = {}): ResearchBatchResult['candidates'][number] {
   const current = options.current === true;
@@ -31,6 +32,12 @@ function candidate(index: number, options: {
     currentActivityEvidence: current ? 'Current public activity verified.' : 'Current activity not established.',
     factualSignals: ['Verified original page.'],
     competitorEvidence: options.competitor ? ['Observed competitor or alternative evidence.'] : [],
+    problemLanguageEvidence: options.problemLanguage ? [{
+      text: 'I am struggling to make deployment and payments work together.',
+      sourceKind: 'public_discussion',
+      observedAt: '2026-09-27T00:00:00.000Z',
+      evidenceDate: '2026-09-26T00:00:00.000Z'
+    }] : undefined,
     audienceOwner: 'Evidence owner',
     observedAt: '2026-09-27T00:00:00.000Z'
   };
@@ -76,16 +83,16 @@ function reviews(count = 3): CompetitorReviewIntelligence {
 }
 
 const sufficientCandidates = () => [
-  candidate(1, { community: true, current: true }),
-  candidate(2, { community: true, current: true }),
-  candidate(3, { community: true, current: true }),
+  candidate(1, { community: true, current: true, problemLanguage: true }),
+  candidate(2, { community: true, current: true, problemLanguage: true }),
+  candidate(3, { community: true, current: true, problemLanguage: true }),
   candidate(4, { competitor: true }),
   candidate(5, { competitor: true })
 ];
 
 describe('role-based research evidence sufficiency', () => {
   it('passes with independent evidence across all required roles without requiring ten targets or two providers', () => {
-    const summary = evaluateResearchEvidenceSufficiency([batch(sufficientCandidates())], reviews(3));
+    const summary = evaluateResearchEvidenceSufficiency([batch(sufficientCandidates())], reviews(0));
     expect(summary.sufficient).toBe(true);
     expect(summary.coveredRoles).toEqual(['customer_access', 'problem_language', 'competitive_alternative']);
     expect(summary.currentCustomerAccessCount).toBe(3);
@@ -101,10 +108,26 @@ describe('role-based research evidence sufficiency', () => {
     expect(primaryResearchEvidenceShortfall(summary)).toBe('MIN_CURRENT_CUSTOMER_ACCESS');
   });
 
-  it('identifies missing first-person problem language', () => {
-    const summary = evaluateResearchEvidenceSufficiency([batch(sufficientCandidates())], reviews(2));
+  it('identifies missing first-person problem language without counting generic factual signals', () => {
+    const candidates = sufficientCandidates().map(item => ({ ...item, problemLanguageEvidence: undefined }));
+    const summary = evaluateResearchEvidenceSufficiency([batch(candidates)], reviews(2));
     expect(summary.sufficient).toBe(false);
     expect(primaryResearchEvidenceShortfall(summary)).toBe('MIN_PROBLEM_LANGUAGE_OBSERVATIONS');
+  });
+
+  it('counts only one independent problem-language observation per source URL', () => {
+    const candidates = sufficientCandidates();
+    candidates[1] = {
+      ...candidates[1],
+      publicUrl: candidates[0].publicUrl,
+      problemLanguageEvidence: [
+        ...(candidates[0].problemLanguageEvidence || []),
+        { text: 'I still need help getting deployment to work.', sourceKind: 'public_discussion', observedAt: '2026-09-27T00:00:00.000Z' }
+      ]
+    };
+    const summary = evaluateResearchEvidenceSufficiency([batch(candidates)], reviews(0));
+    expect(summary.problemLanguageObservationCount).toBe(2);
+    expect(summary.sufficient).toBe(false);
   });
 
   it('identifies missing competitive or alternative evidence', () => {

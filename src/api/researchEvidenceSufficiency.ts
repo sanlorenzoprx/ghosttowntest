@@ -20,6 +20,9 @@ export interface ResearchEvidenceSufficiency {
   coveredRoles: StrategicResearchEvidenceRole[];
   missingRoles: StrategicResearchEvidenceRole[];
   independentEvidenceUrls: number;
+  customerAccessSourceUrls?: string[];
+  problemLanguageSourceUrls?: string[];
+  competitiveAlternativeSourceUrls?: string[];
   sufficient: boolean;
 }
 
@@ -55,6 +58,15 @@ export function evaluateResearchEvidenceSufficiency(
     reviewByUrl.set(key, observation);
   }
 
+  const candidateProblemLanguageUrls = candidates
+    .filter(candidate => candidate.problemLanguageEvidence?.some(item => item.text.trim()))
+    .map(candidate => normalizedUrl(candidate.publicUrl))
+    .filter(Boolean);
+  const problemLanguageUrls = new Set([
+    ...reviewByUrl.keys(),
+    ...candidateProblemLanguageUrls
+  ]);
+
   const reviewUrlBySourceId = new Map(
     (competitorReviewIntelligence?.observations || [])
       .map(observation => [observation.sourceId, normalizedUrl(observation.sourceUrl)] as const)
@@ -86,7 +98,7 @@ export function evaluateResearchEvidenceSufficiency(
   if (currentCustomerAccess.length >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.currentCustomerAccess) {
     coveredRoles.push('customer_access');
   }
-  if (reviewByUrl.size >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations) {
+  if (problemLanguageUrls.size >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations) {
     coveredRoles.push('problem_language');
   }
   if (competitiveAlternativeUrls.size >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.competitiveAlternativeSources) {
@@ -101,17 +113,20 @@ export function evaluateResearchEvidenceSufficiency(
   const missingRoles = allRoles.filter(role => !coveredRoles.includes(role));
   const independentUrls = new Set([
     ...currentCustomerAccess.map(candidate => normalizedUrl(candidate.publicUrl)),
-    ...reviewByUrl.keys(),
+    ...problemLanguageUrls,
     ...competitiveAlternativeUrls
   ]);
 
   return {
     currentCustomerAccessCount: currentCustomerAccess.length,
-    problemLanguageObservationCount: reviewByUrl.size,
+    problemLanguageObservationCount: problemLanguageUrls.size,
     competitiveAlternativeSourceCount: competitiveAlternativeUrls.size,
     coveredRoles,
     missingRoles,
     independentEvidenceUrls: independentUrls.size,
+    customerAccessSourceUrls: [...new Set(currentCustomerAccess.map(candidate => normalizedUrl(candidate.publicUrl)).filter(Boolean))],
+    problemLanguageSourceUrls: [...problemLanguageUrls],
+    competitiveAlternativeSourceUrls: [...competitiveAlternativeUrls],
     sufficient: coveredRoles.length >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.evidenceRoles
   };
 }

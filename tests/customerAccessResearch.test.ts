@@ -100,7 +100,7 @@ vi.mock('../src/api/generativeAIService', () => ({
 }));
 
 import { researchCustomerAccess } from '../src/api/customerAccessResearch';
-import { customerAccessUsabilityFailure, planCustomerAccessResearch, sourceClaimSupportFailure, sourcePageUsabilityFailure } from '../src/api/distributionFootprintResearch';
+import { customerAccessUsabilityFailure, extractProblemLanguageEvidence, planCustomerAccessResearch, sourceClaimSupportFailure, sourcePageUsabilityFailure } from '../src/api/distributionFootprintResearch';
 
 const order = {
   orderId: 'gtt_research_1',
@@ -231,8 +231,8 @@ function youtubeCommentsResponse() {
         topLevelComment: {
           snippet: {
             textOriginal: index === 0
-              ? 'Parents in families with children spend money on games their children do not enjoy. We keep looking for better family game choices.'
-              : 'Our children enjoy family games more when parents can compare what other families liked before spending money.',
+              ? 'We struggle to find family games our children enjoy after spending money on the wrong choices.'
+              : 'I need help choosing family games because my children often do not enjoy what I buy.',
             publishedAt: `2026-09-${String(25 - index).padStart(2, '0')}T12:00:00.000Z`,
             updatedAt: `2026-09-${String(25 - index).padStart(2, '0')}T12:00:00.000Z`
           }
@@ -260,6 +260,35 @@ function mockProviders() {
 afterEach(() => {
   aiState.mode = 'valid';
   vi.restoreAllMocks();
+});
+
+describe('verified problem-language extraction', () => {
+  it('keeps first-person friction that overlaps the actual problem claim', () => {
+    const evidence = extractProblemLanguageEvidence(
+      'I cannot get deployment and payments working together, and I need help before launch.',
+      'Founders struggle to make deployment, authentication, payments, domains, and production configuration work together.',
+      'public_discussion',
+      '2026-09-27T00:00:00.000Z',
+      '2026-09-26T00:00:00.000Z'
+    );
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0].text).toMatch(/deployment/i);
+  });
+
+  it('rejects generic articles and non-problem first-person statements', () => {
+    expect(extractProblemLanguageEvidence(
+      'Deployment platforms support authentication and payments for modern applications.',
+      'Founders struggle to make deployment, authentication, payments, domains, and production configuration work together.',
+      'public_discussion',
+      '2026-09-27T00:00:00.000Z'
+    )).toEqual([]);
+    expect(extractProblemLanguageEvidence(
+      'I like reading about software startups and new application launches.',
+      'Founders struggle to make deployment, authentication, payments, domains, and production configuration work together.',
+      'public_discussion',
+      '2026-09-27T00:00:00.000Z'
+    )).toEqual([]);
+  });
 });
 
 describe('source usability gate', () => {
@@ -386,6 +415,8 @@ describe('customer access distribution footprint provider', () => {
     expect(customerAccess.every(channel => channel.platform === 'YouTube public discussion')).toBe(true);
     expect(customerAccess.every(channel => channel.targetType === 'community')).toBe(true);
     expect(customerAccess.every(channel => channel.currentActivityStatus === 'verified_current')).toBe(true);
+    expect(customerAccess.filter(channel => channel.problemLanguageEvidence?.length).length).toBeGreaterThanOrEqual(3);
+    expect(result.receipt.evidenceSufficiency?.problemLanguageObservationCount).toBeGreaterThanOrEqual(3);
     expect(result.research.channels.filter(channel => channel.platform === 'YouTube creator').every(channel => channel.evidenceRole !== 'customer_access')).toBe(true);
   });
 

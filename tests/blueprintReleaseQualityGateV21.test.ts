@@ -69,6 +69,12 @@ function result(): CustomerAccessResearchResult {
       targetType,
       evidenceRole,
       competitorEvidence: evidenceRole === 'market_evidence' ? ['Observed competitor or current-alternative evidence.'] : [],
+      problemLanguageEvidence: index < 3 ? [{
+        text: 'I struggle to choose a family game that everyone will enjoy.',
+        sourceKind: 'public_discussion' as const,
+        observedAt: generatedAt,
+        evidenceDate: '2026-08-01T12:00:00.000Z'
+      }] : undefined,
       accessPath: 'Public contact route',
       preparedAsset: 'Prepared educational asset',
       outreachScriptId: evidenceRole === 'partnership' ? 'script-06-referral_partner' : evidenceRole === 'customer_access' ? 'script-03-community_member' : 'script-07-interview_invitation'
@@ -139,6 +145,17 @@ function expectCode(mutator: (input: ReturnType<typeof fixture>) => void, code: 
 
 describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
   it('passes the complete fixture', () => expect(evaluateBlueprintReleaseQualityGateV21(fixture()).passed).toBe(true));
+
+  it('accepts independent verified channel problem language even when formal competitor reviews are unavailable', () => {
+    const input = fixture();
+    if (input.blueprint.competitorReviewIntelligence) {
+      input.blueprint.competitorReviewIntelligence.observations = [];
+      input.blueprint.competitorReviewIntelligence.patterns = [];
+      input.blueprint.competitorReviewIntelligence.productImplications = [];
+    }
+    const codes = evaluateBlueprintReleaseQualityGateV21(input).blockers.map(blocker => blocker.code);
+    expect(codes).not.toContain(BLUEPRINT_RELEASE_BLOCKER_CODES_V21.research.insufficientProblemLanguageEvidence);
+  });
 
   it('does not require ten candidates or two providers when role-based evidence is sufficient', () => {
     const input = fixture();
@@ -234,7 +251,10 @@ describe('GhostTown Blueprint v2.1 Step 5 release blocker matrix', () => {
       i.research.research.publicExpertsAndPartners = [];
     }, C.research.insufficientVerificationDimensions],
     ['too few direct customer-access targets', i => { i.blueprint.customerAccessPack.channels.filter(channel => channel.evidenceRole === 'customer_access').slice(2).forEach(channel => { channel.targetType = 'podcast'; channel.evidenceRole = 'media_pr'; }); }, C.research.fewerThanThreeCustomerAccessTargets],
-    ['too few problem-language observations', i => { if (i.blueprint.competitorReviewIntelligence) i.blueprint.competitorReviewIntelligence.observations = i.blueprint.competitorReviewIntelligence.observations.slice(0, 2); }, C.research.insufficientProblemLanguageEvidence],
+    ['too few problem-language observations', i => {
+      if (i.blueprint.competitorReviewIntelligence) i.blueprint.competitorReviewIntelligence.observations = i.blueprint.competitorReviewIntelligence.observations.slice(0, 2);
+      i.blueprint.customerAccessPack.channels.forEach(channel => { channel.problemLanguageEvidence = undefined; });
+    }, C.research.insufficientProblemLanguageEvidence],
     ['too few competitive-alternative sources', i => { i.blueprint.customerAccessPack.channels.forEach((channel, index) => { if (index !== 5) channel.competitorEvidence = []; }); }, C.research.insufficientCompetitiveAlternativeEvidence],
     ['missing public source', i => { i.blueprint.customerAccessPack.channels[0].publicUrl = ''; }, C.research.missingPublicSource],
     ['missing research date', i => { i.blueprint.customerAccessPack.channels[0].researchDate = ''; }, C.research.missingResearchDate],

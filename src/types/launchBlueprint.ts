@@ -83,6 +83,13 @@ export interface PositioningPlan {
   differentiator: string;
 }
 
+export interface ProblemLanguageEvidence {
+  text: string;
+  sourceKind: 'youtube_comment' | 'public_discussion';
+  observedAt: string;
+  evidenceDate?: string;
+}
+
 export interface CustomerAccessChannel {
   channelId: string;
   community: string;
@@ -109,6 +116,7 @@ export interface CustomerAccessChannel {
   evidenceRoleReason?: string;
   discoveredThrough?: 'competitor_backlink' | 'web_search' | 'podcast_search' | 'youtube_search' | 'grounded_customer_access_search' | 'customer_seed' | 'original_source';
   competitorEvidence?: string[];
+  problemLanguageEvidence?: ProblemLanguageEvidence[];
   audienceOwner?: string;
   accessPath?: string;
   preparedAsset?: string;

@@ -23,6 +23,7 @@ function plan(): DistributionFootprintPlan {
     expansionIntents: [
       { intentId: 'buyer-community', kind: 'buyer_community', query: 'dog owner community puerto rico', evidenceGoal: 'customer_access', derivedFrom: ['targetBuyer'] },
       { intentId: 'problem-forum', kind: 'problem_discussion', query: 'dog walking missed visits forum', evidenceGoal: 'customer_access', derivedFrom: ['problem'] },
+      { intentId: 'buyer-problem', kind: 'buyer_problem', query: 'dog owners missed dog walking visits discussion', evidenceGoal: 'customer_access', derivedFrom: ['targetBuyer', 'problem'] },
       { intentId: 'competitor-1-complaint', kind: 'competitor_complaint', query: 'rover dog walking complaint discussion', evidenceGoal: 'market_evidence', derivedFrom: ['competitorSeed:rover'] }
     ]
   };
@@ -133,7 +134,7 @@ describe('adaptive role-gap research', () => {
     expect(buildAdaptiveExpansionPlan(plan(), gap).sourceIds).toEqual([]);
   });
 
-  it('does not spend generic expansion rounds when only review-language evidence is missing', () => {
+  it('runs bounded problem-discussion expansion when only problem-language evidence is missing', () => {
     const candidates = [
       candidate(1, 'access'),
       candidate(2, 'access'),
@@ -143,7 +144,9 @@ describe('adaptive role-gap research', () => {
     ];
     const gap = summarizeResearchGap([batch(candidates)], reviews(2));
     expect(gap.missingProblemLanguageObservations).toBe(1);
-    expect(needsAdaptiveSecondPass(gap)).toBe(false);
+    expect(needsAdaptiveSecondPass(gap)).toBe(true);
+    const adaptive = buildAdaptiveExpansionPlan(plan(), gap, 1);
+    expect(['problem-forum', 'buyer-problem']).toContain(adaptive.selectedIntentIds[0]);
   });
 });
 

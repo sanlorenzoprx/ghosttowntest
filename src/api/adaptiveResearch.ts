@@ -41,11 +41,11 @@ export function summarizeResearchGap(
 }
 
 export function needsAdaptiveSecondPass(gap: ResearchGapSummary): boolean {
-  // Distribution expansion can directly improve customer-access and
-  // competitor/alternative coverage. Missing verified first-person problem
-  // language belongs to review intelligence and should not trigger repeated
-  // generic web-search rounds that cannot satisfy that role.
+  // Verified original community pages and YouTube comment threads can provide
+  // first-person problem language, so a missing problem-language role is a
+  // legitimate reason for bounded adaptive expansion.
   return gap.missingCurrentCustomerAccess > 0
+    || gap.missingProblemLanguageObservations > 0
     || gap.missingCompetitiveAlternativeSources > 0;
 }
 
@@ -61,7 +61,7 @@ function intentPriority(
   if (
     gap.missingProblemLanguageObservations > 0
     && ['review_language', 'problem_discussion', 'buyer_problem'].includes(intent.kind)
-  ) return 1;
+  ) return 0;
   return intent.evidenceGoal === 'customer_access' ? 2 : 3;
 }
 

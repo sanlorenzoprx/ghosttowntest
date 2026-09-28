@@ -293,6 +293,14 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
       .map(observation => observation.sourceUrl.trim().toLowerCase().replace(/\/$/, ''))
       .filter(Boolean)
   );
+  const channelProblemLanguageUrls = channels
+    .filter(channel => channel.problemLanguageEvidence?.some(item => hasText(item.text)))
+    .map(channel => channel.publicUrl.trim().toLowerCase().replace(/\/$/, ''))
+    .filter(Boolean);
+  const problemLanguageUrls = new Set([
+    ...reviewObservationUrls,
+    ...channelProblemLanguageUrls
+  ]);
   const reviewUrlBySourceId = new Map(
     (blueprint.competitorReviewIntelligence?.observations || [])
       .map(observation => [observation.sourceId, observation.sourceUrl.trim().toLowerCase().replace(/\/$/, '')] as const)
@@ -313,14 +321,14 @@ export function evaluateBlueprintReleaseQualityGateV21(input: BlueprintReleaseGa
   ]);
   const evidenceRolesCovered = [
     customerAccess.length >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.currentCustomerAccess,
-    reviewObservationUrls.size >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations,
+    problemLanguageUrls.size >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations,
     competitiveAlternativeUrls.size >= RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.competitiveAlternativeSources
   ].filter(Boolean).length;
 
   add(blockers, 'research', C.research.fewerThanTwoConfirmedSeeds, 'Fewer than two confirmed seeds.', 'research.receipt.seedDomains', seedCount < 2);
   add(blockers, 'research', C.research.insufficientVerificationDimensions, 'Fewer than three independent idea-verification dimensions.', 'research.verificationDimensions', verificationDimensions.length < 3);
   add(blockers, 'research', C.research.fewerThanThreeCustomerAccessTargets, `Fewer than three currently verified direct customer-access targets. Found ${roleEligibleCustomerAccess.length} role-eligible targets but only ${customerAccess.length} with current activity verified.`, 'customerAccessPack.channels', customerAccess.length < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.currentCustomerAccess);
-  add(blockers, 'research', C.research.insufficientProblemLanguageEvidence, `Fewer than ${RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations} independent verified first-person problem-language observations.`, 'competitorReviewIntelligence.observations', reviewObservationUrls.size < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations);
+  add(blockers, 'research', C.research.insufficientProblemLanguageEvidence, `Fewer than ${RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations} independent verified first-person problem-language observations.`, 'research.evidenceSufficiency.problemLanguageSourceUrls', problemLanguageUrls.size < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.problemLanguageObservations);
   add(blockers, 'research', C.research.insufficientCompetitiveAlternativeEvidence, `Fewer than ${RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.competitiveAlternativeSources} independent competitive/alternative evidence sources.`, 'customerAccessPack.channels.competitorEvidence', competitiveAlternativeUrls.size < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.competitiveAlternativeSources);
   add(blockers, 'research', C.research.insufficientEvidenceRoleCoverage, 'Required evidence roles are not all covered: customer access, problem language, and competitive/alternative evidence.', 'research.evidenceSufficiency', evidenceRolesCovered < RESEARCH_EVIDENCE_SUFFICIENCY_THRESHOLDS.evidenceRoles);
   add(blockers, 'research', C.research.missingRecencyMetadata, 'Evidence recency and current-activity verification metadata must be explicit for every researched target and source.', 'customerAccessPack.channels', missingRecencyMetadata);
