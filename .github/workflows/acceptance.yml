@@ -116,6 +116,10 @@ jobs:
         if: ${{ inputs.deploy }}
         run: node tests/e2e/get-me-live-acceptance.mjs
 
+      - name: Clean self-provisioned acceptance fixture
+        if: ${{ always() && inputs.deploy }}
+        run: node scripts/acceptance-e2e-cleanup.mjs
+
       - name: Record acceptance execution receipt
         if: always()
         shell: bash
