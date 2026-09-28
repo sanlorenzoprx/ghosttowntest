@@ -310,51 +310,83 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
   let body: any; try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
   const ownerId = String(body?.ownerId || '').trim().toLowerCase();
   const orderId = String(body?.orderId || '');
-  if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_')) return json({ error: 'Invalid E2E fixture identity' }, 400);
+  const gmlOrderId = String(body?.gmlOrderId || '');
+  if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_') || !/^gml_e2e_[A-Za-z0-9_-]+$/.test(gmlOrderId)) {
+    return json({ error: 'Invalid E2E fixture identity' }, 400);
+  }
 
-  const rows = await env.DB.prepare(`
-    SELECT order_id, blueprint_json, research_receipt_json, schema_version, status, pdf_r2_key, created_at
-    FROM launch_blueprints WHERE status = 'ready' ORDER BY updated_at DESC LIMIT 25
+  const gmlRows = await env.DB.prepare(`
+    SELECT g.* FROM get_me_live_orders g
+    WHERE g.status = 'live' AND g.public_url IS NOT NULL AND g.configuration_json IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM get_me_live_assets a WHERE a.get_me_live_order_id = g.order_id)
+    ORDER BY g.updated_at DESC LIMIT 25
   `).all<any>();
-  let source: any = null; let sourceOrder: any = null;
-  for (const row of rows.results || []) {
-    const raw = await env.KV.get('paid_test_order_' + row.order_id);
+  let sourceGml: any = null; let source: any = null; let sourceOrder: any = null;
+  for (const gml of gmlRows.results || []) {
+    const raw = await env.KV.get('paid_test_order_' + gml.source_sprint_order_id);
     if (!raw) continue;
     const order = JSON.parse(raw);
-    if (order?.status === 'ready' && order?.stripeMode === 'test') { source = row; sourceOrder = order; break; }
+    if (order?.status !== 'ready' || order?.stripeMode !== 'test') continue;
+    const row = await env.DB.prepare(`
+      SELECT order_id, blueprint_json, research_receipt_json, schema_version, status, pdf_r2_key, created_at
+      FROM launch_blueprints WHERE order_id = ? AND status = 'ready' LIMIT 1
+    `).bind(gml.source_sprint_order_id).first<any>();
+    if (row) { sourceGml = gml; source = row; sourceOrder = order; break; }
   }
-  if (!source || !sourceOrder) return json({ error: 'No ready Stripe-test acceptance Sprint source exists' }, 409);
+  if (!source || !sourceOrder || !sourceGml) return json({ error: 'No ready Stripe-test Sprint with a live asset-free Get Me Live acceptance source exists' }, 409);
 
   const now = new Date().toISOString();
   const blueprint = JSON.parse(source.blueprint_json);
-  blueprint.orderId = orderId;
-  blueprint.ownerId = ownerId;
-  blueprint.blueprintId = 'bp_e2e_' + crypto.randomUUID();
-  blueprint.createdAt = now;
-  blueprint.updatedAt = now;
+  blueprint.orderId = orderId; blueprint.ownerId = ownerId; blueprint.blueprintId = 'bp_e2e_' + crypto.randomUUID();
+  blueprint.createdAt = now; blueprint.updatedAt = now;
   const sourceVerdictId = String(blueprint.sourceVerdictId || sourceOrder.verdictId || '');
 
   const order = JSON.parse(JSON.stringify(sourceOrder));
   order.orderId = orderId; order.email = ownerId; order.status = 'ready';
-  order.stripeCheckoutSessionId = 'cs_test_e2e_fixture_no_charge';
-  order.stripePaymentIntentId = 'pi_test_e2e_fixture_no_charge';
-  order.paidAt = now; order.createdAt = now; order.updatedAt = now;
-  order.idempotencyKey = 'e2e_' + crypto.randomUUID();
+  order.stripeCheckoutSessionId = 'cs_test_e2e_fixture_no_charge'; order.stripePaymentIntentId = 'pi_test_e2e_fixture_no_charge';
+  order.paidAt = now; order.createdAt = now; order.updatedAt = now; order.idempotencyKey = 'e2e_' + crypto.randomUUID();
 
   await env.DB.prepare(`
     INSERT INTO launch_blueprints (
       order_id, owner_id, source_verdict_id, schema_version, status,
       blueprint_json, research_receipt_json, pdf_r2_key, created_at, updated_at
     ) VALUES (?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?)
-  `).bind(orderId, ownerId, sourceVerdictId, source.schema_version, JSON.stringify(blueprint),
-    source.research_receipt_json, source.pdf_r2_key, now, now).run();
+  `).bind(orderId, ownerId, sourceVerdictId, source.schema_version, JSON.stringify(blueprint), source.research_receipt_json, source.pdf_r2_key, now, now).run();
+
+  const config = JSON.parse(sourceGml.configuration_json);
+  config.domain = { ...(config.domain || {}), selectedDomain: undefined, pagesProjectName: ('ghosttown-e2e-' + gmlOrderId.replace(/^gml_e2e_/, '')).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 58) };
+  const provider = JSON.parse(sourceGml.provider_state_json || '{}');
+  provider.cloudflareConnected = true; provider.domainReady = false;
+  await env.DB.prepare(`
+    INSERT INTO get_me_live_orders (
+      order_id, owner_id, source_sprint_order_id, source_blueprint_id, offer_id, offer_version,
+      stripe_price_id, stripe_checkout_session_id, stripe_payment_intent_id, status,
+      configuration_json, provider_state_json, preview_r2_key, public_url, custom_domain,
+      deployment_receipt_json, created_at, updated_at, paid_at, published_at, failure
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'ready_to_publish', ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, NULL, NULL)
+  `).bind(
+    gmlOrderId, ownerId, orderId, blueprint.blueprintId, sourceGml.offer_id, sourceGml.offer_version,
+    sourceGml.stripe_price_id, JSON.stringify(config), JSON.stringify(provider), 'get-me-live/' + gmlOrderId + '/preview.json',
+    now, now, now
+  ).run();
+
+  const sourcePreview = await env.BLUEPRINTS.get('get-me-live/' + sourceGml.order_id + '/preview.json');
+  const sourceHtml = await env.BLUEPRINTS.get('get-me-live/' + sourceGml.order_id + '/preview.html');
+  if (!sourcePreview || !sourceHtml) return json({ error: 'Live Get Me Live source preview is missing' }, 409);
+  await Promise.all([
+    env.BLUEPRINTS.put('get-me-live/' + gmlOrderId + '/preview.json', await sourcePreview.arrayBuffer(), { httpMetadata: { contentType: 'application/json; charset=utf-8' } }),
+    env.BLUEPRINTS.put('get-me-live/' + gmlOrderId + '/preview.html', await sourceHtml.arrayBuffer(), { httpMetadata: { contentType: 'text/html; charset=utf-8' } })
+  ]);
+  const cfToken = await env.KV.get('get_me_live_cf_token_' + sourceGml.order_id);
+  if (!cfToken) return json({ error: 'Live Get Me Live source has no reusable acceptance Cloudflare authorization' }, 409);
+  await env.KV.put('get_me_live_cf_token_' + gmlOrderId, cfToken, { expirationTtl: 3600 });
+
   await env.KV.put('paid_test_order_' + orderId, JSON.stringify(order), { expirationTtl: 86400 });
   await env.KV.put('paid_test_orders_' + ownerId, JSON.stringify([{
     orderId, ideaName: 'Synthetic Acceptance Sprint', status: 'ready', createdAt: now, updatedAt: now,
-    artifactType: 'execution_plan_30day_v1', offerName: '30-Day Evidence Sprint',
-    sourceVerdictId, planVersion: order.planVersion || '1.0'
+    artifactType: 'execution_plan_30day_v1', offerName: '30-Day Evidence Sprint', sourceVerdictId, planVersion: order.planVersion || '1.0'
   }]), { expirationTtl: 86400 });
-  return json({ ok: true, orderId, ownerId, sourceOrderId: source.order_id, expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false });
+  return json({ ok: true, orderId, gmlOrderId, ownerId, sourceOrderId: source.order_id, sourceGmlOrderId: sourceGml.order_id, expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false });
 }
 
 async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Response> {
