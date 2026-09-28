@@ -24,6 +24,12 @@ if (fixture?.ok !== true || fixture?.stripeChargeCreated !== false || fixture?.p
   throw new Error('Acceptance E2E fixture did not prove isolation/no-charge invariants.');
 }
 
+await appendFile(envFile, [
+  `GHOSTTOWN_E2E_FIXTURE_OWNER=${ownerId}`,
+  `GHOSTTOWN_E2E_SPRINT_ORDER_ID=${orderId}`,
+  `GHOSTTOWN_E2E_GML_ORDER_ID=${gmlOrderId}`
+].join('\n') + '\n');
+
 const publish = await fetch(apiUrl + '/api/get-me-live/orders/' + encodeURIComponent(gmlOrderId) + '/publish', {
   method: 'POST', headers: { Authorization: 'Bearer ' + signupBody.token, 'content-type': 'application/json' }, body: '{}'
 });
