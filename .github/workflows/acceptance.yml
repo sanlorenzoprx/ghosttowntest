@@ -60,15 +60,6 @@ jobs:
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing acceptance environment secret CLOUDFLARE_API_TOKEN"; exit 1; }
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing acceptance environment secret CLOUDFLARE_ACCOUNT_ID"; exit 1; }
-          if [ "${{ inputs.deploy }}" = "true" ]; then
-            test -n "$GHOSTTOWN_E2E_BASE_URL" || { echo "::error::Missing acceptance environment secret GHOSTTOWN_E2E_BASE_URL"; exit 1; }
-            test -n "$GHOSTTOWN_E2E_AUTH_TOKEN" || { echo "::error::Missing acceptance environment secret GHOSTTOWN_E2E_AUTH_TOKEN"; exit 1; }
-            test -n "$GHOSTTOWN_E2E_SPRINT_ORDER_ID" || { echo "::error::Missing acceptance environment secret GHOSTTOWN_E2E_SPRINT_ORDER_ID"; exit 1; }
-            test "$GHOSTTOWN_E2E_SPRINT_MUTATE" = "1" || { echo "::error::Set acceptance variable GHOSTTOWN_E2E_SPRINT_MUTATE=1 for the disposable Sprint order"; exit 1; }
-            test -n "$GHOSTTOWN_E2E_GML_ORDER_ID" || { echo "::error::Missing acceptance environment secret GHOSTTOWN_E2E_GML_ORDER_ID"; exit 1; }
-            test -n "$GHOSTTOWN_E2E_LIVE_URL" || { echo "::error::Missing acceptance environment secret GHOSTTOWN_E2E_LIVE_URL"; exit 1; }
-            test "$GHOSTTOWN_E2E_SUBMIT_LEAD" = "1" || { echo "::error::Set acceptance variable GHOSTTOWN_E2E_SUBMIT_LEAD=1 for disposable lead proof"; exit 1; }
-          fi
 
       - name: Verify current product and closeout contracts
         run: >
@@ -100,6 +91,22 @@ jobs:
         run: |
           mkdir -p github-acceptance
           npx wrangler deploy --env acceptance 2>&1 | tee github-acceptance/deploy.log
+
+      - name: Self-provision isolated customer-journey fixture
+        if: ${{ inputs.deploy }}
+        run: node scripts/acceptance-e2e-fixture.mjs
+
+      - name: Verify self-provisioned runtime acceptance inputs
+        if: ${{ inputs.deploy }}
+        shell: bash
+        run: |
+          test -n "$GHOSTTOWN_E2E_BASE_URL"
+          test -n "$GHOSTTOWN_E2E_AUTH_TOKEN"
+          test -n "$GHOSTTOWN_E2E_SPRINT_ORDER_ID"
+          test "$GHOSTTOWN_E2E_SPRINT_MUTATE" = "1"
+          test -n "$GHOSTTOWN_E2E_GML_ORDER_ID"
+          test -n "$GHOSTTOWN_E2E_LIVE_URL"
+          test "$GHOSTTOWN_E2E_SUBMIT_LEAD" = "1"
 
       - name: Prove full interactive 30-Day Sprint
         if: ${{ inputs.deploy }}
