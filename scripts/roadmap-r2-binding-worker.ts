@@ -315,25 +315,33 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
     return json({ error: 'Invalid E2E fixture identity' }, 400);
   }
 
+  const sprintRows = await env.DB.prepare(`
+    SELECT order_id, blueprint_json, research_receipt_json, schema_version, status, pdf_r2_key, created_at
+    FROM launch_blueprints WHERE status = 'ready' ORDER BY updated_at DESC LIMIT 50
+  `).all<any>();
+  let source: any = null; let sourceOrder: any = null;
+  for (const row of sprintRows.results || []) {
+    const raw = await env.KV.get('paid_test_order_' + row.order_id);
+    if (!raw) continue;
+    const order = JSON.parse(raw);
+    if (order?.status === 'ready' && order?.stripeMode === 'test') { source = row; sourceOrder = order; break; }
+  }
+  if (!source || !sourceOrder) return json({ error: 'No ready Stripe-test Sprint acceptance source exists' }, 409);
+
   const gmlRows = await env.DB.prepare(`
     SELECT g.* FROM get_me_live_orders g
     WHERE g.status = 'live' AND g.public_url IS NOT NULL AND g.configuration_json IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM get_me_live_assets a WHERE a.get_me_live_order_id = g.order_id)
-    ORDER BY g.updated_at DESC LIMIT 25
+    ORDER BY g.updated_at DESC LIMIT 50
   `).all<any>();
-  let sourceGml: any = null; let source: any = null; let sourceOrder: any = null;
+  let sourceGml: any = null;
   for (const gml of gmlRows.results || []) {
-    const raw = await env.KV.get('paid_test_order_' + gml.source_sprint_order_id);
-    if (!raw) continue;
-    const order = JSON.parse(raw);
-    if (order?.status !== 'ready' || order?.stripeMode !== 'test') continue;
-    const row = await env.DB.prepare(`
-      SELECT order_id, blueprint_json, research_receipt_json, schema_version, status, pdf_r2_key, created_at
-      FROM launch_blueprints WHERE order_id = ? AND status = 'ready' LIMIT 1
-    `).bind(gml.source_sprint_order_id).first<any>();
-    if (row) { sourceGml = gml; source = row; sourceOrder = order; break; }
+    const sourcePreview = await env.BLUEPRINTS.get('get-me-live/' + gml.order_id + '/preview.json');
+    const sourceHtml = await env.BLUEPRINTS.get('get-me-live/' + gml.order_id + '/preview.html');
+    const cfToken = await env.KV.get('get_me_live_cf_token_' + gml.order_id);
+    if (sourcePreview && sourceHtml && cfToken) { sourceGml = gml; break; }
   }
-  if (!source || !sourceOrder || !sourceGml) return json({ error: 'No ready Stripe-test Sprint with a live asset-free Get Me Live acceptance source exists' }, 409);
+  if (!sourceGml) return json({ error: 'No live asset-free Get Me Live acceptance source with preview and Cloudflare authorization exists' }, 409);
 
   const now = new Date().toISOString();
   const blueprint = JSON.parse(source.blueprint_json);
