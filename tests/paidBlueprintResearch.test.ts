@@ -70,6 +70,31 @@ describe('paid Blueprint research enablement', () => {
     )).toBe(false);
   });
 
+  it('uses the acceptance YouTube key only as an acceptance fallback for paid research', () => {
+    const acceptance = env({ YOUTUBE_API_KEY: 'acceptance-youtube', YOUTUBE_API_KEY_PAID: undefined });
+    expect(researchEnvForPaidBlueprint(acceptance, order()).YOUTUBE_API_KEY).toBe('acceptance-youtube');
+
+    const production = env({
+      DEPLOYMENT_ENV: 'production',
+      YOUTUBE_API_KEY: 'free-production-key',
+      YOUTUBE_API_KEY_PAID: undefined
+    });
+    const liveOrder = order({
+      stripeMode: 'live',
+      stripeCheckoutSessionId: 'cs_live_123',
+      stripeEventId: 'evt_live_123'
+    });
+    expect(researchEnvForPaidBlueprint(production, liveOrder).YOUTUBE_API_KEY).toBeUndefined();
+  });
+
+  it('prefers the dedicated paid YouTube key in acceptance when it exists', () => {
+    const acceptance = env({
+      YOUTUBE_API_KEY: 'acceptance-youtube',
+      YOUTUBE_API_KEY_PAID: 'paid-youtube'
+    });
+    expect(researchEnvForPaidBlueprint(acceptance, order()).YOUTUBE_API_KEY).toBe('paid-youtube');
+  });
+
   it('still honors the existing general research switch when explicitly enabled', () => {
     expect(paidBlueprintResearchEnabled(
       env({ DEPLOYMENT_ENV: 'development', DISTRIBUTION_FOOTPRINT_ENABLED: 'true', PAID_BLUEPRINT_RESEARCH_ENABLED: 'false' }),

@@ -379,6 +379,9 @@ try {
       wiringMismatch: Boolean(installed[key]) && !Boolean(capabilities[key])
     }])
   );
+  const wiringMismatches = Object.entries(visibility)
+    .filter(([, state]) => state.wiringMismatch)
+    .map(([key]) => key);
   jsonFile('provider-capabilities.json', {
     schemaVersion: 'ghosttown-provider-capabilities-v1',
     checkedAt: new Date().toISOString(),
@@ -386,6 +389,10 @@ try {
     visibility
   });
   console.log('[provider-capabilities]', JSON.stringify({ capabilities, visibility }));
+  assert(
+    wiringMismatches.length === 0,
+    'Provider secret wiring mismatch: ' + wiringMismatches.join(', ')
+  );
 
   const startRes = await fetch(WORKER_URL + START_PATH, {
     method: 'POST',

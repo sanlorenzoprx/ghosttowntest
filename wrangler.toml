@@ -74,6 +74,9 @@ class_name = "LaunchBlueprintWorkflow"
 [env.acceptance]
 workers_dev = true
 
+[env.acceptance.secrets]
+required = ["BRAVE_SEARCH_API_KEY"]
+
 [env.acceptance.vars]
 DEPLOYMENT_ENV = "acceptance"
 AI_GATEWAY_ID = "default"

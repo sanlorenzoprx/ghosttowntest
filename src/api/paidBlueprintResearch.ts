@@ -29,9 +29,13 @@ export function researchEnvForPaidBlueprint(env: Env, order: PaidTestOrder): Env
   // enables Distribution Footprint research for the verified order execution.
   const researchEnv = Object.create(env) as Env;
   researchEnv.DISTRIBUTION_FOOTPRINT_ENABLED = 'true';
-  // Paid Sprints never consume the free Evidence Scan YouTube key. When a
-  // dedicated paid key is not configured, YouTube simply becomes unavailable
-  // and the independent web/backlink providers carry discovery.
-  researchEnv.YOUTUBE_API_KEY = env.YOUTUBE_API_KEY_PAID?.trim() || undefined;
+  // Production paid Sprints remain isolated to the dedicated paid YouTube key.
+  // Acceptance may reuse its existing acceptance-only YouTube key so the real
+  // paid-Sprint path can be exercised without creating a second test credential.
+  const paidYouTubeKey = env.YOUTUBE_API_KEY_PAID?.trim();
+  const acceptanceYouTubeKey = env.DEPLOYMENT_ENV === 'acceptance'
+    ? env.YOUTUBE_API_KEY?.trim()
+    : undefined;
+  researchEnv.YOUTUBE_API_KEY = paidYouTubeKey || acceptanceYouTubeKey || undefined;
   return researchEnv;
 }
