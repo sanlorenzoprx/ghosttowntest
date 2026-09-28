@@ -325,7 +325,19 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
     const raw = await env.KV.get('paid_test_order_' + row.order_id);
     if (!raw) continue;
     const order = JSON.parse(raw);
-    if (order?.status === 'ready' && order?.stripeMode === 'test') { source = row; sourceOrder = order; break; }
+    let candidateBlueprint: any = null;
+    try { candidateBlueprint = JSON.parse(row.blueprint_json); } catch { continue; }
+    const canonicalSprint = candidateBlueprint?.schemaVersion === EXPECTED_SCHEMA
+      && candidateBlueprint?.blueprintVersion === '2.1'
+      && candidateBlueprint?.status === 'ready'
+      && Array.isArray(candidateBlueprint?.dailyCalendar)
+      && candidateBlueprint.dailyCalendar.length === 30;
+    if (order?.status === 'ready'
+        && order?.stripeMode === 'test'
+        && order?.artifactType === 'launch_blueprint_v2'
+        && canonicalSprint) {
+      source = row; sourceOrder = order; break;
+    }
   }
   if (!source || !sourceOrder) return json({ error: 'No ready Stripe-test Sprint acceptance source exists' }, 409);
 
