@@ -86,6 +86,9 @@ export async function withAcceptanceDataBindings(callback) {
     'binding = "BLUEPRINTS"',
     `bucket_name = "${R2_BUCKET}"`,
     'remote = true',
+    '',
+    '[vars]',
+    `ACCEPTANCE_CLOUDFLARE_API_TOKEN = ${JSON.stringify(String(process.env.CLOUDFLARE_API_TOKEN || ''))}`,
     ''
   ].join('\n'), 'utf8');
 
