@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const baseUrl = String(process.env.GHOSTTOWN_E2E_BASE_URL || '').replace(/\/$/, '');
@@ -9,11 +10,8 @@ const submitLead = process.env.GHOSTTOWN_E2E_SUBMIT_LEAD === '1';
 
 const required = { GHOSTTOWN_E2E_BASE_URL: baseUrl, GHOSTTOWN_E2E_AUTH_TOKEN: authToken, GHOSTTOWN_E2E_GML_ORDER_ID: getMeLiveOrderId, GHOSTTOWN_E2E_LIVE_URL: liveUrl };
 const missing = Object.entries(required).filter(([, value]) => !value).map(([name]) => name);
-if (missing.length) {
-  console.log('[ghosttown-e2e] SKIP: runtime acceptance variables are not configured.');
-  console.log('[ghosttown-e2e] Missing: ' + missing.join(', '));
-  process.exit(0);
-}
+if (missing.length) throw new Error('Runtime Get Me Live acceptance is mandatory. Missing: ' + missing.join(', '));
+if (!submitLead) throw new Error('Runtime Get Me Live acceptance must submit a disposable lead. Set GHOSTTOWN_E2E_SUBMIT_LEAD=1.');
 
 const windowsChrome = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const browser = await chromium.launch({
@@ -22,6 +20,8 @@ const browser = await chromium.launch({
 });
 
 const fail = message => { throw new Error(message); };
+const proof = { schemaVersion: 'ghosttown-get-me-live-browser-proof-v2', liveUrl, getMeLiveOrderId, viewports: [], lead: null, recordedAt: new Date().toISOString() };
+await mkdir('github-acceptance', { recursive: true });
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
@@ -35,6 +35,15 @@ try {
   if (await page.locator('form').count() < 1) fail('Live page is missing its lead form.');
   if (await page.locator('input[name="email"]').count() < 1) fail('Live page is missing its email field.');
   if (serverErrors.length) fail('Live page produced server errors: ' + serverErrors.join(' | '));
+  proof.viewports.push({ name: 'mobile', width: 390, height: 844, httpStatus: navigation?.status(), leadFormVisible: true });
+
+  const desktop = await context.newPage();
+  await desktop.setViewportSize({ width: 1440, height: 1000 });
+  const desktopNavigation = await desktop.goto(liveUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  if (desktopNavigation?.status() !== 200) fail(`Desktop live page expected HTTP 200, received ${desktopNavigation?.status()}`);
+  if (await desktop.locator('form').count() < 1 || await desktop.locator('input[name="email"]').count() < 1) fail('Desktop live page is missing its lead form or email field.');
+  proof.viewports.push({ name: 'desktop', width: 1440, height: 1000, httpStatus: desktopNavigation?.status(), leadFormVisible: true });
+  await desktop.close();
 
   const receiptResponse = await page.request.get(
     `${baseUrl}/api/get-me-live/orders/${encodeURIComponent(getMeLiveOrderId)}/release-receipt`,
@@ -78,12 +87,18 @@ try {
     if (orderResponse.status() !== 200) fail(`Owner order expected HTTP 200, received ${orderResponse.status()}`);
     const orderBody = await orderResponse.json();
     if (!Array.isArray(orderBody.leads) || !orderBody.leads.some(lead => lead.email === marker)) fail('Submitted E2E lead did not return to the GhostTown owner view.');
+    proof.lead = { email: marker, submittedThroughVisibleForm: true, canonicalSuccessState: true, recoveredInOwnerOrder: true };
     console.log('[ghosttown-e2e] PASS: disposable lead submitted and observed in GhostTown.');
-  } else {
-    console.log('[ghosttown-e2e] Lead mutation skipped. Set GHOSTTOWN_E2E_SUBMIT_LEAD=1 only in disposable acceptance runs.');
   }
 
+  proof.passed = true;
+  await writeFile('github-acceptance/get-me-live-browser-proof.json', JSON.stringify(proof, null, 2) + '\n');
   await context.close();
+} catch (error) {
+  proof.passed = false;
+  proof.error = error instanceof Error ? error.message : String(error);
+  await writeFile('github-acceptance/get-me-live-browser-proof.json', JSON.stringify(proof, null, 2) + '\n');
+  throw error;
 } finally {
   await browser.close();
 }
