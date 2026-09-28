@@ -307,6 +307,31 @@ function auditReady(status) {
 let deployed = false;
 let finalStatus = null;
 try {
+  const secretListRaw = wrangler(['secret', 'list', '--env', 'acceptance']);
+  let secretInventory = [];
+  try {
+    const parsedSecrets = JSON.parse(secretListRaw);
+    secretInventory = Array.isArray(parsedSecrets)
+      ? parsedSecrets.map(item => String(item?.name || '')).filter(Boolean)
+      : [];
+  } catch {
+    secretInventory = [...secretListRaw.matchAll(/"name"\s*:\s*"([^"]+)"/g)].map(match => match[1]);
+  }
+  const installedSecretNames = new Set(secretInventory);
+  jsonFile('provider-secret-inventory.json', {
+    schemaVersion: 'ghosttown-provider-secret-inventory-v1',
+    checkedAt: new Date().toISOString(),
+    installed: {
+      braveSearch: installedSecretNames.has('BRAVE_SEARCH_API_KEY'),
+      youtubeFree: installedSecretNames.has('YOUTUBE_API_KEY'),
+      youtubePaid: installedSecretNames.has('YOUTUBE_API_KEY_PAID'),
+      dataForSeo: installedSecretNames.has('DATAFORSEO_LOGIN') && installedSecretNames.has('DATAFORSEO_PASSWORD'),
+      rankParse: installedSecretNames.has('RANKPARSE_API_KEY'),
+      podcastIndex: installedSecretNames.has('PODCAST_INDEX_API_KEY') && installedSecretNames.has('PODCAST_INDEX_API_SECRET'),
+      vertexServiceAccount: installedSecretNames.has('VERTEX_SERVICE_ACCOUNT_EMAIL') && installedSecretNames.has('VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY')
+    }
+  });
+
   wrangler(['deploy', TEMP, '--env', 'acceptance']);
   deployed = true;
 
@@ -345,12 +370,22 @@ try {
     'Fresh Sprint provider capability probe failed'
   );
   const capabilities = capabilityBody.capabilities || {};
+  const inventoryReceipt = JSON.parse(readFileSync(join(OUT, 'provider-secret-inventory.json'), 'utf8'));
+  const installed = inventoryReceipt.installed || {};
+  const visibility = Object.fromEntries(
+    Object.keys(capabilities).map(key => [key, {
+      installed: Boolean(installed[key]),
+      runtimeVisible: Boolean(capabilities[key]),
+      wiringMismatch: Boolean(installed[key]) && !Boolean(capabilities[key])
+    }])
+  );
   jsonFile('provider-capabilities.json', {
     schemaVersion: 'ghosttown-provider-capabilities-v1',
     checkedAt: new Date().toISOString(),
-    capabilities
+    capabilities,
+    visibility
   });
-  console.log('[provider-capabilities]', JSON.stringify(capabilities));
+  console.log('[provider-capabilities]', JSON.stringify({ capabilities, visibility }));
 
   const startRes = await fetch(WORKER_URL + START_PATH, {
     method: 'POST',
