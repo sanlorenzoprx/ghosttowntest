@@ -291,7 +291,7 @@
         "node scripts/sprint-autopilot/step-11-audit-ready-artifacts.mjs"
       ],
       "externalInputs": [
-        "secret_installation:required_acceptance_provider_secret_if_missing",
+        "cloudflare_acceptance_secret:re-save_or_rotate_BRAVE_SEARCH_API_KEY_if_installed_but_runtime_invisible",
         "declared_human_artifact_review:semantic_READY_review"
       ],
       "completion": [

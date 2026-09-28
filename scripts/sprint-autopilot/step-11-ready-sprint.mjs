@@ -58,7 +58,20 @@ rmSync(FRESH, { recursive: true, force: true });
 mkdirSync(FRESH, { recursive: true });
 
 const fresh = runNode(resolve(ROOT, 'scripts/fresh-sprint-acceptance.mjs'));
-if ((fresh.status ?? 1) !== 0) process.exit(fresh.status ?? 1);
+if ((fresh.status ?? 1) !== 0) {
+  const capabilityPath = join(FRESH, 'provider-capabilities.json');
+  if (existsSync(capabilityPath)) {
+    const capabilityReceipt = json(capabilityPath);
+    const brave = capabilityReceipt?.visibility?.braveSearch;
+    if (brave && brave.runtimeVisible !== true) {
+      console.error(
+        'EXTERNAL_INPUT_REQUIRED: Cloudflare acceptance lists BRAVE_SEARCH_API_KEY but the deployed Worker cannot use it. Re-save or rotate BRAVE_SEARCH_API_KEY on lit-ghost-town-api-acceptance, then resume Step 11. Do not paste the key into logs or chat.'
+      );
+      process.exit(2);
+    }
+  }
+  process.exit(fresh.status ?? 1);
+}
 
 const receiptPath = join(FRESH, 'final-acceptance-receipt.json');
 if (!existsSync(receiptPath)) throw new Error('Fresh Sprint did not write a final acceptance receipt.');
