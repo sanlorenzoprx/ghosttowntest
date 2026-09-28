@@ -10,6 +10,7 @@ const R2_BUCKET = 'ghosttowntest-private-blueprints-acceptance';
 const WORKER_URL = 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev';
 const START_PATH = '/__acceptance/fresh-sprint/start';
 const STATUS_PATH = '/__acceptance/fresh-sprint/status';
+const CAPABILITIES_PATH = '/__acceptance/fresh-sprint/capabilities';
 const TOKEN = crypto.randomUUID() + crypto.randomUUID();
 const VERIFIER_MARKER = `fresh-sprint-verifier-${crypto.randomUUID()}`;
 const RESTORE_WORKTREE = join(ROOT, 'github-acceptance', 'main-restore-worktree');
@@ -151,10 +152,23 @@ async function status(env, orderId) {
 export default {
   async fetch(request, env, ctx) {
     const u = new URL(request.url);
-    if (u.pathname === '${START_PATH}' || u.pathname === '${STATUS_PATH}') {
+    if (u.pathname === '${START_PATH}' || u.pathname === '${STATUS_PATH}' || u.pathname === '${CAPABILITIES_PATH}') {
       if (env.DEPLOYMENT_ENV !== 'acceptance') return new Response('Not found', { status: 404 });
       if (!auth(request)) return new Response('Unauthorized', { status: 401 });
       if (u.pathname === '${START_PATH}' && request.method === 'GET') return ok({ ok: true, verifierMarker: VERIFIER_MARKER });
+      if (u.pathname === '${CAPABILITIES_PATH}' && request.method === 'GET') return ok({
+        ok: true,
+        verifierMarker: VERIFIER_MARKER,
+        capabilities: {
+          braveSearch: Boolean(env.BRAVE_SEARCH_API_KEY?.trim()),
+          youtubeFree: Boolean(env.YOUTUBE_API_KEY?.trim()),
+          youtubePaid: Boolean(env.YOUTUBE_API_KEY_PAID?.trim()),
+          dataForSeo: Boolean(env.DATAFORSEO_LOGIN?.trim() && env.DATAFORSEO_PASSWORD?.trim()),
+          rankParse: Boolean(env.RANKPARSE_API_KEY?.trim()),
+          podcastIndex: Boolean(env.PODCAST_INDEX_API_KEY?.trim() && env.PODCAST_INDEX_API_SECRET?.trim()),
+          vertexServiceAccount: Boolean(env.VERTEX_SERVICE_ACCOUNT_EMAIL?.trim() && env.VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY?.trim())
+        }
+      });
       if (u.pathname === '${START_PATH}' && request.method === 'POST') return start(env);
       if (u.pathname === '${STATUS_PATH}' && request.method === 'GET') return status(env, u.searchParams.get('order_id') || '');
       return new Response('Method not allowed', { status: 405 });
@@ -318,6 +332,25 @@ try {
     await sleep(3000);
   }
   assert(verifierReady, 'Fresh Sprint verifier did not become active at the acceptance Worker URL');
+
+  // Prove what the deployed temporary acceptance Worker can actually see.
+  // This receipt contains capability booleans only; it never exposes secret values.
+  const capabilityRes = await fetch(WORKER_URL + CAPABILITIES_PATH, {
+    method: 'GET',
+    headers: { 'x-acceptance-token': TOKEN, 'cache-control': 'no-cache' }
+  });
+  const capabilityBody = await capabilityRes.json().catch(() => null);
+  assert(
+    capabilityRes.ok && capabilityBody?.ok === true && capabilityBody?.verifierMarker === VERIFIER_MARKER,
+    'Fresh Sprint provider capability probe failed'
+  );
+  const capabilities = capabilityBody.capabilities || {};
+  jsonFile('provider-capabilities.json', {
+    schemaVersion: 'ghosttown-provider-capabilities-v1',
+    checkedAt: new Date().toISOString(),
+    capabilities
+  });
+  console.log('[provider-capabilities]', JSON.stringify(capabilities));
 
   const startRes = await fetch(WORKER_URL + START_PATH, {
     method: 'POST',
