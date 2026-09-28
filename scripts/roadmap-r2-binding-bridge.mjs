@@ -146,6 +146,22 @@ export async function withAcceptanceDataBindings(callback) {
         if (!response.ok) throw new Error(`Acceptance snapshot failed HTTP ${response.status}: ${text}`);
         return body;
       },
+      async createE2eSprintFixture(payload) {
+        const response = await request('/e2e-sprint-fixture', {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload)
+        }, 'Acceptance E2E Sprint fixture transport failed');
+        const text = await response.text(); let body = null; try { body = JSON.parse(text); } catch {}
+        if (!response.ok) throw new Error(`Acceptance E2E Sprint fixture failed HTTP ${response.status}: ${text}`);
+        return body;
+      },
+      async deleteE2eSprintFixture(payload) {
+        const response = await request('/e2e-sprint-fixture', {
+          method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload)
+        }, 'Acceptance E2E Sprint fixture cleanup transport failed');
+        const text = await response.text(); let body = null; try { body = JSON.parse(text); } catch {}
+        if (!response.ok) throw new Error(`Acceptance E2E Sprint fixture cleanup failed HTTP ${response.status}: ${text}`);
+        return body;
+      },
       async rematerialize(payload) {
         const response = await request('/rematerialize', {
           method: 'POST',
