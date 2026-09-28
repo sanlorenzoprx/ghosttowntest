@@ -23,7 +23,9 @@ const signupText = await signup.text();
 let signupBody = null; try { signupBody = JSON.parse(signupText); } catch {}
 if (!signup.ok || !signupBody?.token) throw new Error(`Acceptance E2E signup failed HTTP ${signup.status}: ${signupBody?.error || 'unknown error'}`);
 
-const fixture = await withAcceptanceDataBindings(client => client.createE2eSprintFixture({ ownerId, orderId, gmlOrderId }));
+const cloudflareAccountId = String(process.env.CLOUDFLARE_ACCOUNT_ID || '').trim();
+if (!cloudflareAccountId) throw new Error('CLOUDFLARE_ACCOUNT_ID is unavailable.');
+const fixture = await withAcceptanceDataBindings(client => client.createE2eSprintFixture({ ownerId, orderId, gmlOrderId, cloudflareAccountId }));
 if (fixture?.ok !== true || fixture?.stripeChargeCreated !== false || fixture?.productionMutated !== false) {
   throw new Error('Acceptance E2E fixture did not prove isolation/no-charge invariants.');
 }
@@ -33,6 +35,13 @@ await appendFile(envFile, [
   `GHOSTTOWN_E2E_SPRINT_ORDER_ID=${orderId}`,
   `GHOSTTOWN_E2E_GML_ORDER_ID=${gmlOrderId}`
 ].join('\n') + '\n');
+
+const preview = await fetch(apiUrl + '/api/get-me-live/orders/' + encodeURIComponent(gmlOrderId) + '/preview', {
+  method: 'POST', headers: { Authorization: 'Bearer ' + signupBody.token, 'content-type': 'application/json' }, body: '{}'
+});
+const previewText = await preview.text();
+let previewBody = null; try { previewBody = JSON.parse(previewText); } catch {}
+if (!preview.ok || !previewBody?.buildId) throw new Error(`Acceptance Get Me Live fixture preview failed HTTP ${preview.status}: ${previewBody?.error || 'unknown error'}`);
 
 const publish = await fetch(apiUrl + '/api/get-me-live/orders/' + encodeURIComponent(gmlOrderId) + '/publish', {
   method: 'POST', headers: { Authorization: 'Bearer ' + signupBody.token, 'content-type': 'application/json' }, body: '{}'
@@ -54,7 +63,7 @@ await appendFile(envFile, [
 
 console.log(JSON.stringify({
   ok: true, schemaVersion: 'ghosttown-acceptance-e2e-fixture-v1',
-  environment: 'acceptance', orderId, gmlOrderId, sourceOrderId: fixture.sourceOrderId, sourceGmlOrderId: fixture.sourceGmlOrderId,
+  environment: 'acceptance', orderId, gmlOrderId, sourceOrderId: fixture.sourceOrderId,
   freshOwner: true, stripeChargeCreated: false, productionMutated: false,
   authTokenRecorded: false, passwordRecorded: false, expiresInSeconds: fixture.expiresInSeconds
 }));
