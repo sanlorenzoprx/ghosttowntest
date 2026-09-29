@@ -2,17 +2,22 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const baseUrl = String(process.env.GHOSTTOWN_E2E_BASE_URL || '').replace(/\/$/, '');
+const apiBase = String(process.env.GHOSTTOWN_E2E_API_URL || '').replace(/\/$/, '');
 const authToken = String(process.env.GHOSTTOWN_E2E_AUTH_TOKEN || '');
 const orderId = String(process.env.GHOSTTOWN_E2E_SPRINT_ORDER_ID || '');
 const mutate = process.env.GHOSTTOWN_E2E_SPRINT_MUTATE === '1';
-const required = { GHOSTTOWN_E2E_BASE_URL: baseUrl, GHOSTTOWN_E2E_AUTH_TOKEN: authToken, GHOSTTOWN_E2E_SPRINT_ORDER_ID: orderId };
+const required = { GHOSTTOWN_E2E_BASE_URL: baseUrl, GHOSTTOWN_E2E_API_URL: apiBase, GHOSTTOWN_E2E_AUTH_TOKEN: authToken, GHOSTTOWN_E2E_SPRINT_ORDER_ID: orderId };
 const missing = Object.entries(required).filter(([, value]) => !value).map(([name]) => name);
 if (missing.length) throw new Error('Runtime Sprint acceptance is mandatory. Missing: ' + missing.join(', '));
 if (!mutate) throw new Error('Runtime Sprint acceptance is mandatory. Set GHOSTTOWN_E2E_SPRINT_MUTATE=1 only for the disposable acceptance order.');
 
+const productionApiHosts = new Set(['api.ghosttowntest.com', 'api.lit-ghosttown.app']);
+const apiHost = new URL(apiBase).hostname;
+if (productionApiHosts.has(apiHost)) throw new Error(`Acceptance API origin points to production: ${apiBase}`);
+
 const headers = { Authorization: `Bearer ${authToken}` };
-const progressUrl = `${baseUrl}/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/progress`;
-const blueprintUrl = `${baseUrl}/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint`;
+const progressUrl = `${apiBase}/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/progress`;
+const blueprintUrl = `${apiBase}/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint`;
 const today = new Date().toISOString().slice(0, 10);
 const checkpoints = new Set([7, 14, 21, 30]);
 const externalKinds = new Set(['verified_channel', 'qualified_buyer_batch', 'existing_contact', 'fulfillment_run']);
@@ -53,7 +58,17 @@ function dayText(day) {
 }
 async function apiJson(request, url, options = {}) {
   const response = await request.fetch(url, { ...options, headers: { ...headers, ...(options.headers || {}) } });
-  const body = await response.json().catch(() => ({}));
+  const type = response.headers()['content-type'] || '';
+  const text = await response.text();
+  if (!type.includes('application/json')) {
+    throw new Error(`${options.method || 'GET'} ${url} returned non-JSON (${response.status()}, ${type}): ${text.slice(0, 120)}`);
+  }
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    throw new Error(`${options.method || 'GET'} ${url} returned invalid JSON (${response.status()}, ${type}): ${text.slice(0, 120)}`);
+  }
   if (!response.ok()) throw new Error(`${options.method || 'GET'} ${url} failed (${response.status()}): ${JSON.stringify(body)}`);
   return body;
 }
@@ -108,15 +123,29 @@ async function verifyDayNote(page, dayNumber, expected) {
 
 await mkdir('github-acceptance', { recursive: true });
 const browser = await chromium.launch({ headless: true });
+const productionApiRequests = [];
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await context.route('**/*', async route => {
+    const requestUrl = route.request().url();
+    let host = '';
+    try { host = new URL(requestUrl).hostname; } catch {}
+    if (productionApiHosts.has(host)) {
+      productionApiRequests.push(requestUrl);
+      await route.abort('blockedbyclient');
+      return;
+    }
+    await route.continue();
+  });
   const page = await context.newPage();
   const serverErrors = [];
   page.on('response', response => { if (response.status() >= 500) serverErrors.push(`${response.status()} ${response.request().method()} ${response.url()}`); });
 
   const payload = await apiJson(page.request, blueprintUrl);
   const blueprint = payload.blueprint;
-  if (!blueprint || blueprint.dailyCalendar?.length !== 30) throw new Error('Acceptance order does not expose the canonical 30-day Sprint.');
+  if (!blueprint || blueprint.dailyCalendar?.length !== 30) {
+    throw new Error(`Acceptance order does not expose the canonical 30-day Sprint (keys=${Object.keys(payload).join(',') || 'none'}, days=${blueprint?.dailyCalendar?.length ?? 'none'}).`);
+  }
 
   const reviews = blueprint.dailyCalendar.map(day => ({ dayNumber: day.dayNumber, title: day.title, ...readability(dayText(day)) }));
   proof.contentReview = {
@@ -207,10 +236,14 @@ try {
   console.log('[sprint-e2e] PASS: visible browser UI completed Days 1-30, persisted checkpoints, and recovered historical data.');
   await context.close();
 } catch (error) {
+  const effectiveError = productionApiRequests.length
+    ? new Error(`Acceptance browser attempted production API: ${productionApiRequests[0]}`)
+    : error;
   proof.passed = false;
-  proof.error = error instanceof Error ? error.message : String(error);
+  proof.productionApiRequests = productionApiRequests;
+  proof.error = effectiveError instanceof Error ? effectiveError.message : String(effectiveError);
   await writeFile('github-acceptance/30-day-sprint-ui-proof.json', JSON.stringify(proof, null, 2) + '\n');
-  throw error;
+  throw effectiveError;
 } finally {
   await browser.close();
 }

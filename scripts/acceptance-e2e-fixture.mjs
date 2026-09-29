@@ -50,8 +50,29 @@ const publishText = await publish.text();
 let publishBody = null; try { publishBody = JSON.parse(publishText); } catch {}
 if (!publish.ok || !publishBody?.publicUrl) throw new Error(`Acceptance Get Me Live fixture publish failed HTTP ${publish.status}: ${publishBody?.error || 'unknown error'}`);
 
+// Result check: before any browser journey, prove the disposable customer can
+// see the canonical Sprint through the acceptance Worker.
+const exposed = await fetch(apiUrl + '/api/paid-test/orders/' + encodeURIComponent(orderId) + '/blueprint', {
+  headers: { Authorization: 'Bearer ' + signupBody.token }
+});
+const exposedType = exposed.headers.get('content-type') || '';
+const exposedText = await exposed.text();
+if (!exposedType.includes('application/json')) {
+  throw new Error(`Acceptance Sprint exposure check got non-JSON (${exposed.status}, ${exposedType}) from ${apiUrl}`);
+}
+let exposedBody;
+try {
+  exposedBody = JSON.parse(exposedText);
+} catch {
+  throw new Error(`Acceptance Sprint exposure check got invalid JSON (${exposed.status}, ${exposedType}) from ${apiUrl}: ${exposedText.slice(0, 120)}`);
+}
+if (!exposed.ok || exposedBody?.blueprint?.dailyCalendar?.length !== 30) {
+  throw new Error(`Acceptance Sprint fixture is not customer-visible: HTTP ${exposed.status}, days=${exposedBody?.blueprint?.dailyCalendar?.length ?? 'none'}, error=${exposedBody?.error || 'none'}`);
+}
+
 await appendFile(envFile, [
   `GHOSTTOWN_E2E_BASE_URL=${frontendUrl}`,
+  `GHOSTTOWN_E2E_API_URL=${apiUrl}`,
   `GHOSTTOWN_E2E_AUTH_TOKEN=${signupBody.token}`,
   `GHOSTTOWN_E2E_SPRINT_ORDER_ID=${orderId}`,
   `GHOSTTOWN_E2E_GML_ORDER_ID=${gmlOrderId}`,

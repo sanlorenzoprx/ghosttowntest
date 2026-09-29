@@ -92,6 +92,23 @@ jobs:
           mkdir -p github-acceptance
           npx wrangler deploy --env acceptance 2>&1 | tee github-acceptance/deploy.log
 
+      - name: Build acceptance frontend against acceptance Worker
+        if: ${{ inputs.deploy }}
+        env:
+          VITE_API_URL: https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev
+        run: |
+          rm -rf dist
+          npm run build
+          grep -R -F "https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev" dist/assets >/dev/null || {
+            echo "::error::Acceptance frontend build does not contain the acceptance Worker API origin"
+            exit 1
+          }
+
+      - name: Deploy current acceptance frontend
+        if: ${{ inputs.deploy }}
+        run: |
+          npx wrangler pages deploy dist --project-name ghosttown-acceptance --branch main 2>&1 | tee github-acceptance/pages-deploy.log
+
       - name: Self-provision isolated customer-journey fixture
         if: ${{ inputs.deploy }}
         run: node scripts/acceptance-e2e-fixture.mjs
@@ -101,6 +118,7 @@ jobs:
         shell: bash
         run: |
           test -n "$GHOSTTOWN_E2E_BASE_URL"
+          test -n "$GHOSTTOWN_E2E_API_URL"
           test -n "$GHOSTTOWN_E2E_AUTH_TOKEN"
           test -n "$GHOSTTOWN_E2E_SPRINT_ORDER_ID"
           test "$GHOSTTOWN_E2E_SPRINT_MUTATE" = "1"
