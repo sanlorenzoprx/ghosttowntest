@@ -386,10 +386,23 @@ export async function manufactureCustomWebsite(
     };
   };
 
-  const first = await generateWebsitePlan(env, blueprint);
+  let first: Awaited<ReturnType<typeof generateWebsitePlan>>;
+  try {
+    first = await generateWebsitePlan(env, blueprint);
+  } catch (error) {
+    console.error('Custom website manufacturing failed at vertex_plan_generation:', error);
+    throw new Error('Custom website manufacturing failed (stage=vertex_plan_generation)');
+  }
+
   let latestReceipt = first.receipt;
   let spec = first.spec;
-  let manufactured = await build(spec);
+  let manufactured: Awaited<ReturnType<typeof build>>;
+  try {
+    manufactured = await build(spec);
+  } catch (error) {
+    console.error('Custom website manufacturing failed at deterministic_build:', error);
+    throw new Error('Custom website manufacturing failed (stage=deterministic_build)');
+  }
   let assets = manufactured.assets;
   let websiteBuild = manufactured.build;
   let browserTest: WebsiteBrowserTestResult | undefined;
