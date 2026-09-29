@@ -80,13 +80,21 @@ async function openDay(page, dayNumber) {
   await calendar.getByRole('button', { name: new RegExp(`^Day ${dayNumber}\\b`) }).click();
   await page.getByText(`Today · Day ${dayNumber}`, { exact: true }).waitFor({ state: 'visible' });
 }
+async function openWorkspaceSection(page, value, label) {
+  const mobileNav = page.getByLabel('Blueprint section');
+  if (await mobileNav.isVisible().catch(() => false)) {
+    await mobileNav.selectOption(value);
+    return;
+  }
+  await page.getByRole('button', { name: label, exact: true }).click();
+}
 async function returnFromWorkspace(page) {
-  await page.getByRole('button', { name: /Back|30-Day|Execution|Calendar/i }).first().click();
+  await page.getByRole('button', { name: /Dashboard/i }).first().click();
   await page.getByRole('region', { name: '30-day execution calendar' }).waitFor({ state: 'visible' });
 }
 async function addEvidence(page, day, index) {
   await page.getByRole('button', { name: /Record structured evidence|Open structured evidence log/i }).click();
-  await page.getByRole('button', { name: 'Record Results', exact: true }).click();
+  await openWorkspaceSection(page, 'record', 'Record Results');
   const marker = `SYNTHETIC ACCEPTANCE — Day ${day.dayNumber} record ${index + 1}`;
   await page.getByLabel('Contact or channel').fill(marker);
   await page.getByLabel('Date').fill(today);
@@ -104,7 +112,7 @@ async function addEvidence(page, day, index) {
 }
 async function saveCheckpoint(page, dayNumber) {
   await page.getByRole('button', { name: /Complete checkpoint review|Review checkpoint evidence/i }).click();
-  await page.getByRole('button', { name: 'Weekly Review', exact: true }).click();
+  await openWorkspaceSection(page, 'review', 'Weekly Review');
   const section = page.locator(`#checkpoint-${dayNumber}`);
   await section.getByLabel('Strongest evidence').selectOption('weak');
   await section.getByLabel('Primary constraint').selectOption('missing_evidence');
