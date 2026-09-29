@@ -109,7 +109,7 @@ async function addEvidence(page, day, index) {
   await page.getByLabel('Evidence strength').selectOption('weak');
   await page.getByLabel('Source note').fill('AUTOMATED PLAYWRIGHT ACCEPTANCE FIXTURE. Synthetic only; never market evidence.');
   await page.getByRole('button', { name: 'Save evidence entry', exact: true }).click();
-  await page.getByText('Progress saved to your account', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+  await page.getByText(/^Saved /).waitFor({ state: 'visible', timeout: 15000 });
   await returnFromWorkspace(page);
 }
 async function saveCheckpoint(page, dayNumber) {
