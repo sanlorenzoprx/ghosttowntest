@@ -149,7 +149,11 @@ try {
   });
   const page = await context.newPage();
   const serverErrors = [];
+  const pageErrors = [];
+  const consoleErrors = [];
   page.on('response', response => { if (response.status() >= 500) serverErrors.push(`${response.status()} ${response.request().method()} ${response.url()}`); });
+  page.on('pageerror', error => pageErrors.push(error instanceof Error ? error.message : String(error)));
+  page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
 
   const payload = await apiJson(page.request, blueprintUrl);
   const blueprint = payload.blueprint;
@@ -177,7 +181,23 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await page.getByRole('button', { name: 'Open Blueprint', exact: true }).click();
-  await page.getByRole('region', { name: '30-day execution calendar' }).waitFor({ state: 'visible' });
+  const calendar = page.getByRole('region', { name: '30-day execution calendar' });
+  try {
+    await calendar.waitFor({ state: 'visible', timeout: 30000 });
+  } catch (error) {
+    const alertText = await page.getByRole('alert').allTextContents().catch(() => []);
+    const bodyText = (await page.locator('body').innerText().catch(() => '')).slice(0, 4000);
+    throw new Error([
+      '30-day execution calendar did not render after Open Blueprint.',
+      `url=${page.url()}`,
+      `alerts=${JSON.stringify(alertText)}`,
+      `pageErrors=${JSON.stringify(pageErrors)}`,
+      `consoleErrors=${JSON.stringify(consoleErrors.slice(-10))}`,
+      `serverErrors=${JSON.stringify(serverErrors.slice(-10))}`,
+      `body=${JSON.stringify(bodyText)}`,
+      `waitError=${error instanceof Error ? error.message : String(error)}`,
+    ].join(' '));
+  }
 
   const savedNotes = new Map();
   for (const day of blueprint.dailyCalendar) {
