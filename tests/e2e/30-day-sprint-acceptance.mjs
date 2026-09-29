@@ -81,7 +81,7 @@ async function openDay(page, dayNumber) {
   await page.getByText(`Today · Day ${dayNumber}`, { exact: true }).waitFor({ state: 'visible' });
 }
 async function openWorkspaceSection(page, value, label) {
-  const mobileNav = page.getByLabel('Blueprint section');
+  const mobileNav = page.getByLabel('Blueprint section', { exact: true });
   await mobileNav.waitFor({ state: 'attached', timeout: 15000 });
   if (await mobileNav.isVisible().catch(() => false)) {
     await mobileNav.selectOption(value);
