@@ -664,7 +664,12 @@ export async function handleGetMeLivePreview(request: Request, env: Env, orderId
     } : { allowDeployment: false });
   } catch (error) {
     console.error('Get Me Live preview failed at website_manufacturing:', error);
-    return json({ error: 'Get Me Live preview failed', stage: 'website_manufacturing' }, 500);
+    const message = error instanceof Error ? error.message : '';
+    const nestedStage = message.match(/stage=([a-z0-9_]+)/i)?.[1];
+    return json({
+      error: 'Get Me Live preview failed',
+      stage: nestedStage ? `website_manufacturing.${nestedStage}` : 'website_manufacturing'
+    }, 500);
   }
 
   const spec = applyConfigToSpec(manufactured.spec, config);
