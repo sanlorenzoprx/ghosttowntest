@@ -400,7 +400,7 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
   await env.KV.put('paid_test_order_' + orderId, JSON.stringify(order), { expirationTtl: 86400 });
   await env.KV.put('paid_test_orders_' + ownerId, JSON.stringify([{
     orderId, ideaName: 'Synthetic Acceptance Sprint', status: 'ready', createdAt: now, updatedAt: now,
-    artifactType: 'execution_plan_30day_v1', offerName: '30-Day Evidence Sprint', sourceVerdictId, planVersion: order.planVersion || '1.0'
+    artifactType: order.artifactType, offerName: '30-Day Evidence Sprint', sourceVerdictId, planVersion: order.planVersion || '1.0'
   }]), { expirationTtl: 86400 });
   return json({ ok: true, orderId, gmlOrderId, ownerId, sourceOrderId: source.order_id, expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false });
 }

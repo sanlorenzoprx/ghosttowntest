@@ -70,6 +70,30 @@ if (!exposed.ok || exposedBody?.blueprint?.dailyCalendar?.length !== 30) {
   throw new Error(`Acceptance Sprint fixture is not customer-visible: HTTP ${exposed.status}, days=${exposedBody?.blueprint?.dailyCalendar?.length ?? 'none'}, error=${exposedBody?.error || 'none'}`);
 }
 
+// The customer Dashboard reads the order-summary projection, not the Blueprint
+// endpoint. Prove that projection exposes this disposable Sprint as a ready
+// Launch Blueprint before Playwright depends on the Open Blueprint control.
+const dashboardOrders = await fetch(apiUrl + '/api/paid-test/orders', {
+  headers: { Authorization: 'Bearer ' + signupBody.token }
+});
+const dashboardType = dashboardOrders.headers.get('content-type') || '';
+const dashboardText = await dashboardOrders.text();
+if (!dashboardType.includes('application/json')) {
+  throw new Error(`Acceptance Dashboard order check got non-JSON (${dashboardOrders.status}, ${dashboardType}) from ${apiUrl}`);
+}
+let dashboardBody;
+try {
+  dashboardBody = JSON.parse(dashboardText);
+} catch {
+  throw new Error(`Acceptance Dashboard order check got invalid JSON (${dashboardOrders.status}, ${dashboardType}) from ${apiUrl}: ${dashboardText.slice(0, 120)}`);
+}
+const dashboardOrder = Array.isArray(dashboardBody?.orders)
+  ? dashboardBody.orders.find(item => item?.orderId === orderId)
+  : null;
+if (!dashboardOrders.ok || dashboardOrder?.status !== 'ready' || dashboardOrder?.artifactType !== 'launch_blueprint_v2') {
+  throw new Error(`Acceptance Dashboard order projection mismatch: HTTP ${dashboardOrders.status}, status=${dashboardOrder?.status ?? 'missing'}, artifactType=${dashboardOrder?.artifactType ?? 'missing'}`);
+}
+
 await appendFile(envFile, [
   `GHOSTTOWN_E2E_BASE_URL=${frontendUrl}`,
   `GHOSTTOWN_E2E_API_URL=${apiUrl}`,
