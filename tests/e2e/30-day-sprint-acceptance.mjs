@@ -99,7 +99,7 @@ async function addEvidence(page, day, index) {
   await openWorkspaceSection(page, 'record', 'Record Results');
   const marker = `SYNTHETIC ACCEPTANCE — Day ${day.dayNumber} record ${index + 1}`;
   await page.getByLabel('Contact or channel').fill(marker);
-  await page.getByLabel('Date').fill(today);
+  await page.getByRole('textbox', { name: 'Date', exact: true }).fill(today);
   await page.getByLabel('Action').fill(day.title);
   await page.getByLabel('Response').fill('Synthetic acceptance response. No real person was contacted and no market claim is implied.');
   await page.getByLabel('Exact customer language').fill('SYNTHETIC ACCEPTANCE DATA — not a real customer quote.');
