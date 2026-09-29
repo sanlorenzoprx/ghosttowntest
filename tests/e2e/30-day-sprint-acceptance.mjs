@@ -73,7 +73,7 @@ async function apiJson(request, url, options = {}) {
   return body;
 }
 async function waitSaved(page) {
-  await page.getByText('Progress saved to your account', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+  await page.getByText(/^Saved /).waitFor({ state: 'visible', timeout: 15000 });
 }
 async function openDay(page, dayNumber) {
   const calendar = page.getByRole('region', { name: '30-day execution calendar' });
@@ -121,7 +121,7 @@ async function saveCheckpoint(page, dayNumber) {
   await section.getByLabel('Evidence summary').fill(`Synthetic Day ${dayNumber} acceptance evidence only; no real market conclusion.`);
   await section.getByLabel('Next action').fill(dayNumber === 30 ? 'Acceptance Sprint complete; continue to Get Me Live proof.' : `Continue to Day ${dayNumber + 1} in acceptance.`);
   await section.getByRole('button', { name: `Save Day ${dayNumber} review`, exact: true }).click();
-  await page.getByText('Progress saved to your account', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+  await page.getByText(/^Saved /).waitFor({ state: 'visible', timeout: 15000 });
   await returnFromWorkspace(page);
 }
 async function verifyDayNote(page, dayNumber, expected) {
