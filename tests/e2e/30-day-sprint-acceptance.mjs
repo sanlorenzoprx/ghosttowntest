@@ -91,7 +91,7 @@ async function openWorkspaceSection(page, value, label) {
   await page.getByRole('button', { name: label, exact: true }).click();
 }
 async function returnFromWorkspace(page) {
-  await page.getByRole('button', { name: /Dashboard/i }).first().click();
+  await page.getByRole('button', { name: '← Dashboard', exact: true }).click();
   await page.getByRole('region', { name: '30-day execution calendar' }).waitFor({ state: 'visible' });
 }
 async function addEvidence(page, day, index) {
