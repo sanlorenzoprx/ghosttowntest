@@ -391,7 +391,16 @@ export async function manufactureCustomWebsite(
     first = await generateWebsitePlan(env, blueprint);
   } catch (error) {
     console.error('Custom website manufacturing failed at vertex_plan_generation:', error);
-    throw new Error('Custom website manufacturing failed (stage=vertex_plan_generation)');
+    const message = error instanceof Error ? error.message : '';
+    let detail = 'unknown';
+    if (/timed out/i.test(message)) detail = 'timeout';
+    else if (/OAuth token exchange/i.test(message)) detail = 'oauth';
+    else if (/Cloudflare AI Gateway configuration is missing/i.test(message)) detail = 'gateway_config';
+    else if (/Vertex custom_website returned HTTP/i.test(message)) detail = 'provider_http';
+    else if (/returned no content/i.test(message)) detail = 'no_content';
+    else if (/did not contain JSON|JSON\.parse|Unexpected token|Expected property name/i.test(message)) detail = 'response_json';
+    else if (/Custom website|component|template|section|style/i.test(message)) detail = 'plan_contract';
+    throw new Error(`Custom website manufacturing failed (stage=vertex_plan_generation.${detail})`);
   }
 
   let latestReceipt = first.receipt;
