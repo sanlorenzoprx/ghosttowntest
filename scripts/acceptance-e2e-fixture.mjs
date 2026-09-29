@@ -41,7 +41,7 @@ const preview = await fetch(apiUrl + '/api/get-me-live/orders/' + encodeURICompo
 });
 const previewText = await preview.text();
 let previewBody = null; try { previewBody = JSON.parse(previewText); } catch {}
-if (!preview.ok || !previewBody?.buildId) throw new Error(`Acceptance Get Me Live fixture preview failed HTTP ${preview.status}: ${previewBody?.error || 'unknown error'}`);
+if (!preview.ok || !previewBody?.buildId) throw new Error(`Acceptance Get Me Live fixture preview failed HTTP ${preview.status}: ${previewBody?.error || 'unknown error'}${previewBody?.stage ? ` (stage=${previewBody.stage})` : ''}`);
 
 const publish = await fetch(apiUrl + '/api/get-me-live/orders/' + encodeURIComponent(gmlOrderId) + '/publish', {
   method: 'POST', headers: { Authorization: 'Bearer ' + signupBody.token, 'content-type': 'application/json' }, body: '{}'
