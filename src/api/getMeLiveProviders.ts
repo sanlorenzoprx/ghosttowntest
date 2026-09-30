@@ -338,9 +338,13 @@ export async function deployCloudflarePagesHtml(
 ): Promise<{ deploymentId: string; publicUrl: string }> {
   await ensurePagesProject(env, orderId, accountId, projectName);
   const jwt = await pagesUploadJwt(env, orderId, accountId, projectName);
+  // Pages Direct Upload manifests use deployment-relative file names (for
+  // example "index.html"), not URL paths such as "/index.html". A leading
+  // slash can produce a deployment that the API accepts but the Pages runtime
+  // cannot resolve at the site root.
   const deployFiles = [
-    { path: '/index.html', contentType: 'text/html; charset=utf-8', bytes: new TextEncoder().encode(html) as Uint8Array },
-    ...files.map(file => ({ ...file, path: `/${file.path.replace(/^\/+/, '')}`, bytes: new Uint8Array(file.bytes) }))
+    { path: 'index.html', contentType: 'text/html; charset=utf-8', bytes: new TextEncoder().encode(html) as Uint8Array },
+    ...files.map(file => ({ ...file, path: file.path.replace(/^\/+/, ''), bytes: new Uint8Array(file.bytes) }))
   ];
   const hashed = await Promise.all(deployFiles.map(async file => ({ ...file, hash: await sha256Bytes(file.bytes) })));
   const missing = await pagesAssetRequest<string[]>(jwt, '/pages/assets/check-missing', { hashes: [...new Set(hashed.map(file => file.hash))] });
