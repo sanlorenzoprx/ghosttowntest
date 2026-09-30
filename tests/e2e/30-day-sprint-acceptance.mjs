@@ -245,9 +245,13 @@ try {
 
     if (checkpoints.has(day.dayNumber)) {
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.getByRole('button', { name: 'Dashboard', exact: true }).click().catch(() => {});
-      if (await page.getByRole('button', { name: 'Open Blueprint', exact: true }).count()) await page.getByRole('button', { name: 'Open Blueprint', exact: true }).click();
-      await page.getByRole('region', { name: '30-day execution calendar' }).waitFor({ state: 'visible' });
+      const dashboardButton = page.getByRole('button', { name: 'Dashboard', exact: true });
+      await dashboardButton.waitFor({ state: 'visible', timeout: 15000 });
+      await dashboardButton.click();
+      const openBlueprintButton = page.getByRole('button', { name: 'Open Blueprint', exact: true });
+      await openBlueprintButton.waitFor({ state: 'visible', timeout: 15000 });
+      await openBlueprintButton.click();
+      await page.getByRole('region', { name: '30-day execution calendar' }).waitFor({ state: 'visible', timeout: 30000 });
       await verifyDayNote(page, day.dayNumber, savedNotes.get(day.dayNumber));
       proof.recovery.push({ checkpointDay: day.dayNumber, reloadRecovered: true, exactNoteMatched: true });
     }
