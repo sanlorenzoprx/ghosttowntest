@@ -347,7 +347,7 @@ export async function deployCloudflarePagesHtml(
   // path/hash pair or Pages can accept a deployment that cannot serve its root.
   const deployFiles = [
     { path: '/index.html', contentType: 'text/html; charset=utf-8', bytes: new TextEncoder().encode(html) as Uint8Array },
-    ...files.map(file => ({ ...file, path: `/${file.path.replace(/^\\/+/, '')}`, bytes: new Uint8Array(file.bytes) }))
+    ...files.map(file => ({ ...file, path: `/${file.path.replace(/^\/+/, '')}`, bytes: new Uint8Array(file.bytes) }))
   ];
   const hashed = deployFiles.map(file => ({ ...file, hash: pagesAssetHash(file.path, file.bytes) }));
   const missing = await pagesAssetRequest<string[]>(jwt, '/pages/assets/check-missing', { hashes: [...new Set(hashed.map(file => file.hash))] });
