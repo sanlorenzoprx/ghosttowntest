@@ -282,8 +282,8 @@ function pagesAssetHash(path: string, bytes: Uint8Array): string {
   const dot = filename.lastIndexOf('.');
   const extension = dot >= 0 ? filename.slice(dot + 1) : '';
   const input = new TextEncoder().encode(`${bytesToBase64(bytes)}${extension}`);
-  const digest = blake3Hash(input);
-  return Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
+  const digest = blake3Hash(input) as Uint8Array;
+  return Array.from(digest, (byte: number) => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }
 async function ensurePagesProject(
   env: Env,
