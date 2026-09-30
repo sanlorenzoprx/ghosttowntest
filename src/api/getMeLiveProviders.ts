@@ -371,7 +371,15 @@ export async function deployCloudflarePagesHtml(
   if (!response.ok || payload.success === false || !payload.result?.id) {
     throw new Error(payload.errors?.map(item => item.message).filter(Boolean).join('; ') || 'Cloudflare Pages deployment failed');
   }
-  const publicUrl = `https://${projectName}.pages.dev`;
+  // Cloudflare's deployment response is the source of truth for the URL that
+  // actually serves this deployment. The project-level pages.dev hostname can
+  // briefly resolve before the production alias is ready (and has returned
+  // transient 5xx responses in acceptance), so do not manufacture it here.
+  const deploymentUrl = String(payload.result.url || '').trim();
+  const aliasUrl = (payload.result.aliases || [])
+    .map(value => String(value || '').trim())
+    .find(value => value.startsWith('https://'));
+  const publicUrl = deploymentUrl || aliasUrl || `https://${projectName}.pages.dev`;
   return { deploymentId: payload.result.id, publicUrl };
 }
 
