@@ -46,7 +46,8 @@
   },
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "blake3-wasm": "2.1.5"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.21.3",
