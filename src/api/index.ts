@@ -50,6 +50,9 @@ import {
   handleGetMeLivePublishVerify,
   handleGetMeLiveLeads,
   handleGetMeLiveReleaseReceipt,
+  handleGetMeLiveReleaseReceiptBackfill,
+  handleGetMeLiveReleases,
+  handleGetMeLiveHealth,
   handleGetMeLiveStoryStudioHandoff,
   handlePublicGetMeLiveActivity,
   handlePublicGetMeLiveLead,
@@ -336,6 +339,24 @@ export default {
       const getMeLiveLeadsMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/leads$/);
       if (getMeLiveLeadsMatch && method === 'GET') {
         const response = await handleGetMeLiveLeads(request, env, decodeURIComponent(getMeLiveLeadsMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveReceiptBackfillMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/release-receipt\/backfill$/);
+      if (getMeLiveReceiptBackfillMatch && method === 'POST') {
+        const response = await handleGetMeLiveReleaseReceiptBackfill(request, env, decodeURIComponent(getMeLiveReceiptBackfillMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveReleasesMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/releases$/);
+      if (getMeLiveReleasesMatch && method === 'GET') {
+        const response = await handleGetMeLiveReleases(request, env, decodeURIComponent(getMeLiveReleasesMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveHealthMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/health$/);
+      if (getMeLiveHealthMatch && method === 'GET') {
+        const response = await handleGetMeLiveHealth(request, env, decodeURIComponent(getMeLiveHealthMatch[1]));
         applyCors(response, corsHeaders);
         return response;
       }

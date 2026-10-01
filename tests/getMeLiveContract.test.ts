@@ -53,9 +53,13 @@ describe('Get Me Live safety and lineage contracts', () => {
     expect(source).not.toMatch(/\$\{projectName\}\.pages\.dev/);
     expect(source).toContain('function redirect(location: string');
     expect(source).not.toContain('Response.redirect(');
-    expect(source).toContain("schemaVersion: 'ghosttown-get-me-live-release-receipt-v1'");
+    expect(source).toContain("schemaVersion: 'ghosttown-get-me-live-release-receipt-v2'");
+    expect(source).toContain('needsBackfill: true');
     const index = await read('src/api/index.ts');
     expect(index).toContain('/release-receipt$/');
+    expect(index).toContain('/release-receipt\\/backfill$/');
+    expect(index).toContain('handleGetMeLiveReleases');
+    expect(index).toContain('handleGetMeLiveHealth');
     const workspace = await read('src/components/GetMeLiveWorkspace.tsx');
     expect(workspace).toContain('Customer activity');
     expect(workspace).toContain('Release receipt');
