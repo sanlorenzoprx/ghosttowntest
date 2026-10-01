@@ -26,7 +26,8 @@ import type {
 } from '../types/getMeLive';
 import { manufactureCustomWebsite } from './websiteCreationService';
 import { buildCustomWebsite, renderCustomWebsiteStaticHtml } from './websiteBuildRunner';
-import type { WebsiteAsset } from '../types/customWebsite';
+import type { WebsiteAsset, WebsiteCreationResult } from '../types/customWebsite';
+import { blueprintWebsiteAssetGenerator } from './websiteAssetGenerator';
 import {
   CLAIM_EXPIRED_MESSAGE,
   DEPLOY_EXPIRED_MESSAGE,
@@ -102,6 +103,20 @@ function normalizeEmail(value: string): string {
 
 function configuredPriceId(env: Env): string {
   return env.STRIPE_GET_ME_LIVE_PRICE_ID?.trim() || '';
+}
+
+/** The AI-generated website plan, before customer configuration is applied. */
+interface GetMeLiveStoredAiPlan {
+  /** sha256 of the source blueprint (with customer text overlaid) the plan was generated from. */
+  inputHash: string;
+  spec: WebsiteCreationResult['spec'];
+  /** Assets the plan uses when the customer has not uploaded their own. */
+  assets: WebsiteAsset[];
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
+  return Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function hostingFromProject(accountId: string, project: PagesProject, source: GetMeLiveHosting['source'], previous?: GetMeLiveHosting): GetMeLiveHosting {
@@ -742,12 +757,33 @@ export async function handleGetMeLivePreview(request: Request, env: Env, orderId
     return json({ error: 'Get Me Live preview failed', stage: 'configured_assets' }, 500);
   }
 
+  // The AI website plan depends only on the source blueprint (with the customer's
+  // text choices overlaid). Reuse the stored plan while those inputs are unchanged,
+  // so photo, logo, style and payment edits do not re-run Vertex generation.
+  const aiInputHash = await sha256Hex(JSON.stringify(sourceBlueprint));
+  const previous = await loadGetMeLivePreview(env, orderId).catch(() => null);
+  const storedPlan = (previous?.preview as (WebsiteCreationResult & { aiPlan?: GetMeLiveStoredAiPlan }) | undefined)?.aiPlan;
   let manufactured: Awaited<ReturnType<typeof manufactureCustomWebsite>>;
+  let aiPlan: GetMeLiveStoredAiPlan;
   try {
-    manufactured = await manufactureCustomWebsite(env, sourceBlueprint, customAssets.length ? {
-      allowDeployment: false,
-      assetGenerator: { async generate() { return customAssets; } }
-    } : { allowDeployment: false });
+    if (storedPlan?.inputHash === aiInputHash && previous) {
+      manufactured = {
+        ...previous.preview,
+        spec: structuredClone(storedPlan.spec),
+        assets: customAssets.length ? customAssets : storedPlan.assets
+      };
+      aiPlan = storedPlan;
+    } else {
+      manufactured = await manufactureCustomWebsite(env, sourceBlueprint, customAssets.length ? {
+        allowDeployment: false,
+        assetGenerator: { async generate() { return customAssets; } }
+      } : { allowDeployment: false });
+      aiPlan = {
+        inputHash: aiInputHash,
+        spec: structuredClone(manufactured.spec),
+        assets: customAssets.length ? await blueprintWebsiteAssetGenerator.generate({ spec: manufactured.spec, blueprint: sourceBlueprint }) : manufactured.assets
+      };
+    }
   } catch (error) {
     console.error('Get Me Live preview failed at website_manufacturing:', error);
     const message = error instanceof Error ? error.message : '';
@@ -798,6 +834,7 @@ export async function handleGetMeLivePreview(request: Request, env: Env, orderId
 
   const preview = {
     ...manufactured,
+    aiPlan,
     spec,
     build,
     receipt: {
