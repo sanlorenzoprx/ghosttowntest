@@ -6,6 +6,7 @@ import ResultReport from '../components/ResultReport';
 import UserDashboard from '../components/UserDashboard';
 import GetMeLiveWorkspace from '../components/GetMeLiveWorkspace';
 import GetMeLiveLanding from '../components/GetMeLiveLanding';
+import GetMeLiveOpening from '../components/GetMeLiveOpening';
 import LoginModal from '../components/LoginModal';
 import PaywallModal from '../components/PaywallModal';
 import Contact from '../components/Contact';
@@ -201,7 +202,8 @@ export default function App() {
 
   const getMeLiveParams = new URLSearchParams(window.location.search);
   const getMeLiveOrderId = getMeLiveParams.get('order_id') || '';
-  const getMeLiveSetup = screen === 'get-me-live' && (window.location.pathname.startsWith('/get-me-live/setup') || Boolean(getMeLiveOrderId));
+  const getMeLiveOpening = screen === 'get-me-live' && window.location.pathname.startsWith('/get-me-live/opening');
+  const getMeLiveSetup = !getMeLiveOpening && screen === 'get-me-live' && (window.location.pathname.startsWith('/get-me-live/setup') || Boolean(getMeLiveOrderId));
   const getMeLiveSourceSprintOrderId = getMeLiveParams.get('source_sprint_order_id') || '';
 
   return (
@@ -242,7 +244,9 @@ export default function App() {
         {screen === 'questions' && idea && <QuestionFlow idea={idea} onResult={handleResultReceived} initialDraft={resumeDraft} onDraftChange={setResumeDraft} />}
         {screen === 'result' && result && <ResultReport result={result} onReset={handleReset} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('signup'); setShowLoginModal(true); }} onRewardClaimed={() => { const token = loadAuthToken(); if (token) void verifyToken(token); }} locale={locale} />}
         {screen === 'dashboard' && isLoggedIn && <UserDashboard onLogout={handleLogout} onBuy={() => setShowPaywall(true)} onStart={handleStartTest} onOpenResult={savedResult => { setResult(savedResult); setScreen('result'); }} />}
-        {screen === 'get-me-live' && !getMeLiveSetup && <GetMeLiveLanding sourceSprintOrderId={getMeLiveSourceSprintOrderId} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} onBack={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
+        {getMeLiveOpening && isLoggedIn && <GetMeLiveOpening orderId={getMeLiveOrderId} />}
+        {getMeLiveOpening && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Log in to open your website</h1><p className="mt-3 text-gray-700">Use the email from checkout. Your website is still going online.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
+        {screen === 'get-me-live' && !getMeLiveOpening && !getMeLiveSetup && <GetMeLiveLanding sourceSprintOrderId={getMeLiveSourceSprintOrderId} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} onBack={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
         {screen === 'get-me-live' && getMeLiveSetup && isLoggedIn && <GetMeLiveWorkspace orderId={getMeLiveOrderId} onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
         {screen === 'get-me-live' && getMeLiveSetup && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Log in to open your Get Me Live page</h1><p className="mt-3 text-gray-700">Use the email from checkout. Your work is saved.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
         {screen === 'contact' && <Contact onStart={handleStartTest} />}
