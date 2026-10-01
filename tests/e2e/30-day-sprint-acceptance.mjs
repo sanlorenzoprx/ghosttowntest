@@ -232,7 +232,15 @@ try {
     }
 
     const complete = page.getByRole('button', { name: `Complete Day ${day.dayNumber}`, exact: true });
-    if (await complete.isDisabled()) throw new Error(`Day ${day.dayNumber} is not UI-ready after required visible inputs.`);
+    try {
+      // Workspace saves return asynchronously to the calendar. Wait for the visible
+      // completion control to reflect the persisted evidence/checkpoint state instead
+      // of sampling disabled state during the React refresh race.
+      await complete.click({ trial: true, timeout: 15000 });
+    } catch (error) {
+      const readiness = await page.getByRole('status').allTextContents().catch(() => []);
+      throw new Error(`Day ${day.dayNumber} is not UI-ready after required visible inputs. readiness=${JSON.stringify(readiness)} waitError=${error instanceof Error ? error.message : String(error)}`);
+    }
     await complete.click();
     await page.getByRole('button', { name: /Completed ✓ — reopen/ }).waitFor({ state: 'visible', timeout: 15000 });
     proof.days.push({ dayNumber: day.dayNumber, title: day.title, evidenceEntries: evidenceRequired(day), noteSaved: true, completedViaVisibleButton: true });
