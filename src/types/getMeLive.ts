@@ -186,6 +186,8 @@ export interface GetMeLiveCustomDomain {
   activatedAt?: string;
   lastProviderStatus?: string;
   lastError?: string;
+  /** The domain_activation publish attempt / release for this record. */
+  releaseId?: string;
   legacy?: boolean;
 }
 

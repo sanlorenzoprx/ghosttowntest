@@ -81,12 +81,26 @@ function toOrder(row: GetMeLiveRow): GetMeLiveOrder {
     customDomain: row.custom_domain || undefined,
     deploymentReceipt: row.deployment_receipt_json ? JSON.parse(row.deployment_receipt_json) as GetMeLiveOrder['deploymentReceipt'] : undefined,
     hosting: row.hosting_json ? JSON.parse(row.hosting_json) as GetMeLiveHosting : undefined,
-    customDomainState: row.custom_domain_json ? JSON.parse(row.custom_domain_json) as GetMeLiveCustomDomain : undefined,
+    customDomainState: row.custom_domain_json
+      ? JSON.parse(row.custom_domain_json) as GetMeLiveCustomDomain
+      : row.custom_domain ? legacyCustomDomain(row.custom_domain, row.updated_at) : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     paidAt: row.paid_at || undefined,
     publishedAt: row.published_at || undefined,
     failure: row.failure || undefined
+  };
+}
+/**
+ * A pre-v4 order stored only the domain name, written right after the attach
+ * call, so it is never presumed active (plan §20.3). It reads as `connecting`
+ * (version 0 = not persisted yet); the first explicit reconcile persists it.
+ */
+function legacyCustomDomain(name: string, at: string): GetMeLiveCustomDomain {
+  const host = name.trim().toLowerCase();
+  return {
+    schemaVersion: 'get-me-live-custom-domain-v1', version: 0, name: host, hosts: [host], zoneId: '',
+    status: 'connecting', step: 'attached', addedAt: at, legacy: true
   };
 }
 export async function loadGetMeLiveOrder(env: Env, orderId: string): Promise<GetMeLiveOrder | null> {
@@ -678,6 +692,44 @@ export async function getGetMeLiveActivity(env: Env, orderId: string, sourceSpri
     sales: Number(payments?.sales || 0),
     revenueCents: Number(payments?.revenue_cents || 0)
   };
+}
+
+/** One release row by id, if it exists. */
+export async function loadGetMeLiveRelease(env: Env, orderId: string, releaseId: string): Promise<GetMeLiveRelease | null> {
+  const row = await db(env).prepare(`
+    SELECT * FROM get_me_live_releases WHERE get_me_live_order_id = ? AND release_id = ?
+  `).bind(orderId, releaseId).first<ReleaseRow>();
+  return row ? toRelease(row) : null;
+}
+
+/**
+ * Compare-and-swap write of `custom_domain_json` (plan §8.5). `expectedVersion`
+ * null means "only if there is no record yet"; `next` null clears the record.
+ * `custom_domain` is non-null only while the record is active. Returns false
+ * when another request changed the record first; the caller re-reads.
+ */
+export async function updateCustomDomainCas(
+  env: Env,
+  orderId: string,
+  expectedVersion: number | null,
+  next: GetMeLiveCustomDomain | null
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const guard = expectedVersion === null
+    ? 'custom_domain_json IS NULL'
+    : `json_extract(custom_domain_json, '$.version') = ?`;
+  const binds: unknown[] = [
+    next ? JSON.stringify(next) : null,
+    next?.status === 'active' ? next.name : null,
+    now,
+    orderId
+  ];
+  if (expectedVersion !== null) binds.push(expectedVersion);
+  const result = await db(env).prepare(`
+    UPDATE get_me_live_orders SET custom_domain_json = ?, custom_domain = ?, updated_at = ?
+    WHERE order_id = ? AND ${guard}
+  `).bind(...binds).run();
+  return (result.meta?.changes ?? 0) === 1;
 }
 
 /** The launch release row, if one exists (at most one per order, enforced by a unique index). */

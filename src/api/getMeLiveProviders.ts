@@ -360,6 +360,63 @@ export async function addCloudflarePagesDomain(
     { method: 'POST', body: JSON.stringify({ name: domain.trim().toLowerCase() }) }
   );
 }
+export interface CloudflareZone { id: string; name: string; status: string; }
+
+/** Zones in the connected account (read-only). */
+export async function listCloudflareZones(env: Env, orderId: string, accountId: string): Promise<CloudflareZone[]> {
+  const params = new URLSearchParams({ 'account.id': accountId, per_page: '50' });
+  const zones = await cloudflareApi<Array<{ id?: string; name?: string; status?: string }>>(env, orderId, `/zones?${params}`);
+  return zones
+    .filter((zone): zone is { id: string; name: string; status?: string } => Boolean(zone.id && zone.name))
+    .map(zone => ({ id: zone.id, name: zone.name.toLowerCase(), status: zone.status || 'unknown' }));
+}
+
+/** DNS records with exactly this name in the zone (read-only). */
+export async function listCloudflareDnsRecords(env: Env, orderId: string, zoneId: string, name: string): Promise<Array<{ type: string; name: string }>> {
+  const params = new URLSearchParams({ name: name.trim().toLowerCase(), per_page: '50' });
+  const records = await cloudflareApi<Array<{ type?: string; name?: string }>>(env, orderId, `/zones/${encodeURIComponent(zoneId)}/dns_records?${params}`);
+  return records.map(record => ({ type: String(record.type || ''), name: String(record.name || '').toLowerCase() }));
+}
+
+/** Custom domains attached to a Pages project (read-only). */
+export async function listCloudflarePagesDomains(
+  env: Env, orderId: string, accountId: string, projectName: string
+): Promise<Array<{ name: string; status?: string }>> {
+  const domains = await cloudflareApi<Array<{ name?: string; status?: string }>>(
+    env, orderId, `/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(projectName)}/domains`
+  );
+  return domains.filter(domain => domain.name).map(domain => ({ name: String(domain.name).toLowerCase(), status: domain.status }));
+}
+
+/** One Pages custom domain's provider status, or null when it is not attached. */
+export async function getCloudflarePagesDomain(
+  env: Env, orderId: string, accountId: string, projectName: string, name: string
+): Promise<{ name: string; status?: string } | null> {
+  const token = await cloudflareAccessToken(env, orderId);
+  const url = `${CF_API}/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(projectName)}/domains/${encodeURIComponent(name.trim().toLowerCase())}`;
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (response.status === 404) { await response.body?.cancel(); return null; }
+  const payload = await response.json().catch(() => ({})) as { success?: boolean; result?: { name?: string; status?: string }; errors?: Array<{ message?: string }> };
+  if (!response.ok || payload.success === false) {
+    throw new Error(payload.errors?.map(item => item.message).filter(Boolean).join('; ') || `Cloudflare domain lookup failed (${response.status})`);
+  }
+  return { name: String(payload.result?.name || name).toLowerCase(), status: payload.result?.status };
+}
+
+/** Detaches a Pages custom domain. Already-detached is success. */
+export async function deleteCloudflarePagesDomain(
+  env: Env, orderId: string, accountId: string, projectName: string, name: string
+): Promise<void> {
+  const token = await cloudflareAccessToken(env, orderId);
+  const url = `${CF_API}/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(projectName)}/domains/${encodeURIComponent(name.trim().toLowerCase())}`;
+  const response = await fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+  if (response.status === 404) { await response.body?.cancel(); return; }
+  const payload = await response.json().catch(() => ({})) as { success?: boolean; errors?: Array<{ message?: string }> };
+  if (!response.ok || payload.success === false) {
+    throw new Error(payload.errors?.map(item => item.message).filter(Boolean).join('; ') || `Cloudflare domain removal failed (${response.status})`);
+  }
+}
+
 export async function findCloudflareZone(
   env: Env,
   orderId: string,
