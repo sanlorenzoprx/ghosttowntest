@@ -230,7 +230,7 @@ describe('Get Me Live publish URL truth (Slice 1a)', () => {
     form.set('name', 'Ada'); form.set('email', 'ada@example.com'); form.set('consent', 'yes');
     const lead = await handlePublicGetMeLiveLead(new Request('https://api.ghosttown.test/api/get-me-live/sites/gml_test/leads', { method: 'POST', body: form }), publishEnv(), 'gml_test');
     expect(lead.status).toBe(303);
-    expect(lead.headers.get('Location')).toBe(`${PAGES_URL}?lead=received`);
+    expect(lead.headers.get('Location')).toBe(`${PAGES_URL}/?lead=received`);
   });
 
   it('#5 republish keeps the same pagesUrl and reuses the persisted project', async () => {

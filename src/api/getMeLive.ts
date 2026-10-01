@@ -1693,6 +1693,54 @@ export async function handleGetMeLiveLeads(request: Request, env: Env, orderId: 
   if (owned instanceof Response) return owned;
   return json({ leads: await listGetMeLiveLeads(env, orderId) });
 }
+/** Exact hosts a visitor may be returned to for this order (plan §5.2). */
+function trustedReturnHosts(order: GetMeLiveOrder): { exact: Set<string>; pagesSubdomain?: string } {
+  const exact = new Set<string>();
+  const pagesSubdomain = order.hosting?.pagesSubdomain?.toLowerCase();
+  if (pagesSubdomain) exact.add(pagesSubdomain);
+  const domain = order.customDomainState;
+  if (domain?.status === 'active' && domain.name) {
+    const apex = domain.name.toLowerCase();
+    exact.add(apex);
+    exact.add(`www.${apex}`);
+  }
+  return { exact, pagesSubdomain };
+}
+
+function trustedOrigin(order: GetMeLiveOrder, candidate: string | null): string | undefined {
+  if (!candidate) return undefined;
+  let url: URL;
+  try { url = new URL(candidate); } catch { return undefined; }
+  if (url.protocol !== 'https:' || url.port || url.username || url.password) return undefined;
+  const host = url.hostname.toLowerCase();
+  const { exact, pagesSubdomain } = trustedReturnHosts(order);
+  if (exact.has(host)) return `https://${host}`;
+  // This project's deployment hashes and branch aliases: <label>.<pagesSubdomain>.
+  if (pagesSubdomain) {
+    const suffix = `.${pagesSubdomain}`;
+    if (host.endsWith(suffix) && /^[a-z0-9-]+$/.test(host.slice(0, -suffix.length))) return `https://${host}`;
+  }
+  return undefined;
+}
+
+/**
+ * Where to send a visitor back to after a lead or payment step (plan §5): the
+ * validated Origin header, else the validated Referer origin, else the order's
+ * preferred public URL. Request paths and query strings are never reused, so
+ * an arbitrary or look-alike origin can never produce an open redirect.
+ */
+export function returnOriginFor(order: GetMeLiveOrder, request: Request): string | undefined {
+  let referer: string | null = null;
+  try { referer = request.headers.get('Referer') ? new URL(request.headers.get('Referer')!).origin : null; } catch { referer = null; }
+  return trustedOrigin(order, request.headers.get('Origin'))
+    || trustedOrigin(order, referer)
+    || preferredPublicUrl(order);
+}
+
+function returnUrl(origin: string | undefined, param: string): string {
+  return origin ? `${origin}/?${param}` : `/?${param}`;
+}
+
 export async function handlePublicGetMeLiveLead(request: Request, env: Env, orderId: string): Promise<Response> {
   const loaded = await loadGetMeLiveOrder(env, orderId);
   if (!loaded || !hasPublishedGetMeLiveSite(loaded)) return new Response('Page not found', { status: 404 });
@@ -1736,11 +1784,10 @@ export async function handlePublicGetMeLiveLead(request: Request, env: Env, orde
   }
   await recordCommercialFunnelEvent(env, "get_me_live_lead_captured", { orderId: order.sourceSprintOrderId, source: "get_me_live", content: orderId }).catch(() => undefined);
   if (contentType.includes('application/json')) return json({ received: true, leadId }, 201, { 'Cache-Control': 'no-store' });
-  const destination = preferredPublicUrl(order);
-  return redirect(`${destination || '/'}${destination?.includes('?') ? '&' : '?'}lead=received`, 303);
+  return redirect(returnUrl(returnOriginFor(order, request), 'lead=received'), 303);
 }
 
-export async function handlePublicGetMeLiveBuy(_request: Request, env: Env, orderId: string): Promise<Response> {
+export async function handlePublicGetMeLiveBuy(request: Request, env: Env, orderId: string): Promise<Response> {
   const loaded = await loadGetMeLiveOrder(env, orderId);
   if (!loaded || !hasPublishedGetMeLiveSite(loaded) || !loaded.configuration) return new Response('Page not found', { status: 404 });
   const order = await normalizeLegacyHosting(env, loaded);
@@ -1748,19 +1795,18 @@ export async function handlePublicGetMeLiveBuy(_request: Request, env: Env, orde
   const config = order.configuration;
   const accountId = config.payments.stripeConnectedAccountId;
   if (config.offer.intent !== 'buy' || !accountId || !config.payments.chargesEnabled || !order.providerState.stripeConnected) {
-    const destination = preferredPublicUrl(order);
-    return redirect(`${destination || '/'}${destination?.includes('?') ? '&' : '?'}payment=not-ready`, 303);
+    return redirect(returnUrl(returnOriginFor(order, request), 'payment=not-ready'), 303);
   }
   if (!config.offer.price) return new Response('This offer does not have a payment price yet.', { status: 409 });
-  const site = preferredPublicUrl(order);
+  const site = returnOriginFor(order, request);
   if (!site) return new Response('Page is not published yet.', { status: 409 });
   try {
     const session = await createConnectedCheckoutSession(env, {
       accountId,
       productName: config.offer.offer || config.brand.businessName,
       price: config.offer.price,
-      successUrl: `${site}${site.includes('?') ? '&' : '?'}payment=success`,
-      cancelUrl: `${site}${site.includes('?') ? '&' : '?'}payment=cancelled`,
+      successUrl: returnUrl(site, 'payment=success'),
+      cancelUrl: returnUrl(site, 'payment=cancelled'),
       getMeLiveOrderId: orderId,
       sourceSprintOrderId: order.sourceSprintOrderId
     });

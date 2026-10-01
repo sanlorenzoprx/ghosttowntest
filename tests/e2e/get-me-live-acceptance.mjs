@@ -117,7 +117,9 @@ try {
       page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
       form.locator('button[type="submit"],input[type="submit"]').first().click()
     ]);
-    if (new URL(page.url()).searchParams.get('lead') !== 'received') fail('Lead submission did not return to the canonical success state.');
+    const returned = new URL(page.url());
+    if (returned.searchParams.get('lead') !== 'received') fail('Lead submission did not return to the canonical success state.');
+    if (returned.origin !== new URL(liveUrl).origin) fail(`Lead submission returned to ${returned.origin}, expected the order's pagesUrl ${new URL(liveUrl).origin}.`);
 
     const orderResponse = await page.request.get(
       `${apiBase}/api/get-me-live/orders/${encodeURIComponent(getMeLiveOrderId)}`,
@@ -126,7 +128,7 @@ try {
     if (orderResponse.status() !== 200) fail(`Owner order expected HTTP 200, received ${orderResponse.status()}`);
     const orderBody = await orderResponse.json();
     if (!Array.isArray(orderBody.leads) || !orderBody.leads.some(lead => lead.email === marker)) fail('Submitted E2E lead did not return to the GhostTown owner view.');
-    proof.lead = { email: marker, submittedThroughVisibleForm: true, canonicalSuccessState: true, recoveredInOwnerOrder: true };
+    proof.lead = { email: marker, submittedThroughVisibleForm: true, canonicalSuccessState: true, returnedToPagesUrl: returned.origin, recoveredInOwnerOrder: true };
     console.log('[ghosttown-e2e] PASS: disposable lead submitted and observed in GhostTown.');
   }
 

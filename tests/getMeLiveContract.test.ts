@@ -48,7 +48,7 @@ describe('Get Me Live safety and lineage contracts', () => {
     expect(store).toContain("attempt.kind === 'launch'");
     expect(store).toContain("SET status = 'failed', failure = ?");
     expect(store).toContain("'$.lastReleaseFailure'");
-    expect(source).toContain('const destination = preferredPublicUrl(order)');
+    expect(source).toContain("returnUrl(returnOriginFor(order, request), 'lead=received')");
     expect(source).not.toContain('getMeLiveSiteUrl');
     expect(source).not.toMatch(/\$\{projectName\}\.pages\.dev/);
     expect(source).toContain('function redirect(location: string');
