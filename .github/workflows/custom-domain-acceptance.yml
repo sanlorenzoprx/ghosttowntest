@@ -1,0 +1,82 @@
+name: Custom Domain Acceptance
+
+# Plan §23.2: proves "I bought it — connect it" end to end against a
+# GhostTown-owned test zone. Not a per-PR gate: manual or nightly.
+on:
+  workflow_dispatch:
+    inputs:
+      test_zone:
+        description: "Active zone in the acceptance Cloudflare account; each run attaches gml-accept-<run>.<zone> and removes it"
+        required: true
+        default: "musecreativestudios.com"
+        type: string
+  schedule:
+    - cron: "17 7 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  # Shares the acceptance Worker and fixture bridge with the main Acceptance workflow.
+  group: ghosttown-acceptance
+  cancel-in-progress: false
+
+jobs:
+  custom-domain-acceptance:
+    name: custom-domain-acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    environment: acceptance
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GHOSTTOWN_E2E_BASE_URL: ${{ secrets.GHOSTTOWN_E2E_BASE_URL }}
+      GHOSTTOWN_E2E_TEST_ZONE: ${{ inputs.test_zone || vars.GHOSTTOWN_E2E_TEST_ZONE || 'musecreativestudios.com' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify required GitHub acceptance credentials
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing acceptance environment secret CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing acceptance environment secret CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+          test -n "$GHOSTTOWN_E2E_TEST_ZONE" || { echo "::error::No test zone configured"; exit 1; }
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Deploy acceptance Worker
+        run: |
+          mkdir -p github-acceptance
+          npx wrangler deploy --env acceptance 2>&1 | tee github-acceptance/deploy.log
+
+      - name: Self-provision and publish a Get Me Live fixture
+        run: node scripts/acceptance-e2e-fixture.mjs
+
+      - name: Prove custom domain connect, activation and removal
+        run: node tests/e2e/get-me-live-custom-domain-acceptance.mjs
+
+      - name: Clean self-provisioned acceptance fixture
+        if: always()
+        run: node scripts/acceptance-e2e-cleanup.mjs
+
+      - name: Upload custom-domain acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-custom-domain-acceptance-${{ github.run_id }}
+          path: github-acceptance
+          if-no-files-found: warn
+          retention-days: 14

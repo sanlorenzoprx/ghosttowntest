@@ -49,6 +49,10 @@ import {
   handleGetMeLiveReleaseReceiptBackfill,
   handleGetMeLiveReleases,
   handleGetMeLiveHealth,
+  handleGetMeLiveCustomDomainZones,
+  handleGetMeLiveCustomDomainConnect,
+  handleGetMeLiveCustomDomainReconcile,
+  handleGetMeLiveCustomDomainDelete,
   handleGetMeLiveStoryStudioHandoff,
   handlePublicGetMeLiveActivity,
   handlePublicGetMeLiveLead,
@@ -327,6 +331,27 @@ export default {
       const getMeLiveReleasesMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/releases$/);
       if (getMeLiveReleasesMatch && method === 'GET') {
         const response = await handleGetMeLiveReleases(request, env, decodeURIComponent(getMeLiveReleasesMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveCustomDomainZonesMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/custom-domain\/zones$/);
+      if (getMeLiveCustomDomainZonesMatch && method === 'GET') {
+        const response = await handleGetMeLiveCustomDomainZones(request, env, decodeURIComponent(getMeLiveCustomDomainZonesMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveCustomDomainReconcileMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/custom-domain\/reconcile$/);
+      if (getMeLiveCustomDomainReconcileMatch && method === 'POST') {
+        const response = await handleGetMeLiveCustomDomainReconcile(request, env, decodeURIComponent(getMeLiveCustomDomainReconcileMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLiveCustomDomainMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/custom-domain$/);
+      if (getMeLiveCustomDomainMatch && (method === 'POST' || method === 'DELETE')) {
+        const orderId = decodeURIComponent(getMeLiveCustomDomainMatch[1]);
+        const response = method === 'POST'
+          ? await handleGetMeLiveCustomDomainConnect(request, env, orderId)
+          : await handleGetMeLiveCustomDomainDelete(request, env, orderId);
         applyCors(response, corsHeaders);
         return response;
       }
