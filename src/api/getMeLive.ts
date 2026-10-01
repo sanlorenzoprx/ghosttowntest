@@ -80,6 +80,8 @@ import {
   disconnectCloudflareAuthorization,
   ensurePagesProject,
   addCloudflarePagesDomain,
+  createCloudflareDnsCname,
+  deleteGhostTownDnsRecords,
   deleteCloudflarePagesDomain,
   findCloudflareZone,
   getCloudflarePagesDomain,
@@ -1871,7 +1873,8 @@ export async function handleGetMeLiveCustomDomainZones(request: Request, env: En
     ]);
     const attached = new Set(attachedList.map(domain => domain.name));
     const result: DomainZone[] = [];
-    for (const zone of zones.slice(0, 20)) {
+    // Each active zone costs two DNS reads; keep the request well inside Worker subrequest limits.
+    for (const zone of zones.slice(0, 15)) {
       if (zone.status !== 'active') { result.push({ zoneId: zone.id, name: zone.name, eligible: false, reason: 'Cloudflare is still setting up this domain. Try again later.' }); continue; }
       const planned = customDomainHosts(zone.name)!;
       const reason = await hostsEligibility(env, owned, zone.id, planned.hosts, attached);
@@ -1947,7 +1950,10 @@ export async function handleGetMeLiveCustomDomainDelete(request: Request, env: E
   const live = liveOrderForDomains(owned);
   if (live instanceof Response) return live;
   try {
-    for (const host of record.hosts) await deleteCloudflarePagesDomain(env, orderId, live.accountId, live.hosting.pagesProjectName, host);
+    for (const host of record.hosts) {
+      await deleteCloudflarePagesDomain(env, orderId, live.accountId, live.hosting.pagesProjectName, host);
+      if (record.zoneId) await deleteGhostTownDnsRecords(env, orderId, record.zoneId, host);
+    }
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Cloudflare could not remove the address' }, 502);
   }
@@ -2000,6 +2006,10 @@ export async function reconcileCustomDomainStep(env: Env, order: GetMeLiveOrder,
         const attached = new Set((await listCloudflarePagesDomains(env, orderId, accountId, hosting.pagesProjectName)).map(domain => domain.name));
         for (const host of record.hosts) {
           if (!attached.has(host)) await addCloudflarePagesDomain(env, orderId, accountId, hosting.pagesProjectName, host);
+          // Eligibility guaranteed these hosts had no records; one found now is ours from an earlier try.
+          if (record.zoneId && (await listCloudflareDnsRecords(env, orderId, record.zoneId, host)).length === 0) {
+            await createCloudflareDnsCname(env, orderId, record.zoneId, host, hosting.pagesSubdomain);
+          }
         }
         return advanceCustomDomain(env, orderId, record, { step: 'attached' });
       }

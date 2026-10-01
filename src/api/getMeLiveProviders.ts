@@ -372,10 +372,34 @@ export async function listCloudflareZones(env: Env, orderId: string, accountId: 
 }
 
 /** DNS records with exactly this name in the zone (read-only). */
-export async function listCloudflareDnsRecords(env: Env, orderId: string, zoneId: string, name: string): Promise<Array<{ type: string; name: string }>> {
+export async function listCloudflareDnsRecords(
+  env: Env, orderId: string, zoneId: string, name: string
+): Promise<Array<{ id: string; type: string; name: string; comment?: string }>> {
   const params = new URLSearchParams({ name: name.trim().toLowerCase(), per_page: '50' });
-  const records = await cloudflareApi<Array<{ type?: string; name?: string }>>(env, orderId, `/zones/${encodeURIComponent(zoneId)}/dns_records?${params}`);
-  return records.map(record => ({ type: String(record.type || ''), name: String(record.name || '').toLowerCase() }));
+  const records = await cloudflareApi<Array<{ id?: string; type?: string; name?: string; comment?: string | null }>>(env, orderId, `/zones/${encodeURIComponent(zoneId)}/dns_records?${params}`);
+  return records.map(record => ({ id: String(record.id || ''), type: String(record.type || ''), name: String(record.name || '').toLowerCase(), comment: record.comment || undefined }));
+}
+
+export const GHOSTTOWN_DNS_COMMENT = 'GhostTown Get Me Live';
+
+/** Removes only the records GhostTown created for this host (matched by comment). */
+export async function deleteGhostTownDnsRecords(env: Env, orderId: string, zoneId: string, name: string): Promise<void> {
+  const records = await listCloudflareDnsRecords(env, orderId, zoneId, name);
+  for (const record of records.filter(item => item.id && item.comment === GHOSTTOWN_DNS_COMMENT)) {
+    await cloudflareApi<unknown>(env, orderId, `/zones/${encodeURIComponent(zoneId)}/dns_records/${encodeURIComponent(record.id)}`, { method: 'DELETE' });
+  }
+}
+
+/**
+ * Points a host at the Pages project (proxied CNAME; Cloudflare flattens it at
+ * the apex). A Pages custom domain added through the API stays pending until
+ * this record exists.
+ */
+export async function createCloudflareDnsCname(env: Env, orderId: string, zoneId: string, name: string, target: string): Promise<void> {
+  await cloudflareApi<unknown>(env, orderId, `/zones/${encodeURIComponent(zoneId)}/dns_records`, {
+    method: 'POST',
+    body: JSON.stringify({ type: 'CNAME', name: name.trim().toLowerCase(), content: target.trim().toLowerCase(), proxied: true, ttl: 1, comment: GHOSTTOWN_DNS_COMMENT })
+  });
 }
 
 /** Custom domains attached to a Pages project (read-only). */
