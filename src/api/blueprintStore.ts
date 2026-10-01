@@ -503,33 +503,96 @@ export function normalizeBlueprintProgress(value: Partial<BlueprintProgress>): B
   };
 }
 
-export async function saveBlueprintProgress(env: Env, orderId: string, ownerId: string, value: Partial<BlueprintProgress>): Promise<BlueprintProgress> {
+/** An explicit completion change; the only way a save can remove a completed day. */
+export interface BlueprintCompletedDayChange {
+  dayNumber: number;
+  completed: boolean;
+}
+
+export type BlueprintProgressUpdate = Partial<BlueprintProgress> & {
+  completedDayChanges?: BlueprintCompletedDayChange[];
+};
+
+/** Upsert by key: existing items keep their order, incoming items replace or append. Nothing is removed. */
+function mergeByKey<T>(existing: T[], incoming: T[] | undefined, key: (item: T) => string | number | undefined): T[] {
+  if (!incoming) return existing;
+  const merged = new Map<string | number, T>();
+  const unkeyed: T[] = [];
+  for (const item of existing) {
+    const id = key(item);
+    if (id === undefined || id === '') unkeyed.push(item); else merged.set(id, item);
+  }
+  for (const item of incoming) {
+    const id = key(item);
+    if (id === undefined || id === '') unkeyed.push(item); else merged.set(id, item);
+  }
+  return [...merged.values(), ...unkeyed];
+}
+
+/**
+ * Merges a progress update into the stored progress.
+ *
+ * Clients send whole progress snapshots, and saves from one page can reach the
+ * server out of order. A late, older snapshot must never erase newer work, so:
+ * - a snapshot's `completedDays` can only add days; removing a day (reopen)
+ *   requires an explicit `completedDayChanges` entry;
+ * - ledger entries, reminders, checkpoint reviews and asset drafts are upserted
+ *   by id (the UI never deletes them).
+ */
+export function mergeBlueprintProgress(existing: BlueprintProgress, value: BlueprintProgressUpdate): BlueprintProgress {
+  const completed = new Set(existing.completedDays);
+  for (const day of value.completedDays || []) completed.add(day);
+  for (const change of Array.isArray(value.completedDayChanges) ? value.completedDayChanges : []) {
+    const day = nonNegativeInteger(change?.dayNumber);
+    if (day < 1 || day > 30) continue;
+    if (change.completed === true) completed.add(day);
+    else if (change.completed === false) completed.delete(day);
+  }
+  const { completedDayChanges: _changes, ...rest } = value;
+  return normalizeBlueprintProgress({
+    ...existing,
+    ...rest,
+    completedDays: [...completed],
+    evidenceNotes: value.evidenceNotes ? { ...existing.evidenceNotes, ...value.evidenceNotes } : existing.evidenceNotes,
+    evidenceLedger: mergeByKey(existing.evidenceLedger, value.evidenceLedger, item => item?.entryId),
+    checkpointReviews: mergeByKey(existing.checkpointReviews, value.checkpointReviews, item => item?.dayNumber),
+    reminderPreferences: value.reminderPreferences ?? existing.reminderPreferences,
+    scheduledReminders: mergeByKey(existing.scheduledReminders, value.scheduledReminders, item => item?.reminderId),
+    assetDrafts: mergeByKey(existing.assetDrafts, value.assetDrafts, item => item?.assetId),
+    metrics: { ...existing.metrics, ...(value.metrics || {}) }
+  });
+}
+
+const PROGRESS_SAVE_ATTEMPTS = 12;
+
+export async function saveBlueprintProgress(env: Env, orderId: string, ownerId: string, value: BlueprintProgressUpdate): Promise<BlueprintProgress> {
   if (!env.DB) throw new Error('Launch Blueprint D1 binding is not configured');
   const normalizedOwner = normalizedOwnerId(ownerId);
   await assertStoredBlueprintOwner(env.DB, orderId, normalizedOwner, false);
-  const existing = await loadBlueprintProgress(env, orderId, ownerId);
-  const progress = normalizeBlueprintProgress({
-    ...existing,
-    ...value,
-    completedDays: value.completedDays ?? existing.completedDays,
-    evidenceNotes: value.evidenceNotes ? { ...existing.evidenceNotes, ...value.evidenceNotes } : existing.evidenceNotes,
-    evidenceLedger: value.evidenceLedger ?? existing.evidenceLedger,
-    checkpointReviews: value.checkpointReviews ?? existing.checkpointReviews,
-    reminderPreferences: value.reminderPreferences ?? existing.reminderPreferences,
-    scheduledReminders: value.scheduledReminders ?? existing.scheduledReminders,
-    assetDrafts: value.assetDrafts ?? existing.assetDrafts,
-    metrics: { ...existing.metrics, ...(value.metrics || {}) }
-  });
-  const write = await env.DB.prepare(`
-    INSERT INTO launch_blueprint_progress (order_id, owner_id, progress_json, updated_at)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(order_id) DO UPDATE SET
-      progress_json = excluded.progress_json,
-      updated_at = excluded.updated_at
-    WHERE launch_blueprint_progress.owner_id = excluded.owner_id
-  `).bind(orderId, normalizedOwner, JSON.stringify(progress), progress.updatedAt).run();
-  if ((write.meta?.changes ?? 0) !== 1) {
-    throw new Error('Launch Blueprint progress owner is immutable');
+  // Compare-and-swap on the stored JSON: a concurrent save makes this write miss,
+  // and the merge is recomputed on top of the newer state.
+  for (let attempt = 0; attempt < PROGRESS_SAVE_ATTEMPTS; attempt += 1) {
+    const row = await env.DB.prepare(`
+      SELECT owner_id, progress_json FROM launch_blueprint_progress WHERE order_id = ?
+    `).bind(orderId).first<{ owner_id: string; progress_json: string }>();
+    if (row && row.owner_id !== normalizedOwner) throw new Error('Launch Blueprint progress owner is immutable');
+    const existing = row
+      ? normalizeBlueprintProgress(JSON.parse(row.progress_json) as Partial<BlueprintProgress>)
+      : emptyBlueprintProgress();
+    const progress = mergeBlueprintProgress(existing, value);
+    const write = row
+      ? await env.DB.prepare(`
+          UPDATE launch_blueprint_progress SET progress_json = ?, updated_at = ?
+          WHERE order_id = ? AND owner_id = ? AND progress_json = ?
+        `).bind(JSON.stringify(progress), progress.updatedAt, orderId, normalizedOwner, row.progress_json).run()
+      : await env.DB.prepare(`
+          INSERT INTO launch_blueprint_progress (order_id, owner_id, progress_json, updated_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(order_id) DO NOTHING
+        `).bind(orderId, normalizedOwner, JSON.stringify(progress), progress.updatedAt).run();
+    if ((write.meta?.changes ?? 0) === 1) return progress;
+    // Lost the race to another save: back off briefly (jittered) and merge again.
+    await new Promise(resolve => setTimeout(resolve, 5 + Math.floor(Math.random() * 20 * (attempt + 1))));
   }
-  return progress;
+  throw new Error('Launch Blueprint progress is being updated elsewhere. Please try again.');
 }
