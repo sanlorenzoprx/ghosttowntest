@@ -13,6 +13,7 @@ import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
 import type {
   GetMeLiveAsset,
   GetMeLiveConfiguration,
+  GetMeLiveCustomDomain,
   GetMeLiveHosting,
   GetMeLiveLeadMagnet,
   GetMeLiveOrder,
@@ -39,6 +40,8 @@ import {
   loadLatestGetMeLiveRelease,
   loadLaunchGetMeLiveRelease,
   loadPublishAttempt,
+  loadGetMeLiveRelease,
+  updateCustomDomainCas,
   recordPublishDeployment,
   settlePublishFailure,
   settlePublishSuccess,
@@ -76,7 +79,16 @@ import {
   deployCloudflarePagesHtml,
   disconnectCloudflareAuthorization,
   ensurePagesProject,
+  addCloudflarePagesDomain,
+  createCloudflareDnsCname,
+  deleteGhostTownDnsRecords,
+  deleteCloudflarePagesDomain,
   findCloudflareZone,
+  getCloudflarePagesDomain,
+  getCloudflareZone,
+  listCloudflareDnsRecords,
+  listCloudflarePagesDomains,
+  listCloudflareZones,
   getPagesProject,
   loadCloudflareAuthorizationState,
   listCloudflareAccounts,
@@ -1173,6 +1185,106 @@ async function currentPublishState(env: Env, orderId: string) {
   return { order, attempt, latest };
 }
 
+type StoredPreview = NonNullable<Awaited<ReturnType<typeof loadGetMeLivePreview>>>;
+interface DeployFiles { storedAssets: GetMeLiveAsset[]; uploads: Array<{ path: string; contentType: string; bytes: ArrayBuffer }>; }
+
+/** Loads every uploaded asset the site needs. Runs before a claim, so a missing file changes no state. */
+async function collectDeployFiles(env: Env, orderId: string): Promise<DeployFiles | { error: string }> {
+  const storedAssets = await listGetMeLiveAssets(env, orderId);
+  const uploads: DeployFiles['uploads'] = [];
+  for (const asset of storedAssets) {
+    const bytes = await loadGetMeLiveAssetBytes(env, orderId, asset.assetId);
+    if (!bytes) return { error: `The file ${asset.filename} is missing. Upload it again before going live.` };
+    uploads.push({ path: `assets/${asset.assetId}.${extensionFor(asset.contentType)}`, contentType: asset.contentType, bytes });
+  }
+  return { storedAssets, uploads };
+}
+
+/**
+ * Renders the stored preview for a claimed attempt (release marker, canonical
+ * URL), runs the browser render check, deploys to the order's persisted Pages
+ * project and records the deployment. Any failure settles the attempt as failed.
+ * `deployed: null` means the claim was lost to a takeover; write nothing else.
+ */
+async function renderAndDeployAttempt(
+  env: Env,
+  owned: GetMeLiveOrder,
+  attempt: GetMeLivePublishAttempt,
+  stored: StoredPreview,
+  files: DeployFiles,
+  options: { origin: string; canonicalUrl: string }
+): Promise<{ ok: true; deployed: GetMeLivePublishAttempt | null } | { ok: false; status: 409 | 502 | 503; message: string }> {
+  const orderId = owned.orderId;
+  const config = owned.configuration!;
+  const hosting = owned.hosting;
+  const accountId = config.domain.cloudflareAccountId || hosting?.cloudflareAccountId;
+  if (!hosting || !accountId) {
+    const message = 'Your website details are missing. Reconnect Cloudflare and try again.';
+    await settlePublishFailure(env, attempt, message);
+    return { ok: false, status: 409, message };
+  }
+  if (!env.BROWSER) {
+    const message = 'Browser verification is unavailable; publication is blocked';
+    await settlePublishFailure(env, attempt, message);
+    return { ok: false, status: 503, message };
+  }
+  const { canonicalUrl, origin } = options;
+  const deployedFiles = [...files.uploads];
+  const social = new TextEncoder().encode(socialSvg(config, canonicalUrl));
+  deployedFiles.push({ path: 'og.svg', contentType: 'image/svg+xml', bytes: social.buffer });
+  const publishedAssets = stored.preview.assets.map(asset => {
+    const uploaded = files.storedAssets.find(item => item.assetId === asset.assetId);
+    return uploaded ? { ...asset, publicUrl: `/assets/${uploaded.assetId}.${extensionFor(uploaded.contentType)}` } : asset;
+  });
+  const leadMagnetValue = typeof config.offer.leadMagnet === 'object' ? config.offer.leadMagnet : undefined;
+  const leadMagnetAsset = leadMagnetValue?.assetId
+    ? files.storedAssets.find(asset => asset.assetId === leadMagnetValue.assetId)
+    : undefined;
+  const leadMagnetConfig = leadMagnetValue?.assetId && leadMagnetAsset
+    ? { title: leadMagnetValue.title, url: `/assets/${leadMagnetValue.assetId}.${extensionFor(leadMagnetAsset.contentType)}` }
+    : undefined;
+  const leadActionUrl = `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/leads`;
+  const buyActionUrl = `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/buy`;
+  const paymentMode = publishPaymentMode(owned);
+  let publicHtml: string;
+  try {
+    publicHtml = renderCustomWebsiteStaticHtml(stored.preview.spec, {
+      assets: publishedAssets,
+      primaryActionUrl: paymentMode === 'connected_checkout' ? buyActionUrl : '#contact',
+      secondaryActionUrl: '#contact',
+      leadActionUrl,
+      leadMagnet: leadMagnetConfig,
+      canonicalUrl,
+      socialImageUrl: `${canonicalUrl}/og.svg`,
+      attributionUrl: `${env.FRONTEND_URL?.replace(/\/$/, '') || origin}/get-me-live?from=customer-site`,
+      showFriendShare: true,
+      activityUrl: `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/activity`,
+      releaseId: attempt.attemptId
+    });
+    const browser = await env.BROWSER.quickAction('pdf', { html: publicHtml, pdfOptions: { printBackground: true } });
+    if (!browser.ok) throw new Error('render check');
+  } catch {
+    const message = 'Your page did not pass the final browser render check';
+    await settlePublishFailure(env, attempt, message);
+    return { ok: false, status: 409, message };
+  }
+  let deployed: GetMeLivePublishAttempt | null;
+  try {
+    const deployment = await deployCloudflarePagesHtml(env, orderId, accountId, hosting.pagesProjectName, publicHtml, deployedFiles);
+    deployed = await recordPublishDeployment(env, attempt, deployment);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Publication failed';
+    await settlePublishFailure(env, attempt, message);
+    return { ok: false, status: 502, message };
+  }
+  if (!deployed) return { ok: true, deployed: null };
+  for (const asset of files.storedAssets) {
+    await markGetMeLiveAssetPublished(env, orderId, asset.assetId, `/assets/${asset.assetId}.${extensionFor(asset.contentType)}`);
+  }
+  await saveGetMeLivePreview(env, orderId, stored.preview, publicHtml);
+  return { ok: true, deployed };
+}
+
 export async function handleGetMeLivePublish(
   request: Request,
   env: Env,
@@ -1189,16 +1301,9 @@ export async function handleGetMeLivePublish(
   if (!stored) return json({ error: 'Generate and review your page before publishing' }, 409);
   if (!env.BROWSER) return json({ error: 'Browser verification is unavailable; publication is blocked' }, 503);
 
-  const config = owned.configuration;
-  const accountId = config.domain.cloudflareAccountId!;
-  const storedAssets = await listGetMeLiveAssets(env, orderId);
-  const deployedFiles: Array<{ path: string; contentType: string; bytes: ArrayBuffer }> = [];
-  for (const asset of storedAssets) {
-    const bytes = await loadGetMeLiveAssetBytes(env, orderId, asset.assetId);
-    if (!bytes) return json({ error: `The file ${asset.filename} is missing. Upload it again before going live.` }, 409);
-    const path = `assets/${asset.assetId}.${extensionFor(asset.contentType)}`;
-    deployedFiles.push({ path, contentType: asset.contentType, bytes });
-  }
+  const accountId = owned.configuration.domain.cloudflareAccountId!;
+  const files = await collectDeployFiles(env, orderId);
+  if ('error' in files) return json({ error: files.error }, 409);
 
   // One unverified publish attempt per order, enforced by the database (plan §2.4).
   const kind: GetMeLiveReleaseKind = hasPublishedGetMeLiveSite(owned) ? 'republish' : 'launch';
@@ -1229,58 +1334,16 @@ export async function handleGetMeLivePublish(
   }
   owned.hosting = hosting;
   const pagesUrl = hosting.pagesUrl;
-  const canonicalUrl = preferredPublicUrl(owned) || pagesUrl;
-  const social = new TextEncoder().encode(socialSvg(config, canonicalUrl));
-  deployedFiles.push({ path: 'og.svg', contentType: 'image/svg+xml', bytes: social.buffer });
-  const publishedAssets = stored.preview.assets.map(asset => {
-    const uploaded = storedAssets.find(item => item.assetId === asset.assetId);
-    return uploaded ? { ...asset, publicUrl: `/assets/${uploaded.assetId}.${extensionFor(uploaded.contentType)}` } : asset;
-  });
-  const leadMagnetValue = typeof config.offer.leadMagnet === 'object' ? config.offer.leadMagnet : undefined;
-  const leadMagnetAsset = leadMagnetValue?.assetId
-    ? storedAssets.find(asset => asset.assetId === leadMagnetValue.assetId)
-    : undefined;
-  const leadMagnetConfig = leadMagnetValue?.assetId && leadMagnetAsset
-    ? { title: leadMagnetValue.title, url: `/assets/${leadMagnetValue.assetId}.${extensionFor(leadMagnetAsset.contentType)}` }
-    : undefined;
-  const origin = new URL(request.url).origin;
-  const leadActionUrl = `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/leads`;
-  const buyActionUrl = `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/buy`;
   const paymentMode = publishPaymentMode(owned);
-  let publicHtml: string;
-  try {
-    publicHtml = renderCustomWebsiteStaticHtml(stored.preview.spec, {
-    assets: publishedAssets,
-    primaryActionUrl: paymentMode === 'connected_checkout' ? buyActionUrl : '#contact',
-    secondaryActionUrl: '#contact',
-    leadActionUrl,
-    leadMagnet: leadMagnetConfig,
-    canonicalUrl,
-    socialImageUrl: `${canonicalUrl}/og.svg`,
-    attributionUrl: `${env.FRONTEND_URL?.replace(/\/$/, '') || origin}/get-me-live?from=customer-site`,
-    showFriendShare: true,
-      activityUrl: `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/activity`,
-      releaseId
-    });
-    const browser = await env.BROWSER.quickAction('pdf', { html: publicHtml, pdfOptions: { printBackground: true } });
-    if (!browser.ok) throw new Error('render check');
-  } catch {
-    const message = 'Your page did not pass the final browser render check';
-    await settlePublishFailure(env, attempt, message);
-    return json({ error: message, releaseId }, 409);
-  }
 
   // Publication never attaches a custom domain: a domain problem must not be
   // able to fail a deployment that succeeded.
-  let deployed: GetMeLivePublishAttempt | null;
-  try {
-    const deployment = await deployCloudflarePagesHtml(env, orderId, accountId, hosting.pagesProjectName, publicHtml, deployedFiles);
-    deployed = await recordPublishDeployment(env, attempt, deployment);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Publication failed';
-    await settlePublishFailure(env, attempt, message);
-    return json({ error: message, releaseId }, 502);
-  }
+  const result = await renderAndDeployAttempt(env, owned, attempt, stored, files, {
+    origin: new URL(request.url).origin,
+    canonicalUrl: preferredPublicUrl(owned) || pagesUrl
+  });
+  if (!result.ok) return json({ error: result.message, releaseId }, result.status);
+  const deployed = result.deployed;
   if (!deployed) {
     // The claim was lost to a takeover: write nothing else and report the current attempt.
     const current = await currentPublishState(env, orderId);
@@ -1290,10 +1353,6 @@ export async function handleGetMeLivePublish(
     }, 202);
   }
   if (kind === 'launch') await transitionGetMeLiveStatus(env, orderId, 'verifying', { only: ['publishing'] });
-  for (const asset of storedAssets) {
-    await markGetMeLiveAssetPublished(env, orderId, asset.assetId, `/assets/${asset.assetId}.${extensionFor(asset.contentType)}`);
-  }
-  await saveGetMeLivePreview(env, orderId, stored.preview, publicHtml);
 
   const backoff = options.verifyBackoffMs ?? PUBLISH_VERIFY_BACKOFF_MS;
   let outcome: VerifyOutcome = await verifyAttemptOnce(env, owned, deployed);
@@ -1756,4 +1815,258 @@ export async function recordGetMeLiveExperimentPayment(
   });
   await recordCommercialFunnelEvent(env, "get_me_live_customer_payment", { ownerId: order.ownerId, orderId: order.sourceSprintOrderId, source: "get_me_live", content: orderId }).catch(() => undefined);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// "I bought it — connect it" (plan §8). Reconciliation advances only on an
+// explicit POST; GETs never attach, republish, or move domain state. Every
+// write to custom_domain_json is a version compare-and-swap. Nothing here
+// changes order status, pagesUrl, the launch release, or preferredPublicUrl
+// until the domain serves the activation release over HTTPS.
+// ---------------------------------------------------------------------------
+
+export const CUSTOM_DOMAIN_TIMEOUT_MS = 72 * 60 * 60 * 1000;
+const ATTACH_LEASE_MS = 60_000;
+export const CUSTOM_DOMAIN_TIMEOUT_MESSAGE = 'Cloudflare did not finish setting up this address.';
+const HOSTNAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+
+interface DomainZone { zoneId: string; name: string; eligible: boolean; reason?: string }
+
+/** Hosts attached for a zone: the apex plus `www`, or one subdomain inside the zone. */
+function customDomainHosts(zoneName: string, hostname?: string): { name: string; hosts: string[] } | null {
+  const apex = zoneName.toLowerCase();
+  const host = (hostname || apex).trim().toLowerCase().replace(/\.$/, '');
+  if (!HOSTNAME.test(host)) return null;
+  if (host === apex) return { name: apex, hosts: [apex, `www.${apex}`] };
+  if (!host.endsWith(`.${apex}`) || host === `www.${apex}`) return null;
+  return { name: host, hosts: [host] };
+}
+
+/** Plan §8.3: active zone, no existing records on the hosts, not already attached. */
+async function hostsEligibility(env: Env, order: GetMeLiveOrder, zoneId: string, hosts: string[], attached: Set<string>): Promise<string | undefined> {
+  if (hosts.some(host => attached.has(host))) return 'This address is already connected to your website.';
+  for (const host of hosts) {
+    const records = await listCloudflareDnsRecords(env, order.orderId, zoneId, host);
+    const blocking = host === hosts[0] && hosts.length === 2
+      ? records.filter(record => ['A', 'AAAA', 'CNAME'].includes(record.type.toUpperCase()))
+      : records;
+    if (blocking.length > 0) return 'This domain already has settings — use the guide.';
+  }
+  return undefined;
+}
+
+function liveOrderForDomains(order: GetMeLiveOrder): Response | { accountId: string; hosting: GetMeLiveHosting } {
+  const accountId = order.configuration?.domain.cloudflareAccountId || order.hosting?.cloudflareAccountId;
+  if (!hasPublishedGetMeLiveSite(order) || !order.hosting) return json({ error: 'Your website needs to be live before you connect an address' }, 409);
+  if (!order.providerState.cloudflareConnected || !accountId) return json({ error: 'Reconnect Cloudflare to connect an address' }, 409);
+  return { accountId, hosting: order.hosting };
+}
+
+/** GET /custom-domain/zones — read-only: lists zones and whether each can be connected. */
+export async function handleGetMeLiveCustomDomainZones(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const live = liveOrderForDomains(owned);
+  if (live instanceof Response) return live;
+  try {
+    const name = safeText(new URL(request.url).searchParams.get('name'), 253).toLowerCase() || undefined;
+    const [zones, attachedList] = await Promise.all([
+      listCloudflareZones(env, orderId, live.accountId, name),
+      listCloudflarePagesDomains(env, orderId, live.accountId, live.hosting.pagesProjectName)
+    ]);
+    const attached = new Set(attachedList.map(domain => domain.name));
+    const result: DomainZone[] = [];
+    // Each active zone costs two DNS reads; keep the request well inside Worker subrequest limits.
+    for (const zone of zones.slice(0, 15)) {
+      if (zone.status !== 'active') { result.push({ zoneId: zone.id, name: zone.name, eligible: false, reason: 'Cloudflare is still setting up this domain. Try again later.' }); continue; }
+      const planned = customDomainHosts(zone.name)!;
+      const reason = await hostsEligibility(env, owned, zone.id, planned.hosts, attached);
+      result.push({ zoneId: zone.id, name: zone.name, eligible: !reason, reason });
+    }
+    return json({ zones: result });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Cloudflare domains are unavailable' }, 502);
+  }
+}
+
+function customDomainResponse(record: GetMeLiveCustomDomain | undefined, extra: Record<string, unknown> = {}, status = 200): Response {
+  return json({ customDomain: record ?? null, ...extra }, status);
+}
+
+/** POST /custom-domain { zoneId, hostname? } — creates the record, then runs one reconcile step. */
+export async function handleGetMeLiveCustomDomainConnect(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const live = liveOrderForDomains(owned);
+  if (live instanceof Response) return live;
+  const body = await request.json<{ zoneId?: string; hostname?: string }>().catch(() => ({} as { zoneId?: string; hostname?: string }));
+  const zoneId = safeText(body.zoneId, 64);
+  if (!zoneId) return json({ error: 'Choose the domain to connect' }, 400);
+  const existing = owned.customDomainState;
+  if (existing && existing.status !== 'failed') return customDomainResponse(existing, { error: 'An address is already connected or connecting' }, 409);
+  try {
+    const zone = await getCloudflareZone(env, orderId, live.accountId, zoneId);
+    if (!zone) return json({ error: 'That domain is not in your connected Cloudflare account' }, 404);
+    if (zone.status !== 'active') return json({ error: 'Cloudflare is still setting up this domain. Try again later.' }, 409);
+    const planned = customDomainHosts(zone.name, safeText(body.hostname, 253) || undefined);
+    if (!planned) return json({ error: 'Use the domain itself or an address inside it' }, 400);
+    // Try again on our own failed record skips eligibility: its hosts may already
+    // be attached, and Cloudflare may have created their DNS records.
+    const retry = existing?.status === 'failed' && existing.name === planned.name;
+    if (!retry) {
+      const attached = new Set((await listCloudflarePagesDomains(env, orderId, live.accountId, live.hosting.pagesProjectName)).map(domain => domain.name));
+      const reason = await hostsEligibility(env, owned, zone.id, planned.hosts, attached);
+      if (reason) return json({ error: reason, guide: true }, 409);
+    }
+    const record: GetMeLiveCustomDomain = {
+      schemaVersion: 'get-me-live-custom-domain-v1', version: (existing?.version ?? 0) + 1,
+      name: planned.name, hosts: planned.hosts, zoneId: zone.id, status: 'connecting', step: 'attach_requested',
+      addedAt: new Date().toISOString()
+    };
+    const written = await updateCustomDomainCas(env, orderId, existing && existing.version > 0 ? existing.version : null, record);
+    if (!written) return customDomainResponse((await loadGetMeLiveOrder(env, orderId))?.customDomainState, { error: 'This address changed in another tab' }, 409);
+    owned.customDomainState = record;
+    const step = await reconcileCustomDomainStep(env, owned, new URL(request.url).origin);
+    return customDomainResponse(step.record, step.extra, 202);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'The address could not be connected' }, 502);
+  }
+}
+
+/** POST /custom-domain/reconcile — advances at most one step; safe to repeat from any tab. */
+export async function handleGetMeLiveCustomDomainReconcile(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!owned.customDomainState) return customDomainResponse(undefined);
+  const live = liveOrderForDomains(owned);
+  if (live instanceof Response) return live;
+  const step = await reconcileCustomDomainStep(env, owned, new URL(request.url).origin);
+  return customDomainResponse(step.record, step.extra);
+}
+
+/** DELETE /custom-domain — detaches every host and clears the record. The live site is untouched. */
+export async function handleGetMeLiveCustomDomainDelete(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const record = owned.customDomainState;
+  if (!record) return customDomainResponse(undefined);
+  const live = liveOrderForDomains(owned);
+  if (live instanceof Response) return live;
+  try {
+    for (const host of record.hosts) {
+      await deleteCloudflarePagesDomain(env, orderId, live.accountId, live.hosting.pagesProjectName, host);
+      if (record.zoneId) await deleteGhostTownDnsRecords(env, orderId, record.zoneId, host);
+    }
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Cloudflare could not remove the address' }, 502);
+  }
+  const cleared = await updateCustomDomainCas(env, orderId, record.version > 0 ? record.version : null, null);
+  if (!cleared && record.version > 0) return customDomainResponse((await loadGetMeLiveOrder(env, orderId))?.customDomainState, { error: 'This address changed in another tab' }, 409);
+  if (record.legacy && record.version === 0) {
+    // A legacy name was never persisted as a record; clearing it means clearing the column.
+    await updateCustomDomainCas(env, orderId, null, null);
+  }
+  return customDomainResponse(undefined, { removed: record.hosts });
+}
+
+type ReconcileResult = { record: GetMeLiveCustomDomain | undefined; extra?: Record<string, unknown> };
+
+async function advanceCustomDomain(env: Env, orderId: string, from: GetMeLiveCustomDomain, patch: Partial<GetMeLiveCustomDomain>): Promise<ReconcileResult> {
+  const next: GetMeLiveCustomDomain = { ...from, ...patch, version: from.version + 1 };
+  const written = await updateCustomDomainCas(env, orderId, from.version > 0 ? from.version : null, next);
+  if (written) return { record: next };
+  // Another request advanced it first: report what it wrote.
+  return { record: (await loadGetMeLiveOrder(env, orderId))?.customDomainState, extra: { superseded: true } };
+}
+
+function summarizeProviderError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return `Cloudflare could not connect this address${message ? `: ${message.slice(0, 160)}` : '.'}`;
+}
+
+/** One step of the plan §8.5 state machine. Never throws; provider errors become `failed`. */
+export async function reconcileCustomDomainStep(env: Env, order: GetMeLiveOrder, origin: string): Promise<ReconcileResult> {
+  let record = order.customDomainState!;
+  const orderId = order.orderId;
+  const hosting = order.hosting!;
+  const accountId = order.configuration?.domain.cloudflareAccountId || hosting.cloudflareAccountId;
+  if (record.status !== 'connecting') return { record };
+
+  // A legacy name is persisted on first reconcile, still connecting (plan §20.3).
+  if (record.legacy && record.version === 0) {
+    const zone = await findCloudflareZone(env, orderId, accountId, record.name.replace(/^www\./, '')).catch(() => null);
+    return advanceCustomDomain(env, orderId, record, { zoneId: zone?.id || '' });
+  }
+
+  const waitingOnProvider = record.step === 'attach_requested' || record.step === 'attached';
+  if (waitingOnProvider && Date.now() - Date.parse(record.addedAt) > CUSTOM_DOMAIN_TIMEOUT_MS) {
+    return advanceCustomDomain(env, orderId, record, { status: 'failed', lastError: CUSTOM_DOMAIN_TIMEOUT_MESSAGE });
+  }
+
+  try {
+    switch (record.step) {
+      case 'attach_requested': {
+        // Side effects happen only under a lease won by compare-and-swap, so racing
+        // tabs never call attach twice. A holder that dies loses the lease in 60 s.
+        if (record.attachLeaseUntil && Date.parse(record.attachLeaseUntil) > Date.now()) {
+          return { record, extra: { waiting: 'attach_in_progress' } };
+        }
+        const leased = await advanceCustomDomain(env, orderId, record, { attachLeaseUntil: new Date(Date.now() + ATTACH_LEASE_MS).toISOString() });
+        if (leased.extra?.superseded || !leased.record) return leased;
+        record = leased.record;
+        const attached = new Set((await listCloudflarePagesDomains(env, orderId, accountId, hosting.pagesProjectName)).map(domain => domain.name));
+        for (const host of record.hosts) {
+          if (!attached.has(host)) await addCloudflarePagesDomain(env, orderId, accountId, hosting.pagesProjectName, host);
+          // Eligibility guaranteed these hosts had no records; one found now is ours from an earlier try.
+          if (record.zoneId && (await listCloudflareDnsRecords(env, orderId, record.zoneId, host)).length === 0) {
+            await createCloudflareDnsCname(env, orderId, record.zoneId, host, hosting.pagesSubdomain);
+          }
+        }
+        return advanceCustomDomain(env, orderId, record, { step: 'attached', attachLeaseUntil: undefined });
+      }
+      case 'attached': {
+        const states = await Promise.all(record.hosts.map(host => getCloudflarePagesDomain(env, orderId, accountId, hosting.pagesProjectName, host)));
+        if (states.some(state => !state)) return advanceCustomDomain(env, orderId, record, { step: 'attach_requested' });
+        const summary = states.map(state => `${state!.name}: ${state!.status || 'unknown'}`).join(', ');
+        if (states.every(state => state!.status === 'active')) return advanceCustomDomain(env, orderId, record, { step: 'provider_active', lastProviderStatus: summary });
+        return { record, extra: { providerStatus: summary } };
+      }
+      case 'provider_active': {
+        const stored = await loadGetMeLivePreview(env, orderId);
+        const files = await collectDeployFiles(env, orderId);
+        if (!stored) return advanceCustomDomain(env, orderId, record, { status: 'failed', lastError: 'Your page preview is missing. Open your page and try again.' });
+        if ('error' in files) return advanceCustomDomain(env, orderId, record, { status: 'failed', lastError: files.error });
+        const claim = await claimPublishAttempt(env, orderId, { kind: 'domain_activation', buildId: stored.preview.build.buildId, customDomain: record.name });
+        if (!claim.claimed) return { record, extra: { waiting: 'publish_in_progress', releaseId: claim.existing.attemptId } };
+        const advanced = await advanceCustomDomain(env, orderId, record, { step: 'republish_deployed', releaseId: claim.attempt.attemptId });
+        if (advanced.extra?.superseded || !advanced.record) {
+          await settlePublishFailure(env, claim.attempt, 'This address changed in another tab');
+          return advanced;
+        }
+        record = advanced.record;
+        const result = await renderAndDeployAttempt(env, order, claim.attempt, stored, files, { origin, canonicalUrl: `https://${record.name}` });
+        if (!result.ok) return advanceCustomDomain(env, orderId, record, { status: 'failed', lastError: result.message });
+        return { record };
+      }
+      case 'republish_deployed': {
+        const releaseId = record.releaseId;
+        if (!releaseId) return advanceCustomDomain(env, orderId, record, { step: 'provider_active' });
+        const attempt = await loadPublishAttempt(env, orderId);
+        if (attempt && attempt.attemptId === releaseId) {
+          const outcome = await verifyAttemptOnce(env, order, attempt);
+          if (outcome.state === 'pending') return { record, extra: { verifying: true } };
+        }
+        const release = await loadGetMeLiveRelease(env, orderId, releaseId);
+        if (release) return advanceCustomDomain(env, orderId, record, { status: 'active', step: 'verified', activatedAt: release.verifiedAt, lastError: undefined });
+        const latest = await loadGetMeLiveOrder(env, orderId);
+        const failure = latest?.hosting?.lastReleaseFailure?.releaseId === releaseId ? latest.hosting.lastReleaseFailure.message : 'Your website did not come online at this address.';
+        return advanceCustomDomain(env, orderId, record, { status: 'failed', lastError: failure });
+      }
+      default:
+        return { record };
+    }
+  } catch (error) {
+    if (record.step === 'attach_requested') return advanceCustomDomain(env, orderId, record, { status: 'failed', lastError: summarizeProviderError(error), attachLeaseUntil: undefined });
+    return { record, extra: { retryable: true, error: error instanceof Error ? error.message : 'Cloudflare is unavailable' } };
+  }
 }
