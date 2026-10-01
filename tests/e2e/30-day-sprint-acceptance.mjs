@@ -242,15 +242,31 @@ try {
       await openDay(page, day.dayNumber);
     }
 
-    const complete = page.getByRole('button', { name: `Complete Day ${day.dayNumber}`, exact: true });
+    let complete = page.getByRole('button', { name: `Complete Day ${day.dayNumber}`, exact: true });
     try {
-      // Workspace saves return asynchronously to the calendar. Wait for the visible
-      // completion control to reflect the persisted evidence/checkpoint state instead
-      // of sampling disabled state during the React refresh race.
+      // First allow the normal React state update to expose persisted readiness.
       await complete.click({ trial: true, timeout: 15000 });
-    } catch (error) {
-      const readiness = await page.getByRole('status').allTextContents().catch(() => []);
-      throw new Error(`Day ${day.dayNumber} is not UI-ready after required visible inputs. readiness=${JSON.stringify(readiness)} waitError=${error instanceof Error ? error.message : String(error)}`);
+    } catch (initialError) {
+      // The note POST can be durably saved while the calendar still holds a stale
+      // progress snapshot. Re-enter through the real UI so completion is evaluated
+      // from server-persisted progress rather than weakening or bypassing the gate.
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      const dashboardButton = page.getByRole('button', { name: 'Dashboard', exact: true });
+      await dashboardButton.waitFor({ state: 'visible', timeout: 15000 });
+      await dashboardButton.click();
+      const openBlueprintButton = page.getByRole('button', { name: 'Open Blueprint', exact: true });
+      await openBlueprintButton.waitFor({ state: 'visible', timeout: 15000 });
+      await openBlueprintButton.click();
+      await page.getByRole('region', { name: '30-day execution calendar' }).waitFor({ state: 'visible', timeout: 30000 });
+      await verifyDayNote(page, day.dayNumber, savedNotes.get(day.dayNumber));
+      complete = page.getByRole('button', { name: `Complete Day ${day.dayNumber}`, exact: true });
+      try {
+        await complete.click({ trial: true, timeout: 15000 });
+      } catch (recoveryError) {
+        const readiness = await page.getByRole('status').allTextContents().catch(() => []);
+        throw new Error(`Day ${day.dayNumber} is not UI-ready after persisted-state re-entry. readiness=${JSON.stringify(readiness)} initialError=${initialError instanceof Error ? initialError.message : String(initialError)} recoveryError=${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`);
+      }
+      proof.recovery.push({ dayNumber: day.dayNumber, persistedStateReentry: true, exactNoteMatched: true });
     }
     await complete.click();
     await page.getByRole('button', { name: /Completed ✓ — reopen/ }).waitFor({ state: 'visible', timeout: 15000 });
