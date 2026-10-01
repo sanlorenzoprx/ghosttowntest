@@ -1825,6 +1825,7 @@ export async function recordGetMeLiveExperimentPayment(
 // ---------------------------------------------------------------------------
 
 export const CUSTOM_DOMAIN_TIMEOUT_MS = 72 * 60 * 60 * 1000;
+const ATTACH_LEASE_MS = 60_000;
 export const CUSTOM_DOMAIN_TIMEOUT_MESSAGE = 'Cloudflare did not finish setting up this address.';
 const HOSTNAME = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
@@ -2003,6 +2004,14 @@ export async function reconcileCustomDomainStep(env: Env, order: GetMeLiveOrder,
   try {
     switch (record.step) {
       case 'attach_requested': {
+        // Side effects happen only under a lease won by compare-and-swap, so racing
+        // tabs never call attach twice. A holder that dies loses the lease in 60 s.
+        if (record.attachLeaseUntil && Date.parse(record.attachLeaseUntil) > Date.now()) {
+          return { record, extra: { waiting: 'attach_in_progress' } };
+        }
+        const leased = await advanceCustomDomain(env, orderId, record, { attachLeaseUntil: new Date(Date.now() + ATTACH_LEASE_MS).toISOString() });
+        if (leased.extra?.superseded || !leased.record) return leased;
+        record = leased.record;
         const attached = new Set((await listCloudflarePagesDomains(env, orderId, accountId, hosting.pagesProjectName)).map(domain => domain.name));
         for (const host of record.hosts) {
           if (!attached.has(host)) await addCloudflarePagesDomain(env, orderId, accountId, hosting.pagesProjectName, host);
@@ -2011,7 +2020,7 @@ export async function reconcileCustomDomainStep(env: Env, order: GetMeLiveOrder,
             await createCloudflareDnsCname(env, orderId, record.zoneId, host, hosting.pagesSubdomain);
           }
         }
-        return advanceCustomDomain(env, orderId, record, { step: 'attached' });
+        return advanceCustomDomain(env, orderId, record, { step: 'attached', attachLeaseUntil: undefined });
       }
       case 'attached': {
         const states = await Promise.all(record.hosts.map(host => getCloudflarePagesDomain(env, orderId, accountId, hosting.pagesProjectName, host)));
@@ -2055,7 +2064,7 @@ export async function reconcileCustomDomainStep(env: Env, order: GetMeLiveOrder,
         return { record };
     }
   } catch (error) {
-    if (record.step === 'attach_requested') return advanceCustomDomain(env, orderId, record, { status: 'failed', lastError: summarizeProviderError(error) });
+    if (record.step === 'attach_requested') return advanceCustomDomain(env, orderId, record, { status: 'failed', lastError: summarizeProviderError(error), attachLeaseUntil: undefined });
     return { record, extra: { retryable: true, error: error instanceof Error ? error.message : 'Cloudflare is unavailable' } };
   }
 }

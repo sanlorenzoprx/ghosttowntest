@@ -188,6 +188,8 @@ export interface GetMeLiveCustomDomain {
   lastError?: string;
   /** The domain_activation publish attempt / release for this record. */
   releaseId?: string;
+  /** While set and in the future, one request holds the right to call Cloudflare's attach. */
+  attachLeaseUntil?: string;
   legacy?: boolean;
 }
 
