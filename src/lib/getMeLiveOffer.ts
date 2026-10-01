@@ -12,7 +12,7 @@ export const GHOSTTOWN_GET_ME_LIVE_V1 = {
     'Preview and useful edits before anything is published',
     'Lead capture and tracking inside GhostTown',
     'Business email routing to the inbox you already use',
-    'Domain search, connection, and registration guidance',
+    'A live website on its own Cloudflare address first, with help connecting a domain you buy later',
     'Optional Stripe Connect payment onboarding',
     'A tested Cloudflare deployment with a release receipt'
   ],

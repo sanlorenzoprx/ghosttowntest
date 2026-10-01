@@ -14,7 +14,7 @@ Core promise: **The customer makes the business choices. GhostTown handles the w
 
 MVP viral rule: **GhostTown makes the share content about 90% ready. The owner approves, edits if wanted, and shares.**
 
-No setup-screen upsells. Outside provider charges must be shown plainly before the customer confirms them. Story Studio appears only after the site is live.
+No setup-screen upsells. GhostTown never charges for or buys a web address; outside provider fees (Stripe) are stated plainly. Story Studio appears only after the site is live.
 
 ## Capability legend
 
@@ -32,8 +32,8 @@ No setup-screen upsells. Outside provider charges must be shown plainly before t
 | 4. Main workspace | `GetMeLiveWorkspace`, `LaunchChecklist`, `DecisionPanel`, `PersistentPreview`; `/get-me-live/setup?order_id=...` | Existing GET/PUT config + preview; add debounced autosave contract | Existing configuration/preview | M | Desktop keeps checklist + active decision + preview visible; mobile uses one guided column; edits autosave and survive reload. |
 | 5. Cloudflare ownership | `CloudflareOwnershipStep` | **E** connect/disconnect/callback/accounts endpoints | Existing OAuth token in acceptance KV; provider state in order | M | Copy says where the website will live, who owns it, and that access can be removed; no OAuth/token wording. |
 | 6. Create/connect Cloudflare | `CloudflareAccountChoice`, return-state banner | Existing OAuth connect/callback; external Cloudflare signup link | Existing provider state + OAuth token | M | User can choose “I have Cloudflare” or “Create my free account”; after authorization, workspace returns to same step and shows connected. |
-| 7. Name + domain | `NameDomainStep`, `NameDomainOptionCard` | **E** domain search/check primitives; **N** `POST /orders/:id/name-options` to pair Sprint-derived names with checked domains/prices | Selected business name + requested/selected domain in existing config; no registration yet | M/N | Suggested names are not presented as final choices until their candidate domains have been checked; available/taken and provider price are shown. |
-| 8. Confirm domain purchase | `DomainPurchaseConfirm` | **E** `POST /orders/:id/domains/register`; `GET .../domains/status` | Existing domain config/provider state | M | No provider charge occurs until user confirms exact domain and shown price; cancel returns to choices. |
+| 7. Business name | Name step in `GetMeLiveWorkspace` (step `name`; legacy `step=domain` links map to it) | Existing config PUT; `nameSuggestions` from `GET /orders/:id` (`businessNameSuggestions()`) | Business name in existing brand config | M | Customer types or picks a business name; no web address, availability check or price appears before launch (§22 #16). |
+| 8. Own web address (optional, after launch) | "Want your own website address?" card on the live view; `cloudflareRegistrarUrl(accountId)` | None to buy: GhostTown links to Cloudflare Registrar's Register domain page in the customer's account. **N** `GET /orders/:id/custom-domain/zones`, `POST /orders/:id/custom-domain`, `POST .../custom-domain/reconcile`, `DELETE .../custom-domain` ("I bought it — connect it") | `custom_domain_json` (version compare-and-swap); `custom_domain` set only while active | N | GhostTown never buys a domain. Ignoring the card changes nothing; a connected domain becomes the preferred URL only after Cloudflare activates it and the republished site is verified there. |
 | 9. Choose the look | `LookStep` using existing six curated directions | Existing config PUT + preview rebuild | Existing brand config | M | Clicking each look immediately changes preview; no CSS/font/grid controls are exposed. |
 | 10. Logo | `LogoStep`, `SimpleLogoChooser` | **N** logo-option generator and asset-save endpoint | Selected logo metadata in config; generated SVG/asset copied into customer Cloudflare Pages asset store | N | User can upload, choose a simple generated logo, or use text only; selection appears in preview and survives reload. |
 | 11. Photos | `PhotoStep`, `AssetUploader`, `AssetThumbnailGrid` | **N** upload/remove/reorder endpoints; optional recommended-image selector | Asset metadata in GML config/table; bytes stored in customer-owned Cloudflare Pages asset store after Cloudflare connection | N | No HTTPS URL is required; user can upload/remove/reorder photos and choose a main image; preview updates. |
@@ -41,11 +41,11 @@ No setup-screen upsells. Outside provider charges must be shown plainly before t
 | 13. Visitor action | `VisitorActionStep` | Existing config PUT | Existing `offer.intent` + payments enabled | M | User chooses “Tell me they’re interested,” “Buy now,” or “Decide later”; no “conversion intent” wording appears. |
 | 14. Lead magnet | `LeadMagnetStep` | **N** PDF upload/remove endpoint; optional simple Sprint-generated PDF endpoint if cheap enough | Lead magnet metadata + Pages asset; published file remains in customer Cloudflare account | N | Upload PDF and skip paths work in MVP; uploaded file is linked from preview/site and stored with customer site assets. |
 | 15. Lead email | `LeadEmailStep` | Existing config PUT | Existing contact config | M | User sees “Where should new leads go?” and a normal email field; submitted live leads reach the configured path. |
-| 16. Business email | `BusinessEmailStep` | **E** `POST /orders/:id/email/setup`; domain status | Existing config/provider state + Cloudflare Email Routing | M | User chooses local part, sees full address, receives clear verification instructions, and can retry after Cloudflare confirmation. |
+| 16. Business email (optional, after an active domain) | Business email card on the live view | **E/M** `POST /orders/:id/email/setup` (409 unless the custom domain is active) | Provider state + Cloudflare Email Routing | M | Offered only once the customer's own main domain is active; confirm-then-check-again copy; never blocks going live. |
 | 17. Payments | `PaymentsStep` | **E** Stripe Connect + status endpoints | Existing connected account/status fields | M | Only shown as required for Buy mode; return lands back in same workspace; incomplete Stripe setup does not block lead-first launch. |
-| 18. Review | `LaunchReviewStep`, `ReadinessChecklist` | Existing order/config/preview + provider statuses | Existing state only | N/M | One screen shows exact preview, completed/missing items, provider charges, and links back to edit each item. |
-| 19. Go live | `GoLiveStep` | **E** `POST /orders/:id/publish` | Existing preview, provider state, deployment receipt | M | Button says “Go Live”; publish is blocked on required readiness and exact browser render; successful deploy records receipt. |
-| 20. Live success | `LiveSuccessStep` | Existing order GET + publish result | Existing public URL/custom domain/deployment receipt | N/M | Success copy says: “You’re live. Your page is ready for real customers…” and shows the live URL plus View My Live Page. |
+| 18. Review | `LaunchReviewStep`, `ReadinessChecklist` | Existing order/config/preview + provider statuses | Existing state only | N/M | One screen shows the exact preview, completed/missing items and links back to edit each item. No web-address charge exists before launch; the Stripe-fees note shows only for Buy offers. |
+| 19. Go live | `GoLiveStep`; `/get-me-live/opening` tab (`GetMeLiveOpening`) | **E** `POST /orders/:id/publish`, `POST .../publish/verify`, `GET .../publish/status` | One unverified publish attempt per order; release rows; stable `pagesUrl` | M | "Go Live" opens the opening tab first, then publishes; the tab switches to the site once the release is verified. A blocked popup changes nothing. |
+| 20. Live success | `LiveSuccessStep` | Existing order GET + publish result; `GET .../release-receipt`, `GET .../health` | Launch release row (immutable receipt) | N/M | Success copy says: "Your website is ready. We built your website and put it online. You can open it, share it, and start receiving leads." with **Open My Website** and **Copy Website Link** for the preferred URL. |
 | 21. Launch Share Pack | `LaunchSharePack`, `ShareDraftCard` | **N** `GET/POST /orders/:id/share-pack`; existing commercial event recorder | New share drafts + approved/edited text; no automatic posting state | N | Three ready-made posts are generated from Sprint/GML data; user can edit, copy or native-share; nothing posts automatically. |
 | 22. Social share image | `SocialPreviewCard` + site OG metadata | **N** social-card render/build step integrated with publish | `og.png`/social asset in customer Pages asset bundle + metadata reference in preview/build | N | Shared URL renders a branded preview with logo/name/promise/image/domain; site source contains valid OG/Twitter metadata. |
 | 23. Friend share after signup | `LeadSuccessShare` in generated site | **N** native-share/copy-link behavior; existing lead endpoint remains canonical | No new required durable state; optional share-click analytics | N | After a lead succeeds, visitor sees a small “Know someone who might like this?” share action; it never interrupts the form. |
@@ -77,7 +77,7 @@ Logo, customer photos, lead magnet and social preview assets must ultimately liv
 
 ### 5. Domain safety contract
 
-Name suggestions and domain availability are separate facts. A suggested business name must not imply its domain is available. Domain registration always requires an explicit confirmation showing exact domain and provider price.
+GhostTown delivers the working site on its stable `*.pages.dev` address first. A custom domain is never required to publish, verify, receive leads or finish Get Me Live. GhostTown never buys a domain: the customer buys it in their own Cloudflare account (the live view links to Cloudflare Registrar), then chooses "I bought it — connect it". A domain problem can never take a live site down or change its address; the domain becomes the preferred URL only after Cloudflare activates it and the republished site is verified there.
 
 ### 6. Virality contract
 
@@ -100,23 +100,24 @@ Proposed additions:
 
 New/expanded endpoints expected:
 
-- `POST /api/get-me-live/orders/:id/name-options`
+- `GET /api/get-me-live/orders/:id/custom-domain/zones`, `POST|DELETE /api/get-me-live/orders/:id/custom-domain`, `POST /api/get-me-live/orders/:id/custom-domain/reconcile`
+- `POST /api/get-me-live/orders/:id/publish/verify`, `GET .../publish/status`, `GET .../release-receipt`, `POST .../release-receipt/backfill`, `GET .../releases`, `GET .../health`
 - `POST /api/get-me-live/orders/:id/assets`
 - `DELETE /api/get-me-live/orders/:id/assets/:assetId`
 - `PUT /api/get-me-live/orders/:id/assets/order`
 - `GET|POST /api/get-me-live/orders/:id/share-pack`
 - Optional `POST /api/get-me-live/sites/:id/visit` for simple referral/visit counts
 
-Existing endpoints remain the backbone: checkout, owned order/config, preview, Cloudflare OAuth/accounts, domain search/register/status, email setup, Stripe Connect/status, publish, public lead/buy, and Story Studio handoff.
+Existing endpoints remain the backbone: checkout, owned order/config, preview, Cloudflare OAuth/accounts, email setup, Stripe Connect/status, publish, public lead/buy, and Story Studio handoff. The in-app domain search/register/status and name-options endpoints were retired (Get Me Live dev plan v4, Slice 4).
 
 ## Implementation slices
 ### Slice A — Journey shell + copy convergence
 
 Create dedicated landing page and purchased workspace shell; move current `GetMeLiveStudio` behavior behind guided steps; add strong field styling, autosave, progress/readiness, persistent preview, and fifth-grade copy. Preserve backend behavior.
 
-### Slice B — Cloudflare first + name/domain truth
+### Slice B — Cloudflare first + business name
 
-Move Cloudflare create/connect early. Add availability-backed business-name options. Keep explicit domain purchase confirmation. Complete OAuth error surfacing and scope-state handling.
+Move Cloudflare create/connect early. Offer Sprint-based business-name ideas with no domain checks. Complete OAuth error surfacing and scope-state handling. Web addresses moved after launch: the optional Cloudflare Registrar handoff and "I bought it — connect it" (Get Me Live dev plan v4, Slices 4, 6 and 7).
 
 ### Slice C — Real customer assets
 
@@ -142,14 +143,14 @@ Show plain-language leads/sales/activity, easy share/reopen/edit actions, cross-
 1. A paid customer lands on a prebuilt starting point, not a blank setup form.
 2. All customer copy passes the plain-language contract and avoids internal implementation terms.
 3. A customer with no Cloudflare account can understand how to create one, return, authorize GhostTown, and continue without losing state.
-4. Name options shown as available have been checked against the provider; unavailable options are clearly marked.
-5. No domain purchase occurs without explicit confirmation of exact domain and provider price.
+4. Business-name ideas never imply a web address is available; no domain is checked, priced or required before launch.
+5. GhostTown never buys a domain. A domain the customer buys in Cloudflare becomes the preferred URL only after it is active and the republished site is verified there; a domain failure never changes the live site.
 6. Logo, photos and PDF lead magnet can be supplied without entering URLs, and final assets live with the customer’s Cloudflare site.
 7. Every important business edit autosaves, survives reload, and changes the preview.
 8. Lead mode can go live without Stripe. Buy mode reaches connected Stripe Checkout when Stripe is ready and falls back safely when it is not.
-9. Business email flow gives simple verification/retry instructions and does not expose DNS jargon.
+9. Business email is offered only after the custom domain is active, gives simple verification/retry instructions, and does not expose DNS jargon.
 10. `Go Live` deploys the exact reviewed site only after the existing browser render check succeeds and records the deployment receipt.
-11. Live success uses: “You’re live. Your page is ready for real customers. People can now visit, sign up, or buy. GhostTown will show you what happens so you can see what’s working and what needs to change.”
+11. Live success uses: “Your website is ready. We built your website and put it online. You can open it, share it, and start receiving leads.” with Open My Website and Copy Website Link.
 12. Launch Share Pack is prefilled from existing work, editable, user-triggered, and includes a measurable live link.
 13. Social sharing produces a useful preview image and does not expose private customer data.
 14. A completed lead sees an optional friend-share action only after submission succeeds.

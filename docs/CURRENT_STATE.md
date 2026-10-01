@@ -1,7 +1,36 @@
 # GhostTown Current State
 
-Date: 2026-09-25
+Date: 2026-10-01 (Get Me Live dev plan v4 completion); earlier sections dated 2026-09-25 are kept as history.
 Purpose: evidence-backed handoff after the fresh acceptance customer-journey pass and Get Me Live stabilization.
+
+## Get Me Live v4 — "website first, domain optional" (2026-10-01)
+
+Get Me Live now delivers the working website on its stable Cloudflare Pages address (`https://<project>.pages.dev`) first. A custom domain is optional, bought by the customer in their own Cloudflare account, and connected after launch.
+
+Merged to `main` (one slice per PR, each with `npm run check`, CI and, where it changes the published site or server, a green Acceptance run):
+
+| Slice | PR | What it delivers |
+|---|---|---|
+| 1a | #29 | Stable `pagesUrl` from the provider-returned Pages subdomain; migration `0010` (`hosting_json`, `custom_domain_json`, releases, publish attempts) |
+| 1b | #30 | One unverified publish attempt per order (D1-enforced), release marker verify loop, write discipline |
+| 1c | #31 | Customer-friendly Pages project names with an overwrite guard |
+| 2 | #34 | Immutable launch receipt (v2), legacy backfill, `/releases`, read-only `/health` |
+| 3 | #35 | Lead/payment returns only to trusted origins (Pages host, preview hosts, active custom domain) |
+| 4 | #36 | No domain step before launch; step `domain` → `name`; Registrar routes retired |
+| 5 | #37 | "Your website is ready" screen; `/get-me-live/opening` tab |
+| 6 | #38 | Optional "Want your own website address?" card linking to Cloudflare Registrar |
+| 7 | #39 | "I bought it — connect it": zones, attach (apex + `www`), version compare-and-swap reconcile, verified activation republish |
+| 8 | #41 | Business email only after the custom domain is active |
+| 9 | #42 | Registrar OAuth scopes are never requested |
+| Sprint fixes | #32, #40 | Progress saves are merged/queued; the workspace opens for the active day |
+
+Acceptance proof: main Acceptance runs #68–#76 green on the slice heads (30-Day Sprint + Get Me Live journey, including republish, byte-identical launch receipt, served release marker, and lead return to `pagesUrl`).
+
+Still needs a human (GhostTown never deploys to production or changes production secrets itself):
+
+1. Production D1: `npx wrangler d1 migrations apply ghosttowntest-blueprints --env production --remote` (migration `0010`) before deploying this Worker.
+2. `CLOUDFLARE_OAUTH_SCOPES`: remove Registrar scopes; include zone read, DNS edit and Pages edit (acceptance first, then production). Existing connections keep their grants until the customer reconnects.
+3. Run **Custom Domain Acceptance** once (`gh workflow run "Custom Domain Acceptance" -f test_zone=musecreativestudios.com`); it then runs nightly.
 
 ## Repository checkpoint
 
@@ -75,7 +104,7 @@ Observed acceptance proof:
 
 A real Get Me Live release receipt is now available through the owner API and UI.
 
-Schema:
+Schema (2026-09-25; superseded by the stored v2 launch receipt `ghosttown-get-me-live-release-receipt-v2` since Slice 2):
 
 `ghosttown-get-me-live-release-receipt-v1`
 
@@ -140,7 +169,7 @@ Decision:
 ## Known boundaries / deferred work
 
 - StoryFactory integration is deliberately deferred. A dormant backend handoff contract may remain for future compatibility, but the current GhostTown customer UI must not depend on or advertise StoryFactory.
-- Real domain purchase and irreversible production changes remain human-authorized actions.
+- GhostTown never buys a domain; customers buy one in their own Cloudflare account and connect it after launch. Irreversible production changes remain human-authorized actions.
 - Real customer Stripe payment testing is not required for the current acceptance checkpoint; the manual Stripe test completed separately and should not be conflated with the Playwright button-position issue.
 
 ## Immediate next queue
