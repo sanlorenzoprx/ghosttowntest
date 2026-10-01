@@ -5,7 +5,8 @@ import type { GetMeLiveHosting, GetMeLiveOrder } from '../src/types/getMeLive';
 const state = vi.hoisted(() => ({
   order: null as GetMeLiveOrder | null,
   updates: [] as GetMeLiveOrder[],
-  hostingWrites: [] as Array<{ hosting: GetMeLiveHosting; publicUrl?: string }>
+  hostingWrites: [] as Array<{ hosting: GetMeLiveHosting; publicUrl?: string }>,
+  releases: [] as Array<{ releaseId: string; kind: string }>
 }));
 
 vi.mock('../src/api/getMeLiveStore', () => ({
@@ -28,11 +29,41 @@ vi.mock('../src/api/getMeLiveStore', () => ({
     }
   }),
   updateGetMeLiveOrder: vi.fn(async (_env: Env, order: GetMeLiveOrder) => {
-    // Mirrors the real full-row write: hosting_json is never part of it.
-    const { hosting: _ignored, ...rest } = structuredClone(order);
-    state.order = { ...rest, hosting: state.order?.hosting };
+    // Mirrors the real generic write: publication-owned columns are never part of it.
+    const current = state.order;
+    state.order = {
+      ...structuredClone(order),
+      hosting: current?.hosting, publicUrl: current?.publicUrl, customDomain: current?.customDomain,
+      deploymentReceipt: current?.deploymentReceipt, publishedAt: current?.publishedAt, failure: current?.failure,
+      status: current && ['publishing', 'verifying', 'live'].includes(current.status) ? current.status : order.status
+    };
     state.updates.push(structuredClone(order));
-  })
+  }),
+  // Publication attempt functions: business doubles; the SQL itself is proven on real D1 in tests/runtime.
+  claimPublishAttempt: vi.fn(async (_env: Env, orderId: string, input: { kind: 'launch' | 'republish'; buildId: string }) => ({
+    claimed: true,
+    attempt: { orderId, attemptId: `rel_test_${state.releases.length + 1}`, kind: input.kind, buildId: input.buildId, phase: 'claimed', claimedAt: '2026-10-01T00:00:00.000Z', expiresAt: '2999-01-01T00:00:00.000Z' }
+  })),
+  recordPublishDeployment: vi.fn(async (_env: Env, attempt: Record<string, unknown>, deployment: { deploymentId: string; deploymentUrl?: string }) => ({
+    ...attempt, ...deployment, phase: 'deployed', deployedAt: '2026-10-01T00:00:01.000Z'
+  })),
+  settlePublishSuccess: vi.fn(async (_env: Env, input: { attempt: { attemptId: string; kind: string }; order: { deploymentReceiptJson: string; hostingJson: string; publicUrl?: string; publishedAt?: string } }) => {
+    state.releases.push({ releaseId: input.attempt.attemptId, kind: input.attempt.kind });
+    if (!state.order) return false;
+    state.order.deploymentReceipt = JSON.parse(input.order.deploymentReceiptJson);
+    state.order.hosting = JSON.parse(input.order.hostingJson);
+    if (input.attempt.kind === 'launch') {
+      state.order.status = 'live'; state.order.publicUrl = input.order.publicUrl; state.order.publishedAt = input.order.publishedAt; state.order.failure = undefined;
+    }
+    return true;
+  }),
+  settlePublishFailure: vi.fn(async () => true),
+  transitionGetMeLiveStatus: vi.fn(async (_env: Env, _orderId: string, to: GetMeLiveOrder['status']) => { if (state.order) state.order.status = to; return true; }),
+  loadPublishAttempt: vi.fn(async () => null),
+  loadLatestGetMeLiveRelease: vi.fn(async () => null),
+  isPublishAttemptExpired: vi.fn(() => false),
+  CLAIM_EXPIRED_MESSAGE: 'claim expired',
+  DEPLOY_EXPIRED_MESSAGE: 'deploy expired'
 }));
 
 const providers = vi.hoisted(() => ({
@@ -144,14 +175,16 @@ const ownerRequest = (path: string, init: RequestInit = {}) => new Request(`http
 describe('Get Me Live publish URL truth (Slice 1a)', () => {
   let fetched: string[] = [];
   beforeEach(() => {
-    state.order = publishableOrder(); state.updates = []; state.hostingWrites = []; fetched = [];
+    state.order = publishableOrder(); state.updates = []; state.hostingWrites = []; state.releases = []; fetched = [];
     vi.clearAllMocks();
     providers.ensurePagesProject.mockImplementation(async (_env: Env, _orderId: string, _accountId: string, name: string) => ({ name, subdomain: PAGES_HOST }));
     providers.deployCloudflarePagesHtml.mockImplementation(async () => ({ deploymentId: `dep_${state.updates.length}`, deploymentUrl: HASH_URL }));
     providers.getPagesProject.mockResolvedValue(null);
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       fetched.push(String(input));
-      return new Response('<html>live</html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+      // The stable Pages URL serves whichever release was asked about.
+      const releaseId = new URL(String(input)).searchParams.get('gt_verify') || '';
+      return new Response(`<html><meta name="ghosttown-release-id" content="${releaseId}"></html>`, { status: 200, headers: { 'Content-Type': 'text/html' } });
     }));
   });
 
@@ -159,7 +192,7 @@ describe('Get Me Live publish URL truth (Slice 1a)', () => {
     const response = await handleGetMeLivePublish(ownerRequest('/publish', { method: 'POST' }), publishEnv(), 'gml_test');
     expect(response.status).toBe(200);
     const body = await response.json() as Record<string, unknown>;
-    expect(body.status).toBe('live');
+    expect(body).toMatchObject({ status: 'live', verified: true, releaseId: 'rel_test_1' });
     expect(body).not.toHaveProperty('customDomain');
     expect(providers.addCloudflarePagesDomain).not.toHaveBeenCalled();
     expect(fetched.every(url => !url.includes('/domains'))).toBe(true);
@@ -181,7 +214,8 @@ describe('Get Me Live publish URL truth (Slice 1a)', () => {
     const render = vi.mocked(renderCustomWebsiteStaticHtml).mock.calls[0][1];
     expect(render.canonicalUrl).toBe(PAGES_URL);
     expect(render.socialImageUrl).toBe(`${PAGES_URL}/og.svg`);
-    expect(fetched).toContain(PAGES_URL);
+    expect(render.releaseId).toBe('rel_test_1');
+    expect(fetched).toContain(`${PAGES_URL}/?gt_verify=rel_test_1`);
   });
 
   it('#4 keeps the deployment hash URL out of pagesUrl, public_url, and redirect targets', async () => {
@@ -209,7 +243,8 @@ describe('Get Me Live publish URL truth (Slice 1a)', () => {
     expect(state.order?.configuration?.domain.pagesProjectName).toBeUndefined();
     const response = await handleGetMeLivePublish(ownerRequest('/publish', { method: 'POST' }), publishEnv(), 'gml_test');
     const body = await response.json() as Record<string, unknown>;
-    expect(body.pagesUrl).toBe(first.publicUrl);
+    expect(body).toMatchObject({ pagesUrl: first.publicUrl, verified: true, releaseId: 'rel_test_2' });
+    expect(state.releases).toEqual([{ releaseId: 'rel_test_1', kind: 'launch' }, { releaseId: 'rel_test_2', kind: 'republish' }]);
     expect(state.order?.publicUrl).toBe(PAGES_URL);
     expect(state.order?.hosting?.pagesUrl).toBe(PAGES_URL);
     expect(providers.ensurePagesProject.mock.calls.map(call => call[3])).toEqual(['gt-gml-test', 'gt-gml-test']);

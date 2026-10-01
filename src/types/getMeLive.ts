@@ -10,6 +10,7 @@ export type GetMeLiveStatus =
   | 'provider_setup'
   | 'ready_to_publish'
   | 'publishing'
+  | 'verifying'
   | 'live'
   | 'failed'
   | 'refunded';
@@ -91,6 +92,75 @@ export interface GetMeLiveDeploymentReceipt {
   deploymentUrl?: string;
   customDomain?: string;
   publishedAt: string;
+  /** The verified release this deployment served (Slice 1b onward). */
+  releaseId?: string;
+}
+
+export type GetMeLiveReleaseKind = 'launch' | 'republish' | 'domain_activation';
+
+/** The single unverified publish attempt an order may have (`get_me_live_publish_attempts`). */
+export interface GetMeLivePublishAttempt {
+  orderId: string;
+  /** Equals the releaseId served in the page's `ghosttown-release-id` meta tag. */
+  attemptId: string;
+  kind: GetMeLiveReleaseKind;
+  buildId: string;
+  customDomain?: string;
+  phase: 'claimed' | 'deployed';
+  deploymentId?: string;
+  deploymentUrl?: string;
+  claimedAt: string;
+  deployedAt?: string;
+  expiresAt: string;
+}
+
+/** Append-only verified release row (`get_me_live_releases`). */
+export interface GetMeLiveRelease {
+  releaseId: string;
+  orderId: string;
+  kind: GetMeLiveReleaseKind;
+  buildId: string;
+  deploymentId: string;
+  deploymentUrl?: string;
+  pagesUrl: string;
+  customDomain?: string;
+  verifiedUrl: string;
+  verifiedAt: string;
+  backfilled: boolean;
+  receiptJson: string;
+  createdAt: string;
+}
+
+/** Receipt stored on each release row; the launch row's copy is the immutable launch receipt. */
+export interface GetMeLiveReleaseReceiptV2 {
+  schemaVersion: 'ghosttown-get-me-live-release-receipt-v2';
+  kind: GetMeLiveReleaseKind;
+  releaseId: string;
+  orderId: string;
+  sourceSprintOrderId: string;
+  sourceBlueprintId?: string;
+  offerId: 'ghosttown_get_me_live_v1';
+  offerVersion: '1.0';
+  provider: 'cloudflare_pages';
+  pagesProjectName: string;
+  pagesSubdomain: string;
+  pagesUrl: string;
+  /** === pagesUrl; kept for v1 readers. */
+  liveUrl: string;
+  customDomain?: string;
+  deploymentUrl?: string;
+  deploymentId: string;
+  buildId: string;
+  publishedAt: string;
+  verifiedAt: string;
+  backfilled: boolean;
+  checks: {
+    releaseMarkerServed: boolean;
+    customerPageHttpStatus: number;
+    leadCaptureConfigured: boolean;
+    activityTrackingConfigured: boolean;
+    paymentMode: 'interest' | 'connected_checkout' | 'lead_until_stripe_ready';
+  };
 }
 
 export interface GetMeLiveHosting {

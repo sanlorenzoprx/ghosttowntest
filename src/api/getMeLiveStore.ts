@@ -6,6 +6,9 @@ import type {
   GetMeLiveHosting,
   GetMeLiveOrder,
   GetMeLiveProviderState,
+  GetMeLivePublishAttempt,
+  GetMeLiveRelease,
+  GetMeLiveReleaseKind,
   GetMeLiveShareDraft
 } from '../types/getMeLive';
 import type { WebsiteCreationResult } from '../types/customWebsite';
@@ -119,21 +122,260 @@ export async function createGetMeLiveOrder(env: Env, order: GetMeLiveOrder): Pro
     JSON.stringify(order.providerState), order.createdAt, order.updatedAt
   ).run();
 }
+/** Statuses a generic order write can never move an order out of (plan §2.6). */
+const PUBLICATION_HELD_STATUSES = `('publishing', 'verifying', 'live')`;
+
+/**
+ * Generic order write for business choices and provider connections.
+ *
+ * It never writes publication-owned columns (`public_url`, `custom_domain`,
+ * `deployment_receipt_json`, `published_at`, `failure`, `hosting_json`,
+ * `custom_domain_json`); only the targeted publication functions below do. Its
+ * status write cannot knock an order out of an in-flight or live publication
+ * state, so a stale full-row write racing a publish is harmless.
+ */
 export async function updateGetMeLiveOrder(env: Env, order: GetMeLiveOrder): Promise<void> {
   await db(env).prepare(`
     UPDATE get_me_live_orders SET
       source_blueprint_id = ?, stripe_checkout_session_id = ?, stripe_payment_intent_id = ?,
-      status = ?, configuration_json = ?, provider_state_json = ?, public_url = ?, custom_domain = ?, deployment_receipt_json = ?,
-      updated_at = ?, paid_at = ?, published_at = ?, failure = ?
+      status = CASE WHEN status IN ${PUBLICATION_HELD_STATUSES} THEN status ELSE ? END,
+      configuration_json = ?, provider_state_json = ?, updated_at = ?, paid_at = ?
     WHERE order_id = ? AND owner_id = ?
   `).bind(
     order.sourceBlueprintId || null, order.stripeCheckoutSessionId || null,
     order.stripePaymentIntentId || null, order.status,
     order.configuration ? JSON.stringify(order.configuration) : null,
-    JSON.stringify(order.providerState), order.publicUrl || null, order.customDomain || null,
-    order.deploymentReceipt ? JSON.stringify(order.deploymentReceipt) : null, order.updatedAt, order.paidAt || null, order.publishedAt || null, order.failure || null,
+    JSON.stringify(order.providerState), order.updatedAt, order.paidAt || null,
     order.orderId, order.ownerId
   ).run();
+}
+
+/** Compare-and-swap status transition made by publication (plan §2.6 rule 5). */
+export async function transitionGetMeLiveStatus(
+  env: Env,
+  orderId: string,
+  to: GetMeLiveOrder['status'],
+  from: { only?: GetMeLiveOrder['status'][]; except?: GetMeLiveOrder['status'][] }
+): Promise<boolean> {
+  const list = from.only || from.except || [];
+  const placeholders = list.map(() => '?').join(', ');
+  const condition = from.only ? `status IN (${placeholders})` : `status NOT IN (${placeholders})`;
+  const result = await db(env).prepare(`UPDATE get_me_live_orders SET status = ?, updated_at = ? WHERE order_id = ? AND ${condition}`)
+    .bind(to, new Date().toISOString(), orderId, ...list).run();
+  return (result.meta?.changes ?? 0) === 1;
+}
+
+interface PublishAttemptRow {
+  get_me_live_order_id: string;
+  attempt_id: string;
+  kind: GetMeLiveReleaseKind;
+  build_id: string;
+  custom_domain: string | null;
+  phase: GetMeLivePublishAttempt['phase'];
+  deployment_id: string | null;
+  deployment_url: string | null;
+  claimed_at: string;
+  deployed_at: string | null;
+  expires_at: string;
+}
+
+function toPublishAttempt(row: PublishAttemptRow): GetMeLivePublishAttempt {
+  return {
+    orderId: row.get_me_live_order_id,
+    attemptId: row.attempt_id,
+    kind: row.kind,
+    buildId: row.build_id,
+    customDomain: row.custom_domain || undefined,
+    phase: row.phase,
+    deploymentId: row.deployment_id || undefined,
+    deploymentUrl: row.deployment_url || undefined,
+    claimedAt: row.claimed_at,
+    deployedAt: row.deployed_at || undefined,
+    expiresAt: row.expires_at
+  };
+}
+
+export const PUBLISH_CLAIM_TTL_MS = 5 * 60 * 1000;
+export const PUBLISH_DEPLOY_TTL_MS = 10 * 60 * 1000;
+export const CLAIM_EXPIRED_MESSAGE = 'Your website did not finish going online. Please try Go Live again.';
+export const DEPLOY_EXPIRED_MESSAGE = 'Cloudflare accepted the site but it did not come online in time. Please try Go Live again.';
+
+export function newReleaseId(): string {
+  return `rel_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`;
+}
+
+export function isPublishAttemptExpired(attempt: GetMeLivePublishAttempt, now = Date.now()): boolean {
+  return Date.parse(attempt.expiresAt) <= now;
+}
+
+export async function loadPublishAttempt(env: Env, orderId: string): Promise<GetMeLivePublishAttempt | null> {
+  const row = await db(env).prepare(`SELECT * FROM get_me_live_publish_attempts WHERE get_me_live_order_id = ?`)
+    .bind(orderId).first<PublishAttemptRow>();
+  return row ? toPublishAttempt(row) : null;
+}
+
+/**
+ * Claims the single unverified publish attempt an order may have (plan §2.4).
+ * The table's primary key on the order is what enforces "one at a time"; an
+ * expired attempt is settled as failed (compare-and-swap) and the claim retried once.
+ */
+export async function claimPublishAttempt(
+  env: Env,
+  orderId: string,
+  input: { kind: GetMeLiveReleaseKind; buildId: string; customDomain?: string }
+): Promise<{ claimed: true; attempt: GetMeLivePublishAttempt } | { claimed: false; existing: GetMeLivePublishAttempt }> {
+  for (let round = 0; round < 2; round += 1) {
+    const now = new Date();
+    const attempt: GetMeLivePublishAttempt = {
+      orderId, attemptId: newReleaseId(), kind: input.kind, buildId: input.buildId, customDomain: input.customDomain,
+      phase: 'claimed', claimedAt: now.toISOString(), expiresAt: new Date(now.getTime() + PUBLISH_CLAIM_TTL_MS).toISOString()
+    };
+    const result = await db(env).prepare(`
+      INSERT INTO get_me_live_publish_attempts (
+        get_me_live_order_id, attempt_id, kind, build_id, custom_domain, phase, claimed_at, expires_at
+      ) VALUES (?, ?, ?, ?, ?, 'claimed', ?, ?)
+      ON CONFLICT(get_me_live_order_id) DO NOTHING
+    `).bind(orderId, attempt.attemptId, attempt.kind, attempt.buildId, attempt.customDomain || null, attempt.claimedAt, attempt.expiresAt).run();
+    if ((result.meta?.changes ?? 0) === 1) return { claimed: true, attempt };
+    const existing = await loadPublishAttempt(env, orderId);
+    if (!existing) continue;
+    if (!isPublishAttemptExpired(existing, now.getTime()) || round === 1) return { claimed: false, existing };
+    await settlePublishFailure(env, existing, existing.phase === 'deployed' ? DEPLOY_EXPIRED_MESSAGE : CLAIM_EXPIRED_MESSAGE);
+  }
+  const existing = await loadPublishAttempt(env, orderId);
+  if (existing) return { claimed: false, existing };
+  throw new Error('Publishing is busy right now. Please try again.');
+}
+
+/** Compare-and-swap: false means the claim was lost to a takeover and the caller must stop. */
+export async function recordPublishDeployment(
+  env: Env,
+  attempt: GetMeLivePublishAttempt,
+  deployment: { deploymentId: string; deploymentUrl?: string }
+): Promise<GetMeLivePublishAttempt | null> {
+  const now = new Date();
+  const deployedAt = now.toISOString();
+  const expiresAt = new Date(now.getTime() + PUBLISH_DEPLOY_TTL_MS).toISOString();
+  const result = await db(env).prepare(`
+    UPDATE get_me_live_publish_attempts
+    SET phase = 'deployed', deployment_id = ?, deployment_url = ?, deployed_at = ?, expires_at = ?
+    WHERE get_me_live_order_id = ? AND attempt_id = ? AND phase = 'claimed'
+  `).bind(deployment.deploymentId, deployment.deploymentUrl || null, deployedAt, expiresAt, attempt.orderId, attempt.attemptId).run();
+  if ((result.meta?.changes ?? 0) !== 1) return null;
+  return { ...attempt, phase: 'deployed', deploymentId: deployment.deploymentId, deploymentUrl: deployment.deploymentUrl, deployedAt, expiresAt };
+}
+
+const ATTEMPT_STILL_OPEN = `EXISTS (SELECT 1 FROM get_me_live_publish_attempts WHERE get_me_live_order_id = ? AND attempt_id = ?)`;
+
+/**
+ * Atomic success settlement (one D1 batch = one transaction). Every statement is
+ * guarded by the attempt still being open, so a second verifier that observed the
+ * same marker changes nothing. Returns true only for the call that settled it.
+ */
+export async function settlePublishSuccess(env: Env, input: {
+  attempt: GetMeLivePublishAttempt;
+  release: { pagesUrl: string; verifiedUrl: string; verifiedAt: string; receiptJson: string; customDomain?: string };
+  order: { deploymentReceiptJson: string; hostingJson: string; publicUrl?: string; publishedAt?: string };
+}): Promise<boolean> {
+  const { attempt, release, order } = input;
+  if (attempt.phase !== 'deployed' || !attempt.deploymentId) throw new Error('Only a deployed publish attempt can be settled as verified');
+  const insert = db(env).prepare(`
+    INSERT INTO get_me_live_releases (
+      release_id, get_me_live_order_id, kind, build_id, deployment_id, deployment_url, pages_url,
+      custom_domain, verified_url, verified_at, backfilled, receipt_json, created_at
+    )
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?
+    WHERE ${ATTEMPT_STILL_OPEN}
+    ON CONFLICT DO NOTHING
+  `).bind(
+    attempt.attemptId, attempt.orderId, attempt.kind, attempt.buildId, attempt.deploymentId, attempt.deploymentUrl || null,
+    release.pagesUrl, release.customDomain || null, release.verifiedUrl, release.verifiedAt, release.receiptJson, release.verifiedAt,
+    attempt.orderId, attempt.attemptId
+  );
+  const update = attempt.kind === 'launch'
+    ? db(env).prepare(`
+        UPDATE get_me_live_orders SET status = 'live', public_url = ?, published_at = ?, failure = NULL,
+          deployment_receipt_json = ?, hosting_json = ?, updated_at = ?
+        WHERE order_id = ? AND ${ATTEMPT_STILL_OPEN}
+      `).bind(order.publicUrl || release.pagesUrl, order.publishedAt || release.verifiedAt, order.deploymentReceiptJson, order.hostingJson, release.verifiedAt, attempt.orderId, attempt.orderId, attempt.attemptId)
+    : db(env).prepare(`
+        UPDATE get_me_live_orders SET deployment_receipt_json = ?, hosting_json = ?, updated_at = ?
+        WHERE order_id = ? AND ${ATTEMPT_STILL_OPEN}
+      `).bind(order.deploymentReceiptJson, order.hostingJson, release.verifiedAt, attempt.orderId, attempt.orderId, attempt.attemptId);
+  const remove = db(env).prepare(`DELETE FROM get_me_live_publish_attempts WHERE get_me_live_order_id = ? AND attempt_id = ?`)
+    .bind(attempt.orderId, attempt.attemptId);
+  const results = await db(env).batch([insert, update, remove]);
+  return (results[2]?.meta?.changes ?? 0) === 1;
+}
+
+/**
+ * Atomic failure settlement. A failed launch marks the order failed; a failed
+ * republish or domain activation keeps the order live and records the failure on
+ * `hosting.lastReleaseFailure`. Returns true only for the call that settled it.
+ */
+export async function settlePublishFailure(env: Env, attempt: GetMeLivePublishAttempt, message: string): Promise<boolean> {
+  const at = new Date().toISOString();
+  const update = attempt.kind === 'launch'
+    ? db(env).prepare(`
+        UPDATE get_me_live_orders SET status = 'failed', failure = ?, updated_at = ?
+        WHERE order_id = ? AND ${ATTEMPT_STILL_OPEN}
+      `).bind(message, at, attempt.orderId, attempt.orderId, attempt.attemptId)
+    : db(env).prepare(`
+        UPDATE get_me_live_orders SET hosting_json = json_set(hosting_json, '$.lastReleaseFailure', json(?)), updated_at = ?
+        WHERE order_id = ? AND hosting_json IS NOT NULL AND ${ATTEMPT_STILL_OPEN}
+      `).bind(JSON.stringify({ releaseId: attempt.attemptId, message, at }), at, attempt.orderId, attempt.orderId, attempt.attemptId);
+  const remove = db(env).prepare(`DELETE FROM get_me_live_publish_attempts WHERE get_me_live_order_id = ? AND attempt_id = ?`)
+    .bind(attempt.orderId, attempt.attemptId);
+  const results = await db(env).batch([update, remove]);
+  return (results[1]?.meta?.changes ?? 0) === 1;
+}
+
+interface ReleaseRow {
+  release_id: string;
+  get_me_live_order_id: string;
+  kind: GetMeLiveReleaseKind;
+  build_id: string;
+  deployment_id: string;
+  deployment_url: string | null;
+  pages_url: string;
+  custom_domain: string | null;
+  verified_url: string;
+  verified_at: string;
+  backfilled: number;
+  receipt_json: string;
+  created_at: string;
+}
+
+function toRelease(row: ReleaseRow): GetMeLiveRelease {
+  return {
+    releaseId: row.release_id,
+    orderId: row.get_me_live_order_id,
+    kind: row.kind,
+    buildId: row.build_id,
+    deploymentId: row.deployment_id,
+    deploymentUrl: row.deployment_url || undefined,
+    pagesUrl: row.pages_url,
+    customDomain: row.custom_domain || undefined,
+    verifiedUrl: row.verified_url,
+    verifiedAt: row.verified_at,
+    backfilled: row.backfilled === 1,
+    receiptJson: row.receipt_json,
+    createdAt: row.created_at
+  };
+}
+
+export async function listGetMeLiveReleases(env: Env, orderId: string): Promise<GetMeLiveRelease[]> {
+  const result = await db(env).prepare(`
+    SELECT * FROM get_me_live_releases WHERE get_me_live_order_id = ? ORDER BY created_at, rowid
+  `).bind(orderId).all<ReleaseRow>();
+  return (result.results || []).map(toRelease);
+}
+
+export async function loadLatestGetMeLiveRelease(env: Env, orderId: string): Promise<GetMeLiveRelease | null> {
+  const row = await db(env).prepare(`
+    SELECT * FROM get_me_live_releases WHERE get_me_live_order_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1
+  `).bind(orderId).first<ReleaseRow>();
+  return row ? toRelease(row) : null;
 }
 
 /**

@@ -14,7 +14,7 @@ describe('Get Me Live product contract', () => {
 
   it('exposes the complete owner and public route surface', async () => {
     const source = await read('src/api/index.ts');
-    for (const handler of ['handleGetMeLiveCheckout','handleGetMeLiveOrders','handleGetMeLiveConfig','handleGetMeLivePreview','handleGetMeLiveCloudflareConnect','handleGetMeLiveCloudflareDisconnect','handleGetMeLiveCloudflareAccounts','handleGetMeLiveDomainSearch','handleGetMeLiveDomainRegister','handleGetMeLiveEmailSetup','handleGetMeLiveStripeConnect','handleGetMeLiveStripeStatus','handleGetMeLivePublish','handleGetMeLiveLeads','handleGetMeLiveReleaseReceipt','handleGetMeLiveStoryStudioHandoff','handlePublicGetMeLiveLead','handlePublicGetMeLiveBuy']) {
+    for (const handler of ['handleGetMeLiveCheckout','handleGetMeLiveOrders','handleGetMeLiveConfig','handleGetMeLivePreview','handleGetMeLiveCloudflareConnect','handleGetMeLiveCloudflareDisconnect','handleGetMeLiveCloudflareAccounts','handleGetMeLiveDomainSearch','handleGetMeLiveDomainRegister','handleGetMeLiveEmailSetup','handleGetMeLiveStripeConnect','handleGetMeLiveStripeStatus','handleGetMeLivePublish','handleGetMeLivePublishVerify','handleGetMeLivePublishStatus','handleGetMeLiveLeads','handleGetMeLiveReleaseReceipt','handleGetMeLiveStoryStudioHandoff','handlePublicGetMeLiveLead','handlePublicGetMeLiveBuy']) {
       expect(source).toContain(handler);
     }
   });
@@ -43,7 +43,11 @@ describe('Get Me Live safety and lineage contracts', () => {
   it('keeps an already-published customer site usable if a later republish fails', async () => {
     const source = await read('src/api/getMeLive.ts');
     expect(source).toContain('hasPublishedGetMeLiveSite');
-    expect(source).toContain("owned.status = hadPublishedSite ? 'live' : 'failed'");
+    // A failed republish settles with status kept live (hosting.lastReleaseFailure); only a launch fails the order.
+    const store = await read('src/api/getMeLiveStore.ts');
+    expect(store).toContain("attempt.kind === 'launch'");
+    expect(store).toContain("SET status = 'failed', failure = ?");
+    expect(store).toContain("'$.lastReleaseFailure'");
     expect(source).toContain('const destination = preferredPublicUrl(order)');
     expect(source).not.toContain('getMeLiveSiteUrl');
     expect(source).not.toMatch(/\$\{projectName\}\.pages\.dev/);
