@@ -36,12 +36,28 @@ await appendFile(envFile, [
   `GHOSTTOWN_E2E_GML_ORDER_ID=${gmlOrderId}`
 ].join('\n') + '\n');
 
-const preview = await fetch(apiUrl + '/api/get-me-live/orders/' + encodeURIComponent(gmlOrderId) + '/preview', {
-  method: 'POST', headers: { Authorization: 'Bearer ' + signupBody.token, 'content-type': 'application/json' }, body: '{}'
-});
-const previewText = await preview.text();
-let previewBody = null; try { previewBody = JSON.parse(previewText); } catch {}
-if (!preview.ok || !previewBody?.buildId) throw new Error(`Acceptance Get Me Live fixture preview failed HTTP ${preview.status}: ${previewBody?.error || 'unknown error'}${previewBody?.stage ? ` (stage=${previewBody.stage})` : ''}`);
+// Preview generation calls Vertex AI, which occasionally times out or returns
+// malformed JSON even after its own retries. Retry only those provider stages
+// (up to 3 attempts, 30 s apart); any other failure is a real failure.
+async function postPreview(label) {
+  let last = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const response = await fetch(apiUrl + '/api/get-me-live/orders/' + encodeURIComponent(gmlOrderId) + '/preview', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + signupBody.token, 'content-type': 'application/json' }, body: '{}'
+    });
+    const text = await response.text();
+    let body = null; try { body = JSON.parse(text); } catch {}
+    if (response.ok && body?.buildId) return body;
+    last = { status: response.status, body };
+    const providerStage = /^website_manufacturing\.vertex_/.test(String(body?.stage || ''));
+    if (!providerStage || attempt === 3) break;
+    console.warn(`[acceptance-fixture] ${label} preview attempt ${attempt} hit ${body.stage}; retrying in 30 s`);
+    await new Promise(resolve => setTimeout(resolve, 30000));
+  }
+  throw new Error(`Acceptance Get Me Live ${label} preview failed HTTP ${last?.status}: ${last?.body?.error || 'unknown error'}${last?.body?.stage ? ` (stage=${last.body.stage})` : ''}`);
+}
+
+await postPreview('fixture');
 
 const gmlApi = path => apiUrl + '/api/get-me-live/orders/' + encodeURIComponent(gmlOrderId) + path;
 const ownerHeaders = { Authorization: 'Bearer ' + signupBody.token, 'content-type': 'application/json' };
@@ -111,8 +127,7 @@ const editedConfig = structuredClone(currentConfig.body.configuration);
 editedConfig.offer.headline = `A simple test page for a synthetic acceptance journey ${nonce}`;
 const saved = await ownerJson('/config', { method: 'PUT', body: JSON.stringify(editedConfig) });
 if (!saved.response.ok) throw new Error(`Acceptance Get Me Live config save failed HTTP ${saved.response.status}: ${saved.body?.error || 'unknown error'}`);
-const repreview = await ownerJson('/preview', { method: 'POST', body: '{}' });
-if (!repreview.response.ok || !repreview.body?.buildId) throw new Error(`Acceptance Get Me Live republish preview failed HTTP ${repreview.response.status}: ${repreview.body?.error || 'unknown error'}`);
+await postPreview('republish');
 const republish = await publishAndVerify('republish');
 if (republish.pagesUrl !== launch.pagesUrl) throw new Error(`Acceptance Get Me Live republish moved the site: ${launch.pagesUrl} -> ${republish.pagesUrl}`);
 if (republish.releaseId === launch.releaseId) throw new Error('Acceptance Get Me Live republish did not create a new releaseId.');
