@@ -81,10 +81,25 @@ async function publishAndVerify(label) {
     }
   }
   if (!/^https:\/\/[a-z0-9-]+\.pages\.dev$/.test(String(pagesUrl || ''))) throw new Error(`Acceptance Get Me Live ${label} pagesUrl is not a stable pages.dev URL: ${pagesUrl}`);
-  const served = await fetch(`${pagesUrl}/?gt_verify=${encodeURIComponent(releaseId)}`, { headers: { 'Cache-Control': 'no-cache' } });
-  const servedHtml = await served.text();
-  if (served.status !== 200 || !servedHtml.includes(`<meta name="ghosttown-release-id" content="${releaseId}">`)) {
-    throw new Error(`Acceptance Get Me Live ${label} pagesUrl does not serve release ${releaseId} (HTTP ${served.status}).`);
+  // Independent cross-check from the runner. A freshly created pages.dev host can
+  // answer transient 5xx (e.g. 522) at the edge for a short while after the Worker
+  // has already observed the marker, so retry (5 s, up to 3 minutes) before failing.
+  const marker = `<meta name="ghosttown-release-id" content="${releaseId}">`;
+  const crossCheckDeadline = Date.now() + 3 * 60 * 1000;
+  let lastServed = 'no response';
+  for (;;) {
+    try {
+      const served = await fetch(`${pagesUrl}/?gt_verify=${encodeURIComponent(releaseId)}`, { headers: { 'Cache-Control': 'no-cache' } });
+      const servedHtml = await served.text();
+      if (served.status === 200 && servedHtml.includes(marker)) break;
+      lastServed = served.status === 200 ? 'HTTP 200 without this release marker' : `HTTP ${served.status}`;
+    } catch (error) {
+      lastServed = error instanceof Error ? error.message : String(error);
+    }
+    if (Date.now() > crossCheckDeadline) {
+      throw new Error(`Acceptance Get Me Live ${label} pagesUrl does not serve release ${releaseId} (${lastServed}).`);
+    }
+    await new Promise(resolve => setTimeout(resolve, 5000));
   }
   return { releaseId, pagesUrl, pagesProjectName };
 }
