@@ -39,14 +39,15 @@ export function preferredPublicUrl(order: Pick<GetMeLiveOrder, 'hosting' | 'cust
 const CLOUDFLARE_ACCOUNT_ID = /^[a-f0-9]{32}$/i;
 
 /**
- * Cloudflare Registrar's "register a new domain" page in the customer's own
- * account. Without a usable account ID, Cloudflare's account-picker deep link
- * asks the customer which account to use.
+ * Cloudflare Registrar's "Register domain" page in the customer's own account.
+ * Without a usable account ID, Cloudflare's account-picker deep link asks the
+ * customer which account to use. Both paths checked by hand on 2026-10-01;
+ * `/<account>/registrar/register` redirects to the owned-domains list instead.
  */
 export function cloudflareRegistrarUrl(accountId?: string): string {
   const id = accountId?.trim();
   return id && CLOUDFLARE_ACCOUNT_ID.test(id)
-    ? `https://dash.cloudflare.com/${id.toLowerCase()}/registrar/register`
+    ? `https://dash.cloudflare.com/${id.toLowerCase()}/domains/registrations/purchase`
     : 'https://dash.cloudflare.com/?to=/:account/registrar/register';
 }
 

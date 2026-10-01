@@ -7,8 +7,8 @@ const ACCOUNT = '0123456789abcdef0123456789ABCDEF';
 
 describe('Cloudflare Registrar handoff', () => {
   it('builds the register-a-domain URL from the selected account ID', () => {
-    expect(cloudflareRegistrarUrl(ACCOUNT)).toBe('https://dash.cloudflare.com/0123456789abcdef0123456789abcdef/registrar/register');
-    expect(cloudflareRegistrarUrl(` ${ACCOUNT} `)).toBe('https://dash.cloudflare.com/0123456789abcdef0123456789abcdef/registrar/register');
+    expect(cloudflareRegistrarUrl(ACCOUNT)).toBe('https://dash.cloudflare.com/0123456789abcdef0123456789abcdef/domains/registrations/purchase');
+    expect(cloudflareRegistrarUrl(` ${ACCOUNT} `)).toBe('https://dash.cloudflare.com/0123456789abcdef0123456789abcdef/domains/registrations/purchase');
   });
 
   it('falls back to the account picker when no usable account ID is known', () => {
