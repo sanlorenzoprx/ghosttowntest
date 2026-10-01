@@ -362,13 +362,28 @@ export async function addCloudflarePagesDomain(
 }
 export interface CloudflareZone { id: string; name: string; status: string; }
 
-/** Zones in the connected account (read-only). */
-export async function listCloudflareZones(env: Env, orderId: string, accountId: string): Promise<CloudflareZone[]> {
+/** Zones in the connected account (read-only), optionally only the one with this name. */
+export async function listCloudflareZones(env: Env, orderId: string, accountId: string, name?: string): Promise<CloudflareZone[]> {
   const params = new URLSearchParams({ 'account.id': accountId, per_page: '50' });
+  if (name) params.set('name', name.trim().toLowerCase());
   const zones = await cloudflareApi<Array<{ id?: string; name?: string; status?: string }>>(env, orderId, `/zones?${params}`);
   return zones
     .filter((zone): zone is { id: string; name: string; status?: string } => Boolean(zone.id && zone.name))
     .map(zone => ({ id: zone.id, name: zone.name.toLowerCase(), status: zone.status || 'unknown' }));
+}
+
+/** One zone by id, only if it belongs to this account (read-only). */
+export async function getCloudflareZone(env: Env, orderId: string, accountId: string, zoneId: string): Promise<CloudflareZone | null> {
+  const token = await cloudflareAccessToken(env, orderId);
+  const response = await fetch(`${CF_API}/zones/${encodeURIComponent(zoneId)}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (response.status === 404 || response.status === 403) { await response.body?.cancel(); return null; }
+  const payload = await response.json().catch(() => ({})) as { success?: boolean; result?: { id?: string; name?: string; status?: string; account?: { id?: string } }; errors?: Array<{ message?: string }> };
+  if (!response.ok || payload.success === false) {
+    throw new Error(payload.errors?.map(item => item.message).filter(Boolean).join('; ') || `Cloudflare zone lookup failed (${response.status})`);
+  }
+  const zone = payload.result;
+  if (!zone?.id || !zone.name || zone.account?.id !== accountId) return null;
+  return { id: zone.id, name: zone.name.toLowerCase(), status: zone.status || 'unknown' };
 }
 
 /** DNS records with exactly this name in the zone (read-only). */

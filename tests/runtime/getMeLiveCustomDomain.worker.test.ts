@@ -70,7 +70,15 @@ async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
   cf.calls.push(`${method} ${url.host}${url.pathname}`);
   if (url.host === "api.cloudflare.com") {
     const path = url.pathname;
-    if (path.endsWith("/zones") && method === "GET") return json({ success: true, result: cf.zones });
+    if (path.endsWith("/zones") && method === "GET") {
+      const name = url.searchParams.get("name");
+      return json({ success: true, result: name ? cf.zones.filter(zone => zone.name === name) : cf.zones });
+    }
+    const zoneMatch = path.match(/\/zones\/([^/]+)$/);
+    if (zoneMatch && method === "GET") {
+      const zone = cf.zones.find(item => item.id === zoneMatch[1]);
+      return zone ? json({ success: true, result: { ...zone, account: { id: "acct_runtime" } } }) : json({ success: false, errors: [{ message: "not found" }] }, 404);
+    }
     const dnsMatch = path.match(/\/zones\/([^/]+)\/dns_records(?:\/([^/]+))?$/);
     if (dnsMatch) {
       const name = url.searchParams.get("name") || "";
@@ -344,7 +352,9 @@ describe("Custom domain connect on real D1 (Slice 7)", () => {
       { zoneId: "zone_busy", name: "busy.com", eligible: false, reason: "This domain already has settings — use the guide." },
       { zoneId: "zone_new", name: "new.com", eligible: false, reason: "Cloudflare is still setting up this domain. Try again later." }
     ]);
+    expect((await body(await handleGetMeLiveCustomDomainZones(owner(orderId, "/custom-domain/zones?name=new.com"), env, orderId))).zones.map((zone: { name: string }) => zone.name)).toEqual(["new.com"]);
     expect((await connect(orderId, { zoneId: "zone_busy" })).status).toBe(409);
+    expect((await connect(orderId, { zoneId: "zone_other_account" })).status).toBe(404);
     expect((await connect(orderId, { zoneId: ZONE, hostname: "evil.example.com" })).status).toBe(400);
     expect((await record(orderId))).toBeUndefined();
   });

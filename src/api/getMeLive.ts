@@ -85,6 +85,7 @@ import {
   deleteCloudflarePagesDomain,
   findCloudflareZone,
   getCloudflarePagesDomain,
+  getCloudflareZone,
   listCloudflareDnsRecords,
   listCloudflarePagesDomains,
   listCloudflareZones,
@@ -1868,8 +1869,9 @@ export async function handleGetMeLiveCustomDomainZones(request: Request, env: En
   const live = liveOrderForDomains(owned);
   if (live instanceof Response) return live;
   try {
+    const name = safeText(new URL(request.url).searchParams.get('name'), 253).toLowerCase() || undefined;
     const [zones, attachedList] = await Promise.all([
-      listCloudflareZones(env, orderId, live.accountId),
+      listCloudflareZones(env, orderId, live.accountId, name),
       listCloudflarePagesDomains(env, orderId, live.accountId, live.hosting.pagesProjectName)
     ]);
     const attached = new Set(attachedList.map(domain => domain.name));
@@ -1903,7 +1905,7 @@ export async function handleGetMeLiveCustomDomainConnect(request: Request, env: 
   const existing = owned.customDomainState;
   if (existing && existing.status !== 'failed') return customDomainResponse(existing, { error: 'An address is already connected or connecting' }, 409);
   try {
-    const zone = (await listCloudflareZones(env, orderId, live.accountId)).find(item => item.id === zoneId);
+    const zone = await getCloudflareZone(env, orderId, live.accountId, zoneId);
     if (!zone) return json({ error: 'That domain is not in your connected Cloudflare account' }, 404);
     if (zone.status !== 'active') return json({ error: 'Cloudflare is still setting up this domain. Try again later.' }, 409);
     const planned = customDomainHosts(zone.name, safeText(body.hostname, 253) || undefined);
@@ -1921,7 +1923,7 @@ export async function handleGetMeLiveCustomDomainConnect(request: Request, env: 
       name: planned.name, hosts: planned.hosts, zoneId: zone.id, status: 'connecting', step: 'attach_requested',
       addedAt: new Date().toISOString()
     };
-    const written = await updateCustomDomainCas(env, orderId, existing && !existing.legacy ? existing.version : existing?.legacy && existing.version > 0 ? existing.version : null, record);
+    const written = await updateCustomDomainCas(env, orderId, existing && existing.version > 0 ? existing.version : null, record);
     if (!written) return customDomainResponse((await loadGetMeLiveOrder(env, orderId))?.customDomainState, { error: 'This address changed in another tab' }, 409);
     owned.customDomainState = record;
     const step = await reconcileCustomDomainStep(env, owned, new URL(request.url).origin);
