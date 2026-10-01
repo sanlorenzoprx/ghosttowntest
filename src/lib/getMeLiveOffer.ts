@@ -35,3 +35,30 @@ export function preferredPublicUrl(order: Pick<GetMeLiveOrder, 'hosting' | 'cust
   if (order.customDomainState?.status === 'active') return `https://${order.customDomainState.name}`;
   return order.hosting?.pagesUrl;
 }
+
+const CLOUDFLARE_ACCOUNT_ID = /^[a-f0-9]{32}$/i;
+
+/**
+ * Cloudflare Registrar's "Register domain" page in the customer's own account.
+ * Without a usable account ID, Cloudflare's account-picker deep link asks the
+ * customer which account to use. Both paths checked by hand on 2026-10-01;
+ * `/<account>/registrar/register` redirects to the owned-domains list instead.
+ */
+export function cloudflareRegistrarUrl(accountId?: string): string {
+  const id = accountId?.trim();
+  return id && CLOUDFLARE_ACCOUNT_ID.test(id)
+    ? `https://dash.cloudflare.com/${id.toLowerCase()}/domains/registrations/purchase`
+    : 'https://dash.cloudflare.com/?to=/:account/registrar/register';
+}
+
+/**
+ * Up to `limit` `.com` ideas from business-name suggestions. GhostTown does not
+ * check availability; Cloudflare confirms it and shows the current price.
+ */
+export function domainIdeas(names: string[], limit = 5): string[] {
+  const ideas = names
+    .map(name => name.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 52))
+    .filter(label => label.length > 0)
+    .map(label => `${label}.com`);
+  return [...new Set(ideas)].slice(0, limit);
+}
