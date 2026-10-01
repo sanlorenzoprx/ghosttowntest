@@ -20,7 +20,7 @@ function order(overrides: Partial<GetMeLiveOrder> = {}, businessName = "Joe's Do
   return {
     orderId: 'gml_naming_1', ownerId: 'owner@example.com', sourceSprintOrderId: 'sprint_1',
     offerId: 'ghosttown_get_me_live_v1', offerVersion: '1.0', stripePriceId: 'price', status: 'preview_ready',
-    providerState: { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false, domainReady: false },
+    providerState: { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false },
     configuration: {
       schemaVersion: 'get-me-live-config-v1',
       brand: { businessName, stylePreset: 'clean_saas' },

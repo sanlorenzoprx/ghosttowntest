@@ -10,7 +10,7 @@ function order(customDomainStatus?: GetMeLiveCustomDomain['status']): GetMeLiveO
   return {
     orderId: 'gml_returns', ownerId: 'owner@example.com', sourceSprintOrderId: 'sprint_1',
     offerId: 'ghosttown_get_me_live_v1', offerVersion: '1.0', stripePriceId: 'price', status: 'live',
-    providerState: { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false, domainReady: false },
+    providerState: { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false },
     hosting: { schemaVersion: 'get-me-live-hosting-v1', cloudflareAccountId: 'acct_1', pagesProjectName: 'proof-path', pagesSubdomain: PAGES_HOST, pagesUrl: `https://${PAGES_HOST}`, source: 'provider' },
     customDomainState: customDomainStatus ? {
       schemaVersion: 'get-me-live-custom-domain-v1', version: 1, name: 'proofpath.com', hosts: ['proofpath.com', 'www.proofpath.com'],
