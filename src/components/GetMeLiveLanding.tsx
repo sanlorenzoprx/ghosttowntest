@@ -86,7 +86,7 @@ export default function GetMeLiveLanding({ sourceSprintOrderId, isLoggedIn, onLo
           <p className="mt-3 text-gray-700">Your website lives in your Cloudflare account. GhostTown helps set it up and manage it. You can remove our access later.</p>
         </article>        <article className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
           <h2 className="text-2xl font-black text-ghost-ink">What may cost extra</h2>
-          <p className="mt-3 text-gray-700">Cloudflare may charge for your domain. Stripe charges its normal payment fees. We show a domain price before you approve a purchase.</p>
+          <p className="mt-3 text-gray-700">Your website goes live on a free Cloudflare address first. If you later want your own domain, you buy it from Cloudflare at their price. Stripe charges its normal payment fees.</p>
         </article>
       </div>
     </section>
