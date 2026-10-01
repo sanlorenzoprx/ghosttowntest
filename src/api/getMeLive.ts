@@ -88,9 +88,10 @@ function configuredPriceId(env: Env): string {
 
 function getMeLiveSiteUrl(order: GetMeLiveOrder): string | undefined {
   if (order.customDomain) return `https://${order.customDomain}`;
+  if (order.publicUrl) return order.publicUrl;
   const projectName = order.configuration?.domain.pagesProjectName || projectNameFor(order.orderId);
   if (projectName) return `https://${projectName}.pages.dev`;
-  return order.publicUrl;
+  return undefined;
 }
 
 function hasPublishedGetMeLiveSite(order: GetMeLiveOrder): boolean {
