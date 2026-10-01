@@ -481,7 +481,7 @@ export async function handleGetMeLiveOrders(request: Request, env: Env): Promise
       leadCount, salesCount: activity.sales, salesValueCents: activity.revenueCents,
       visitCount: activity.visits, shareCount: activity.shares,
       recentActivity: activity.sales > 0 ? 'You made a sale' : leadCount > 0 ? 'Someone is interested' : hasPublishedGetMeLiveSite(order) ? 'Your page is ready for customers' : 'Your page is being prepared',
-      emailStatus: order.providerState.businessEmailVerified ? 'ready' : order.configuration?.domain.selectedDomain ? 'pending' : 'not_started',
+      emailStatus: order.providerState.businessEmailVerified ? 'ready' : order.customDomainState?.status === 'active' ? 'pending' : 'not_started',
       paymentStatus: order.providerState.stripeConnected ? 'ready' : order.configuration?.offer.intent === 'buy' ? 'pending' : 'not_requested',
       cloudflareConnected: order.providerState.cloudflareConnected, createdAt: order.createdAt, updatedAt: order.updatedAt
     };
@@ -930,32 +930,37 @@ export async function handleGetMeLiveCloudflareAccounts(request: Request, env: E
   try { return json({ accounts: await listCloudflareAccounts(env, orderId) }); }
   catch (error) { return json({ error: error instanceof Error ? error.message : 'Cloudflare accounts unavailable' }, 409); }
 }
+/**
+ * Optional business email (plan §10). Offered only after the custom domain is
+ * active; it never blocks publishing or completion.
+ */
 export async function handleGetMeLiveEmailSetup(request: Request, env: Env, orderId: string): Promise<Response> {
   const owned = await ownedGetMeLiveOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
   const config = owned.configuration;
-  if (!config?.domain.cloudflareAccountId || !config.domain.selectedDomain) {
-    return json({ error: 'Connect or register your domain before business email setup' }, 409);
+  const domain = owned.customDomainState;
+  if (!config || domain?.status !== 'active') {
+    return json({ error: 'Connect your own web address first. Business email is available once it is active.' }, 409);
   }
+  if (!domain.hosts.includes(`www.${domain.name}`)) {
+    return json({ error: 'Business email works with your main domain, not a sub-address.' }, 409);
+  }
+  const accountId = config.domain.cloudflareAccountId || owned.hosting?.cloudflareAccountId;
+  if (!accountId) return json({ error: 'Reconnect Cloudflare to set up business email' }, 409);
   try {
-    let zoneId = config.domain.cloudflareZoneId;
-    if (!zoneId) {
-      const zone = await findCloudflareZone(env, orderId, config.domain.cloudflareAccountId, config.domain.selectedDomain);
-      zoneId = zone?.id;
-      if (zoneId) config.domain.cloudflareZoneId = zoneId;
-    }
-    if (!zoneId) return json({ error: 'Cloudflare DNS zone is not ready yet. Try again after domain activation.' }, 425);
+    const zoneId = domain.zoneId || (await findCloudflareZone(env, orderId, accountId, domain.name))?.id;
+    if (!zoneId) return json({ error: 'Cloudflare could not find this domain. Try again in a few minutes.' }, 425);
     const routed = await configureCloudflareEmailRouting(env, orderId, {
-      accountId: config.domain.cloudflareAccountId,
+      accountId,
       zoneId,
-      domain: config.domain.selectedDomain,
+      domain: domain.name,
       localPart: config.contact.businessEmailLocalPart || 'hello',
       destinationEmail: config.contact.leadDestinationEmail
     });
     owned.providerState.businessEmailVerified = routed.verified;
     owned.updatedAt = new Date().toISOString();
     await updateGetMeLiveOrder(env, owned);
-    return json({ businessEmail: routed.businessEmail, verified: routed.verified, actionRequired: routed.verified ? undefined : 'Verify the destination email Cloudflare sent you, then run setup again.' }, routed.verified ? 200 : 202);
+    return json({ businessEmail: routed.businessEmail, verified: routed.verified, actionRequired: routed.verified ? undefined : 'Open the email Cloudflare sent to your inbox and confirm it, then choose Check again.' }, routed.verified ? 200 : 202);
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : 'Business email setup failed' }, 502);
   }
