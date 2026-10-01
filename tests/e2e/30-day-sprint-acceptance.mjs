@@ -223,8 +223,19 @@ try {
     savedNotes.set(day.dayNumber, note);
     const noteField = page.getByLabel('Execution note');
     await noteField.fill(note);
+    const noteSaveResponse = page.waitForResponse(response =>
+      response.url() === progressUrl
+      && response.request().method() === 'POST',
+    { timeout: 15000 });
     await noteField.blur();
+    const savedNoteResponse = await noteSaveResponse;
+    if (!savedNoteResponse.ok()) {
+      throw new Error(`Day ${day.dayNumber} execution note save failed HTTP ${savedNoteResponse.status()}.`);
+    }
     await waitSaved(page);
+    await page.getByText(`Before Day ${day.dayNumber} can be completed:`, { exact: true })
+      .waitFor({ state: 'hidden', timeout: 15000 })
+      .catch(() => undefined);
 
     if (checkpoints.has(day.dayNumber)) {
       await saveCheckpoint(page, day.dayNumber);
