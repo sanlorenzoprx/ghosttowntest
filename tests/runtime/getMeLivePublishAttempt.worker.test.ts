@@ -71,6 +71,7 @@ const cf = {
   deployments: 0,
   uploadedRelease: "",
   calls: [] as string[],
+  projects: new Set<string>(),
   onDeploy: null as null | (() => Promise<void>)
 };
 
@@ -83,7 +84,14 @@ async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
   if (url.host === "api.cloudflare.com") {
     const path = url.pathname;
     if (/\/pages\/projects\/[^/]+$/.test(path) && method === "GET") {
-      return json({ success: true, result: { name: decodeURIComponent(path.split("/").pop() || ""), subdomain: PAGES_HOST } });
+      const name = decodeURIComponent(path.split("/").pop() || "");
+      if (!cf.projects.has(name)) return json({ success: false, errors: [{ message: "not found" }] }, 404);
+      return json({ success: true, result: { name, subdomain: PAGES_HOST } });
+    }
+    if (path.endsWith("/pages/projects") && method === "POST") {
+      const { name } = JSON.parse(String(init?.body)) as { name: string };
+      cf.projects.add(name);
+      return json({ success: true, result: { name, subdomain: PAGES_HOST } });
     }
     if (path.endsWith("/upload-token")) return json({ success: true, result: { jwt: "jwt_runtime" } });
     if (path.endsWith("/pages/assets/check-missing")) return json({ success: true, result: JSON.parse(String(init?.body)).hashes });
@@ -176,7 +184,7 @@ const past = () => new Date(Date.now() - 1000).toISOString();
 const future = () => new Date(Date.now() + 60_000).toISOString();
 
 beforeEach(async () => {
-  Object.assign(cf, { served: "", autoServe: true, deployments: 0, uploadedRelease: "", calls: [], onDeploy: null });
+  Object.assign(cf, { served: "", autoServe: true, deployments: 0, uploadedRelease: "", calls: [], projects: new Set<string>(), onDeploy: null });
   vi.stubGlobal("fetch", vi.fn(fakeFetch));
   token = await signup();
 });
