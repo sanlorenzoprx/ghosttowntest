@@ -6,12 +6,14 @@ import { ingestObservedEvidenceEvent } from './evidenceIngestion';
 import type { Env } from './env';
 import {
   GHOSTTOWN_GET_ME_LIVE_V1,
-  DEFAULT_GET_ME_LIVE_DISPLAY_PRICE
+  DEFAULT_GET_ME_LIVE_DISPLAY_PRICE,
+  preferredPublicUrl
 } from '../lib/getMeLiveOffer';
 import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
 import type {
   GetMeLiveAsset,
   GetMeLiveConfiguration,
+  GetMeLiveHosting,
   GetMeLiveLeadMagnet,
   GetMeLiveOrder,
   GetMeLiveProviderState,
@@ -38,6 +40,7 @@ import {
   listGetMeLiveOrders,
   markGetMeLiveAssetPublished,
   orderGetMeLiveAssets,
+  recordHosting,
   removeGetMeLiveAsset,
   saveGetMeLiveAsset,
   saveGetMeLiveLead,
@@ -46,7 +49,6 @@ import {
   updateGetMeLiveOrder
 } from './getMeLiveStore';
 import {
-  addCloudflarePagesDomain,
   checkCloudflareDomain,
   completeCloudflareAuthorization,
   configureCloudflareEmailRouting,
@@ -56,13 +58,16 @@ import {
   createStripeOnboardingLink,
   deployCloudflarePagesHtml,
   disconnectCloudflareAuthorization,
+  ensurePagesProject,
   findCloudflareZone,
   getCloudflareRegistrationStatus,
+  getPagesProject,
   loadCloudflareAuthorizationState,
   listCloudflareAccounts,
   registerCloudflareDomain,
   retrieveStripeConnectedMerchant,
-  searchCloudflareDomains
+  searchCloudflareDomains,
+  type PagesProject
 } from './getMeLiveProviders';
 
 const json = (body: unknown, status = 200, headers: HeadersInit = {}) => new Response(JSON.stringify(body), {
@@ -86,12 +91,76 @@ function configuredPriceId(env: Env): string {
   return env.STRIPE_GET_ME_LIVE_PRICE_ID?.trim() || '';
 }
 
-function getMeLiveSiteUrl(order: GetMeLiveOrder): string | undefined {
-  if (order.customDomain) return `https://${order.customDomain}`;
-  if (order.publicUrl) return order.publicUrl;
-  const projectName = order.configuration?.domain.pagesProjectName || projectNameFor(order.orderId);
-  if (projectName) return `https://${projectName}.pages.dev`;
-  return undefined;
+function hostingFromProject(accountId: string, project: PagesProject, source: GetMeLiveHosting['source'], previous?: GetMeLiveHosting): GetMeLiveHosting {
+  return {
+    schemaVersion: 'get-me-live-hosting-v1',
+    cloudflareAccountId: accountId,
+    pagesProjectName: project.name,
+    pagesSubdomain: project.subdomain,
+    pagesUrl: `https://${project.subdomain}`,
+    lastReleaseFailure: previous?.lastReleaseFailure,
+    source
+  };
+}
+
+/** `<label>.<sub>.pages.dev` (deployment hash or alias) → `<sub>.pages.dev`; `<sub>.pages.dev` → itself. */
+export function legacyPagesSubdomain(url: string | undefined): string | null {
+  if (!url) return null;
+  let host: string;
+  try { host = new URL(url).hostname.toLowerCase(); } catch { return null; }
+  const labels = host.split('.');
+  if (labels.length < 3 || labels.slice(-2).join('.') !== 'pages.dev' || labels.some(label => !/^[a-z0-9-]+$/.test(label))) return null;
+  if (labels.length === 3) return host;
+  if (labels.length === 4) return labels.slice(1).join('.');
+  return null;
+}
+
+/**
+ * Legacy hosting normalization (plan §20.1): the one write a GET path may make.
+ * Applies only to published orders that predate `hosting_json`. It reads the
+ * provider project when Cloudflare is reachable, otherwise derives the stable
+ * Pages host from the stored URL, and never calls a provider write API.
+ */
+async function normalizeLegacyHosting(env: Env, order: GetMeLiveOrder): Promise<GetMeLiveOrder> {
+  if (order.hosting) return order;
+  const storedUrl = order.publicUrl || order.deploymentReceipt?.publicUrl;
+  if (!storedUrl && !order.deploymentReceipt) return order;
+  const accountId = order.configuration?.domain.cloudflareAccountId || '';
+  const pagesProjectName = order.configuration?.domain.pagesProjectName || projectNameFor(order.orderId);
+  try {
+    let hosting: GetMeLiveHosting | undefined;
+    if (accountId && order.providerState.cloudflareConnected) {
+      const project = await getPagesProject(env, order.orderId, accountId, pagesProjectName).catch(() => null);
+      if (project) hosting = hostingFromProject(accountId, project, 'provider');
+    }
+    if (!hosting) {
+      const subdomain = legacyPagesSubdomain(storedUrl);
+      if (subdomain) hosting = hostingFromProject(accountId, { name: pagesProjectName, subdomain }, 'derived_from_legacy');
+    }
+    if (!hosting) return order;
+    await recordHosting(env, order.orderId, hosting, { publicUrl: hosting.pagesUrl });
+    return { ...order, hosting, publicUrl: hosting.pagesUrl };
+  } catch (error) {
+    console.warn('Get Me Live legacy hosting normalization skipped', { orderId: order.orderId, error });
+    return order;
+  }
+}
+
+// Backoff between checks of the stable Pages URL (~60 s total, ~13 subrequests).
+const PAGES_READY_BACKOFF_MS = [2_000, 3_000, 5_000, 5_000, 5_000, 5_000, 5_000, 5_000, 5_000, 5_000, 5_000, 5_000];
+
+/** Interim readiness check (replaced by release-marker verification in Slice 1b). */
+async function waitForPagesUrl(pagesUrl: string): Promise<boolean> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const response = await fetch(pagesUrl, { method: 'GET', redirect: 'follow', headers: { 'Cache-Control': 'no-cache' } });
+      await response.body?.cancel();
+      if (response.status === 200) return true;
+    } catch { /* not reachable yet */ }
+    const delay = PAGES_READY_BACKOFF_MS[attempt];
+    if (delay === undefined) return false;
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
 }
 
 function hasPublishedGetMeLiveSite(order: GetMeLiveOrder): boolean {
@@ -121,7 +190,7 @@ async function ownedGetMeLiveOrder(request: Request, env: Env, orderId: string):
   if (!order || normalizeEmail(order.ownerId) !== normalizeEmail(auth.email)) {
     return json({ error: 'Get Me Live order not found' }, 404);
   }
-  return order;
+  return normalizeLegacyHosting(env, order);
 }
 
 function businessNameSuggestions(blueprint: GhostTownLaunchBlueprint): string[] {
@@ -360,7 +429,7 @@ export async function fulfillGetMeLiveOrder(
 export async function handleGetMeLiveOrders(request: Request, env: Env): Promise<Response> {
   const auth = await authenticateRequest(request, env);
   if (!auth) return json({ error: 'Authentication required' }, 401);
-  const orders = await listGetMeLiveOrders(env, normalizeEmail(auth.email));
+  const orders = await Promise.all((await listGetMeLiveOrders(env, normalizeEmail(auth.email))).map(order => normalizeLegacyHosting(env, order)));
   const summaries = await Promise.all(orders.map(async order => {
     const [leadCount, activity] = await Promise.all([
       countGetMeLiveLeads(env, order.orderId),
@@ -405,7 +474,10 @@ export async function handleGetMeLiveConfig(request: Request, env: Env, orderId:
   if (request.method !== 'POST' && request.method !== 'PUT') return json({ error: 'Method not allowed' }, 405);
   try {
     const body = await request.json<GetMeLiveConfiguration>();
-    owned.configuration = normalizeConfiguration(body);
+    const next = normalizeConfiguration(body);
+    // The Pages project name is server-owned; clients cannot choose or change it.
+    next.domain.pagesProjectName = owned.configuration?.domain.pagesProjectName;
+    owned.configuration = next;
     owned.status = hasPublishedGetMeLiveSite(owned) ? 'live' : 'configuring';
     owned.updatedAt = new Date().toISOString();
     await updateGetMeLiveOrder(env, owned);
@@ -990,10 +1062,20 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
 
   const config = owned.configuration;
   const accountId = config.domain.cloudflareAccountId!;
-  const projectName = config.domain.pagesProjectName || projectNameFor(orderId);
-  const expectedLiveUrl = config.domain.selectedDomain && owned.providerState.domainReady
-    ? `https://${config.domain.selectedDomain}`
-    : `https://${projectName}.pages.dev`;
+  // Resolve the Pages project first: the provider-returned subdomain is the only
+  // source for the stable customer URL. Persist it before deploying so a retried
+  // publish reuses the same project.
+  let hosting: GetMeLiveHosting;
+  try {
+    const project = await ensurePagesProject(env, orderId, accountId, owned.hosting?.pagesProjectName || config.domain.pagesProjectName || projectNameFor(orderId));
+    hosting = hostingFromProject(accountId, project, 'provider', owned.hosting);
+    await recordHosting(env, orderId, hosting);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'Cloudflare Pages is unavailable' }, 502);
+  }
+  owned.hosting = hosting;
+  const pagesUrl = hosting.pagesUrl;
+  const canonicalUrl = preferredPublicUrl(owned) || pagesUrl;
   const storedAssets = await listGetMeLiveAssets(env, orderId);
   const deployedFiles: Array<{ path: string; contentType: string; bytes: ArrayBuffer }> = [];
   for (const asset of storedAssets) {
@@ -1002,7 +1084,7 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
     const path = `assets/${asset.assetId}.${extensionFor(asset.contentType)}`;
     deployedFiles.push({ path, contentType: asset.contentType, bytes });
   }
-  const social = new TextEncoder().encode(socialSvg(config, expectedLiveUrl));
+  const social = new TextEncoder().encode(socialSvg(config, canonicalUrl));
   deployedFiles.push({ path: 'og.svg', contentType: 'image/svg+xml', bytes: social.buffer });
   const publishedAssets = stored.preview.assets.map(asset => {
     const uploaded = storedAssets.find(item => item.assetId === asset.assetId);
@@ -1025,8 +1107,8 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
     secondaryActionUrl: '#contact',
     leadActionUrl,
     leadMagnet: leadMagnetConfig,
-    canonicalUrl: expectedLiveUrl,
-    socialImageUrl: `${expectedLiveUrl}/og.svg`,
+    canonicalUrl,
+    socialImageUrl: `${canonicalUrl}/og.svg`,
     attributionUrl: `${env.FRONTEND_URL?.replace(/\/$/, '') || origin}/get-me-live?from=customer-site`,
     showFriendShare: true,
     activityUrl: `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/activity`
@@ -1041,24 +1123,18 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
   owned.updatedAt = new Date().toISOString();
   await updateGetMeLiveOrder(env, owned);
   try {
-    const deployment = await deployCloudflarePagesHtml(env, orderId, accountId, projectName, publicHtml, deployedFiles);
-    config.domain.pagesProjectName = projectName;
-    let customDomain: string | undefined;
-    const selectedDomain = config.domain.selectedDomain;
-    if (selectedDomain && owned.providerState.domainReady) {
-      const attached = await addCloudflarePagesDomain(env, orderId, accountId, projectName, selectedDomain);
-      customDomain = attached.name;
-    }
-    owned.publicUrl = deployment.publicUrl;
-    owned.customDomain = customDomain;
+    // Publication never attaches a custom domain: a domain problem must not be
+    // able to fail a deployment that succeeded.
+    const deployment = await deployCloudflarePagesHtml(env, orderId, accountId, hosting.pagesProjectName, publicHtml, deployedFiles);
+    owned.publicUrl = pagesUrl;
     owned.status = 'live';
     owned.publishedAt = new Date().toISOString();
     owned.updatedAt = owned.publishedAt;
     owned.deploymentReceipt = {
       deploymentId: deployment.deploymentId,
       buildId: stored.preview.build.buildId,
-      publicUrl: deployment.publicUrl,
-      customDomain,
+      publicUrl: pagesUrl,
+      deploymentUrl: deployment.deploymentUrl,
       publishedAt: owned.publishedAt
     };
     owned.failure = undefined;
@@ -1067,11 +1143,15 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
     }
     await saveGetMeLivePreview(env, orderId, stored.preview, publicHtml);
     await updateGetMeLiveOrder(env, owned);
-    await recordCommercialFunnelEvent(env, "get_me_live_live_completed", { ownerId: owned.ownerId, orderId: owned.orderId, source: "get_me_live", content: owned.customDomain || owned.publicUrl }).catch(() => undefined);
+    // Interim readiness (Slice 1a): the production alias can briefly answer 5xx
+    // right after a deploy, so wait for the stable Pages URL before returning.
+    if (!await waitForPagesUrl(pagesUrl)) console.warn('Get Me Live Pages URL was not ready within the publish budget', { orderId, pagesUrl });
+    await recordCommercialFunnelEvent(env, "get_me_live_live_completed", { ownerId: owned.ownerId, orderId: owned.orderId, source: "get_me_live", content: preferredPublicUrl(owned) || pagesUrl }).catch(() => undefined);
     return json({
       status: owned.status,
-      publicUrl: owned.publicUrl,
-      customDomain: owned.customDomain,
+      pagesUrl,
+      publicUrl: pagesUrl,
+      pagesProjectName: hosting.pagesProjectName,
       deploymentId: deployment.deploymentId,
       paymentMode: config.offer.intent === 'buy' && !paymentReady ? 'lead_until_stripe_ready' : paymentReady ? 'connected_checkout' : 'lead',
       businessEmailReady: owned.providerState.businessEmailVerified
@@ -1087,7 +1167,7 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
 
 function launchShareTexts(order: GetMeLiveOrder): string[] {
   const config = order.configuration!;
-  const liveUrl = getMeLiveSiteUrl(order) || '';
+  const liveUrl = preferredPublicUrl(order) || '';
   const offer = config.offer.offer || config.brand.businessName;
   return [
     `${config.brand.businessName} is live. ${config.offer.headline || `Take a look at ${offer}.`} ${liveUrl}`,
@@ -1130,7 +1210,7 @@ export async function handleGetMeLiveSharePack(request: Request, env: Env, order
     drafts = drafts.map(item => item.draftId === draft.draftId ? draft : item);
   }
   const activity = await getGetMeLiveActivity(env, orderId, owned.sourceSprintOrderId);
-  const liveUrl = getMeLiveSiteUrl(owned);
+  const liveUrl = preferredPublicUrl(owned);
   const milestoneType: GetMeLiveShareDraftType | undefined = activity.sales > 0 ? 'milestone_sale' : (await countGetMeLiveLeads(env, orderId)) > 0 ? 'milestone_lead' : undefined;
   const milestoneText = milestoneType === 'milestone_sale'
     ? `A customer bought from ${owned.configuration.brand.businessName}. Small step, real progress. ${liveUrl}`
@@ -1185,7 +1265,7 @@ export async function handleGetMeLiveStoryStudioHandoff(request: Request, env: E
   if (owned instanceof Response) return owned;
   if (!owned.configuration || !hasPublishedGetMeLiveSite(owned)) return json({ error: 'Go live before opening Story Studio' }, 409);
   const leadCount = await countGetMeLiveLeads(env, orderId);
-  const liveUrl = getMeLiveSiteUrl(owned);
+  const liveUrl = preferredPublicUrl(owned);
   return json({ handoff: {
     schemaVersion: 'ghosttown-story-studio-handoff-v1',
     sourceSprintOrderId: owned.sourceSprintOrderId, sourceBlueprintId: owned.sourceBlueprintId, getMeLiveOrderId: owned.orderId,
@@ -1202,7 +1282,7 @@ export async function handleGetMeLiveReleaseReceipt(request: Request, env: Env, 
   const deployment = owned.deploymentReceipt;
   if (!deployment) return json({ error: 'A deployment receipt was not recorded for this launch' }, 409);
 
-  const liveUrl = getMeLiveSiteUrl(owned);
+  const liveUrl = preferredPublicUrl(owned);
   if (!liveUrl) return json({ error: 'The live page address is unavailable' }, 409);
   let customerPageReachable = false;
   let customerPageHttpStatus: number | undefined;
@@ -1232,7 +1312,7 @@ export async function handleGetMeLiveReleaseReceipt(request: Request, env: Env, 
     offerId: owned.offerId,
     offerVersion: owned.offerVersion,
     provider: 'cloudflare_pages',
-    pagesProjectName: owned.configuration.domain.pagesProjectName || projectNameFor(owned.orderId),
+    pagesProjectName: owned.hosting?.pagesProjectName || owned.configuration.domain.pagesProjectName || projectNameFor(owned.orderId),
     deploymentId: deployment.deploymentId,
     buildId: deployment.buildId,
     liveUrl,
@@ -1258,8 +1338,9 @@ export async function handleGetMeLiveLeads(request: Request, env: Env, orderId: 
   return json({ leads: await listGetMeLiveLeads(env, orderId) });
 }
 export async function handlePublicGetMeLiveLead(request: Request, env: Env, orderId: string): Promise<Response> {
-  const order = await loadGetMeLiveOrder(env, orderId);
-  if (!order || !hasPublishedGetMeLiveSite(order)) return new Response('Page not found', { status: 404 });
+  const loaded = await loadGetMeLiveOrder(env, orderId);
+  if (!loaded || !hasPublishedGetMeLiveSite(loaded)) return new Response('Page not found', { status: 404 });
+  const order = await normalizeLegacyHosting(env, loaded);
   let body: { name?: string; email?: string; message?: string; consent?: string | boolean } = {};
   const contentType = request.headers.get('content-type') || '';
   try {
@@ -1299,21 +1380,23 @@ export async function handlePublicGetMeLiveLead(request: Request, env: Env, orde
   }
   await recordCommercialFunnelEvent(env, "get_me_live_lead_captured", { orderId: order.sourceSprintOrderId, source: "get_me_live", content: orderId }).catch(() => undefined);
   if (contentType.includes('application/json')) return json({ received: true, leadId }, 201, { 'Cache-Control': 'no-store' });
-  const destination = getMeLiveSiteUrl(order);
+  const destination = preferredPublicUrl(order);
   return redirect(`${destination || '/'}${destination?.includes('?') ? '&' : '?'}lead=received`, 303);
 }
 
 export async function handlePublicGetMeLiveBuy(_request: Request, env: Env, orderId: string): Promise<Response> {
-  const order = await loadGetMeLiveOrder(env, orderId);
-  if (!order || !hasPublishedGetMeLiveSite(order) || !order.configuration) return new Response('Page not found', { status: 404 });
+  const loaded = await loadGetMeLiveOrder(env, orderId);
+  if (!loaded || !hasPublishedGetMeLiveSite(loaded) || !loaded.configuration) return new Response('Page not found', { status: 404 });
+  const order = await normalizeLegacyHosting(env, loaded);
+  if (!order.configuration) return new Response('Page not found', { status: 404 });
   const config = order.configuration;
   const accountId = config.payments.stripeConnectedAccountId;
   if (config.offer.intent !== 'buy' || !accountId || !config.payments.chargesEnabled || !order.providerState.stripeConnected) {
-    const destination = getMeLiveSiteUrl(order);
+    const destination = preferredPublicUrl(order);
     return redirect(`${destination || '/'}${destination?.includes('?') ? '&' : '?'}payment=not-ready`, 303);
   }
   if (!config.offer.price) return new Response('This offer does not have a payment price yet.', { status: 409 });
-  const site = getMeLiveSiteUrl(order);
+  const site = preferredPublicUrl(order);
   if (!site) return new Response('Page is not published yet.', { status: 409 });
   try {
     const session = await createConnectedCheckoutSession(env, {
