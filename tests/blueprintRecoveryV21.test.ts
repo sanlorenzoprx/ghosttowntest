@@ -60,13 +60,18 @@ function fakeEnvironment(blueprint: GhostTownLaunchBlueprint, ownerId: string) {
             };
           }
           if (sql.includes('FROM launch_blueprint_progress')) {
-            return progressJson ? { progress_json: progressJson } : null;
+            return progressJson ? { owner_id: ownerId, progress_json: progressJson } : null;
           }
           return null;
         },
         async run() {
           if (sql.includes('INSERT INTO launch_blueprint_progress')) {
             progressJson = String(bindings[2]);
+          }
+          // Compare-and-swap update: (progress_json, updated_at, order_id, owner_id, expected progress_json).
+          if (sql.includes('UPDATE launch_blueprint_progress')) {
+            if (progressJson !== bindings[4]) return { success: true, meta: { changes: 0 } };
+            progressJson = String(bindings[0]);
           }
           return { success: true, meta: { changes: 1 } };
         }

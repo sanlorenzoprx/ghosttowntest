@@ -243,6 +243,10 @@ export default function LaunchBlueprintViewV21({ orderId, onBack, initialPayload
   const [selectedActionDay, setSelectedActionDay] = useState<number | null>(null);
   const [openedAssetId, setOpenedAssetId] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
+  // Saves go out one at a time. Each request carries the newest local snapshot plus
+  // every explicit day completion change since the last successful save, so an
+  // older response can never roll the page (or the server) back.
+  const saveQueue = useRef<{ inFlight: boolean; pending: BlueprintProgressV21 | null; dayChanges: Array<{ dayNumber: number; completed: boolean }> }>({ inFlight: false, pending: null, dayChanges: [] });
   const pendingKey = `ghosttown-blueprint-progress-pending:${orderId}`;
   const { blueprint, progress } = payload;
 
@@ -259,25 +263,45 @@ export default function LaunchBlueprintViewV21({ orderId, onBack, initialPayload
     }
   }, [pendingKey]);
 
-  const persist = async (next: BlueprintProgressV21) => {
+  const persist = async (next: BlueprintProgressV21, dayChange?: { dayNumber: number; completed: boolean }) => {
     setPayload(current => ({ ...current, progress: next }));
     localStorage.setItem(pendingKey, JSON.stringify(next));
     setSaveState("saving");
     setSaveError("");
+    const queue = saveQueue.current;
+    queue.pending = next;
+    if (dayChange) queue.dayChanges.push(dayChange);
+    if (queue.inFlight) return;
+    queue.inFlight = true;
     try {
-      const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/progress`), {
-        method: "POST",
-        headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify(next),
-      });
-      const body = await response.json<{ progress?: BlueprintProgressV21; error?: string }>();
-      if (!response.ok || !body.progress) throw new Error(body.error || "Execution progress could not be saved");
-      localStorage.removeItem(pendingKey);
-      setPayload(current => ({ ...current, progress: body.progress! }));
-      setSaveState("saved");
-    } catch (caught) {
-      setSaveState("error");
-      setSaveError(caught instanceof Error ? caught.message : "Execution progress could not be saved");
+      while (queue.pending) {
+        const snapshot = queue.pending;
+        const dayChanges = queue.dayChanges;
+        queue.pending = null;
+        queue.dayChanges = [];
+        try {
+          const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/progress`), {
+            method: "POST",
+            headers: { ...authHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify(dayChanges.length ? { ...snapshot, completedDayChanges: dayChanges } : snapshot),
+          });
+          const body = await response.json<{ progress?: BlueprintProgressV21; error?: string }>();
+          if (!response.ok || !body.progress) throw new Error(body.error || "Execution progress could not be saved");
+          if (!queue.pending) {
+            localStorage.removeItem(pendingKey);
+            setPayload(current => ({ ...current, progress: body.progress! }));
+            setSaveState("saved");
+          }
+        } catch (caught) {
+          // Keep unsent completion changes for the retry; the retry resends the current snapshot.
+          queue.dayChanges = [...dayChanges, ...queue.dayChanges];
+          queue.pending = null;
+          setSaveState("error");
+          setSaveError(caught instanceof Error ? caught.message : "Execution progress could not be saved");
+        }
+      }
+    } finally {
+      queue.inFlight = false;
     }
   };
 
@@ -300,8 +324,9 @@ export default function LaunchBlueprintViewV21({ orderId, onBack, initialPayload
 
   const markDay = (dayNumber: number) => {
     const set = new Set(progress.completedDays || []);
-    set.has(dayNumber) ? set.delete(dayNumber) : set.add(dayNumber);
-    void persist({ ...progress, completedDays: [...set].sort((a, b) => a - b) });
+    const completed = !set.has(dayNumber);
+    completed ? set.add(dayNumber) : set.delete(dayNumber);
+    void persist({ ...progress, completedDays: [...set].sort((a, b) => a - b) }, { dayNumber, completed });
   };
 
   const scheduleReminder = (kind: ScheduledReminderV21["kind"], dueAt: string, refs: Partial<ScheduledReminderV21>) => {
