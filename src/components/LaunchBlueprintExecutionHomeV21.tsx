@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 import { recordCommercialEvent } from '../lib/commercialAttribution';
 import { dayCompletionReadiness } from '../lib/blueprintExecutionCompletion';
+import { createProgressSaveQueue, type CompletedDayChange, type ProgressSaveQueue } from '../lib/blueprintProgressSaveQueue';
 import LaunchBlueprintViewV21, {
   type BlueprintProgressV21,
   type BlueprintV21Payload,
@@ -77,6 +78,8 @@ export default function LaunchBlueprintExecutionHomeV21({
   const [saveError, setSaveError] = useState('');
   const [completionError, setCompletionError] = useState('');
   const [executionNoteDrafts, setExecutionNoteDrafts] = useState<Record<string, string>>({});
+  const [workspaceDay, setWorkspaceDay] = useState<number | undefined>(undefined);
+  const saveQueue = useRef<ProgressSaveQueue<BlueprintProgressV21> | null>(null);
   const pendingKey = `ghosttown-blueprint-progress-pending:${orderId}`;
   const { blueprint, progress } = payload;
   const completed = useMemo(() => new Set(progress.completedDays || []), [progress.completedDays]);
@@ -117,28 +120,36 @@ export default function LaunchBlueprintExecutionHomeV21({
     return [...byId.values()].sort((left, right) => left.dayNumber - right.dayNumber || left.title.localeCompare(right.title));
   }, [blueprint.dailyCalendar]);
 
-  const persist = async (next: BlueprintProgressV21): Promise<boolean> => {
+  // One save at a time, latest snapshot wins, explicit day changes (see blueprintProgressSaveQueue).
+  if (!saveQueue.current) {
+    saveQueue.current = createProgressSaveQueue<BlueprintProgressV21>(async (snapshot, dayChanges: CompletedDayChange[]) => {
+      const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/progress`), {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(dayChanges.length ? { ...snapshot, completedDayChanges: dayChanges } : snapshot),
+      });
+      const body = await response.json<{ progress?: BlueprintProgressV21; error?: string }>();
+      if (!response.ok || !body.progress) throw new Error(body.error || 'Execution progress could not be saved');
+      return body.progress;
+    }, {
+      applied: saved => {
+        localStorage.removeItem(pendingKey);
+        setPayload(current => ({ ...current, progress: saved }));
+        setSaveState('saved');
+      },
+      failed: error => {
+        setSaveState('error');
+        setSaveError(error instanceof Error ? error.message : 'Execution progress could not be saved');
+      },
+    });
+  }
+
+  const persist = (next: BlueprintProgressV21, dayChange?: CompletedDayChange): Promise<boolean> => {
     setPayload(current => ({ ...current, progress: next }));
     localStorage.setItem(pendingKey, JSON.stringify(next));
     setSaveState('saving');
     setSaveError('');
-    try {
-      const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/progress`), {
-        method: 'POST',
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(next),
-      });
-      const body = await response.json<{ progress?: BlueprintProgressV21; error?: string }>();
-      if (!response.ok || !body.progress) throw new Error(body.error || 'Execution progress could not be saved');
-      localStorage.removeItem(pendingKey);
-      setPayload(current => ({ ...current, progress: body.progress! }));
-      setSaveState('saved');
-      return true;
-    } catch (error) {
-      setSaveState('error');
-      setSaveError(error instanceof Error ? error.message : 'Execution progress could not be saved');
-      return false;
-    }
+    return saveQueue.current!.save(next, dayChange);
   };
 
   const returnFromWorkspace = async () => {
@@ -204,7 +215,7 @@ export default function LaunchBlueprintExecutionHomeV21({
       nextProgress.completedDays = [...nextCompleted].sort((a, b) => a - b);
     }
     setCompletionError('');
-    const saved = await persist(nextProgress);
+    const saved = await persist(nextProgress, { dayNumber, completed: !wasComplete });
     if (saved && !wasComplete) {
       void recordCommercialEvent('day_completed', {
         orderId,
@@ -267,7 +278,7 @@ export default function LaunchBlueprintExecutionHomeV21({
   };
 
   if (mode === 'workspace') {
-    return <LaunchBlueprintViewV21 orderId={orderId} onBack={() => void returnFromWorkspace()} initialPayload={payload} />;
+    return <LaunchBlueprintViewV21 orderId={orderId} onBack={() => void returnFromWorkspace()} initialPayload={payload} initialActionDay={workspaceDay} />;
   }
 
   const activeCheckpointReview = activeCheckpoint
@@ -285,7 +296,7 @@ export default function LaunchBlueprintExecutionHomeV21({
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => setMode('calendar')} className={`rounded-lg px-4 py-2 text-sm font-black ${mode === 'calendar' ? 'bg-ghost-rust text-white' : 'bg-white/10 text-white'}`}>30-Day Calendar</button>
             <button type="button" onClick={() => setMode('assets')} className={`rounded-lg px-4 py-2 text-sm font-black ${mode === 'assets' ? 'bg-ghost-rust text-white' : 'bg-white/10 text-white'}`}>Asset Library</button>
-            <button type="button" onClick={() => setMode('workspace')} className="rounded-lg border border-white/20 px-4 py-2 text-sm font-black">Evidence, reviews & site</button>
+            <button type="button" onClick={() => { setWorkspaceDay(undefined); setMode('workspace'); }} className="rounded-lg border border-white/20 px-4 py-2 text-sm font-black">Evidence, reviews & site</button>
           </div>
         </div>
       </header>
@@ -343,14 +354,14 @@ export default function LaunchBlueprintExecutionHomeV21({
               <article className="rounded-2xl border border-black/10 bg-white p-6"><p className="text-xs font-black uppercase tracking-[0.12em] text-ghost-rust">Decision context</p><p className="mt-3 text-sm"><strong>Success:</strong> {activeDay.executionPacket?.successThreshold || activeDay.successMeasurement}</p>{activeDay.executionPacket && <p className="mt-3 text-sm"><strong>Failure threshold:</strong> {activeDay.executionPacket.failureThreshold}</p>}<p className="mt-3 text-sm"><strong>Expected outcome:</strong> {activeDay.executionPacket?.expectedOutcome || activeDay.expectedDeliverable}</p>{activeDay.executionPacket && <p className="mt-3 text-sm"><strong>Complete when:</strong> {activeDay.executionPacket.completionDefinition}</p>}<div className="mt-5 rounded-xl bg-[#fff7f2] p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-ghost-rust">If / then routing</p>{(activeDay.executionPacket?.branchRules || activeDay.ifThenBranches).map((branch, index) => <p key={index} className="mt-2 text-sm"><strong>IF</strong> {'condition' in branch ? branch.condition : ''} <strong>THEN</strong> {'action' in branch ? branch.action : ''}</p>)}</div></article>
             </div>
 
-            {activeCheckpoint && <article className="rounded-2xl border border-amber-300 bg-amber-50 p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.12em] text-amber-900">Day {activeCheckpoint.dayNumber} evidence checkpoint</p><h3 className="mt-2 text-2xl font-black">{activeCheckpoint.title}</h3></div><span className={`rounded-full px-3 py-1 text-xs font-black ${activeCompletion.checkpointComplete ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-200 text-amber-950'}`}>{activeCompletion.checkpointComplete ? 'Review saved' : 'Review required'}</span></div><div className="mt-5 grid gap-5 lg:grid-cols-2"><FieldList title="Questions to answer" items={activeCheckpoint.questions} /><FieldList title="Evidence required" items={activeCheckpoint.evidenceRequired} /></div><div className="mt-5"><FieldList title="Decision branches" items={activeCheckpoint.branches.map(branch => `IF ${branch.condition} THEN ${branch.action}`)} /></div>{activeCheckpointReview?.nextAction && <p className="mt-5 rounded-xl bg-white p-4 text-sm"><strong>Saved evidence route:</strong> {activeCheckpointReview.nextAction}</p>}<button type="button" onClick={() => setMode('workspace')} className="mt-5 rounded-lg bg-amber-900 px-4 py-3 text-sm font-black text-white">{activeCompletion.checkpointComplete ? 'Review checkpoint evidence' : 'Complete checkpoint review'}</button></article>}
+            {activeCheckpoint && <article className="rounded-2xl border border-amber-300 bg-amber-50 p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.12em] text-amber-900">Day {activeCheckpoint.dayNumber} evidence checkpoint</p><h3 className="mt-2 text-2xl font-black">{activeCheckpoint.title}</h3></div><span className={`rounded-full px-3 py-1 text-xs font-black ${activeCompletion.checkpointComplete ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-200 text-amber-950'}`}>{activeCompletion.checkpointComplete ? 'Review saved' : 'Review required'}</span></div><div className="mt-5 grid gap-5 lg:grid-cols-2"><FieldList title="Questions to answer" items={activeCheckpoint.questions} /><FieldList title="Evidence required" items={activeCheckpoint.evidenceRequired} /></div><div className="mt-5"><FieldList title="Decision branches" items={activeCheckpoint.branches.map(branch => `IF ${branch.condition} THEN ${branch.action}`)} /></div>{activeCheckpointReview?.nextAction && <p className="mt-5 rounded-xl bg-white p-4 text-sm"><strong>Saved evidence route:</strong> {activeCheckpointReview.nextAction}</p>}<button type="button" onClick={() => { setWorkspaceDay(activeDay.dayNumber); setMode('workspace'); }} className="mt-5 rounded-lg bg-amber-900 px-4 py-3 text-sm font-black text-white">{activeCompletion.checkpointComplete ? 'Review checkpoint evidence' : 'Complete checkpoint review'}</button></article>}
 
             <section aria-label="Prepared assets for this day" className="space-y-4"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-ghost-rust">Prepared for this day</p><h3 className="mt-1 text-2xl font-black">Open the asset here. Do the work here.</h3></div>{activeDay.executionPacket?.assets.length ? activeDay.executionPacket.assets.map(asset => renderAsset(asset)) : <article className="rounded-2xl border border-black/10 bg-white p-6"><p className="font-black">No separate file is needed for this action.</p><p className="mt-2 text-sm text-gray-600">{activeDay.executionPacket?.nonAssetJustification || 'The work for this day is completed directly from the instructions and evidence fields above.'}</p></article>}</section>
 
             <article className="rounded-2xl border border-black/10 bg-white p-6"><div className="grid gap-5 lg:grid-cols-2"><div><FieldList title="Evidence to record" items={activeDay.executionPacket?.evidenceToCapture || activeDay.evidenceToRecord} /></div><label className="text-sm font-black">Execution note<textarea value={executionNoteDrafts[activeDay.completionKey] ?? progress.evidenceNotes?.[activeDay.completionKey] ?? ''} onChange={event => setExecutionNoteDrafts(current => ({ ...current, [activeDay.completionKey]: event.target.value }))} onBlur={event => void saveExecutionNote(activeDay, event.target.value)} className="mt-2 min-h-32 w-full rounded-xl border border-gray-300 p-3 font-normal" placeholder="What happened? Capture customer language, objections, commitments, numbers, or what changed." /></label></div>
               {!completed.has(activeDay.dayNumber) && !activeCompletion.ready && <div role="status" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-black">Before Day {activeDay.dayNumber} can be completed:</p><ul className="mt-2 space-y-1">{activeCompletion.reasons.map(reason => <li key={reason}>• {reason}</li>)}</ul></div>}
               {completionError && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800">{completionError}</p>}
-              <div className="mt-5 flex flex-wrap gap-3"><button type="button" disabled={!completed.has(activeDay.dayNumber) && !activeCompletion.ready} onClick={() => void markDay(activeDay.dayNumber)} className={`rounded-xl px-5 py-3 font-black disabled:cursor-not-allowed disabled:opacity-50 ${completed.has(activeDay.dayNumber) ? 'bg-emerald-100 text-emerald-900' : 'bg-ghost-rust text-white'}`}>{completed.has(activeDay.dayNumber) ? 'Completed ✓ — reopen' : `Complete Day ${activeDay.dayNumber}`}</button><button type="button" onClick={() => setMode('workspace')} className="rounded-xl border border-ghost-rust px-5 py-3 font-black text-ghost-rust">{activeCompletion.requiresStructuredEvidence && !activeCompletion.hasStructuredEvidence ? 'Record structured evidence' : 'Open structured evidence log / review'}</button></div></article>
+              <div className="mt-5 flex flex-wrap gap-3"><button type="button" disabled={!completed.has(activeDay.dayNumber) && !activeCompletion.ready} onClick={() => void markDay(activeDay.dayNumber)} className={`rounded-xl px-5 py-3 font-black disabled:cursor-not-allowed disabled:opacity-50 ${completed.has(activeDay.dayNumber) ? 'bg-emerald-100 text-emerald-900' : 'bg-ghost-rust text-white'}`}>{completed.has(activeDay.dayNumber) ? 'Completed ✓ — reopen' : `Complete Day ${activeDay.dayNumber}`}</button><button type="button" onClick={() => { setWorkspaceDay(activeDay.dayNumber); setMode('workspace'); }} className="rounded-xl border border-ghost-rust px-5 py-3 font-black text-ghost-rust">{activeCompletion.requiresStructuredEvidence && !activeCompletion.hasStructuredEvidence ? 'Record structured evidence' : 'Open structured evidence log / review'}</button></div></article>
           </section>
         </>}
 

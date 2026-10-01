@@ -70,7 +70,7 @@ describe('Blueprint v2.1.5 guided daily execution amendment', () => {
   it('preserves commercial measurement without emitting completion before persistence succeeds', () => {
     expect(executionSource).toContain("recordCommercialEvent('daily_packet_opened'");
     expect(executionSource).toContain("recordCommercialEvent('day_completed'");
-    expect(executionSource).toContain('const saved = await persist(nextProgress)');
+    expect(executionSource).toContain('const saved = await persist(nextProgress, { dayNumber, completed: !wasComplete })');
     expect(executionSource).toContain('if (saved && !wasComplete)');
     expect(executionSource).toContain('/blueprint/progress');
   });
