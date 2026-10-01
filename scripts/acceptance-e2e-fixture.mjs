@@ -43,12 +43,64 @@ const previewText = await preview.text();
 let previewBody = null; try { previewBody = JSON.parse(previewText); } catch {}
 if (!preview.ok || !previewBody?.buildId) throw new Error(`Acceptance Get Me Live fixture preview failed HTTP ${preview.status}: ${previewBody?.error || 'unknown error'}${previewBody?.stage ? ` (stage=${previewBody.stage})` : ''}`);
 
-const publish = await fetch(apiUrl + '/api/get-me-live/orders/' + encodeURIComponent(gmlOrderId) + '/publish', {
-  method: 'POST', headers: { Authorization: 'Bearer ' + signupBody.token, 'content-type': 'application/json' }, body: '{}'
-});
-const publishText = await publish.text();
-let publishBody = null; try { publishBody = JSON.parse(publishText); } catch {}
-if (!publish.ok || !publishBody?.publicUrl) throw new Error(`Acceptance Get Me Live fixture publish failed HTTP ${publish.status}: ${publishBody?.error || 'unknown error'}`);
+const gmlApi = path => apiUrl + '/api/get-me-live/orders/' + encodeURIComponent(gmlOrderId) + path;
+const ownerHeaders = { Authorization: 'Bearer ' + signupBody.token, 'content-type': 'application/json' };
+async function ownerJson(path, init = {}) {
+  const response = await fetch(gmlApi(path), { ...init, headers: { ...ownerHeaders, ...(init.headers || {}) } });
+  const text = await response.text();
+  let body = null; try { body = JSON.parse(text); } catch {}
+  return { response, body };
+}
+
+// Publish, then prove the stable Pages URL serves this exact release. A 202 means
+// Cloudflare accepted the deploy but the marker was not observed yet; keep calling
+// the explicit, idempotent verify step (every 5 s, up to 10 minutes).
+async function publishAndVerify(label) {
+  const { response, body } = await ownerJson('/publish', { method: 'POST', body: '{}' });
+  if (![200, 202].includes(response.status) || !body?.releaseId || body?.duplicate) {
+    throw new Error(`Acceptance Get Me Live ${label} publish failed HTTP ${response.status}: ${body?.error || (body?.duplicate ? 'duplicate attempt' : 'unknown error')}`);
+  }
+  const releaseId = body.releaseId;
+  let pagesUrl = body.pagesUrl;
+  if (body.verified !== true) {
+    const deadline = Date.now() + 10 * 60 * 1000;
+    for (;;) {
+      if (Date.now() > deadline) throw new Error(`Acceptance Get Me Live ${label} release ${releaseId} was not verified within 10 minutes.`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      const verify = await ownerJson('/publish/verify', { method: 'POST', body: '{}' });
+      if (!verify.response.ok) throw new Error(`Acceptance Get Me Live ${label} verify failed HTTP ${verify.response.status}: ${verify.body?.error || 'unknown error'}`);
+      if (verify.body?.pending) continue;
+      if (verify.body?.verified !== true || verify.body?.releaseId !== releaseId) {
+        throw new Error(`Acceptance Get Me Live ${label} release ${releaseId} did not verify: ${verify.body?.failure || JSON.stringify(verify.body)}`);
+      }
+      pagesUrl = verify.body.pagesUrl || pagesUrl;
+      break;
+    }
+  }
+  if (!/^https:\/\/[a-z0-9-]+\.pages\.dev$/.test(String(pagesUrl || ''))) throw new Error(`Acceptance Get Me Live ${label} pagesUrl is not a stable pages.dev URL: ${pagesUrl}`);
+  const served = await fetch(`${pagesUrl}/?gt_verify=${encodeURIComponent(releaseId)}`, { headers: { 'Cache-Control': 'no-cache' } });
+  const servedHtml = await served.text();
+  if (served.status !== 200 || !servedHtml.includes(`<meta name="ghosttown-release-id" content="${releaseId}">`)) {
+    throw new Error(`Acceptance Get Me Live ${label} pagesUrl does not serve release ${releaseId} (HTTP ${served.status}).`);
+  }
+  return { releaseId, pagesUrl };
+}
+
+const launch = await publishAndVerify('launch');
+
+// Republish proof: an edit followed by publish creates a new releaseId that the
+// same stable pagesUrl serves.
+const currentConfig = await ownerJson('/config');
+if (!currentConfig.response.ok || !currentConfig.body?.configuration) throw new Error(`Acceptance Get Me Live config read failed HTTP ${currentConfig.response.status}`);
+const editedConfig = structuredClone(currentConfig.body.configuration);
+editedConfig.offer.headline = `A simple test page for a synthetic acceptance journey ${nonce}`;
+const saved = await ownerJson('/config', { method: 'PUT', body: JSON.stringify(editedConfig) });
+if (!saved.response.ok) throw new Error(`Acceptance Get Me Live config save failed HTTP ${saved.response.status}: ${saved.body?.error || 'unknown error'}`);
+const repreview = await ownerJson('/preview', { method: 'POST', body: '{}' });
+if (!repreview.response.ok || !repreview.body?.buildId) throw new Error(`Acceptance Get Me Live republish preview failed HTTP ${repreview.response.status}: ${repreview.body?.error || 'unknown error'}`);
+const republish = await publishAndVerify('republish');
+if (republish.pagesUrl !== launch.pagesUrl) throw new Error(`Acceptance Get Me Live republish moved the site: ${launch.pagesUrl} -> ${republish.pagesUrl}`);
+if (republish.releaseId === launch.releaseId) throw new Error('Acceptance Get Me Live republish did not create a new releaseId.');
 
 // Result check: before any browser journey, prove the disposable customer can
 // see the canonical Sprint through the acceptance Worker.
@@ -100,7 +152,7 @@ await appendFile(envFile, [
   `GHOSTTOWN_E2E_AUTH_TOKEN=${signupBody.token}`,
   `GHOSTTOWN_E2E_SPRINT_ORDER_ID=${orderId}`,
   `GHOSTTOWN_E2E_GML_ORDER_ID=${gmlOrderId}`,
-  `GHOSTTOWN_E2E_LIVE_URL=${publishBody.publicUrl}`,
+  `GHOSTTOWN_E2E_LIVE_URL=${republish.pagesUrl}`,
   'GHOSTTOWN_E2E_SUBMIT_LEAD=1',
   'GHOSTTOWN_E2E_SPRINT_MUTATE=1',
   `GHOSTTOWN_E2E_FIXTURE_OWNER=${ownerId}`
@@ -110,5 +162,6 @@ console.log(JSON.stringify({
   ok: true, schemaVersion: 'ghosttown-acceptance-e2e-fixture-v1',
   environment: 'acceptance', orderId, gmlOrderId, sourceOrderId: fixture.sourceOrderId,
   freshOwner: true, stripeChargeCreated: false, productionMutated: false,
-  authTokenRecorded: false, passwordRecorded: false, expiresInSeconds: fixture.expiresInSeconds
+  authTokenRecorded: false, passwordRecorded: false, expiresInSeconds: fixture.expiresInSeconds,
+  pagesUrl: republish.pagesUrl, launchReleaseId: launch.releaseId, republishReleaseId: republish.releaseId
 }));

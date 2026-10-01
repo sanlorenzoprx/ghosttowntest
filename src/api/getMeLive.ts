@@ -17,7 +17,10 @@ import type {
   GetMeLiveLeadMagnet,
   GetMeLiveOrder,
   GetMeLiveProviderState,
+  GetMeLivePublishAttempt,
+  GetMeLiveReleaseKind,
   GetMeLiveReleaseReceipt,
+  GetMeLiveReleaseReceiptV2,
   GetMeLiveShareDraft,
   GetMeLiveShareDraftType
 } from '../types/getMeLive';
@@ -25,7 +28,17 @@ import { manufactureCustomWebsite } from './websiteCreationService';
 import { buildCustomWebsite, renderCustomWebsiteStaticHtml } from './websiteBuildRunner';
 import type { WebsiteAsset } from '../types/customWebsite';
 import {
+  CLAIM_EXPIRED_MESSAGE,
+  DEPLOY_EXPIRED_MESSAGE,
+  claimPublishAttempt,
   createGetMeLiveOrder,
+  isPublishAttemptExpired,
+  loadLatestGetMeLiveRelease,
+  loadPublishAttempt,
+  recordPublishDeployment,
+  settlePublishFailure,
+  settlePublishSuccess,
+  transitionGetMeLiveStatus,
   countGetMeLiveLeads,
   getGetMeLiveActivity,
   incrementGetMeLiveActivity,
@@ -146,25 +159,25 @@ async function normalizeLegacyHosting(env: Env, order: GetMeLiveOrder): Promise<
   }
 }
 
-// Backoff between checks of the stable Pages URL (~60 s total, ~13 subrequests).
-const PAGES_READY_BACKOFF_MS = [2_000, 3_000, 5_000, 5_000, 5_000, 5_000, 5_000, 5_000, 5_000, 5_000, 5_000, 5_000];
-
-/** Interim readiness check (replaced by release-marker verification in Slice 1b). */
-async function waitForPagesUrl(pagesUrl: string): Promise<boolean> {
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      const response = await fetch(pagesUrl, { method: 'GET', redirect: 'follow', headers: { 'Cache-Control': 'no-cache' } });
-      await response.body?.cancel();
-      if (response.status === 200) return true;
-    } catch { /* not reachable yet */ }
-    const delay = PAGES_READY_BACKOFF_MS[attempt];
-    if (delay === undefined) return false;
-    await new Promise(resolve => setTimeout(resolve, delay));
-  }
+/**
+ * True once a launch has been verified. From Slice 1b, `published_at` and
+ * `deployment_receipt_json` are written only by launch/republish settlement, which
+ * writes the `launch` release row in the same transaction; orders published
+ * before then carry the same columns (legacy, plan §20). It no longer keys off
+ * `public_url` or `custom_domain` presence.
+ */
+function hasPublishedGetMeLiveSite(order: GetMeLiveOrder): boolean {
+  return Boolean(order.publishedAt || order.deploymentReceipt);
 }
 
-function hasPublishedGetMeLiveSite(order: GetMeLiveOrder): boolean {
-  return Boolean(order.customDomain || order.publicUrl || order.publishedAt || order.deploymentReceipt?.publicUrl);
+/** Preview, config, and asset handlers never change these statuses (plan §2.6 rule 6). */
+function statusHeldByPublication(order: GetMeLiveOrder): boolean {
+  return order.status === 'publishing' || order.status === 'verifying' || order.status === 'live';
+}
+
+/** Status shown to the owner: a verified site reads as live even while a republish is pending. */
+function publicStatus(order: GetMeLiveOrder): GetMeLiveOrder['status'] {
+  return hasPublishedGetMeLiveSite(order) ? 'live' : order.status;
 }
 
 function getMeLivePaymentMode(order: GetMeLiveOrder): GetMeLiveReleaseReceipt['checks']['paymentMode'] {
@@ -478,7 +491,7 @@ export async function handleGetMeLiveConfig(request: Request, env: Env, orderId:
     // The Pages project name is server-owned; clients cannot choose or change it.
     next.domain.pagesProjectName = owned.configuration?.domain.pagesProjectName;
     owned.configuration = next;
-    owned.status = hasPublishedGetMeLiveSite(owned) ? 'live' : 'configuring';
+    if (!statusHeldByPublication(owned)) owned.status = hasPublishedGetMeLiveSite(owned) ? 'live' : 'configuring';
     owned.updatedAt = new Date().toISOString();
     await updateGetMeLiveOrder(env, owned);
     return json({ configuration: owned.configuration, status: owned.status });
@@ -799,7 +812,7 @@ export async function handleGetMeLivePreview(request: Request, env: Env, orderId
   };
   try {
     await saveGetMeLivePreview(env, orderId, preview, html);
-    owned.status = hasPublishedGetMeLiveSite(owned) ? 'live' : 'preview_ready';
+    if (!statusHeldByPublication(owned)) owned.status = hasPublishedGetMeLiveSite(owned) ? 'live' : 'preview_ready';
     owned.updatedAt = new Date().toISOString();
     await updateGetMeLiveOrder(env, owned);
   } catch (error) {
@@ -1050,7 +1063,121 @@ function socialSvg(config: GetMeLiveConfiguration, liveUrl: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="#12251f"/><circle cx="1040" cy="100" r="260" fill="#d96f3d" opacity=".22"/><circle cx="140" cy="650" r="300" fill="#468269" opacity=".28"/><text x="88" y="155" fill="#f7d774" font-family="Arial,sans-serif" font-size="30" font-weight="800">${clean(config.brand.businessName)}</text><text x="88" y="270" fill="#ffffff" font-family="Arial,sans-serif" font-size="62" font-weight="800">${clean(config.offer.headline || config.offer.offer || 'See what is ready for you')}</text><text x="88" y="520" fill="#d9e3de" font-family="Arial,sans-serif" font-size="27">${clean(liveUrl.replace(/^https?:\/\//, ''))}</text></svg>`;
 }
 
-export async function handleGetMeLivePublish(request: Request, env: Env, orderId: string): Promise<Response> {
+const RELEASE_MARKER = (releaseId: string) => `<meta name="ghosttown-release-id" content="${releaseId}">`;
+const PUBLISH_VERIFY_BACKOFF_MS = [2_000, 3_000, 5_000, 5_000, 5_000, 5_000, 5_000];
+
+function publishPaymentMode(order: GetMeLiveOrder): 'lead_until_stripe_ready' | 'connected_checkout' | 'lead' {
+  const config = order.configuration;
+  const paymentReady = config?.offer.intent === 'buy' && order.providerState.stripeConnected && Boolean(config.payments.chargesEnabled);
+  return config?.offer.intent === 'buy' && !paymentReady ? 'lead_until_stripe_ready' : paymentReady ? 'connected_checkout' : 'lead';
+}
+
+function attemptTargetUrl(order: GetMeLiveOrder, attempt: GetMeLivePublishAttempt): string | undefined {
+  if (attempt.kind === 'domain_activation' && attempt.customDomain) return `https://${attempt.customDomain}`;
+  return order.hosting?.pagesUrl;
+}
+
+function attemptSummary(attempt: GetMeLivePublishAttempt) {
+  return { releaseId: attempt.attemptId, kind: attempt.kind, phase: attempt.phase, buildId: attempt.buildId, claimedAt: attempt.claimedAt, deployedAt: attempt.deployedAt };
+}
+
+type VerifyOutcome =
+  | { state: 'verified'; settledHere: boolean }
+  | { state: 'pending' }
+  | { state: 'failed'; message: string };
+
+/**
+ * One verification step for a deployed attempt (plan §2.5): the target must
+ * answer 200 with this attempt's exact release marker. Success settles the
+ * attempt atomically; an expired attempt is settled as failed.
+ */
+async function verifyAttemptOnce(env: Env, order: GetMeLiveOrder, attempt: GetMeLivePublishAttempt): Promise<VerifyOutcome> {
+  if (isPublishAttemptExpired(attempt)) {
+    const message = attempt.phase === 'deployed' ? DEPLOY_EXPIRED_MESSAGE : CLAIM_EXPIRED_MESSAGE;
+    await settlePublishFailure(env, attempt, message);
+    return { state: 'failed', message };
+  }
+  if (attempt.phase !== 'deployed') return { state: 'pending' };
+  const target = attemptTargetUrl(order, attempt);
+  const hosting = order.hosting;
+  if (!target || !hosting) return { state: 'pending' };
+  const verifiedUrl = `${target}/?gt_verify=${encodeURIComponent(attempt.attemptId)}`;
+  let html = '';
+  let httpStatus = 0;
+  try {
+    const response = await fetch(verifiedUrl, { method: 'GET', redirect: 'follow', headers: { 'Cache-Control': 'no-cache' } });
+    httpStatus = response.status;
+    if (response.status === 200) html = await response.text();
+    else await response.body?.cancel();
+  } catch { return { state: 'pending' }; }
+  if (httpStatus !== 200 || !html.includes(RELEASE_MARKER(attempt.attemptId))) return { state: 'pending' };
+
+  const verifiedAt = new Date().toISOString();
+  const routeBase = `/api/get-me-live/sites/${encodeURIComponent(order.orderId)}`;
+  const receipt: GetMeLiveReleaseReceiptV2 = {
+    schemaVersion: 'ghosttown-get-me-live-release-receipt-v2',
+    kind: attempt.kind,
+    releaseId: attempt.attemptId,
+    orderId: order.orderId,
+    sourceSprintOrderId: order.sourceSprintOrderId,
+    sourceBlueprintId: order.sourceBlueprintId,
+    offerId: order.offerId,
+    offerVersion: order.offerVersion,
+    provider: 'cloudflare_pages',
+    pagesProjectName: hosting.pagesProjectName,
+    pagesSubdomain: hosting.pagesSubdomain,
+    pagesUrl: hosting.pagesUrl,
+    liveUrl: hosting.pagesUrl,
+    customDomain: attempt.kind === 'domain_activation' ? attempt.customDomain : undefined,
+    deploymentUrl: attempt.deploymentUrl,
+    deploymentId: attempt.deploymentId!,
+    buildId: attempt.buildId,
+    publishedAt: attempt.deployedAt || verifiedAt,
+    verifiedAt,
+    backfilled: false,
+    checks: {
+      releaseMarkerServed: true,
+      customerPageHttpStatus: httpStatus,
+      leadCaptureConfigured: html.includes(`${routeBase}/leads`),
+      activityTrackingConfigured: html.includes(`${routeBase}/activity`),
+      paymentMode: getMeLivePaymentMode(order)
+    }
+  };
+  const { lastReleaseFailure: _cleared, ...settledHosting } = hosting;
+  const settledHere = await settlePublishSuccess(env, {
+    attempt,
+    release: { pagesUrl: hosting.pagesUrl, verifiedUrl, verifiedAt, receiptJson: JSON.stringify(receipt), customDomain: receipt.customDomain },
+    order: {
+      deploymentReceiptJson: JSON.stringify({
+        deploymentId: attempt.deploymentId, buildId: attempt.buildId, publicUrl: hosting.pagesUrl,
+        deploymentUrl: attempt.deploymentUrl, publishedAt: receipt.publishedAt, releaseId: attempt.attemptId
+      }),
+      hostingJson: JSON.stringify(settledHosting),
+      publicUrl: hosting.pagesUrl,
+      publishedAt: receipt.publishedAt
+    }
+  });
+  if (settledHere && attempt.kind === 'launch') {
+    await recordCommercialFunnelEvent(env, "get_me_live_live_completed", { ownerId: order.ownerId, orderId: order.orderId, source: "get_me_live", content: hosting.pagesUrl }).catch(() => undefined);
+  }
+  return { state: 'verified', settledHere };
+}
+
+async function currentPublishState(env: Env, orderId: string) {
+  const [order, attempt, latest] = await Promise.all([
+    loadGetMeLiveOrder(env, orderId),
+    loadPublishAttempt(env, orderId),
+    loadLatestGetMeLiveRelease(env, orderId)
+  ]);
+  return { order, attempt, latest };
+}
+
+export async function handleGetMeLivePublish(
+  request: Request,
+  env: Env,
+  orderId: string,
+  options: { verifyBackoffMs?: number[] } = {}
+): Promise<Response> {
   const owned = await ownedGetMeLiveOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
   if (!owned.paidAt || !owned.configuration) return json({ error: 'Finish your Get Me Live setup before publishing' }, 409);
@@ -1059,23 +1186,10 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
   }
   const stored = await loadGetMeLivePreview(env, orderId);
   if (!stored) return json({ error: 'Generate and review your page before publishing' }, 409);
+  if (!env.BROWSER) return json({ error: 'Browser verification is unavailable; publication is blocked' }, 503);
 
   const config = owned.configuration;
   const accountId = config.domain.cloudflareAccountId!;
-  // Resolve the Pages project first: the provider-returned subdomain is the only
-  // source for the stable customer URL. Persist it before deploying so a retried
-  // publish reuses the same project.
-  let hosting: GetMeLiveHosting;
-  try {
-    const project = await ensurePagesProject(env, orderId, accountId, owned.hosting?.pagesProjectName || config.domain.pagesProjectName || projectNameFor(orderId));
-    hosting = hostingFromProject(accountId, project, 'provider', owned.hosting);
-    await recordHosting(env, orderId, hosting);
-  } catch (error) {
-    return json({ error: error instanceof Error ? error.message : 'Cloudflare Pages is unavailable' }, 502);
-  }
-  owned.hosting = hosting;
-  const pagesUrl = hosting.pagesUrl;
-  const canonicalUrl = preferredPublicUrl(owned) || pagesUrl;
   const storedAssets = await listGetMeLiveAssets(env, orderId);
   const deployedFiles: Array<{ path: string; contentType: string; bytes: ArrayBuffer }> = [];
   for (const asset of storedAssets) {
@@ -1084,6 +1198,37 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
     const path = `assets/${asset.assetId}.${extensionFor(asset.contentType)}`;
     deployedFiles.push({ path, contentType: asset.contentType, bytes });
   }
+
+  // One unverified publish attempt per order, enforced by the database (plan §2.4).
+  const kind: GetMeLiveReleaseKind = hasPublishedGetMeLiveSite(owned) ? 'republish' : 'launch';
+  const claim = await claimPublishAttempt(env, orderId, { kind, buildId: stored.preview.build.buildId });
+  if (!claim.claimed) {
+    const current = await loadGetMeLiveOrder(env, orderId);
+    return json({
+      duplicate: true, verified: false, releaseId: claim.existing.attemptId, attemptKind: claim.existing.kind,
+      attemptBuildId: claim.existing.buildId, currentBuildId: stored.preview.build.buildId,
+      status: current ? publicStatus(current) : owned.status, pagesUrl: current?.hosting?.pagesUrl
+    }, 202);
+  }
+  const attempt = claim.attempt;
+  const releaseId = attempt.attemptId;
+  if (kind === 'launch') await transitionGetMeLiveStatus(env, orderId, 'publishing', { except: ['live'] });
+
+  // Resolve the Pages project: the provider-returned subdomain is the only source
+  // for the stable customer URL. Persist it before deploying so a retry reuses it.
+  let hosting: GetMeLiveHosting;
+  try {
+    const project = await ensurePagesProject(env, orderId, accountId, owned.hosting?.pagesProjectName || config.domain.pagesProjectName || projectNameFor(orderId));
+    hosting = hostingFromProject(accountId, project, 'provider', owned.hosting);
+    await recordHosting(env, orderId, hosting);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Cloudflare Pages is unavailable';
+    await settlePublishFailure(env, attempt, message);
+    return json({ error: message, releaseId }, 502);
+  }
+  owned.hosting = hosting;
+  const pagesUrl = hosting.pagesUrl;
+  const canonicalUrl = preferredPublicUrl(owned) || pagesUrl;
   const social = new TextEncoder().encode(socialSvg(config, canonicalUrl));
   deployedFiles.push({ path: 'og.svg', contentType: 'image/svg+xml', bytes: social.buffer });
   const publishedAssets = stored.preview.assets.map(asset => {
@@ -1100,10 +1245,12 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
   const origin = new URL(request.url).origin;
   const leadActionUrl = `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/leads`;
   const buyActionUrl = `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/buy`;
-  const paymentReady = config.offer.intent === 'buy' && owned.providerState.stripeConnected && config.payments.chargesEnabled;
-  const publicHtml = renderCustomWebsiteStaticHtml(stored.preview.spec, {
+  const paymentMode = publishPaymentMode(owned);
+  let publicHtml: string;
+  try {
+    publicHtml = renderCustomWebsiteStaticHtml(stored.preview.spec, {
     assets: publishedAssets,
-    primaryActionUrl: paymentReady ? buyActionUrl : '#contact',
+    primaryActionUrl: paymentMode === 'connected_checkout' ? buyActionUrl : '#contact',
     secondaryActionUrl: '#contact',
     leadActionUrl,
     leadMagnet: leadMagnetConfig,
@@ -1111,58 +1258,99 @@ export async function handleGetMeLivePublish(request: Request, env: Env, orderId
     socialImageUrl: `${canonicalUrl}/og.svg`,
     attributionUrl: `${env.FRONTEND_URL?.replace(/\/$/, '') || origin}/get-me-live?from=customer-site`,
     showFriendShare: true,
-    activityUrl: `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/activity`
-  });
-
-  if (!env.BROWSER) return json({ error: 'Browser verification is unavailable; publication is blocked' }, 503);
-  const browser = await env.BROWSER.quickAction('pdf', { html: publicHtml, pdfOptions: { printBackground: true } });
-  if (!browser.ok) return json({ error: 'Your page did not pass the final browser render check' }, 409);
-
-  const hadPublishedSite = hasPublishedGetMeLiveSite(owned);
-  owned.status = 'publishing';
-  owned.updatedAt = new Date().toISOString();
-  await updateGetMeLiveOrder(env, owned);
-  try {
-    // Publication never attaches a custom domain: a domain problem must not be
-    // able to fail a deployment that succeeded.
-    const deployment = await deployCloudflarePagesHtml(env, orderId, accountId, hosting.pagesProjectName, publicHtml, deployedFiles);
-    owned.publicUrl = pagesUrl;
-    owned.status = 'live';
-    owned.publishedAt = new Date().toISOString();
-    owned.updatedAt = owned.publishedAt;
-    owned.deploymentReceipt = {
-      deploymentId: deployment.deploymentId,
-      buildId: stored.preview.build.buildId,
-      publicUrl: pagesUrl,
-      deploymentUrl: deployment.deploymentUrl,
-      publishedAt: owned.publishedAt
-    };
-    owned.failure = undefined;
-    for (const asset of storedAssets) {
-      await markGetMeLiveAssetPublished(env, orderId, asset.assetId, `/assets/${asset.assetId}.${extensionFor(asset.contentType)}`);
-    }
-    await saveGetMeLivePreview(env, orderId, stored.preview, publicHtml);
-    await updateGetMeLiveOrder(env, owned);
-    // Interim readiness (Slice 1a): the production alias can briefly answer 5xx
-    // right after a deploy, so wait for the stable Pages URL before returning.
-    if (!await waitForPagesUrl(pagesUrl)) console.warn('Get Me Live Pages URL was not ready within the publish budget', { orderId, pagesUrl });
-    await recordCommercialFunnelEvent(env, "get_me_live_live_completed", { ownerId: owned.ownerId, orderId: owned.orderId, source: "get_me_live", content: preferredPublicUrl(owned) || pagesUrl }).catch(() => undefined);
-    return json({
-      status: owned.status,
-      pagesUrl,
-      publicUrl: pagesUrl,
-      pagesProjectName: hosting.pagesProjectName,
-      deploymentId: deployment.deploymentId,
-      paymentMode: config.offer.intent === 'buy' && !paymentReady ? 'lead_until_stripe_ready' : paymentReady ? 'connected_checkout' : 'lead',
-      businessEmailReady: owned.providerState.businessEmailVerified
+      activityUrl: `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/activity`,
+      releaseId
     });
-  } catch (error) {
-    owned.status = hadPublishedSite ? 'live' : 'failed';
-    owned.failure = error instanceof Error ? error.message : 'Publication failed';
-    owned.updatedAt = new Date().toISOString();
-    await updateGetMeLiveOrder(env, owned);
-    return json({ error: owned.failure }, 502);
+    const browser = await env.BROWSER.quickAction('pdf', { html: publicHtml, pdfOptions: { printBackground: true } });
+    if (!browser.ok) throw new Error('render check');
+  } catch {
+    const message = 'Your page did not pass the final browser render check';
+    await settlePublishFailure(env, attempt, message);
+    return json({ error: message, releaseId }, 409);
   }
+
+  // Publication never attaches a custom domain: a domain problem must not be
+  // able to fail a deployment that succeeded.
+  let deployed: GetMeLivePublishAttempt | null;
+  try {
+    const deployment = await deployCloudflarePagesHtml(env, orderId, accountId, hosting.pagesProjectName, publicHtml, deployedFiles);
+    deployed = await recordPublishDeployment(env, attempt, deployment);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Publication failed';
+    await settlePublishFailure(env, attempt, message);
+    return json({ error: message, releaseId }, 502);
+  }
+  if (!deployed) {
+    // The claim was lost to a takeover: write nothing else and report the current attempt.
+    const current = await currentPublishState(env, orderId);
+    return json({
+      verified: false, superseded: true, releaseId: current.attempt?.attemptId, attemptKind: current.attempt?.kind,
+      status: current.order ? publicStatus(current.order) : owned.status, pagesUrl
+    }, 202);
+  }
+  if (kind === 'launch') await transitionGetMeLiveStatus(env, orderId, 'verifying', { only: ['publishing'] });
+  for (const asset of storedAssets) {
+    await markGetMeLiveAssetPublished(env, orderId, asset.assetId, `/assets/${asset.assetId}.${extensionFor(asset.contentType)}`);
+  }
+  await saveGetMeLivePreview(env, orderId, stored.preview, publicHtml);
+
+  const backoff = options.verifyBackoffMs ?? PUBLISH_VERIFY_BACKOFF_MS;
+  let outcome: VerifyOutcome = await verifyAttemptOnce(env, owned, deployed);
+  for (const delay of backoff) {
+    if (outcome.state !== 'pending') break;
+    await new Promise(resolve => setTimeout(resolve, delay));
+    outcome = await verifyAttemptOnce(env, owned, deployed);
+  }
+  const after = await loadGetMeLiveOrder(env, orderId);
+  const status = after ? publicStatus(after) : owned.status;
+  if (outcome.state === 'verified') {
+    return json({
+      status, verified: true, releaseId, pagesUrl, publicUrl: pagesUrl, pagesProjectName: hosting.pagesProjectName,
+      deploymentId: deployed.deploymentId, paymentMode, businessEmailReady: owned.providerState.businessEmailVerified
+    });
+  }
+  if (outcome.state === 'failed') return json({ error: outcome.message, status, verified: false, releaseId, pagesUrl }, 502);
+  return json({ status, verified: false, releaseId, pagesUrl, publicUrl: pagesUrl, pagesProjectName: hosting.pagesProjectName }, 202);
+}
+
+/** POST /publish/verify: one explicit, idempotent verification step for the current attempt. */
+export async function handleGetMeLivePublishVerify(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const attempt = await loadPublishAttempt(env, orderId);
+  if (attempt) {
+    const outcome = await verifyAttemptOnce(env, owned, attempt);
+    if (outcome.state === 'pending') {
+      return json({ status: publicStatus(owned), verified: false, pending: true, releaseId: attempt.attemptId, attemptKind: attempt.kind, phase: attempt.phase, pagesUrl: owned.hosting?.pagesUrl });
+    }
+  }
+  const current = await currentPublishState(env, orderId);
+  const order = current.order || owned;
+  const pending = current.attempt;
+  return json({
+    status: publicStatus(order),
+    verified: !pending && Boolean(current.latest),
+    pending: Boolean(pending),
+    releaseId: pending?.attemptId || current.latest?.releaseId,
+    attemptKind: pending?.kind,
+    phase: pending?.phase,
+    failure: order.status === 'failed' ? order.failure : order.hosting?.lastReleaseFailure?.releaseId === attempt?.attemptId ? order.hosting?.lastReleaseFailure?.message : undefined,
+    pagesUrl: order.hosting?.pagesUrl
+  });
+}
+
+/** GET /publish/status: read-only. Never fetches the site, settles, or writes. */
+export async function handleGetMeLivePublishStatus(request: Request, env: Env, orderId: string): Promise<Response> {
+  const auth = await authenticateRequest(request, env);
+  if (!auth) return json({ error: 'Authentication required' }, 401);
+  const current = await currentPublishState(env, orderId);
+  if (!current.order || normalizeEmail(current.order.ownerId) !== normalizeEmail(auth.email)) return json({ error: 'Get Me Live order not found' }, 404);
+  return json({
+    status: publicStatus(current.order),
+    pendingAttempt: current.attempt ? attemptSummary(current.attempt) : undefined,
+    latestRelease: current.latest ? { releaseId: current.latest.releaseId, kind: current.latest.kind, verifiedAt: current.latest.verifiedAt } : undefined,
+    pagesUrl: current.order.hosting?.pagesUrl
+  });
 }
 
 function launchShareTexts(order: GetMeLiveOrder): string[] {

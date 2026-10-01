@@ -517,9 +517,12 @@ export function renderCustomWebsiteStaticHtml(
     attributionUrl?: string;
     showFriendShare?: boolean;
     activityUrl?: string;
+    /** Unique per publish attempt; served so verification can prove this exact release is live. */
+    releaseId?: string;
   } = {}
 ): string {
   let html = renderCustomWebsiteStaticHtmlBase(spec, options);
+  if (options.releaseId) html = html.replace('<title>', `<meta name="ghosttown-release-id" content="${escapeHtml(options.releaseId)}"><title>`);
   const canonical = options.canonicalUrl
     ? `<link rel="canonical" href="${escapeHtml(options.canonicalUrl)}"><meta property="og:url" content="${escapeHtml(options.canonicalUrl)}">`
     : '';

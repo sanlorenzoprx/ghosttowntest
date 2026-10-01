@@ -46,6 +46,8 @@ import {
   handleGetMeLiveStripeConnect,
   handleGetMeLiveStripeStatus,
   handleGetMeLivePublish,
+  handleGetMeLivePublishStatus,
+  handleGetMeLivePublishVerify,
   handleGetMeLiveLeads,
   handleGetMeLiveReleaseReceipt,
   handleGetMeLiveStoryStudioHandoff,
@@ -310,6 +312,18 @@ export default {
       const getMeLivePublishMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/publish$/);
       if (getMeLivePublishMatch && method === 'POST') {
         const response = await handleGetMeLivePublish(request, env, decodeURIComponent(getMeLivePublishMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLivePublishVerifyMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/publish\/verify$/);
+      if (getMeLivePublishVerifyMatch && method === 'POST') {
+        const response = await handleGetMeLivePublishVerify(request, env, decodeURIComponent(getMeLivePublishVerifyMatch[1]));
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const getMeLivePublishStatusMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/publish\/status$/);
+      if (getMeLivePublishStatusMatch && method === 'GET') {
+        const response = await handleGetMeLivePublishStatus(request, env, decodeURIComponent(getMeLivePublishStatusMatch[1]));
         applyCors(response, corsHeaders);
         return response;
       }
