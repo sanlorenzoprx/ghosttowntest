@@ -359,10 +359,12 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
     ) VALUES (?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?)
   `).bind(orderId, ownerId, sourceVerdictId, source.schema_version, JSON.stringify(blueprint), source.research_receipt_json, source.pdf_r2_key, now, now).run();
 
-  const pagesProjectName = ('ghosttown-e2e-' + gmlOrderId.replace(/^gml_e2e_/, '')).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 58);
+  // No seeded Pages project name: acceptance exercises the real naming path
+  // (business-name slug + overwrite guard). The run nonce keeps the slug unique.
+  const runNonce = gmlOrderId.replace(/^gml_e2e_/, '').split('_').pop() || crypto.randomUUID().slice(0, 10);
   const config = {
     schemaVersion: 'get-me-live-config-v1',
-    brand: { businessName: 'Synthetic Acceptance Business', stylePreset: 'clean_saas', templateId: 'ghosttown_conversion' },
+    brand: { businessName: 'GhostTown E2E ' + runNonce, stylePreset: 'clean_saas', templateId: 'ghosttown_conversion' },
     offer: {
       intent: 'interest',
       headline: 'A simple test page for a synthetic acceptance journey',
@@ -371,7 +373,7 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
       ctaLabel: 'I am interested'
     },
     contact: { contactEmail: ownerId, leadDestinationEmail: ownerId, businessEmailLocalPart: 'hello' },
-    domain: { cloudflareAccountId: String(body?.cloudflareAccountId || ''), pagesProjectName },
+    domain: { cloudflareAccountId: String(body?.cloudflareAccountId || '') },
     payments: { enabled: false }
   };
   if (!config.domain.cloudflareAccountId) return json({ error: 'Acceptance Cloudflare account ID is required for the disposable Get Me Live site' }, 400);
@@ -411,6 +413,12 @@ async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Respo
   const orderId = String(body?.orderId || '');
   const gmlOrderId = String(body?.gmlOrderId || '');
   if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_') || !/^gml_e2e_[A-Za-z0-9_-]+$/.test(gmlOrderId)) return json({ error: 'Invalid E2E fixture identity' }, 400);
+  const hostingRow = await env.DB.prepare('SELECT hosting_json FROM get_me_live_orders WHERE order_id = ? AND owner_id = ?')
+    .bind(gmlOrderId, ownerId).first<{ hosting_json: string | null }>().catch(() => null);
+  let pagesProjectName: string | undefined;
+  try { pagesProjectName = hostingRow?.hosting_json ? String(JSON.parse(hostingRow.hosting_json).pagesProjectName || '') || undefined : undefined; } catch { pagesProjectName = undefined; }
+  await env.DB.prepare('DELETE FROM get_me_live_publish_attempts WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_releases WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
   await env.DB.prepare('DELETE FROM get_me_live_leads WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
   await env.DB.prepare('DELETE FROM get_me_live_share_drafts WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
   await env.DB.prepare('DELETE FROM get_me_live_orders WHERE order_id = ? AND owner_id = ?').bind(gmlOrderId, ownerId).run();
@@ -424,7 +432,7 @@ async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Respo
     env.KV.delete('paid_test_orders_' + ownerId),
     env.KV.delete('user_' + ownerId)
   ]);
-  return json({ ok: true, deleted: true, orderId, gmlOrderId, productionMutated: false });
+  return json({ ok: true, deleted: true, orderId, gmlOrderId, pagesProjectName, productionMutated: false });
 }
 
 export default {

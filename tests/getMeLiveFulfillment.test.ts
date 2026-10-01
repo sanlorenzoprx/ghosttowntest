@@ -68,6 +68,7 @@ vi.mock('../src/api/getMeLiveStore', () => ({
 
 const providers = vi.hoisted(() => ({
   ensurePagesProject: vi.fn(),
+  createPagesProject: vi.fn(),
   getPagesProject: vi.fn(),
   deployCloudflarePagesHtml: vi.fn(),
   addCloudflarePagesDomain: vi.fn()
@@ -178,6 +179,7 @@ describe('Get Me Live publish URL truth (Slice 1a)', () => {
     state.order = publishableOrder(); state.updates = []; state.hostingWrites = []; state.releases = []; fetched = [];
     vi.clearAllMocks();
     providers.ensurePagesProject.mockImplementation(async (_env: Env, _orderId: string, _accountId: string, name: string) => ({ name, subdomain: PAGES_HOST }));
+    providers.createPagesProject.mockImplementation(async (_env: Env, _orderId: string, _accountId: string, name: string) => ({ name, subdomain: PAGES_HOST }));
     providers.deployCloudflarePagesHtml.mockImplementation(async () => ({ deploymentId: `dep_${state.updates.length}`, deploymentUrl: HASH_URL }));
     providers.getPagesProject.mockResolvedValue(null);
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
@@ -203,9 +205,9 @@ describe('Get Me Live publish URL truth (Slice 1a)', () => {
   it('#3 uses the provider-returned subdomain as pagesUrl, canonical, and hosting', async () => {
     const response = await handleGetMeLivePublish(ownerRequest('/publish', { method: 'POST' }), publishEnv(), 'gml_test');
     const body = await response.json() as Record<string, unknown>;
-    expect(body).toMatchObject({ pagesUrl: PAGES_URL, publicUrl: PAGES_URL, pagesProjectName: 'gt-gml-test' });
+    expect(body).toMatchObject({ pagesUrl: PAGES_URL, publicUrl: PAGES_URL, pagesProjectName: 'proof-path' });
     expect(state.hostingWrites[0].hosting).toMatchObject({
-      schemaVersion: 'get-me-live-hosting-v1', cloudflareAccountId: 'acct_1', pagesProjectName: 'gt-gml-test',
+      schemaVersion: 'get-me-live-hosting-v1', cloudflareAccountId: 'acct_1', pagesProjectName: 'proof-path',
       pagesSubdomain: PAGES_HOST, pagesUrl: PAGES_URL, source: 'provider'
     });
     // Hosting is persisted before the first deploy so a retry reuses the project.
@@ -247,8 +249,10 @@ describe('Get Me Live publish URL truth (Slice 1a)', () => {
     expect(state.releases).toEqual([{ releaseId: 'rel_test_1', kind: 'launch' }, { releaseId: 'rel_test_2', kind: 'republish' }]);
     expect(state.order?.publicUrl).toBe(PAGES_URL);
     expect(state.order?.hosting?.pagesUrl).toBe(PAGES_URL);
-    expect(providers.ensurePagesProject.mock.calls.map(call => call[3])).toEqual(['gt-gml-test', 'gt-gml-test']);
-    expect(providers.deployCloudflarePagesHtml.mock.calls.map(call => call[3])).toEqual(['gt-gml-test', 'gt-gml-test']);
+    // First publish creates the business-name project; the republish reuses the persisted one.
+    expect(providers.createPagesProject.mock.calls.map(call => call[3])).toEqual(['proof-path']);
+    expect(providers.ensurePagesProject.mock.calls.map(call => call[3])).toEqual(['proof-path']);
+    expect(providers.deployCloudflarePagesHtml.mock.calls.map(call => call[3])).toEqual(['proof-path', 'proof-path']);
   });
 
   it('#14 normalizes a legacy hash-URL order to its stable pagesUrl from the provider', async () => {

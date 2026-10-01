@@ -66,6 +66,7 @@ import {
   checkCloudflareDomain,
   completeCloudflareAuthorization,
   configureCloudflareEmailRouting,
+  createPagesProject,
   createCloudflareAuthorizationUrl,
   createConnectedCheckoutSession,
   createStripeConnectedMerchant,
@@ -1084,6 +1085,55 @@ export async function handleGetMeLiveStripeStatus(request: Request, env: Env, or
     return json({ error: error instanceof Error ? error.message : 'Stripe status failed' }, 502);
   }
 }
+// Pages project names are at most 58 characters: a 53-character slug plus
+// "-" and a 4-character suffix.
+const PAGES_SLUG_MAX = 53;
+
+/** Customer-friendly Pages project slug (plan §4.2); empty when nothing usable remains. */
+export function pagesSlug(value: string): string {
+  return value.toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, PAGES_SLUG_MAX)
+    .replace(/-+$/g, '');
+}
+
+/** First 4 hex characters of sha256(orderId): deterministic, so retries choose the same fallback. */
+export async function shortHash(orderId: string): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(orderId)));
+  return Array.from(digest.slice(0, 2), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export async function pagesProjectCandidates(order: GetMeLiveOrder): Promise<string[]> {
+  const slug = pagesSlug(order.configuration?.brand.businessName || '');
+  const candidates = [
+    order.configuration?.domain.pagesProjectName,
+    slug,
+    slug ? `${slug}-${await shortHash(order.orderId)}` : undefined,
+    projectNameFor(order.orderId)
+  ].filter((name): name is string => Boolean(name));
+  return [...new Set(candidates)];
+}
+
+/**
+ * Overwrite guard (plan §4.1): GhostTown only deploys to a Pages project whose
+ * name is persisted on this order. A name that already exists in the account but
+ * is not persisted here belongs to someone else and is never reused.
+ */
+export async function resolvePagesProject(env: Env, order: GetMeLiveOrder, accountId: string): Promise<PagesProject> {
+  const hosting = order.hosting;
+  if (hosting && (!hosting.cloudflareAccountId || hosting.cloudflareAccountId === accountId)) {
+    return ensurePagesProject(env, order.orderId, accountId, hosting.pagesProjectName);
+  }
+  for (const name of await pagesProjectCandidates(order)) {
+    if (await getPagesProject(env, order.orderId, accountId, name)) continue;
+    const created = await createPagesProject(env, order.orderId, accountId, name);
+    if (created) return created;
+  }
+  throw new Error('No available Pages project name');
+}
+
 function projectNameFor(orderId: string): string {
   return `gt-${orderId.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(-46)}`.slice(0, 63);
 }
@@ -1255,7 +1305,7 @@ export async function handleGetMeLivePublish(
   // for the stable customer URL. Persist it before deploying so a retry reuses it.
   let hosting: GetMeLiveHosting;
   try {
-    const project = await ensurePagesProject(env, orderId, accountId, owned.hosting?.pagesProjectName || config.domain.pagesProjectName || projectNameFor(orderId));
+    const project = await resolvePagesProject(env, owned, accountId);
     hosting = hostingFromProject(accountId, project, 'provider', owned.hosting);
     await recordHosting(env, orderId, hosting);
   } catch (error) {

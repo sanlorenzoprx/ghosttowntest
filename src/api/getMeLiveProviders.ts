@@ -322,6 +322,34 @@ export async function getPagesProject(
   return { name: payload.result?.name || projectName, subdomain };
 }
 
+/**
+ * Creates a Pages project. Returns null when Cloudflare reports the name is
+ * already taken (in this account or globally), so the caller can try the next name.
+ */
+export async function createPagesProject(
+  env: Env,
+  orderId: string,
+  accountId: string,
+  projectName: string
+): Promise<PagesProject | null> {
+  const token = await cloudflareAccessToken(env, orderId);
+  const response = await fetch(`${CF_API}/accounts/${encodeURIComponent(accountId)}/pages/projects`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: projectName, production_branch: 'main' })
+  });
+  const payload = await response.json().catch(() => ({})) as { success?: boolean; result?: { name?: string; subdomain?: string }; errors?: Array<{ message?: string }> };
+  const message = payload.errors?.map(item => item.message).filter(Boolean).join('; ') || '';
+  if (response.status === 409 || /already (exists|taken|in use)/i.test(message)) return null;
+  if (!response.ok || payload.success === false) throw new Error(message || `Cloudflare Pages project creation failed (${response.status})`);
+  const subdomain = pagesSubdomainFrom(payload.result?.subdomain);
+  if (subdomain) return { name: payload.result?.name || projectName, subdomain };
+  const reread = await getPagesProject(env, orderId, accountId, payload.result?.name || projectName);
+  if (!reread) throw new Error(`Cloudflare Pages project ${projectName} was not found after creation`);
+  return reread;
+}
+
+/** Reads a project this order already owns, recreating it under the same name if it was deleted. */
 export async function ensurePagesProject(
   env: Env,
   orderId: string,
@@ -330,15 +358,9 @@ export async function ensurePagesProject(
 ): Promise<PagesProject> {
   const existing = await getPagesProject(env, orderId, accountId, projectName);
   if (existing) return existing;
-  const created = await cloudflareApi<{ name?: string; subdomain?: string }>(env, orderId, `/accounts/${encodeURIComponent(accountId)}/pages/projects`, {
-    method: 'POST',
-    body: JSON.stringify({ name: projectName, production_branch: 'main' })
-  });
-  const subdomain = pagesSubdomainFrom(created?.subdomain);
-  if (subdomain) return { name: created.name || projectName, subdomain };
-  const reread = await getPagesProject(env, orderId, accountId, created?.name || projectName);
-  if (!reread) throw new Error(`Cloudflare Pages project ${projectName} was not found after creation`);
-  return reread;
+  const created = await createPagesProject(env, orderId, accountId, projectName);
+  if (!created) throw new Error(`The Cloudflare Pages project ${projectName} is no longer available`);
+  return created;
 }
 
 async function pagesUploadJwt(

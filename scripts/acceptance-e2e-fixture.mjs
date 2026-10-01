@@ -78,6 +78,9 @@ async function publishAndVerify(label) {
   }
   const releaseId = body.releaseId;
   let pagesUrl = body.pagesUrl;
+  const pagesProjectName = String(body.pagesProjectName || '');
+  // Record the real project name immediately so cleanup can delete it even if a later step fails.
+  if (pagesProjectName) await appendFile(envFile, `GHOSTTOWN_E2E_PAGES_PROJECT=${pagesProjectName}\n`);
   if (body.verified !== true) {
     const deadline = Date.now() + 10 * 60 * 1000;
     for (;;) {
@@ -114,10 +117,13 @@ async function publishAndVerify(label) {
     }
     await new Promise(resolve => setTimeout(resolve, 5000));
   }
-  return { releaseId, pagesUrl };
+  return { releaseId, pagesUrl, pagesProjectName };
 }
 
 const launch = await publishAndVerify('launch');
+if (!launch.pagesProjectName.startsWith('ghosttown-e2e-')) {
+  throw new Error(`Acceptance Get Me Live project was not named from the business name: ${launch.pagesProjectName}`);
+}
 
 // Republish proof: an edit followed by publish creates a new releaseId that the
 // same stable pagesUrl serves.
@@ -131,6 +137,7 @@ await postPreview('republish');
 const republish = await publishAndVerify('republish');
 if (republish.pagesUrl !== launch.pagesUrl) throw new Error(`Acceptance Get Me Live republish moved the site: ${launch.pagesUrl} -> ${republish.pagesUrl}`);
 if (republish.releaseId === launch.releaseId) throw new Error('Acceptance Get Me Live republish did not create a new releaseId.');
+if (republish.pagesProjectName !== launch.pagesProjectName) throw new Error(`Acceptance Get Me Live republish changed project: ${launch.pagesProjectName} -> ${republish.pagesProjectName}`);
 
 // Result check: before any browser journey, prove the disposable customer can
 // see the canonical Sprint through the acceptance Worker.
@@ -193,5 +200,5 @@ console.log(JSON.stringify({
   environment: 'acceptance', orderId, gmlOrderId, sourceOrderId: fixture.sourceOrderId,
   freshOwner: true, stripeChargeCreated: false, productionMutated: false,
   authTokenRecorded: false, passwordRecorded: false, expiresInSeconds: fixture.expiresInSeconds,
-  pagesUrl: republish.pagesUrl, launchReleaseId: launch.releaseId, republishReleaseId: republish.releaseId
+  pagesUrl: republish.pagesUrl, pagesProjectName: launch.pagesProjectName, launchReleaseId: launch.releaseId, republishReleaseId: republish.releaseId
 }));
