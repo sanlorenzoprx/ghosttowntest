@@ -88,9 +88,10 @@ function configuredPriceId(env: Env): string {
 
 function getMeLiveSiteUrl(order: GetMeLiveOrder): string | undefined {
   if (order.customDomain) return `https://${order.customDomain}`;
+  if (order.publicUrl) return order.publicUrl;
   const projectName = order.configuration?.domain.pagesProjectName || projectNameFor(order.orderId);
   if (projectName) return `https://${projectName}.pages.dev`;
-  return order.publicUrl;
+  return undefined;
 }
 
 function hasPublishedGetMeLiveSite(order: GetMeLiveOrder): boolean {
@@ -648,11 +649,30 @@ export async function handleGetMeLivePreview(request: Request, env: Env, orderId
   const config = owned.configuration || defaultConfiguration(record.blueprint, owned.ownerId);
   owned.configuration = config;
   const sourceBlueprint = overlayBlueprint(record.blueprint, config);
-  const customAssets = await configuredAssets(env, orderId, config, sourceBlueprint);
-  const manufactured = await manufactureCustomWebsite(env, sourceBlueprint, customAssets.length ? {
-    allowDeployment: false,
-    assetGenerator: { async generate() { return customAssets; } }
-  } : { allowDeployment: false });
+  let customAssets: WebsiteAsset[];
+  try {
+    customAssets = await configuredAssets(env, orderId, config, sourceBlueprint);
+  } catch (error) {
+    console.error('Get Me Live preview failed at configured_assets:', error);
+    return json({ error: 'Get Me Live preview failed', stage: 'configured_assets' }, 500);
+  }
+
+  let manufactured: Awaited<ReturnType<typeof manufactureCustomWebsite>>;
+  try {
+    manufactured = await manufactureCustomWebsite(env, sourceBlueprint, customAssets.length ? {
+      allowDeployment: false,
+      assetGenerator: { async generate() { return customAssets; } }
+    } : { allowDeployment: false });
+  } catch (error) {
+    console.error('Get Me Live preview failed at website_manufacturing:', error);
+    const message = error instanceof Error ? error.message : '';
+    const nestedStage = message.match(/stage=([a-z0-9_]+)/i)?.[1];
+    return json({
+      error: 'Get Me Live preview failed',
+      stage: nestedStage ? `website_manufacturing.${nestedStage}` : 'website_manufacturing'
+    }, 500);
+  }
+
   const spec = applyConfigToSpec(manufactured.spec, config);
   (spec as typeof spec & { primaryColor?: string }).primaryColor = config.brand.primaryColor;
   if (config.offer.leadMagnet) {
@@ -665,8 +685,17 @@ export async function handleGetMeLivePreview(request: Request, env: Env, orderId
   const buyActionUrl = `${origin}/api/get-me-live/sites/${encodeURIComponent(orderId)}/buy`;
   const primaryActionUrl = config.offer.intent === 'buy' ? buyActionUrl : '#contact';
   const assets = manufactured.assets;
-  const build = await buildCustomWebsite(spec, { primaryActionUrl, secondaryActionUrl: '#contact', assets });
-  const html = renderCustomWebsiteStaticHtml(spec, {
+  let build: Awaited<ReturnType<typeof buildCustomWebsite>>;
+  try {
+    build = await buildCustomWebsite(spec, { primaryActionUrl, secondaryActionUrl: '#contact', assets });
+  } catch (error) {
+    console.error('Get Me Live preview failed at website_build:', error);
+    return json({ error: 'Get Me Live preview failed', stage: 'website_build' }, 500);
+  }
+
+  let html: string;
+  try {
+    html = renderCustomWebsiteStaticHtml(spec, {
     assets,
     primaryActionUrl,
     secondaryActionUrl: '#contact',
@@ -675,8 +704,13 @@ export async function handleGetMeLivePreview(request: Request, env: Env, orderId
       ? { title: config.offer.leadMagnet.title, url: '#' }
       : undefined,
     attributionUrl: `${origin}/get-me-live?from=customer-site`,
-    showFriendShare: true
-  });
+      showFriendShare: true
+    });
+  } catch (error) {
+    console.error('Get Me Live preview failed at static_render:', error);
+    return json({ error: 'Get Me Live preview failed', stage: 'static_render' }, 500);
+  }
+
   const preview = {
     ...manufactured,
     spec,
@@ -691,10 +725,15 @@ export async function handleGetMeLivePreview(request: Request, env: Env, orderId
       productionAutoDeploy: false as const
     }
   };
-  await saveGetMeLivePreview(env, orderId, preview, html);
-  owned.status = hasPublishedGetMeLiveSite(owned) ? 'live' : 'preview_ready';
-  owned.updatedAt = new Date().toISOString();
-  await updateGetMeLiveOrder(env, owned);
+  try {
+    await saveGetMeLivePreview(env, orderId, preview, html);
+    owned.status = hasPublishedGetMeLiveSite(owned) ? 'live' : 'preview_ready';
+    owned.updatedAt = new Date().toISOString();
+    await updateGetMeLiveOrder(env, owned);
+  } catch (error) {
+    console.error('Get Me Live preview failed at preview_persistence:', error);
+    return json({ error: 'Get Me Live preview failed', stage: 'preview_persistence' }, 500);
+  }
   await recordCommercialFunnelEvent(env, "get_me_live_preview_created", { ownerId: owned.ownerId, orderId: owned.orderId, source: "get_me_live" }).catch(() => undefined);
   return json({ status: owned.status, buildId: build.buildId, templateId: build.templateId });
 }

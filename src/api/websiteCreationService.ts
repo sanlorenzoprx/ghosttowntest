@@ -386,10 +386,41 @@ export async function manufactureCustomWebsite(
     };
   };
 
-  const first = await generateWebsitePlan(env, blueprint);
+  let first: Awaited<ReturnType<typeof generateWebsitePlan>> | undefined;
+  let lastGenerationError: unknown;
+  // Keep the paid website path Vertex-backed. Retry transient/provider/response
+  // failures, but never replace failed AI generation with deterministic output.
+  for (let attempt = 1; attempt <= 3 && !first; attempt += 1) {
+    try {
+      first = await generateWebsitePlan(env, blueprint);
+    } catch (error) {
+      lastGenerationError = error;
+      console.error(`Custom website manufacturing Vertex attempt ${attempt}/3 failed:`, error);
+      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 500));
+    }
+  }
+  if (!first) {
+    const message = lastGenerationError instanceof Error ? lastGenerationError.message : '';
+    let detail = 'unknown';
+    if (/timed out/i.test(message)) detail = 'timeout';
+    else if (/OAuth token exchange/i.test(message)) detail = 'oauth';
+    else if (/Cloudflare AI Gateway configuration is missing/i.test(message)) detail = 'gateway_config';
+    else if (/Vertex custom_website returned HTTP/i.test(message)) detail = 'provider_http';
+    else if (/returned no content/i.test(message)) detail = 'no_content';
+    else if (/did not contain JSON|JSON\\.parse|Unexpected token|Expected property name/i.test(message)) detail = 'response_json';
+    else if (/Custom website|component|template|section|style/i.test(message)) detail = 'plan_contract';
+    throw new Error(`Custom website manufacturing failed (stage=vertex_plan_generation_${detail})`);
+  }
+
   let latestReceipt = first.receipt;
   let spec = first.spec;
-  let manufactured = await build(spec);
+  let manufactured: Awaited<ReturnType<typeof build>>;
+  try {
+    manufactured = await build(spec);
+  } catch (error) {
+    console.error('Custom website manufacturing failed at deterministic_build:', error);
+    throw new Error('Custom website manufacturing failed (stage=deterministic_build)');
+  }
   let assets = manufactured.assets;
   let websiteBuild = manufactured.build;
   let browserTest: WebsiteBrowserTestResult | undefined;

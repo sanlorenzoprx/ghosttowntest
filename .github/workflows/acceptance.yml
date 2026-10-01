@@ -34,6 +34,8 @@ jobs:
       GHOSTTOWN_E2E_BASE_URL: ${{ secrets.GHOSTTOWN_E2E_BASE_URL }}
       GHOSTTOWN_E2E_AUTH_TOKEN: ${{ secrets.GHOSTTOWN_E2E_AUTH_TOKEN }}
       GHOSTTOWN_E2E_GML_ORDER_ID: ${{ secrets.GHOSTTOWN_E2E_GML_ORDER_ID }}
+      GHOSTTOWN_E2E_SPRINT_ORDER_ID: ${{ secrets.GHOSTTOWN_E2E_SPRINT_ORDER_ID }}
+      GHOSTTOWN_E2E_SPRINT_MUTATE: ${{ vars.GHOSTTOWN_E2E_SPRINT_MUTATE || '0' }}
       GHOSTTOWN_E2E_LIVE_URL: ${{ secrets.GHOSTTOWN_E2E_LIVE_URL }}
       GHOSTTOWN_E2E_SUBMIT_LEAD: ${{ vars.GHOSTTOWN_E2E_SUBMIT_LEAD || '0' }}
 
@@ -90,9 +92,51 @@ jobs:
           mkdir -p github-acceptance
           npx wrangler deploy --env acceptance 2>&1 | tee github-acceptance/deploy.log
 
+      - name: Build acceptance frontend against acceptance Worker
+        if: ${{ inputs.deploy }}
+        env:
+          VITE_API_URL: https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev
+        run: |
+          rm -rf dist
+          npm run build
+          grep -R -F "https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev" dist/assets >/dev/null || {
+            echo "::error::Acceptance frontend build does not contain the acceptance Worker API origin"
+            exit 1
+          }
+
+      - name: Deploy current acceptance frontend
+        if: ${{ inputs.deploy }}
+        run: |
+          npx wrangler pages deploy dist --project-name ghosttown-acceptance --branch main 2>&1 | tee github-acceptance/pages-deploy.log
+
+      - name: Self-provision isolated customer-journey fixture
+        if: ${{ inputs.deploy }}
+        run: node scripts/acceptance-e2e-fixture.mjs
+
+      - name: Verify self-provisioned runtime acceptance inputs
+        if: ${{ inputs.deploy }}
+        shell: bash
+        run: |
+          test -n "$GHOSTTOWN_E2E_BASE_URL"
+          test -n "$GHOSTTOWN_E2E_API_URL"
+          test -n "$GHOSTTOWN_E2E_AUTH_TOKEN"
+          test -n "$GHOSTTOWN_E2E_SPRINT_ORDER_ID"
+          test "$GHOSTTOWN_E2E_SPRINT_MUTATE" = "1"
+          test -n "$GHOSTTOWN_E2E_GML_ORDER_ID"
+          test -n "$GHOSTTOWN_E2E_LIVE_URL"
+          test "$GHOSTTOWN_E2E_SUBMIT_LEAD" = "1"
+
+      - name: Prove full interactive 30-Day Sprint
+        if: ${{ inputs.deploy }}
+        run: node tests/e2e/30-day-sprint-acceptance.mjs
+
       - name: Prove live Get Me Live customer journey
         if: ${{ inputs.deploy }}
         run: node tests/e2e/get-me-live-acceptance.mjs
+
+      - name: Clean self-provisioned acceptance fixture
+        if: ${{ always() && inputs.deploy }}
+        run: node scripts/acceptance-e2e-cleanup.mjs
 
       - name: Record acceptance execution receipt
         if: always()

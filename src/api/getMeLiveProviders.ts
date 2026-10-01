@@ -1,5 +1,6 @@
 import type { Env } from './env';
 import type { GetMeLiveDomainCandidate } from '../types/getMeLive';
+import { blake3 } from '@noble/hashes/blake3.js';
 
 interface CloudflareTokenEnvelope {
   accessToken: string;
@@ -274,12 +275,15 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(output);
 }
 
-async function sha256Bytes(value: ArrayBuffer | Uint8Array): Promise<string> {
-  const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
-  const copy = new Uint8Array(bytes.byteLength);
-  copy.set(bytes);
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', copy.buffer));
-  return Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
+function pagesAssetHash(path: string, bytes: Uint8Array): string {
+  // Match Wrangler's Pages Direct Upload content-addressing contract:
+  // BLAKE3(base64(file bytes) + file extension), first 32 hex characters.
+  const filename = path.split('/').pop() || path;
+  const dot = filename.lastIndexOf('.');
+  const extension = dot >= 0 ? filename.slice(dot + 1) : '';
+  const input = new TextEncoder().encode(`${bytesToBase64(bytes)}${extension}`);
+  const digest = blake3(input);
+  return Array.from(digest, (byte: number) => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }
 async function ensurePagesProject(
   env: Env,
@@ -338,11 +342,14 @@ export async function deployCloudflarePagesHtml(
 ): Promise<{ deploymentId: string; publicUrl: string }> {
   await ensurePagesProject(env, orderId, accountId, projectName);
   const jwt = await pagesUploadJwt(env, orderId, accountId, projectName);
+  // Pages Direct Upload manifests use URL-rooted paths and Wrangler-compatible
+  // BLAKE3 asset hashes. The manifest and asset registry must use the same
+  // path/hash pair or Pages can accept a deployment that cannot serve its root.
   const deployFiles = [
     { path: '/index.html', contentType: 'text/html; charset=utf-8', bytes: new TextEncoder().encode(html) as Uint8Array },
     ...files.map(file => ({ ...file, path: `/${file.path.replace(/^\/+/, '')}`, bytes: new Uint8Array(file.bytes) }))
   ];
-  const hashed = await Promise.all(deployFiles.map(async file => ({ ...file, hash: await sha256Bytes(file.bytes) })));
+  const hashed = deployFiles.map(file => ({ ...file, hash: pagesAssetHash(file.path, file.bytes) }));
   const missing = await pagesAssetRequest<string[]>(jwt, '/pages/assets/check-missing', { hashes: [...new Set(hashed.map(file => file.hash))] });
   if (missing.length) {
     await pagesAssetRequest(jwt, '/pages/assets/upload', hashed.filter(file => missing.includes(file.hash)).map(file => ({
@@ -371,7 +378,15 @@ export async function deployCloudflarePagesHtml(
   if (!response.ok || payload.success === false || !payload.result?.id) {
     throw new Error(payload.errors?.map(item => item.message).filter(Boolean).join('; ') || 'Cloudflare Pages deployment failed');
   }
-  const publicUrl = `https://${projectName}.pages.dev`;
+  // Cloudflare's deployment response is the source of truth for the URL that
+  // actually serves this deployment. The project-level pages.dev hostname can
+  // briefly resolve before the production alias is ready (and has returned
+  // transient 5xx responses in acceptance), so do not manufacture it here.
+  const deploymentUrl = String(payload.result.url || '').trim();
+  const aliasUrl = (payload.result.aliases || [])
+    .map(value => String(value || '').trim())
+    .find(value => value.startsWith('https://'));
+  const publicUrl = deploymentUrl || aliasUrl || `https://${projectName}.pages.dev`;
   return { deploymentId: payload.result.id, publicUrl };
 }
 

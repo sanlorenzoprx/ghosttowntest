@@ -2,6 +2,7 @@ interface Env {
   DB: D1Database;
   KV: KVNamespace;
   BLUEPRINTS: R2Bucket;
+  ACCEPTANCE_CLOUDFLARE_API_TOKEN?: string;
 }
 
 const PDF_SUFFIX = '/ghosttown-launch-blueprint-v2.pdf';
@@ -306,6 +307,126 @@ async function rematerialize(env: Env, request: Request): Promise<Response> {
   }
 }
 
+async function createE2eSprintFixture(env: Env, request: Request): Promise<Response> {
+  let body: any; try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
+  const ownerId = String(body?.ownerId || '').trim().toLowerCase();
+  const orderId = String(body?.orderId || '');
+  const gmlOrderId = String(body?.gmlOrderId || '');
+  if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_') || !/^gml_e2e_[A-Za-z0-9_-]+$/.test(gmlOrderId)) {
+    return json({ error: 'Invalid E2E fixture identity' }, 400);
+  }
+
+  const sprintRows = await env.DB.prepare(`
+    SELECT order_id, blueprint_json, research_receipt_json, schema_version, status, pdf_r2_key, created_at
+    FROM launch_blueprints WHERE status = 'ready' ORDER BY updated_at DESC LIMIT 50
+  `).all<any>();
+  let source: any = null; let sourceOrder: any = null;
+  for (const row of sprintRows.results || []) {
+    const raw = await env.KV.get('paid_test_order_' + row.order_id);
+    if (!raw) continue;
+    const order = JSON.parse(raw);
+    let candidateBlueprint: any = null;
+    try { candidateBlueprint = JSON.parse(row.blueprint_json); } catch { continue; }
+    const canonicalSprint = candidateBlueprint?.schemaVersion === EXPECTED_SCHEMA
+      && candidateBlueprint?.blueprintVersion === '2.1'
+      && candidateBlueprint?.status === 'ready'
+      && Array.isArray(candidateBlueprint?.dailyCalendar)
+      && candidateBlueprint.dailyCalendar.length === 30;
+    if (order?.status === 'ready'
+        && order?.stripeMode === 'test'
+        && order?.artifactType === 'launch_blueprint_v2'
+        && canonicalSprint) {
+      source = row; sourceOrder = order; break;
+    }
+  }
+  if (!source || !sourceOrder) return json({ error: 'No ready Stripe-test Sprint acceptance source exists' }, 409);
+
+  const now = new Date().toISOString();
+  const blueprint = JSON.parse(source.blueprint_json);
+  blueprint.orderId = orderId; blueprint.ownerId = ownerId; blueprint.blueprintId = 'bp_e2e_' + crypto.randomUUID();
+  blueprint.createdAt = now; blueprint.updatedAt = now;
+  const sourceVerdictId = String(blueprint.sourceVerdictId || sourceOrder.verdictId || '');
+
+  const order = JSON.parse(JSON.stringify(sourceOrder));
+  order.orderId = orderId; order.email = ownerId; order.status = 'ready';
+  order.stripeCheckoutSessionId = 'cs_test_e2e_fixture_no_charge'; order.stripePaymentIntentId = 'pi_test_e2e_fixture_no_charge';
+  order.paidAt = now; order.createdAt = now; order.updatedAt = now; order.idempotencyKey = 'e2e_' + crypto.randomUUID();
+
+  await env.DB.prepare(`
+    INSERT INTO launch_blueprints (
+      order_id, owner_id, source_verdict_id, schema_version, status,
+      blueprint_json, research_receipt_json, pdf_r2_key, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?)
+  `).bind(orderId, ownerId, sourceVerdictId, source.schema_version, JSON.stringify(blueprint), source.research_receipt_json, source.pdf_r2_key, now, now).run();
+
+  const pagesProjectName = ('ghosttown-e2e-' + gmlOrderId.replace(/^gml_e2e_/, '')).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 58);
+  const config = {
+    schemaVersion: 'get-me-live-config-v1',
+    brand: { businessName: 'Synthetic Acceptance Business', stylePreset: 'clean_saas', templateId: 'ghosttown_conversion' },
+    offer: {
+      intent: 'interest',
+      headline: 'A simple test page for a synthetic acceptance journey',
+      offer: 'Synthetic Acceptance Offer',
+      price: '$10 test',
+      ctaLabel: 'I am interested'
+    },
+    contact: { contactEmail: ownerId, leadDestinationEmail: ownerId, businessEmailLocalPart: 'hello' },
+    domain: { cloudflareAccountId: String(body?.cloudflareAccountId || ''), pagesProjectName },
+    payments: { enabled: false }
+  };
+  if (!config.domain.cloudflareAccountId) return json({ error: 'Acceptance Cloudflare account ID is required for the disposable Get Me Live site' }, 400);
+  const provider = { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false, domainReady: false };
+  const acceptanceCloudflareToken = String(env.ACCEPTANCE_CLOUDFLARE_API_TOKEN || '').trim();
+  if (!acceptanceCloudflareToken) return json({ error: 'Acceptance Cloudflare API token is not bound to the disposable fixture bridge' }, 500);
+  await env.DB.prepare(`
+    INSERT INTO get_me_live_orders (
+      order_id, owner_id, source_sprint_order_id, source_blueprint_id, offer_id, offer_version,
+      stripe_price_id, stripe_checkout_session_id, stripe_payment_intent_id, status,
+      configuration_json, provider_state_json, preview_r2_key, public_url, custom_domain,
+      deployment_receipt_json, created_at, updated_at, paid_at, published_at, failure
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, 'ready_to_publish', ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, NULL, NULL)
+  `).bind(
+    gmlOrderId, ownerId, orderId, blueprint.blueprintId, 'ghosttown-get-me-live', '1.0',
+    'acceptance-no-charge', JSON.stringify(config), JSON.stringify(provider), 'get-me-live/' + gmlOrderId + '/preview.json',
+    now, now, now
+  ).run();
+
+  await env.KV.put('get_me_live_cf_token_' + gmlOrderId, JSON.stringify({
+    accessToken: acceptanceCloudflareToken,
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    scope: 'acceptance-workflow-token'
+  }), { expirationTtl: 3600 });
+
+  await env.KV.put('paid_test_order_' + orderId, JSON.stringify(order), { expirationTtl: 86400 });
+  await env.KV.put('paid_test_orders_' + ownerId, JSON.stringify([{
+    orderId, ideaName: 'Synthetic Acceptance Sprint', status: 'ready', createdAt: now, updatedAt: now,
+    artifactType: order.artifactType, offerName: '30-Day Evidence Sprint', sourceVerdictId, planVersion: order.planVersion || '1.0'
+  }]), { expirationTtl: 86400 });
+  return json({ ok: true, orderId, gmlOrderId, ownerId, sourceOrderId: source.order_id, expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false });
+}
+
+async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Response> {
+  let body: any; try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
+  const ownerId = String(body?.ownerId || '').trim().toLowerCase();
+  const orderId = String(body?.orderId || '');
+  const gmlOrderId = String(body?.gmlOrderId || '');
+  if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_') || !/^gml_e2e_[A-Za-z0-9_-]+$/.test(gmlOrderId)) return json({ error: 'Invalid E2E fixture identity' }, 400);
+  await env.DB.prepare('DELETE FROM get_me_live_leads WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_share_drafts WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_orders WHERE order_id = ? AND owner_id = ?').bind(gmlOrderId, ownerId).run();
+  await env.DB.prepare('DELETE FROM blueprint_execution_log WHERE order_id = ?').bind(orderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM launch_blueprints WHERE order_id = ? AND owner_id = ?').bind(orderId, ownerId).run();
+  await Promise.all([
+    env.BLUEPRINTS.delete('get-me-live/' + gmlOrderId + '/preview.json'),
+    env.BLUEPRINTS.delete('get-me-live/' + gmlOrderId + '/preview.html'),
+    env.KV.delete('get_me_live_cf_token_' + gmlOrderId),
+    env.KV.delete('paid_test_order_' + orderId),
+    env.KV.delete('paid_test_orders_' + ownerId),
+    env.KV.delete('user_' + ownerId)
+  ]);
+  return json({ ok: true, deleted: true, orderId, gmlOrderId, productionMutated: false });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -329,6 +450,8 @@ export default {
     }
 
     if (url.pathname === '/rematerialize' && request.method === 'POST') return rematerialize(env, request);
+    if (url.pathname === '/e2e-sprint-fixture' && request.method === 'POST') return createE2eSprintFixture(env, request);
+    if (url.pathname === '/e2e-sprint-fixture' && request.method === 'DELETE') return deleteE2eSprintFixture(env, request);
 
     if (url.pathname !== '/object') return json({ error: 'Not found' }, 404);
     const key = url.searchParams.get('key') || '';
