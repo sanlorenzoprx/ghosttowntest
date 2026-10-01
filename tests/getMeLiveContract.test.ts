@@ -120,7 +120,8 @@ describe('Get Me Live pre-launch has no domain step', () => {
     const contactStep = workspace.slice(workspace.indexOf('activeStep === "contact"'), workspace.indexOf('activeStep === "payments"'));
     expect(contactStep).not.toMatch(/business ?email|setupEmail/i);
     expect(workspace).toContain('const activeDomain = order?.customDomainState?.status === "active" ? order.customDomainState.name : undefined;');
-    expect(workspace).toContain('{activeDomain && <div className="mt-7 rounded-xl border p-5"><h3 className="text-xl font-black">Want a matching business email?</h3>');
+    expect(workspace).toContain('const emailDomain = activeDomain && order?.customDomainState?.hosts.includes(`www.${activeDomain}`) ? activeDomain : undefined;');
+    expect(workspace).toContain('{emailDomain && <div className="mt-7 rounded-xl border p-5"><p className="text-xs font-black uppercase tracking-[.18em] text-gray-600">Optional</p><h3 className="mt-1 text-xl font-black">Want a matching business email?</h3>');
   });
 
   it('#26 the step URL param resolves to a real step; legacy step=domain maps to name', async () => {
