@@ -122,3 +122,27 @@ describe('Get Me Live Pages hostname truth (plan §3)', () => {
     expect(calls.some(call => call === 'GET https://api.cloudflare.com/client/v4/accounts/acct_1/pages/projects/proof-path')).toBe(false);
   });
 });
+
+describe('Cloudflare OAuth least privilege (Slice 9)', () => {
+  it('never requests Registrar scopes, whatever the configured list says', () => {
+    expect(providers.cloudflareOAuthScopes('account:read registrar:write pages:write, zone:read registrar:read dns_records:edit'))
+      .toEqual(['account:read', 'pages:write', 'zone:read', 'dns_records:edit']);
+    expect(() => providers.cloudflareOAuthScopes(' ')).toThrow('CLOUDFLARE_OAUTH_SCOPES is not configured');
+  });
+
+  it('the authorization URL carries the filtered scopes', async () => {
+    const kv = { put: vi.fn(async () => undefined) };
+    const url = new URL(await providers.createCloudflareAuthorizationUrl({
+      KV: kv, CLOUDFLARE_OAUTH_CLIENT_ID: 'client', CLOUDFLARE_OAUTH_SCOPES: 'account:read registrar:write pages:write'
+    } as unknown as Env, { orderId: 'gml_1', ownerId: 'owner@example.com', redirectUri: 'https://api.test/cb' }));
+    expect(url.searchParams.get('scope')).toBe('account:read pages:write');
+  });
+
+  it('no Registrar API call remains in the Worker source', async () => {
+    const { readFile } = await import('node:fs/promises');
+    for (const file of ['src/api/getMeLiveProviders.ts', 'src/api/getMeLive.ts', 'src/api/index.ts']) {
+      const source = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+      expect(source).not.toMatch(/\/registrar\/(domain-search|domain-check|registrations)/);
+    }
+  });
+});

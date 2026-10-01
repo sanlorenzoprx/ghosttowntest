@@ -33,9 +33,20 @@ function required(value: string | undefined, name: string): string {
   return normalized;
 }
 
+/**
+ * OAuth scopes GhostTown requests (plan §9). GhostTown no longer searches for or
+ * buys domains, so Registrar scopes are never requested, even if the configured
+ * list still names them. Existing connections keep their original grants until
+ * the customer reconnects.
+ */
+export function cloudflareOAuthScopes(configured: string | undefined): string[] {
+  return required(configured, 'CLOUDFLARE_OAUTH_SCOPES')
+    .split(/[\s,]+/).map(item => item.trim()).filter(Boolean)
+    .filter(scope => !/registrar/i.test(scope));
+}
+
 function cfScopes(env: Env): string[] {
-  return required(env.CLOUDFLARE_OAUTH_SCOPES, 'CLOUDFLARE_OAUTH_SCOPES')
-    .split(/[\s,]+/).map(item => item.trim()).filter(Boolean);
+  return cloudflareOAuthScopes(env.CLOUDFLARE_OAUTH_SCOPES);
 }
 export async function createCloudflareAuthorizationUrl(
   env: Env,

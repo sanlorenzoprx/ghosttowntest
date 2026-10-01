@@ -80,6 +80,7 @@ import {
   disconnectCloudflareAuthorization,
   ensurePagesProject,
   addCloudflarePagesDomain,
+  cloudflareOAuthScopes,
   createCloudflareDnsCname,
   deleteGhostTownDnsRecords,
   deleteCloudflarePagesDomain,
@@ -914,7 +915,7 @@ export async function handleGetMeLiveCloudflareCallback(request: Request, env: E
     const order = await loadGetMeLiveOrder(env, connected.orderId);
     if (!order || order.ownerId !== connected.ownerId) throw new Error('Get Me Live Cloudflare ownership mismatch');
     order.providerState.cloudflareConnected = true;
-    order.providerState.cloudflareScopes = env.CLOUDFLARE_OAUTH_SCOPES?.split(/[\s,]+/).filter(Boolean);
+    order.providerState.cloudflareScopes = env.CLOUDFLARE_OAUTH_SCOPES ? cloudflareOAuthScopes(env.CLOUDFLARE_OAUTH_SCOPES) : undefined;
     order.status = hasPublishedGetMeLiveSite(order) ? 'live' : 'provider_setup';
     order.updatedAt = new Date().toISOString();
     await updateGetMeLiveOrder(env, order);
