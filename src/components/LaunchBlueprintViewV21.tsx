@@ -233,14 +233,15 @@ function downloadAsset(title: string, content: string, contentType: string) {
   URL.revokeObjectURL(href);
 }
 
-export default function LaunchBlueprintViewV21({ orderId, onBack, initialPayload }: { orderId: string; onBack: () => void; initialPayload: BlueprintV21Payload }) {
+export default function LaunchBlueprintViewV21({ orderId, onBack, initialPayload, initialActionDay }: { orderId: string; onBack: () => void; initialPayload: BlueprintV21Payload; initialActionDay?: number }) {
   const [payload, setPayload] = useState(initialPayload);
   const [tab, setTab] = useState<Tab>("overview");
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const [saveError, setSaveError] = useState("");
   const [entryDraft, setEntryDraft] = useState<EvidenceLedgerEntryV21>(emptyEntry());
   const [checkpointDrafts, setCheckpointDrafts] = useState<Record<number, Partial<CheckpointReviewV21>>>({});
-  const [selectedActionDay, setSelectedActionDay] = useState<number | null>(null);
+  // Opened from a specific day, the workspace records evidence and reviews for that day.
+  const [selectedActionDay, setSelectedActionDay] = useState<number | null>(initialActionDay ?? null);
   const [openedAssetId, setOpenedAssetId] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
   // Saves go out one at a time. Each request carries the newest local snapshot plus
