@@ -6,10 +6,11 @@ const baseUrl = String(process.env.GHOSTTOWN_E2E_BASE_URL || '').replace(/\/$/, 
 const apiBase = String(process.env.GHOSTTOWN_E2E_API_URL || '').replace(/\/$/, '');
 const authToken = String(process.env.GHOSTTOWN_E2E_AUTH_TOKEN || '');
 const getMeLiveOrderId = String(process.env.GHOSTTOWN_E2E_GML_ORDER_ID || '');
-const liveUrl = String(process.env.GHOSTTOWN_E2E_LIVE_URL || '').replace(/\/$/, '');
+// Cross-check only: the URL under test comes from the stored launch receipt.
+const fixtureLiveUrl = String(process.env.GHOSTTOWN_E2E_LIVE_URL || '').replace(/\/$/, '');
 const submitLead = process.env.GHOSTTOWN_E2E_SUBMIT_LEAD === '1';
 
-const required = { GHOSTTOWN_E2E_BASE_URL: baseUrl, GHOSTTOWN_E2E_API_URL: apiBase, GHOSTTOWN_E2E_AUTH_TOKEN: authToken, GHOSTTOWN_E2E_GML_ORDER_ID: getMeLiveOrderId, GHOSTTOWN_E2E_LIVE_URL: liveUrl };
+const required = { GHOSTTOWN_E2E_BASE_URL: baseUrl, GHOSTTOWN_E2E_API_URL: apiBase, GHOSTTOWN_E2E_AUTH_TOKEN: authToken, GHOSTTOWN_E2E_GML_ORDER_ID: getMeLiveOrderId, GHOSTTOWN_E2E_LIVE_URL: fixtureLiveUrl };
 const missing = Object.entries(required).filter(([, value]) => !value).map(([name]) => name);
 if (missing.length) throw new Error('Runtime Get Me Live acceptance is mandatory. Missing: ' + missing.join(', '));
 if (!submitLead) throw new Error('Runtime Get Me Live acceptance must submit a disposable lead. Set GHOSTTOWN_E2E_SUBMIT_LEAD=1.');
@@ -25,7 +26,23 @@ const browser = await chromium.launch({
 });
 
 const fail = message => { throw new Error(message); };
-const proof = { schemaVersion: 'ghosttown-get-me-live-browser-proof-v2', liveUrl, getMeLiveOrderId, viewports: [], lead: null, recordedAt: new Date().toISOString() };
+const ownerGet = path => fetch(`${apiBase}/api/get-me-live/orders/${encodeURIComponent(getMeLiveOrderId)}${path}`, { headers: { Authorization: `Bearer ${authToken}` } });
+
+// The stored launch receipt names the stable Pages URL to test (v2), or the
+// computed liveUrl for receipts written before Slice 2 (v1).
+const receiptResponse = await ownerGet('/release-receipt');
+if (receiptResponse.status !== 200) fail(`Release receipt expected HTTP 200, received ${receiptResponse.status}`);
+const receiptText = await receiptResponse.text();
+const { receipt } = JSON.parse(receiptText);
+const receiptVersion = receipt?.schemaVersion;
+if (receiptVersion !== 'ghosttown-get-me-live-release-receipt-v1' && receiptVersion !== 'ghosttown-get-me-live-release-receipt-v2') fail(`Release receipt schema mismatch: ${receiptVersion}`);
+const liveUrl = String(receiptVersion.endsWith('-v2') ? receipt.pagesUrl : receipt.liveUrl || '').replace(/\/$/, '');
+if (!/^https:\/\/[a-z0-9-]+\.pages\.dev$/.test(liveUrl)) fail(`Release receipt URL is not a stable pages.dev URL (no deployment hash): ${liveUrl}`);
+if (liveUrl !== fixtureLiveUrl) fail(`Release receipt URL ${liveUrl} does not match the fixture's verified URL ${fixtureLiveUrl}.`);
+const repeatReceipt = await ownerGet('/release-receipt');
+if ((await repeatReceipt.text()) !== receiptText) fail('Release receipt changed between two reads; the launch receipt must be byte-identical.');
+
+const proof = { schemaVersion: 'ghosttown-get-me-live-browser-proof-v2', liveUrl, receiptSchema: receiptVersion, getMeLiveOrderId, viewports: [], lead: null, recordedAt: new Date().toISOString() };
 await mkdir('github-acceptance', { recursive: true });
 const productionApiRequests = [];
 try {
@@ -62,21 +79,26 @@ try {
   proof.viewports.push({ name: 'desktop', width: 1440, height: 1000, httpStatus: desktopNavigation?.status(), leadFormVisible: true });
   await desktop.close();
 
-  const receiptResponse = await page.request.get(
-    `${apiBase}/api/get-me-live/orders/${encodeURIComponent(getMeLiveOrderId)}/release-receipt`,
-    { headers: { Authorization: `Bearer ${authToken}` } }
-  );
-  if (receiptResponse.status() !== 200) fail(`Release receipt expected HTTP 200, received ${receiptResponse.status()}`);
-  const { receipt } = await receiptResponse.json();
-  if (receipt?.schemaVersion !== 'ghosttown-get-me-live-release-receipt-v1') fail('Release receipt schema mismatch.');
-  if (String(receipt?.liveUrl || '').replace(/\/$/, '') !== liveUrl) fail('Release receipt live URL does not match the tested customer page.');
-  for (const [name, expected] of Object.entries({
-    customerPageReachable: true,
-    customerPageHttpStatus: 200,
-    leadCaptureConfigured: true,
-    activityTrackingConfigured: true
-  })) {
-    if (receipt?.checks?.[name] !== expected) fail(`Release receipt check ${name} expected ${expected}, received ${receipt?.checks?.[name]}`);
+  if (receiptVersion.endsWith('-v2')) {
+    if (receipt.kind !== 'launch') fail(`Release receipt kind expected launch, received ${receipt.kind}`);
+    for (const [name, expected] of Object.entries({ customerPageHttpStatus: 200, leadCaptureConfigured: true, activityTrackingConfigured: true })) {
+      if (receipt?.checks?.[name] !== expected) fail(`Release receipt check ${name} expected ${expected}, received ${receipt?.checks?.[name]}`);
+    }
+    if (receipt.backfilled !== true && receipt.checks.releaseMarkerServed !== true) fail('A non-backfilled launch receipt must record that its release marker was served.');
+    // The site serves the latest verified release (a republish after launch is
+    // expected), so the served marker is checked against the release list.
+    const releasesResponse = await ownerGet('/releases');
+    if (releasesResponse.status !== 200) fail(`Releases expected HTTP 200, received ${releasesResponse.status}`);
+    const { releases } = await releasesResponse.json();
+    if (!Array.isArray(releases) || !releases.some(release => release.releaseId === receipt.releaseId && release.kind === 'launch')) fail('Launch receipt is missing from the release list.');
+    const latest = releases[releases.length - 1];
+    const served = (await page.content()).match(/<meta name="ghosttown-release-id" content="([^"]+)">/)?.[1];
+    if (!latest || served !== latest.releaseId) fail(`Live page serves release ${served}; latest verified release is ${latest?.releaseId}.`);
+    proof.releases = { launch: receipt.releaseId, latest: latest.releaseId, served, count: releases.length };
+  } else {
+    for (const [name, expected] of Object.entries({ customerPageReachable: true, customerPageHttpStatus: 200, leadCaptureConfigured: true, activityTrackingConfigured: true })) {
+      if (receipt?.checks?.[name] !== expected) fail(`Release receipt check ${name} expected ${expected}, received ${receipt?.checks?.[name]}`);
+    }
   }
 
   console.log('[ghosttown-e2e] PASS: live page + release receipt.');

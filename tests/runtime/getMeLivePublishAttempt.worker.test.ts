@@ -4,7 +4,11 @@ import type { Env } from "../../src/api/env";
 import { handleSignup } from "../../src/api/auth";
 import {
   handleGetMeLiveConfig,
+  handleGetMeLiveHealth,
   handleGetMeLiveOrder,
+  handleGetMeLiveReleaseReceipt,
+  handleGetMeLiveReleaseReceiptBackfill,
+  handleGetMeLiveReleases,
   handleGetMeLivePublish,
   handleGetMeLivePublishStatus,
   handleGetMeLivePublishVerify
@@ -414,3 +418,92 @@ describe("Get Me Live publish attempts on real D1 (Slice 1b)", () => {
     expect(await snapshot()).toBe(before);
   });
 });
+
+describe("Get Me Live release records, receipt and health on real D1 (Slice 2)", () => {
+  const receiptText = async (orderId: string) => {
+    const response = await handleGetMeLiveReleaseReceipt(owner(orderId, "/release-receipt"), env, orderId);
+    return { status: response.status, text: await response.text() };
+  };
+
+  it("#11 the launch receipt is the stored row, byte-identical across reads and after a republish", async () => {
+    const orderId = await seedOrder();
+    const launch = await body(await publish(orderId));
+    const first = await receiptText(orderId);
+    expect(first.status).toBe(200);
+    const receipt = JSON.parse(first.text).receipt;
+    expect(receipt).toMatchObject({ schemaVersion: "ghosttown-get-me-live-release-receipt-v2", kind: "launch", releaseId: launch.releaseId, pagesUrl: PAGES_URL, backfilled: false });
+    expect(receipt.checks).toMatchObject({ releaseMarkerServed: true, customerPageHttpStatus: 200 });
+    expect((await receiptText(orderId)).text).toBe(first.text);
+
+    const republish = await body(await publish(orderId));
+    expect(republish.verified).toBe(true);
+    expect((await receiptText(orderId)).text).toBe(first.text);
+
+    const list = await body(await handleGetMeLiveReleases(owner(orderId, "/releases"), env, orderId));
+    expect(list.releases.map((release: { kind: string; releaseId: string }) => [release.kind, release.releaseId]))
+      .toEqual([["launch", launch.releaseId], ["republish", republish.releaseId]]);
+  });
+
+  it("#27 a legacy order needs backfill; the backfilled receipt says so and backfill is idempotent", async () => {
+    const orderId = await seedOrder();
+    // A site published before launch records existed: published columns + hosting, no release rows.
+    const publishedAt = "2026-09-01T00:00:00.000Z";
+    await env.DB.prepare(`
+      UPDATE get_me_live_orders SET status = 'live', public_url = ?, published_at = ?, deployment_receipt_json = ?, hosting_json = ? WHERE order_id = ?
+    `).bind(PAGES_URL, publishedAt,
+      JSON.stringify({ deploymentId: "dep_legacy", buildId: "website_legacy", publicUrl: "https://9f8e7d6c.proof-path-4xz.pages.dev", publishedAt }),
+      JSON.stringify({ schemaVersion: "get-me-live-hosting-v1", cloudflareAccountId: "acct_runtime", pagesProjectName: "proof-path", pagesSubdomain: PAGES_HOST, pagesUrl: PAGES_URL, source: "derived_from_legacy" }),
+      orderId).run();
+    cf.served = "";
+
+    const missing = await handleGetMeLiveReleaseReceipt(owner(orderId, "/release-receipt"), env, orderId);
+    expect(missing.status).toBe(404);
+    expect(await body(missing)).toMatchObject({ needsBackfill: true });
+
+    const backfill = () => handleGetMeLiveReleaseReceiptBackfill(owner(orderId, "/release-receipt/backfill", { method: "POST" }), env, orderId);
+    const created = await backfill();
+    expect(created.status).toBe(201);
+    const createdText = await created.text();
+    const receipt = JSON.parse(createdText).receipt;
+    expect(receipt).toMatchObject({
+      kind: "launch", releaseId: `rel_legacy_${orderId}`, backfilled: true, publishedAt,
+      deploymentId: "dep_legacy", buildId: "website_legacy", pagesUrl: PAGES_URL
+    });
+    expect(receipt.checks).toMatchObject({ releaseMarkerServed: false, customerPageHttpStatus: 200 });
+
+    const again = await backfill();
+    expect(again.status).toBe(200);
+    expect(await again.text()).toBe(createdText);
+    expect((await receiptText(orderId)).text).toBe(createdText);
+    const rows = await releases(orderId);
+    expect(rows.map(row => row.release_id)).toEqual([`rel_legacy_${orderId}`]);
+  });
+
+  it("backfill is refused for an order that never went live", async () => {
+    const orderId = await seedOrder();
+    const response = await handleGetMeLiveReleaseReceiptBackfill(owner(orderId, "/release-receipt/backfill", { method: "POST" }), env, orderId);
+    expect(response.status).toBe(409);
+    expect(await releases(orderId)).toHaveLength(0);
+  });
+
+  it("#35 GET /release-receipt, /releases and /health make no Cloudflare write calls and no publication writes", async () => {
+    const orderId = await seedOrder();
+    await publish(orderId);
+    const snapshot = async () => JSON.stringify({
+      order: await env.DB.prepare("SELECT * FROM get_me_live_orders WHERE order_id = ?").bind(orderId).first(),
+      attempts: await attempts(orderId),
+      releases: await releases(orderId)
+    });
+    const before = await snapshot();
+    cf.calls = [];
+    expect((await handleGetMeLiveReleaseReceipt(owner(orderId, "/release-receipt"), env, orderId)).status).toBe(200);
+    expect((await handleGetMeLiveReleases(owner(orderId, "/releases"), env, orderId)).status).toBe(200);
+    const health = await body(await handleGetMeLiveHealth(owner(orderId, "/health"), env, orderId));
+    expect(health).toMatchObject({ preferredUrl: PAGES_URL, pagesUrl: PAGES_URL, servingLatestRelease: true });
+    expect(health.targets).toHaveLength(1);
+    expect(cf.calls.filter(call => !call.startsWith("GET "))).toEqual([]);
+    expect(cf.calls.filter(call => call.includes("api.cloudflare.com"))).toEqual([]);
+    expect(await snapshot()).toBe(before);
+  });
+});
+

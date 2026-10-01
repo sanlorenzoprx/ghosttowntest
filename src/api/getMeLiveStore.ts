@@ -679,3 +679,38 @@ export async function getGetMeLiveActivity(env: Env, orderId: string, sourceSpri
     revenueCents: Number(payments?.revenue_cents || 0)
   };
 }
+
+/** The launch release row, if one exists (at most one per order, enforced by a unique index). */
+export async function loadLaunchGetMeLiveRelease(env: Env, orderId: string): Promise<GetMeLiveRelease | null> {
+  const row = await db(env).prepare(`
+    SELECT * FROM get_me_live_releases WHERE get_me_live_order_id = ? AND kind = 'launch'
+  `).bind(orderId).first<ReleaseRow>();
+  return row ? toRelease(row) : null;
+}
+
+/**
+ * Inserts the backfilled launch row for a legacy order (plan §20.2). Idempotent:
+ * an existing launch row (real or backfilled) is never replaced.
+ */
+export async function insertBackfilledLaunchRelease(env: Env, input: {
+  orderId: string;
+  releaseId: string;
+  buildId: string;
+  deploymentId: string;
+  deploymentUrl?: string;
+  pagesUrl: string;
+  verifiedUrl: string;
+  verifiedAt: string;
+  receiptJson: string;
+}): Promise<void> {
+  await db(env).prepare(`
+    INSERT INTO get_me_live_releases (
+      release_id, get_me_live_order_id, kind, build_id, deployment_id, deployment_url, pages_url,
+      custom_domain, verified_url, verified_at, backfilled, receipt_json, created_at
+    ) VALUES (?, ?, 'launch', ?, ?, ?, ?, NULL, ?, ?, 1, ?, ?)
+    ON CONFLICT DO NOTHING
+  `).bind(
+    input.releaseId, input.orderId, input.buildId, input.deploymentId, input.deploymentUrl || null, input.pagesUrl,
+    input.verifiedUrl, input.verifiedAt, input.receiptJson, input.verifiedAt
+  ).run();
+}

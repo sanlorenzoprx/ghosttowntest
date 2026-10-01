@@ -34,7 +34,10 @@ import {
   claimPublishAttempt,
   createGetMeLiveOrder,
   isPublishAttemptExpired,
+  insertBackfilledLaunchRelease,
+  listGetMeLiveReleases,
   loadLatestGetMeLiveRelease,
+  loadLaunchGetMeLiveRelease,
   loadPublishAttempt,
   recordPublishDeployment,
   settlePublishFailure,
@@ -1550,61 +1553,139 @@ export async function handleGetMeLiveStoryStudioHandoff(request: Request, env: E
   } });
 }
 
+const RELEASE_MARKER_PATTERN = /<meta name="ghosttown-release-id" content="([^"]+)">/;
+
+/** Reads a customer page without writing anything; used by backfill and /health. */
+async function inspectCustomerPage(url: string, orderId: string): Promise<{
+  url: string; httpStatus: number; reachable: boolean; servedReleaseId?: string;
+  leadCaptureConfigured: boolean; activityTrackingConfigured: boolean; error?: string;
+}> {
+  try {
+    const response = await fetch(url, { method: 'GET', redirect: 'follow', headers: { 'Cache-Control': 'no-cache' } });
+    const html = response.ok && (response.headers.get('content-type') || 'text/html').includes('text/html') ? await response.text() : '';
+    if (!html) await response.body?.cancel();
+    const routeBase = `/api/get-me-live/sites/${encodeURIComponent(orderId)}`;
+    return {
+      url,
+      httpStatus: response.status,
+      reachable: response.ok,
+      servedReleaseId: html.match(RELEASE_MARKER_PATTERN)?.[1],
+      leadCaptureConfigured: html.includes(`${routeBase}/leads`),
+      activityTrackingConfigured: html.includes(`${routeBase}/activity`)
+    };
+  } catch (error) {
+    return { url, httpStatus: 0, reachable: false, leadCaptureConfigured: false, activityTrackingConfigured: false, error: error instanceof Error ? error.message : 'unreachable' };
+  }
+}
+
+/**
+ * GET /release-receipt: the stored launch receipt, byte-identical on every read
+ * (plan §15). A published legacy order without a launch row answers
+ * 404 { needsBackfill: true }; the client then calls POST /release-receipt/backfill.
+ */
 export async function handleGetMeLiveReleaseReceipt(request: Request, env: Env, orderId: string): Promise<Response> {
   const owned = await ownedGetMeLiveOrder(request, env, orderId);
   if (owned instanceof Response) return owned;
-  if (!owned.configuration || !hasPublishedGetMeLiveSite(owned)) return json({ error: 'Go live before opening your release receipt' }, 409);
-  const deployment = owned.deploymentReceipt;
-  if (!deployment) return json({ error: 'A deployment receipt was not recorded for this launch' }, 409);
-
-  const liveUrl = preferredPublicUrl(owned);
-  if (!liveUrl) return json({ error: 'The live page address is unavailable' }, 409);
-  let customerPageReachable = false;
-  let customerPageHttpStatus: number | undefined;
-  let leadCaptureConfigured = false;
-  let activityTrackingConfigured = false;
-  try {
-    const response = await fetch(liveUrl, { method: 'GET', redirect: 'follow', headers: { 'Cache-Control': 'no-cache' } });
-    customerPageHttpStatus = response.status;
-    customerPageReachable = response.ok;
-    if (response.ok && (response.headers.get('content-type') || '').includes('text/html')) {
-      const html = await response.text();
-      const routeBase = `/api/get-me-live/sites/${encodeURIComponent(orderId)}`;
-      leadCaptureConfigured = html.includes(`${routeBase}/leads`);
-      activityTrackingConfigured = html.includes(`${routeBase}/activity`);
-    } else {
-      await response.body?.cancel();
-    }
-  } catch {
-    customerPageReachable = false;
+  const launch = await loadLaunchGetMeLiveRelease(env, orderId);
+  if (launch) {
+    return new Response(`{"receipt":${launch.receiptJson}}`, {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' }
+    });
   }
+  if (!owned.configuration || !hasPublishedGetMeLiveSite(owned)) return json({ error: 'Go live before opening your release receipt' }, 409);
+  return json({ error: 'This launch receipt needs to be rebuilt from your live site.', needsBackfill: true }, 404);
+}
 
-  const receipt: GetMeLiveReleaseReceipt = {
-    schemaVersion: 'ghosttown-get-me-live-release-receipt-v1',
+/** POST /release-receipt/backfill: legacy orders only; creates the backfilled launch row (plan §20.2). Idempotent. */
+export async function handleGetMeLiveReleaseReceiptBackfill(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const existing = await loadLaunchGetMeLiveRelease(env, orderId);
+  if (existing) return new Response(`{"receipt":${existing.receiptJson}}`, { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' } });
+  if (!owned.configuration || !hasPublishedGetMeLiveSite(owned)) return json({ error: 'Go live before opening your release receipt' }, 409);
+  const hosting = owned.hosting;
+  if (!hosting) return json({ error: 'Reconnect Cloudflare to refresh your website details.' }, 409);
+  const page = await inspectCustomerPage(hosting.pagesUrl, orderId);
+  const verifiedAt = new Date().toISOString();
+  const deployment = owned.deploymentReceipt;
+  const releaseId = `rel_legacy_${orderId}`;
+  const receipt: GetMeLiveReleaseReceiptV2 = {
+    schemaVersion: 'ghosttown-get-me-live-release-receipt-v2',
+    kind: 'launch',
+    releaseId,
     orderId: owned.orderId,
     sourceSprintOrderId: owned.sourceSprintOrderId,
     sourceBlueprintId: owned.sourceBlueprintId,
     offerId: owned.offerId,
     offerVersion: owned.offerVersion,
     provider: 'cloudflare_pages',
-    pagesProjectName: owned.hosting?.pagesProjectName || owned.configuration.domain.pagesProjectName || projectNameFor(owned.orderId),
-    deploymentId: deployment.deploymentId,
-    buildId: deployment.buildId,
-    liveUrl,
-    customDomain: owned.customDomain,
-    publishedAt: owned.publishedAt || deployment.publishedAt,
-    checkedAt: new Date().toISOString(),
+    pagesProjectName: hosting.pagesProjectName,
+    pagesSubdomain: hosting.pagesSubdomain,
+    pagesUrl: hosting.pagesUrl,
+    liveUrl: hosting.pagesUrl,
+    deploymentUrl: deployment?.deploymentUrl,
+    deploymentId: deployment?.deploymentId || 'legacy',
+    buildId: deployment?.buildId || 'legacy',
+    publishedAt: deployment?.publishedAt || owned.publishedAt || verifiedAt,
+    verifiedAt,
+    // Launch-time verification never happened for legacy orders; the receipt says so.
+    backfilled: true,
     checks: {
-      durableDeploymentRecorded: true,
-      customerPageReachable,
-      customerPageHttpStatus,
-      leadCaptureConfigured,
-      activityTrackingConfigured,
-      cloudflareConnected: owned.providerState.cloudflareConnected,
+      releaseMarkerServed: false,
+      customerPageHttpStatus: page.httpStatus,
+      leadCaptureConfigured: page.leadCaptureConfigured,
+      activityTrackingConfigured: page.activityTrackingConfigured,
       paymentMode: getMeLivePaymentMode(owned)
     }
   };
-  return json({ receipt });
+  await insertBackfilledLaunchRelease(env, {
+    orderId, releaseId, buildId: receipt.buildId, deploymentId: receipt.deploymentId, deploymentUrl: receipt.deploymentUrl,
+    pagesUrl: hosting.pagesUrl, verifiedUrl: hosting.pagesUrl, verifiedAt, receiptJson: JSON.stringify(receipt)
+  });
+  const stored = await loadLaunchGetMeLiveRelease(env, orderId);
+  if (!stored) return json({ error: 'The launch receipt could not be saved' }, 500);
+  return new Response(`{"receipt":${stored.receiptJson}}`, { status: 201, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store' } });
+}
+
+/** GET /releases: every verified release row, oldest first (append-only). */
+export async function handleGetMeLiveReleases(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const releases = await listGetMeLiveReleases(env, orderId);
+  return json({
+    releases: releases.map(release => ({
+      releaseId: release.releaseId, kind: release.kind, buildId: release.buildId, deploymentId: release.deploymentId,
+      deploymentUrl: release.deploymentUrl, pagesUrl: release.pagesUrl, customDomain: release.customDomain,
+      verifiedUrl: release.verifiedUrl, verifiedAt: release.verifiedAt, backfilled: release.backfilled
+    }))
+  });
+}
+
+/** GET /health: current, mutable site health. Reads the live site; never writes. */
+export async function handleGetMeLiveHealth(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedGetMeLiveOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  if (!hasPublishedGetMeLiveSite(owned)) return json({ error: 'Go live before checking your website' }, 409);
+  const preferredUrl = preferredPublicUrl(owned) || owned.publicUrl;
+  if (!preferredUrl) return json({ error: 'Reconnect Cloudflare to refresh your website details.' }, 409);
+  const pagesUrl = owned.hosting?.pagesUrl;
+  const urls = [...new Set([preferredUrl, pagesUrl].filter((url): url is string => Boolean(url)))];
+  const [targets, latest] = await Promise.all([
+    Promise.all(urls.map(url => inspectCustomerPage(url, orderId))),
+    loadLatestGetMeLiveRelease(env, orderId)
+  ]);
+  const primary = targets[0];
+  return json({
+    checkedAt: new Date().toISOString(),
+    preferredUrl,
+    pagesUrl,
+    latestReleaseId: latest?.releaseId,
+    servingLatestRelease: Boolean(latest && primary.servedReleaseId === latest.releaseId),
+    healthy: primary.reachable && primary.leadCaptureConfigured && primary.activityTrackingConfigured,
+    paymentMode: getMeLivePaymentMode(owned),
+    targets
+  });
 }
 
 export async function handleGetMeLiveLeads(request: Request, env: Env, orderId: string): Promise<Response> {
