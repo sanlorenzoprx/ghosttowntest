@@ -285,24 +285,60 @@ function pagesAssetHash(path: string, bytes: Uint8Array): string {
   const digest = blake3(input);
   return Array.from(digest, (byte: number) => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }
-async function ensurePagesProject(
+export interface PagesProject {
+  name: string;
+  /** Provider-assigned production host, e.g. "proof-path-4xz.pages.dev". */
+  subdomain: string;
+}
+
+function pagesSubdomainFrom(value: unknown): string | null {
+  const host = String(value || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.pages\.dev$/.test(host) ? host : null;
+}
+
+/** Reads a Pages project. Returns null only when Cloudflare reports it does not exist. */
+export async function getPagesProject(
   env: Env,
   orderId: string,
   accountId: string,
   projectName: string
-): Promise<void> {
+): Promise<PagesProject | null> {
   const token = await cloudflareAccessToken(env, orderId);
   const url = `${CF_API}/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(projectName)}`;
-  const existing = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (existing.ok) return;
-  if (existing.status !== 404) {
-    const body = await existing.text();
-    throw new Error(`Cloudflare Pages project lookup failed (${existing.status}): ${body.slice(0, 240)}`);
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (response.status === 404) {
+    await response.body?.cancel();
+    return null;
   }
-  await cloudflareApi(env, orderId, `/accounts/${encodeURIComponent(accountId)}/pages/projects`, {
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Cloudflare Pages project lookup failed (${response.status}): ${body.slice(0, 240)}`);
+  }
+  const payload = await response.json() as { result?: { name?: string; subdomain?: string } };
+  const subdomain = pagesSubdomainFrom(payload.result?.subdomain);
+  // Cloudflare can assign a subdomain that differs from the project name without
+  // reporting an error, so the provider value is mandatory; never derive it.
+  if (!subdomain) throw new Error(`Cloudflare did not return the Pages address for project ${projectName}`);
+  return { name: payload.result?.name || projectName, subdomain };
+}
+
+export async function ensurePagesProject(
+  env: Env,
+  orderId: string,
+  accountId: string,
+  projectName: string
+): Promise<PagesProject> {
+  const existing = await getPagesProject(env, orderId, accountId, projectName);
+  if (existing) return existing;
+  const created = await cloudflareApi<{ name?: string; subdomain?: string }>(env, orderId, `/accounts/${encodeURIComponent(accountId)}/pages/projects`, {
     method: 'POST',
     body: JSON.stringify({ name: projectName, production_branch: 'main' })
   });
+  const subdomain = pagesSubdomainFrom(created?.subdomain);
+  if (subdomain) return { name: created.name || projectName, subdomain };
+  const reread = await getPagesProject(env, orderId, accountId, created?.name || projectName);
+  if (!reread) throw new Error(`Cloudflare Pages project ${projectName} was not found after creation`);
+  return reread;
 }
 
 async function pagesUploadJwt(
@@ -339,8 +375,8 @@ export async function deployCloudflarePagesHtml(
   projectName: string,
   html: string,
   files: Array<{ path: string; contentType: string; bytes: ArrayBuffer }> = []
-): Promise<{ deploymentId: string; publicUrl: string }> {
-  await ensurePagesProject(env, orderId, accountId, projectName);
+): Promise<{ deploymentId: string; deploymentUrl?: string }> {
+  // The caller resolves (and persists) the Pages project before deploying.
   const jwt = await pagesUploadJwt(env, orderId, accountId, projectName);
   // Pages Direct Upload manifests use URL-rooted paths and Wrangler-compatible
   // BLAKE3 asset hashes. The manifest and asset registry must use the same
@@ -378,16 +414,10 @@ export async function deployCloudflarePagesHtml(
   if (!response.ok || payload.success === false || !payload.result?.id) {
     throw new Error(payload.errors?.map(item => item.message).filter(Boolean).join('; ') || 'Cloudflare Pages deployment failed');
   }
-  // Cloudflare's deployment response is the source of truth for the URL that
-  // actually serves this deployment. The project-level pages.dev hostname can
-  // briefly resolve before the production alias is ready (and has returned
-  // transient 5xx responses in acceptance), so do not manufacture it here.
-  const deploymentUrl = String(payload.result.url || '').trim();
-  const aliasUrl = (payload.result.aliases || [])
-    .map(value => String(value || '').trim())
-    .find(value => value.startsWith('https://'));
-  const publicUrl = deploymentUrl || aliasUrl || `https://${projectName}.pages.dev`;
-  return { deploymentId: payload.result.id, publicUrl };
+  // `result.url` is the immutable per-deployment hash URL. It is evidence only;
+  // the customer address is the project's provider-returned `subdomain`.
+  const deploymentUrl = String(payload.result.url || '').trim() || undefined;
+  return { deploymentId: payload.result.id, deploymentUrl };
 }
 
 export async function addCloudflarePagesDomain(

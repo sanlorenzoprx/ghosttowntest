@@ -85,9 +85,39 @@ export interface GetMeLiveProviderState {
 export interface GetMeLiveDeploymentReceipt {
   deploymentId: string;
   buildId: string;
+  /** Stable customer Pages URL (`pagesUrl`). Legacy receipts may hold a deployment hash URL. */
   publicUrl: string;
+  /** Immutable per-deployment URL. Evidence only; never a customer address. */
+  deploymentUrl?: string;
   customDomain?: string;
   publishedAt: string;
+}
+
+export interface GetMeLiveHosting {
+  schemaVersion: 'get-me-live-hosting-v1';
+  cloudflareAccountId: string;
+  pagesProjectName: string;
+  /** Provider-returned host, e.g. "joes-dog-walking.pages.dev". */
+  pagesSubdomain: string;
+  /** https://<pagesSubdomain> */
+  pagesUrl: string;
+  lastReleaseFailure?: { releaseId: string; message: string; at: string };
+  source: 'provider' | 'derived_from_legacy';
+}
+
+export interface GetMeLiveCustomDomain {
+  schemaVersion: 'get-me-live-custom-domain-v1';
+  version: number;
+  name: string;
+  hosts: string[];
+  zoneId: string;
+  status: 'connecting' | 'active' | 'failed';
+  step: 'attach_requested' | 'attached' | 'provider_active' | 'republish_deployed' | 'verified';
+  addedAt: string;
+  activatedAt?: string;
+  lastProviderStatus?: string;
+  lastError?: string;
+  legacy?: boolean;
 }
 
 export interface GetMeLiveReleaseReceipt {
@@ -130,9 +160,14 @@ export interface GetMeLiveOrder {
   configuration?: GetMeLiveConfiguration;
   providerState: GetMeLiveProviderState;
   preview?: WebsiteCreationResult;
+  /** Mirrors `hosting.pagesUrl` once hosting is recorded. */
   publicUrl?: string;
+  /** `custom_domain` column: the custom domain name, non-null only while it is active. */
   customDomain?: string;
   deploymentReceipt?: GetMeLiveDeploymentReceipt;
+  hosting?: GetMeLiveHosting;
+  /** `custom_domain_json`: the optional post-launch custom domain record. */
+  customDomainState?: GetMeLiveCustomDomain;
   createdAt: string;
   updatedAt: string;
   paidAt?: string;

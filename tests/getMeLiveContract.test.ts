@@ -44,8 +44,9 @@ describe('Get Me Live safety and lineage contracts', () => {
     const source = await read('src/api/getMeLive.ts');
     expect(source).toContain('hasPublishedGetMeLiveSite');
     expect(source).toContain("owned.status = hadPublishedSite ? 'live' : 'failed'");
-    expect(source).toContain('const destination = getMeLiveSiteUrl(order)');
-    expect(source).toContain("return `https://${projectName}.pages.dev`");
+    expect(source).toContain('const destination = preferredPublicUrl(order)');
+    expect(source).not.toContain('getMeLiveSiteUrl');
+    expect(source).not.toMatch(/\$\{projectName\}\.pages\.dev/);
     expect(source).toContain('function redirect(location: string');
     expect(source).not.toContain('Response.redirect(');
     expect(source).toContain("schemaVersion: 'ghosttown-get-me-live-release-receipt-v1'");

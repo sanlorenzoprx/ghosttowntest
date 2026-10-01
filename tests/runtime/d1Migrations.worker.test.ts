@@ -20,6 +20,8 @@ describe("GhostTown real local D1 migration contract", () => {
     expect(names).toContain("get_me_live_assets");
     expect(names).toContain("get_me_live_share_drafts");
     expect(names).toContain("get_me_live_activity_counts");
+    expect(names).toContain("get_me_live_releases");
+    expect(names).toContain("get_me_live_publish_attempts");
 
     expect(await columns("launch_blueprints")).toEqual(expect.arrayContaining([
       "order_id", "owner_id", "source_verdict_id", "schema_version",
@@ -33,6 +35,17 @@ describe("GhostTown real local D1 migration contract", () => {
     ]));
     expect(await columns("launch_site_leads")).toEqual(expect.arrayContaining([
       "lead_id", "site_id", "email", "source_path", "consent_text"
+    ]));
+    expect(await columns("get_me_live_orders")).toEqual(expect.arrayContaining([
+      "public_url", "custom_domain", "deployment_receipt_json", "hosting_json", "custom_domain_json"
+    ]));
+    expect(await columns("get_me_live_releases")).toEqual(expect.arrayContaining([
+      "release_id", "get_me_live_order_id", "kind", "build_id", "deployment_id", "deployment_url",
+      "pages_url", "custom_domain", "verified_url", "verified_at", "backfilled", "receipt_json", "created_at"
+    ]));
+    expect(await columns("get_me_live_publish_attempts")).toEqual(expect.arrayContaining([
+      "get_me_live_order_id", "attempt_id", "kind", "build_id", "custom_domain", "phase",
+      "deployment_id", "deployment_url", "claimed_at", "deployed_at", "expires_at"
     ]));
   });
 

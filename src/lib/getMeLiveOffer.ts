@@ -1,3 +1,5 @@
+import type { GetMeLiveOrder } from '../types/getMeLive';
+
 export const GHOSTTOWN_GET_ME_LIVE_V1 = {
   offerId: 'ghosttown_get_me_live_v1',
   version: '1.0',
@@ -23,3 +25,13 @@ export const GHOSTTOWN_GET_ME_LIVE_V1 = {
 } as const;
 
 export const DEFAULT_GET_ME_LIVE_DISPLAY_PRICE = '$297.00';
+
+/**
+ * The address customers should use for a Get Me Live site: the active, verified
+ * custom domain when there is one, otherwise the stable Pages URL. A selected,
+ * purchased, connecting, or failed custom domain never displaces the Pages URL.
+ */
+export function preferredPublicUrl(order: Pick<GetMeLiveOrder, 'hosting' | 'customDomainState'>): string | undefined {
+  if (order.customDomainState?.status === 'active') return `https://${order.customDomainState.name}`;
+  return order.hosting?.pagesUrl;
+}

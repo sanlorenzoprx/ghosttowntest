@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { apiUrl, authHeaders } from "../lib/api";
 import { recordCommercialEvent } from "../lib/commercialAttribution";
+import { preferredPublicUrl } from "../lib/getMeLiveOffer";
 import type { GetMeLiveAsset, GetMeLiveConfiguration, GetMeLiveDomainCandidate, GetMeLiveOrder, GetMeLiveReleaseReceipt, GetMeLiveShareDraft } from "../types/getMeLive";
 
 interface Props { orderId: string; onBack: () => void; }
@@ -127,7 +128,7 @@ export default function GetMeLiveWorkspace({ orderId, onBack }: Props) {
   const selectedLogo = assets.find(asset => asset.kind === "logo" && asset.assetId === configuration?.brand.logoAssetId);
   const leadMagnet = assets.find(asset => asset.kind === "lead_magnet" && typeof configuration?.offer.leadMagnet === "object" && configuration.offer.leadMagnet.assetId === asset.assetId);
   const selectedLook = LOOKS.find(item => item.preset === configuration?.brand.stylePreset && item.color.toLowerCase() === configuration.brand.primaryColor?.toLowerCase()) || LOOKS[0];
-  const liveUrl = order?.customDomain ? `https://${order.customDomain}` : order?.publicUrl;
+  const liveUrl = order ? preferredPublicUrl(order) || order.publicUrl : undefined;
   const completed = useMemo<Record<StepId, boolean>>(() => ({
     home: Boolean(previewUrl), cloudflare: Boolean(order?.providerState.cloudflareConnected), domain: Boolean(configuration?.brand.businessName), look: Boolean(configuration?.brand.stylePreset), photos: true,
     offer: Boolean(configuration?.offer.headline && configuration.offer.offer && configuration.offer.ctaLabel), magnet: true, contact: Boolean(configuration?.contact.leadDestinationEmail.includes("@")),

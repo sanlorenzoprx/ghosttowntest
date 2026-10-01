@@ -2,6 +2,8 @@ import type { Env } from './env';
 import type {
   GetMeLiveAsset,
   GetMeLiveConfiguration,
+  GetMeLiveCustomDomain,
+  GetMeLiveHosting,
   GetMeLiveOrder,
   GetMeLiveProviderState,
   GetMeLiveShareDraft
@@ -49,6 +51,8 @@ interface GetMeLiveRow {
   public_url: string | null;
   custom_domain: string | null;
   deployment_receipt_json: string | null;
+  hosting_json?: string | null;
+  custom_domain_json?: string | null;
   created_at: string;
   updated_at: string;
   paid_at: string | null;
@@ -73,6 +77,8 @@ function toOrder(row: GetMeLiveRow): GetMeLiveOrder {
     publicUrl: row.public_url || undefined,
     customDomain: row.custom_domain || undefined,
     deploymentReceipt: row.deployment_receipt_json ? JSON.parse(row.deployment_receipt_json) as GetMeLiveOrder['deploymentReceipt'] : undefined,
+    hosting: row.hosting_json ? JSON.parse(row.hosting_json) as GetMeLiveHosting : undefined,
+    customDomainState: row.custom_domain_json ? JSON.parse(row.custom_domain_json) as GetMeLiveCustomDomain : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     paidAt: row.paid_at || undefined,
@@ -128,6 +134,27 @@ export async function updateGetMeLiveOrder(env: Env, order: GetMeLiveOrder): Pro
     order.deploymentReceipt ? JSON.stringify(order.deploymentReceipt) : null, order.updatedAt, order.paidAt || null, order.publishedAt || null, order.failure || null,
     order.orderId, order.ownerId
   ).run();
+}
+
+/**
+ * Targeted write for publication hosting facts. `hosting_json` is publication-owned:
+ * the generic order update never writes it. When `publicUrl` is given, `public_url`
+ * is rewritten in the same statement so it always mirrors `hosting.pagesUrl`.
+ */
+export async function recordHosting(
+  env: Env,
+  orderId: string,
+  hosting: GetMeLiveHosting,
+  options: { publicUrl?: string } = {}
+): Promise<void> {
+  const now = new Date().toISOString();
+  if (options.publicUrl) {
+    await db(env).prepare(`UPDATE get_me_live_orders SET hosting_json = ?, public_url = ?, updated_at = ? WHERE order_id = ?`)
+      .bind(JSON.stringify(hosting), options.publicUrl, now, orderId).run();
+    return;
+  }
+  await db(env).prepare(`UPDATE get_me_live_orders SET hosting_json = ?, updated_at = ? WHERE order_id = ?`)
+    .bind(JSON.stringify(hosting), now, orderId).run();
 }
 
 export async function saveGetMeLivePreview(
