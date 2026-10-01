@@ -66,7 +66,6 @@ import {
   updateGetMeLiveOrder
 } from './getMeLiveStore';
 import {
-  checkCloudflareDomain,
   completeCloudflareAuthorization,
   configureCloudflareEmailRouting,
   createPagesProject,
@@ -78,13 +77,10 @@ import {
   disconnectCloudflareAuthorization,
   ensurePagesProject,
   findCloudflareZone,
-  getCloudflareRegistrationStatus,
   getPagesProject,
   loadCloudflareAuthorizationState,
   listCloudflareAccounts,
-  registerCloudflareDomain,
   retrieveStripeConnectedMerchant,
-  searchCloudflareDomains,
   type PagesProject
 } from './getMeLiveProviders';
 
@@ -213,7 +209,7 @@ function stripeIntegrationIdentifier(): string {
 }
 
 function emptyProviderState(): GetMeLiveProviderState {
-  return { cloudflareConnected: false, stripeConnected: false, businessEmailVerified: false, domainReady: false };
+  return { cloudflareConnected: false, stripeConnected: false, businessEmailVerified: false };
 }
 async function ownedGetMeLiveOrder(request: Request, env: Env, orderId: string): Promise<GetMeLiveOrder | Response> {
   const auth = await authenticateRequest(request, env);
@@ -910,7 +906,7 @@ export async function handleGetMeLiveCloudflareCallback(request: Request, env: E
     order.status = hasPublishedGetMeLiveSite(order) ? 'live' : 'provider_setup';
     order.updatedAt = new Date().toISOString();
     await updateGetMeLiveOrder(env, order);
-    return redirect(`${frontend}/get-me-live/setup?order_id=${encodeURIComponent(order.orderId)}&cloudflare=connected&step=domain`, 302);
+    return redirect(`${frontend}/get-me-live/setup?order_id=${encodeURIComponent(order.orderId)}&cloudflare=connected&step=name`, 302);
   } catch {
     return redirect(`${setupUrl}${setupUrl.includes('?') ? '&' : '?'}cloudflare=error&message=${encodeURIComponent('Cloudflare could not connect. Please try again.')}`, 302);
   }
@@ -922,91 +918,6 @@ export async function handleGetMeLiveCloudflareAccounts(request: Request, env: E
   try { return json({ accounts: await listCloudflareAccounts(env, orderId) }); }
   catch (error) { return json({ error: error instanceof Error ? error.message : 'Cloudflare accounts unavailable' }, 409); }
 }
-export async function handleGetMeLiveDomainSearch(request: Request, env: Env, orderId: string): Promise<Response> {
-  const owned = await ownedGetMeLiveOrder(request, env, orderId);
-  if (owned instanceof Response) return owned;
-  const body = await request.json<{ accountId?: string; query?: string }>().catch(() => ({} as { accountId?: string; query?: string }));
-  const accountId = safeText(body.accountId, 80);
-  const query = safeText(body.query, 120);
-  if (!accountId || !query) return json({ error: 'Choose a Cloudflare account and enter a business name' }, 400);
-  try {
-    const domains = await searchCloudflareDomains(env, orderId, accountId, query, 9);
-    return json({ domains });
-  } catch (error) {
-    return json({ error: error instanceof Error ? error.message : 'Domain search failed' }, 502);
-  }
-}
-
-export async function handleGetMeLiveNameOptions(request: Request, env: Env, orderId: string): Promise<Response> {
-  const owned = await ownedGetMeLiveOrder(request, env, orderId);
-  if (owned instanceof Response) return owned;
-  if (!owned.providerState.cloudflareConnected) return json({ error: 'Connect Cloudflare before checking names' }, 409);
-  const record = await loadBlueprintRecord(env, owned.sourceSprintOrderId);
-  if (!record) return json({ error: 'Your Sprint starting point is not ready' }, 409);
-  const body = await request.json<{ accountId?: string }>().catch(() => ({} as { accountId?: string }));
-  const accountId = safeText(body.accountId, 80) || owned.configuration?.domain.cloudflareAccountId || '';
-  if (!accountId) return json({ error: 'Choose where your page will live first' }, 400);
-  const names = businessNameSuggestions(record.blueprint);
-  const options = await Promise.all(names.map(async name => {
-    const domain = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 52)}.com`;
-    try {
-      const checked = await checkCloudflareDomain(env, orderId, accountId, domain);
-      return { name, domain: checked };
-    } catch {
-      return { name, domain: { name: domain, registrable: false, reason: 'Could not be checked. Try again.' } };
-    }
-  }));
-  return json({ options });
-}
-
-export async function handleGetMeLiveDomainRegister(request: Request, env: Env, orderId: string): Promise<Response> {
-  const owned = await ownedGetMeLiveOrder(request, env, orderId);
-  if (owned instanceof Response) return owned;
-  if (!owned.configuration) return json({ error: 'Save your Get Me Live setup first' }, 409);
-  const body = await request.json<{ accountId?: string; domain?: string; shownPrice?: string; shownCurrency?: string; confirmed?: boolean }>().catch(() => ({} as { accountId?: string; domain?: string; shownPrice?: string; shownCurrency?: string; confirmed?: boolean }));
-  const accountId = safeText(body.accountId, 80);
-  const domain = safeText(body.domain, 253).toLowerCase();
-  const shownPrice = safeText(body.shownPrice, 40);
-  const shownCurrency = safeText(body.shownCurrency, 10).toUpperCase();
-  if (!accountId || !domain || !shownPrice || !shownCurrency || body.confirmed !== true) {
-    return json({ error: 'Confirm the exact domain and shown price before buying it' }, 400);
-  }
-  try {
-    const registration = await registerCloudflareDomain(env, orderId, accountId, domain, { registrationCost: shownPrice, currency: shownCurrency });
-    owned.configuration.domain.cloudflareAccountId = accountId;
-    owned.configuration.domain.selectedDomain = registration.domainName;
-    owned.configuration.domain.registrationConfirmedAt = new Date().toISOString();
-    const zone = registration.ready ? await findCloudflareZone(env, orderId, accountId, registration.domainName) : null;
-    if (zone) owned.configuration.domain.cloudflareZoneId = zone.id;
-    owned.configuration.domain.registrationPrice = registration.registrationCost;
-    owned.configuration.domain.registrationCurrency = registration.currency;
-    owned.providerState.domainReady = registration.ready && Boolean(zone);
-    owned.updatedAt = new Date().toISOString();
-    await updateGetMeLiveOrder(env, owned);
-    const status = registration.ready ? 200 : 202;
-    return json({ domain: registration.domainName, status: registration.status, workflowState: registration.workflowState, ready: owned.providerState.domainReady, zoneId: zone?.id, actionRequired: registration.actionRequired }, status);
-  } catch (error) {
-    return json({ error: error instanceof Error ? error.message : 'Domain registration failed' }, 502);
-  }
-}
-export async function handleGetMeLiveDomainStatus(request: Request, env: Env, orderId: string): Promise<Response> {
-  const owned = await ownedGetMeLiveOrder(request, env, orderId);
-  if (owned instanceof Response) return owned;
-  const config = owned.configuration;
-  const accountId = config?.domain.cloudflareAccountId;
-  const domain = config?.domain.selectedDomain;
-  if (!config || !accountId || !domain) return json({ error: 'Choose a domain first' }, 409);
-  try {
-    const registration = await getCloudflareRegistrationStatus(env, orderId, accountId, domain);
-    const zone = registration.ready ? await findCloudflareZone(env, orderId, accountId, domain) : null;
-    if (zone) config.domain.cloudflareZoneId = zone.id;
-    owned.providerState.domainReady = registration.ready && Boolean(zone);
-    owned.updatedAt = new Date().toISOString();
-    await updateGetMeLiveOrder(env, owned);
-    return json({ domain, status: registration.status, workflowState: registration.workflowState, ready: owned.providerState.domainReady, zoneId: zone?.id, actionRequired: registration.actionRequired }, owned.providerState.domainReady ? 200 : 202);
-  } catch (error) { return json({ error: error instanceof Error ? error.message : 'Domain status failed' }, 502); }
-}
-
 export async function handleGetMeLiveEmailSetup(request: Request, env: Env, orderId: string): Promise<Response> {
   const owned = await ownedGetMeLiveOrder(request, env, orderId);
   if (owned instanceof Response) return owned;

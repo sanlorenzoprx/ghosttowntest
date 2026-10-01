@@ -101,7 +101,7 @@ function order(): GetMeLiveOrder {
   return {
     orderId: 'gml_test', ownerId: 'owner@example.com', sourceSprintOrderId: 'sprint_1', sourceBlueprintId: 'bp_1',
     offerId: 'ghosttown_get_me_live_v1', offerVersion: '1.0', stripePriceId: 'price_gml', status: 'checkout_created',
-    providerState: { cloudflareConnected: false, stripeConnected: false, businessEmailVerified: false, domainReady: false },
+    providerState: { cloudflareConnected: false, stripeConnected: false, businessEmailVerified: false },
     configuration: {
       schemaVersion: 'get-me-live-config-v1',
       brand: { businessName: 'Proof Path', stylePreset: 'clean_saas' },
@@ -160,7 +160,7 @@ function publishableOrder(): GetMeLiveOrder {
   const base = order();
   return {
     ...base, status: 'preview_ready', paidAt: '2026-09-16T00:00:00.000Z',
-    providerState: { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false, domainReady: true },
+    providerState: { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false },
     configuration: {
       ...base.configuration!,
       // A legacy, registrar-ready domain must not be attached by publish.

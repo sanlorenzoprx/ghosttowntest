@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { GHOSTTOWN_GET_ME_LIVE_V1, DEFAULT_GET_ME_LIVE_DISPLAY_PRICE } from '../src/lib/getMeLiveOffer';
+import { STEPS, prelaunchReady, resolveSetupStep } from '../src/components/GetMeLiveWorkspace';
+import type { GetMeLiveConfiguration } from '../src/types/getMeLive';
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -14,7 +16,7 @@ describe('Get Me Live product contract', () => {
 
   it('exposes the complete owner and public route surface', async () => {
     const source = await read('src/api/index.ts');
-    for (const handler of ['handleGetMeLiveCheckout','handleGetMeLiveOrders','handleGetMeLiveConfig','handleGetMeLivePreview','handleGetMeLiveCloudflareConnect','handleGetMeLiveCloudflareDisconnect','handleGetMeLiveCloudflareAccounts','handleGetMeLiveDomainSearch','handleGetMeLiveDomainRegister','handleGetMeLiveEmailSetup','handleGetMeLiveStripeConnect','handleGetMeLiveStripeStatus','handleGetMeLivePublish','handleGetMeLivePublishVerify','handleGetMeLivePublishStatus','handleGetMeLiveLeads','handleGetMeLiveReleaseReceipt','handleGetMeLiveStoryStudioHandoff','handlePublicGetMeLiveLead','handlePublicGetMeLiveBuy']) {
+    for (const handler of ['handleGetMeLiveCheckout','handleGetMeLiveOrders','handleGetMeLiveConfig','handleGetMeLivePreview','handleGetMeLiveCloudflareConnect','handleGetMeLiveCloudflareDisconnect','handleGetMeLiveCloudflareAccounts','handleGetMeLiveEmailSetup','handleGetMeLiveStripeConnect','handleGetMeLiveStripeStatus','handleGetMeLivePublish','handleGetMeLivePublishVerify','handleGetMeLivePublishStatus','handleGetMeLiveLeads','handleGetMeLiveReleaseReceipt','handleGetMeLiveStoryStudioHandoff','handlePublicGetMeLiveLead','handlePublicGetMeLiveBuy']) {
       expect(source).toContain(handler);
     }
   });
@@ -83,5 +85,53 @@ describe('Get Me Live safety and lineage contracts', () => {
     const source = await read('src/api/getMeLive.ts');
     expect(source).toContain("eventType: 'launch_site_lead'");
     expect(source).toContain("eventType: 'payment'");
+  });
+});
+
+describe('Get Me Live pre-launch has no domain step', () => {
+  const configuration: GetMeLiveConfiguration = {
+    schemaVersion: 'get-me-live-config-v1',
+    brand: { businessName: 'Proof Path', stylePreset: 'clean_saas' },
+    offer: { intent: 'interest', headline: 'Proof first', offer: 'Pilot', price: '$49', ctaLabel: 'I am interested' },
+    contact: { contactEmail: 'owner@example.com', leadDestinationEmail: 'owner@example.com' },
+    domain: { cloudflareAccountId: 'acct_1' },
+    payments: { enabled: false }
+  };
+  const connected = { providerState: { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false } };
+
+  it('#16 Go Live needs no web address: no domain fields, no purchase, no registrar UI or routes', async () => {
+    expect(configuration.domain.selectedDomain).toBeUndefined();
+    expect(prelaunchReady(connected, configuration, 'acct_1', 'blob:preview')).toBe(true);
+    const workspace = await read('src/components/GetMeLiveWorkspace.tsx');
+    for (const retired of ['/domains/search', '/domains/register', '/domains/status', '/name-options', 'registrationPrice', 'Costs outside GhostTown', 'Buy a web address', 'domainReady', 'chosenDomain']) {
+      expect(workspace).not.toContain(retired);
+    }
+    expect(workspace).toContain('{configuration.offer.intent === "buy" && <p className="mt-5 text-sm text-gray-700">Stripe charges its normal fees only when a customer pays.</p>}');
+    const index = await read('src/api/index.ts');
+    for (const retired of ['domains\\/search', 'domains\\/register', 'domains\\/status', 'name-options']) expect(index).not.toContain(retired);
+    const api = await read('src/api/getMeLive.ts');
+    for (const retired of ['handleGetMeLiveDomainSearch', 'handleGetMeLiveDomainRegister', 'handleGetMeLiveDomainStatus', 'handleGetMeLiveNameOptions', 'domainReady']) expect(api).not.toContain(retired);
+  });
+
+  it('#17 business email is not a pre-launch step; it is offered only after a custom domain is active', async () => {
+    expect(prelaunchReady(connected, { ...configuration, contact: { ...configuration.contact, businessEmailLocalPart: undefined } }, 'acct_1', 'blob:preview')).toBe(true);
+    expect(STEPS.find(([id]) => id === 'contact')?.[1]).toBe('Where leads go');
+    const workspace = await read('src/components/GetMeLiveWorkspace.tsx');
+    const contactStep = workspace.slice(workspace.indexOf('activeStep === "contact"'), workspace.indexOf('activeStep === "payments"'));
+    expect(contactStep).not.toMatch(/business ?email|setupEmail/i);
+    expect(workspace).toContain('const activeDomain = order?.customDomainState?.status === "active" ? order.customDomainState.name : undefined;');
+    expect(workspace).toContain('{activeDomain && <div className="mt-7 rounded-xl border p-5"><h3 className="text-xl font-black">Want a matching business email?</h3>');
+  });
+
+  it('#26 the step URL param resolves to a real step; legacy step=domain maps to name', async () => {
+    expect(STEPS.map(([id]) => id)).not.toContain('domain');
+    expect(resolveSetupStep('domain')).toBe('name');
+    expect(resolveSetupStep('name')).toBe('name');
+    expect(resolveSetupStep('payments')).toBe('payments');
+    for (const unknown of [null, '', 'registrar', 'constructor', '__proto__']) expect(resolveSetupStep(unknown)).toBe('home');
+    const api = await read('src/api/getMeLive.ts');
+    const callbackStep = api.match(/cloudflare=connected&step=([a-z]+)/)?.[1];
+    expect(callbackStep).toBe('name');
+    expect(resolveSetupStep(callbackStep ?? null)).toBe(callbackStep);
   });
 });

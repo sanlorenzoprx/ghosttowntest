@@ -80,7 +80,6 @@ export interface GetMeLiveProviderState {
   cloudflareScopes?: string[];
   stripeConnected: boolean;
   businessEmailVerified: boolean;
-  domainReady: boolean;
 }
 
 export interface GetMeLiveDeploymentReceipt {
@@ -243,16 +242,6 @@ export interface GetMeLiveOrder {
   paidAt?: string;
   publishedAt?: string;
   failure?: string;
-}
-
-export interface GetMeLiveDomainCandidate {
-  name: string;
-  registrable: boolean;
-  tier?: string;
-  registrationCost?: string;
-  renewalCost?: string;
-  currency?: string;
-  reason?: string;
 }
 
 export type GetMeLiveAssetKind = 'logo' | 'photo' | 'lead_magnet' | 'social_image';

@@ -377,7 +377,7 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
     payments: { enabled: false }
   };
   if (!config.domain.cloudflareAccountId) return json({ error: 'Acceptance Cloudflare account ID is required for the disposable Get Me Live site' }, 400);
-  const provider = { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false, domainReady: false };
+  const provider = { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false };
   const acceptanceCloudflareToken = String(env.ACCEPTANCE_CLOUDFLARE_API_TOKEN || '').trim();
   if (!acceptanceCloudflareToken) return json({ error: 'Acceptance Cloudflare API token is not bound to the disposable fixture bridge' }, 500);
   await env.DB.prepare(`

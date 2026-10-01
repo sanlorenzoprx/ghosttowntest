@@ -64,7 +64,7 @@ function order(config: GetMeLiveConfiguration): GetMeLiveOrder {
   return {
     orderId: 'gml_preview', ownerId: 'owner@example.com', sourceSprintOrderId: 'sprint_1', sourceBlueprintId: 'bp_1',
     offerId: 'ghosttown_get_me_live_v1', offerVersion: '1.0', stripePriceId: 'price', status: 'configuring', paidAt: '2026-10-01T00:00:00.000Z',
-    providerState: { cloudflareConnected: false, stripeConnected: false, businessEmailVerified: false, domainReady: false },
+    providerState: { cloudflareConnected: false, stripeConnected: false, businessEmailVerified: false },
     configuration: config, createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z'
   };
 }

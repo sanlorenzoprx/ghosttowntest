@@ -1,5 +1,4 @@
 import type { Env } from './env';
-import type { GetMeLiveDomainCandidate } from '../types/getMeLive';
 import { blake3 } from '@noble/hashes/blake3.js';
 
 interface CloudflareTokenEnvelope {
@@ -169,101 +168,6 @@ export async function listCloudflareAccounts(env: Env, orderId: string): Promise
     .filter((account): account is { id: string; name?: string } => Boolean(account?.id))
     .map(account => ({ id: account.id, name: account.name?.trim() || account.id }));
   return [...new Map(accounts.map(account => [account.id, account])).values()];
-}
-
-export async function searchCloudflareDomains(
-  env: Env,
-  orderId: string,
-  accountId: string,
-  query: string,
-  limit = 9
-): Promise<GetMeLiveDomainCandidate[]> {
-  const params = new URLSearchParams({ q: query.trim(), limit: String(Math.max(1, Math.min(20, limit))) });
-  const result = await cloudflareApi<{ domains?: Array<{
-    name: string;
-    registrable?: boolean;
-    tier?: string;
-    pricing?: { currency?: string; registration_cost?: string; renewal_cost?: string };
-    reason?: string;
-  }> }>(env, orderId, `/accounts/${encodeURIComponent(accountId)}/registrar/domain-search?${params}`);
-  return (result.domains || []).map(item => ({
-    name: item.name,
-    registrable: item.registrable === true,
-    tier: item.tier,
-    registrationCost: item.pricing?.registration_cost,
-    renewalCost: item.pricing?.renewal_cost,
-    currency: item.pricing?.currency,
-    reason: item.reason
-  }));
-}
-
-export async function checkCloudflareDomain(
-  env: Env,
-  orderId: string,
-  accountId: string,
-  domain: string
-): Promise<GetMeLiveDomainCandidate> {
-  const result = await cloudflareApi<{ domains?: Array<{
-    name: string; registrable?: boolean; tier?: string; reason?: string;
-    pricing?: { currency?: string; registration_cost?: string; renewal_cost?: string };
-  }> }>(env, orderId, `/accounts/${encodeURIComponent(accountId)}/registrar/domain-check`, {
-    method: 'POST',
-    body: JSON.stringify({ domains: [domain.trim().toLowerCase()] })
-  });
-  const item = result.domains?.[0];
-  if (!item) throw new Error('Cloudflare did not return a domain check result');
-  return {
-    name: item.name,
-    registrable: item.registrable === true,
-    tier: item.tier,
-    registrationCost: item.pricing?.registration_cost,
-    renewalCost: item.pricing?.renewal_cost,
-    currency: item.pricing?.currency,
-    reason: item.reason
-  };
-}
-interface CloudflareRegistrationWorkflow {
-  completed?: boolean;
-  state?: 'pending' | 'in_progress' | 'action_required' | 'blocked' | 'succeeded' | 'failed';
-  context?: { domain_name?: string; registration?: { domain_name?: string; status?: string; expires_at?: string }; action?: unknown };
-  error?: { code?: string; message?: string };
-}
-
-function normalizeRegistrationWorkflow(workflow: CloudflareRegistrationWorkflow, fallbackDomain: string) {
-  if (workflow.state === 'failed') throw new Error(workflow.error?.message || 'Cloudflare domain registration failed');
-  const registration = workflow.context?.registration;
-  const domainName = registration?.domain_name || workflow.context?.domain_name || fallbackDomain;
-  const ready = workflow.completed === true && workflow.state === 'succeeded';
-  return { domainName, status: registration?.status || workflow.state, expiresAt: registration?.expires_at, ready, workflowState: workflow.state, actionRequired: workflow.state === 'action_required' ? JSON.stringify(workflow.context?.action || {}).slice(0, 400) : undefined };
-}
-
-export async function registerCloudflareDomain(
-  env: Env,
-  orderId: string,
-  accountId: string,
-  domain: string,
-  approvedQuote?: { registrationCost: string; currency: string }
-): Promise<{ domainName: string; status?: string; expiresAt?: string; registrationCost?: string; renewalCost?: string; currency?: string; ready: boolean; workflowState?: string; actionRequired?: string }> {
-  const checked = await checkCloudflareDomain(env, orderId, accountId, domain);
-  if (!checked.registrable) throw new Error(checked.reason || 'This domain is not available to register');
-  if (checked.tier === 'premium') throw new Error('Premium-domain registration requires separate confirmation and is not automated');
-  if (
-    !approvedQuote
-    || !checked.registrationCost
-    || !checked.currency
-    || approvedQuote.registrationCost !== checked.registrationCost
-    || approvedQuote.currency.toUpperCase() !== checked.currency.toUpperCase()
-  ) {
-    throw new Error('The domain price changed. Review the current price and confirm again.');
-  }
-  const workflow = await cloudflareApi<CloudflareRegistrationWorkflow>(env, orderId, `/accounts/${encodeURIComponent(accountId)}/registrar/registrations`, { method: 'POST', body: JSON.stringify({ domain_name: checked.name }) });
-  return { ...normalizeRegistrationWorkflow(workflow, checked.name), registrationCost: checked.registrationCost, renewalCost: checked.renewalCost, currency: checked.currency };
-}
-
-export async function getCloudflareRegistrationStatus(env: Env, orderId: string, accountId: string, domain: string): Promise<{ domainName: string; status?: string; expiresAt?: string; ready: boolean; workflowState?: string; actionRequired?: string }> {
-  const normalized = domain.trim().toLowerCase();
-  const workflow = await cloudflareApi<CloudflareRegistrationWorkflow>(env, orderId, `/accounts/${encodeURIComponent(accountId)}/registrar/registrations/${encodeURIComponent(normalized)}/registration-status`);
-  return normalizeRegistrationWorkflow(workflow, normalized);
 }
 
 function bytesToBase64(bytes: Uint8Array): string {

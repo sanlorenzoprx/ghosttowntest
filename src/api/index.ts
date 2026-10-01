@@ -31,7 +31,6 @@ import {
   handleGetMeLiveAssetDelete,
   handleGetMeLiveAssetOrder,
   handleGetMeLiveActivity,
-  handleGetMeLiveNameOptions,
   handleGetMeLiveSharePack,
   handleGetMeLiveSprintShareDraft,
   handleGetMeLivePreview,
@@ -39,9 +38,6 @@ import {
   handleGetMeLiveCloudflareDisconnect,
   handleGetMeLiveCloudflareCallback,
   handleGetMeLiveCloudflareAccounts,
-  handleGetMeLiveDomainSearch,
-  handleGetMeLiveDomainRegister,
-  handleGetMeLiveDomainStatus,
   handleGetMeLiveEmailSetup,
   handleGetMeLiveStripeConnect,
   handleGetMeLiveStripeStatus,
@@ -239,8 +235,6 @@ export default {
         applyCors(response, corsHeaders);
         return response;
       }
-      const getMeLiveNameOptionsMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/name-options$/);
-      if (getMeLiveNameOptionsMatch && method === 'POST') { const response = await handleGetMeLiveNameOptions(request, env, decodeURIComponent(getMeLiveNameOptionsMatch[1])); applyCors(response, corsHeaders); return response; }
       const getMeLiveAssetsMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/assets$/);
       if (getMeLiveAssetsMatch && method === 'POST') { const response = await handleGetMeLiveAssets(request, env, decodeURIComponent(getMeLiveAssetsMatch[1])); applyCors(response, corsHeaders); return response; }
       const getMeLiveAssetOrderMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/assets\/order$/);
@@ -273,24 +267,6 @@ export default {
       const getMeLiveCloudflareAccountsMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/cloudflare\/accounts$/);
       if (getMeLiveCloudflareAccountsMatch && method === 'GET') {
         const response = await handleGetMeLiveCloudflareAccounts(request, env, decodeURIComponent(getMeLiveCloudflareAccountsMatch[1]));
-        applyCors(response, corsHeaders);
-        return response;
-      }
-      const getMeLiveDomainSearchMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/domains\/search$/);
-      if (getMeLiveDomainSearchMatch && method === 'POST') {
-        const response = await handleGetMeLiveDomainSearch(request, env, decodeURIComponent(getMeLiveDomainSearchMatch[1]));
-        applyCors(response, corsHeaders);
-        return response;
-      }
-      const getMeLiveDomainRegisterMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/domains\/register$/);
-      if (getMeLiveDomainRegisterMatch && method === 'POST') {
-        const response = await handleGetMeLiveDomainRegister(request, env, decodeURIComponent(getMeLiveDomainRegisterMatch[1]));
-        applyCors(response, corsHeaders);
-        return response;
-      }
-      const getMeLiveDomainStatusMatch = path.match(/^\/api\/get-me-live\/orders\/([^/]+)\/domains\/status$/);
-      if (getMeLiveDomainStatusMatch && method === 'GET') {
-        const response = await handleGetMeLiveDomainStatus(request, env, decodeURIComponent(getMeLiveDomainStatusMatch[1]));
         applyCors(response, corsHeaders);
         return response;
       }

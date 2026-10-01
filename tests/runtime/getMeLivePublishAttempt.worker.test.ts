@@ -156,7 +156,7 @@ async function seedOrder(): Promise<string> {
       status, configuration_json, provider_state_json, created_at, updated_at, paid_at)
     VALUES (?, ?, ?, 'bp_runtime', 'ghosttown_get_me_live_v1', '1.0', 'price_runtime', 'preview_ready', ?, ?, ?, ?, ?)
   `).bind(orderId, OWNER, sprintId, JSON.stringify(configuration),
-    JSON.stringify({ cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false, domainReady: false }), now, now, now).run();
+    JSON.stringify({ cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false }), now, now, now).run();
   await env.KV.put(`get_me_live_cf_token_${orderId}`, JSON.stringify({ accessToken: "cf_runtime", expiresAt: new Date(Date.now() + 3600_000).toISOString() }));
   await saveGetMeLivePreview(env, orderId, { spec, assets: [], build: { buildId: "website_spec_hash_1" } } as unknown as WebsiteCreationResult, "<html>preview</html>");
   return orderId;
