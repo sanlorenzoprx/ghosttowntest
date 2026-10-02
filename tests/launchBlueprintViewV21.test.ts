@@ -74,7 +74,7 @@ describe('executable Blueprint v2.1 account surface', () => {
 
   it('shows linked Get Me Live website evidence during checkpoint reviews without merging the products', () => {
     expect(viewSource).toContain('SprintWebsiteEvidence');
-    expect(viewSource).toContain('<SprintWebsiteEvidence orderId={orderId} />');
+    expect(viewSource).toContain('<SprintWebsiteEvidence orderId={orderId} checkpointDay={reviewCheckpointDay} />');
   });
 
   it('integrates the Daily Execution Log as evidence rather than plan mutation', () => {
