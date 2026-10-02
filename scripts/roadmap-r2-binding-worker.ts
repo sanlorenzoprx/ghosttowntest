@@ -412,7 +412,9 @@ async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Respo
   const ownerId = String(body?.ownerId || '').trim().toLowerCase();
   const orderId = String(body?.orderId || '');
   const gmlOrderId = String(body?.gmlOrderId || '');
+  const checkoutOrderId = String(body?.checkoutOrderId || '');
   if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_') || !/^gml_e2e_[A-Za-z0-9_-]+$/.test(gmlOrderId)) return json({ error: 'Invalid E2E fixture identity' }, 400);
+  if (checkoutOrderId && !/^gtt_[A-Za-z0-9_-]+$/.test(checkoutOrderId)) return json({ error: 'Invalid E2E checkout order identity' }, 400);
   const hostingRow = await env.DB.prepare('SELECT hosting_json FROM get_me_live_orders WHERE order_id = ? AND owner_id = ?')
     .bind(gmlOrderId, ownerId).first<{ hosting_json: string | null }>().catch(() => null);
   let pagesProjectName: string | undefined;
@@ -429,6 +431,7 @@ async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Respo
     env.BLUEPRINTS.delete('get-me-live/' + gmlOrderId + '/preview.html'),
     env.KV.delete('get_me_live_cf_token_' + gmlOrderId),
     env.KV.delete('paid_test_order_' + orderId),
+    ...(checkoutOrderId ? [env.KV.delete('paid_test_order_' + checkoutOrderId)] : []),
     env.KV.delete('paid_test_orders_' + ownerId),
     env.KV.delete('user_' + ownerId)
   ]);

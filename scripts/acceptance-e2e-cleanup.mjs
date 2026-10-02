@@ -4,6 +4,7 @@ import { withAcceptanceDataBindings } from './roadmap-r2-binding-bridge.mjs';
 const ownerId = String(process.env.GHOSTTOWN_E2E_FIXTURE_OWNER || '');
 const orderId = String(process.env.GHOSTTOWN_E2E_SPRINT_ORDER_ID || '');
 const gmlOrderId = String(process.env.GHOSTTOWN_E2E_GML_ORDER_ID || '');
+const checkoutOrderId = String(process.env.GHOSTTOWN_E2E_CHECKOUT_ORDER_ID || '');
 if (!ownerId || !orderId || !gmlOrderId) {
   console.log('[acceptance-cleanup] No self-provisioned fixture was recorded; nothing to clean.');
   process.exit(0);
@@ -13,7 +14,7 @@ if (!ownerId || !orderId || !gmlOrderId) {
 // name persisted on the order, then the pre-1c convention.
 const legacyProjectName = ('ghosttown-e2e-' + gmlOrderId.replace(/^gml_e2e_/, '')).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 58);
 const recordedProjectName = String(process.env.GHOSTTOWN_E2E_PAGES_PROJECT || '').trim();
-const result = await withAcceptanceDataBindings(client => client.deleteE2eSprintFixture({ ownerId, orderId, gmlOrderId }));
+const result = await withAcceptanceDataBindings(client => client.deleteE2eSprintFixture({ ownerId, orderId, gmlOrderId, checkoutOrderId }));
 if (result?.deleted !== true) throw new Error('Acceptance fixture cleanup did not confirm deletion.');
 const projectName = recordedProjectName || String(result?.pagesProjectName || '').trim() || legacyProjectName;
 if (!/^[a-z0-9][a-z0-9-]{0,57}$/.test(projectName)) throw new Error(`Refusing to delete an unexpected Pages project name: ${projectName}`);

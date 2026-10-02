@@ -71,6 +71,9 @@ jobs:
           tests/blueprintAssetsV21.test.ts
           tests/blueprintPdfV21.test.ts
           tests/blueprintReleaseQualityGateV21.test.ts
+          tests/blueprintWebsiteEvidence.test.ts
+          tests/launchBlueprintExecutionHomeV21.test.ts
+          tests/launchBlueprintViewV21.test.ts
           --no-file-parallelism
 
       - name: Type check
@@ -120,11 +123,17 @@ jobs:
           test -n "$GHOSTTOWN_E2E_BASE_URL"
           test -n "$GHOSTTOWN_E2E_API_URL"
           test -n "$GHOSTTOWN_E2E_AUTH_TOKEN"
+          test -n "$GHOSTTOWN_E2E_FIXTURE_OWNER"
+          test -n "$GHOSTTOWN_E2E_FIXTURE_PASSWORD"
           test -n "$GHOSTTOWN_E2E_SPRINT_ORDER_ID"
           test "$GHOSTTOWN_E2E_SPRINT_MUTATE" = "1"
           test -n "$GHOSTTOWN_E2E_GML_ORDER_ID"
           test -n "$GHOSTTOWN_E2E_LIVE_URL"
           test "$GHOSTTOWN_E2E_SUBMIT_LEAD" = "1"
+
+      - name: Prove login, free verdict and Stripe test checkout handoff
+        if: ${{ inputs.deploy }}
+        run: node tests/e2e/front-door-acceptance.mjs
 
       - name: Prove full interactive 30-Day Sprint
         if: ${{ inputs.deploy }}
@@ -133,6 +142,10 @@ jobs:
       - name: Prove live Get Me Live customer journey
         if: ${{ inputs.deploy }}
         run: node tests/e2e/get-me-live-acceptance.mjs
+
+      - name: Audit Get Me Live owner controls
+        if: ${{ inputs.deploy }}
+        run: node tests/e2e/get-me-live-owner-controls.mjs
 
       - name: Clean self-provisioned acceptance fixture
         if: ${{ always() && inputs.deploy }}

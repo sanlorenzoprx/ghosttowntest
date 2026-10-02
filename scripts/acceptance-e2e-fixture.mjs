@@ -15,6 +15,7 @@ const password = `E2e!${randomBytes(18).toString('base64url')}`;
 const envFile = process.env.GITHUB_ENV;
 if (!envFile) throw new Error('GITHUB_ENV is unavailable.');
 
+console.log(`::add-mask::${password}`);
 const signup = await fetch(apiUrl + '/api/auth/signup', {
   method: 'POST', headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ email: ownerId, password })
@@ -32,6 +33,7 @@ if (fixture?.ok !== true || fixture?.stripeChargeCreated !== false || fixture?.p
 
 await appendFile(envFile, [
   `GHOSTTOWN_E2E_FIXTURE_OWNER=${ownerId}`,
+  `GHOSTTOWN_E2E_FIXTURE_PASSWORD=${password}`,
   `GHOSTTOWN_E2E_SPRINT_ORDER_ID=${orderId}`,
   `GHOSTTOWN_E2E_GML_ORDER_ID=${gmlOrderId}`
 ].join('\n') + '\n');

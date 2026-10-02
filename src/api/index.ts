@@ -13,6 +13,7 @@ import {
   handleLaunchBlueprintJson,
   handleLaunchBlueprintPdf,
   handleLaunchBlueprintAssets,
+  handleLaunchBlueprintWebsiteEvidence,
   handleLaunchBlueprintUncertainty
 } from './blueprintApi';
 import { handleLaunchBlueprintProgress, handleLaunchBlueprintRetry } from './blueprintApiMeasurement';
@@ -436,6 +437,12 @@ export default {
       const launchSiteLeadsMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/launch-site\/leads(?:\.csv)?$/);
       if (launchSiteLeadsMatch && method === 'GET') {
         const response = await handleLaunchSiteOwner(request, env, launchSiteLeadsMatch[1], path.endsWith('.csv') ? 'csv' : 'leads');
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      const blueprintWebsiteEvidenceMatch = path.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/website-evidence$/);
+      if (blueprintWebsiteEvidenceMatch && method === 'GET') {
+        const response = await handleLaunchBlueprintWebsiteEvidence(request, env, blueprintWebsiteEvidenceMatch[1]);
         applyCors(response, corsHeaders);
         return response;
       }
