@@ -223,17 +223,29 @@ try {
   await page.getByRole('region', { name: '30-day execution calendar' }).waitFor({ state: 'visible' });
   proof.surfaceAudit.push({ surface: 'execution-home', control: '30-Day Calendar', result: 'passed' });
 
-  for (const [name, filename] of [
-    ['Download Blueprint PDF', 'GhostTown-Launch-Blueprint.pdf'],
-    ['Export all assets', 'GhostTown-Launch-Assets.zip'],
+  for (const [name, path, expectedType] of [
+    ['Download Blueprint PDF', `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint.pdf`, 'application/pdf'],
+    ['Export all assets', `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint-assets.zip`, 'application/zip'],
   ]) {
-    const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
+    const artifactUrl = `${apiBase}${path}`;
+    const responsePromise = page.waitForResponse(
+      response => response.url() === artifactUrl && response.request().method() === 'GET',
+      { timeout: 30000 },
+    );
     await page.getByRole('button', { name, exact: true }).click();
-    const download = await downloadPromise;
-    if (download.suggestedFilename() !== filename) {
-      throw new Error(`${name} suggested ${download.suggestedFilename()} instead of ${filename}`);
+    const response = await responsePromise;
+    if (!response.ok()) {
+      throw new Error(`${name} artifact request failed HTTP ${response.status()}`);
     }
-    proof.surfaceAudit.push({ surface: 'execution-home', control: name, result: 'downloaded' });
+    const contentType = String(response.headers()['content-type'] || '').toLowerCase();
+    if (!contentType.includes(expectedType)) {
+      throw new Error(`${name} returned ${contentType || 'no content type'} instead of ${expectedType}`);
+    }
+    const bytes = await response.body();
+    if (bytes.byteLength < 100) {
+      throw new Error(`${name} returned an unexpectedly small artifact (${bytes.byteLength} bytes)`);
+    }
+    proof.surfaceAudit.push({ surface: 'execution-home', control: name, result: 'artifact_fetched', bytes: bytes.byteLength, contentType });
   }
 
   await page.getByRole('button', { name: 'Evidence, reviews & site', exact: true }).click();
