@@ -18,26 +18,31 @@ function assetFilename(title: string, contentType: string): string {
   return `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}.${suffix}`;
 }
 
-function downloadTextAsset(title: string, content: string, contentType: string): void {
-  const blob = new Blob([content], { type: `${contentType};charset=utf-8` });
+function triggerBlobDownload(blob: Blob, filename: string): void {
   const href = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = href;
-  anchor.download = assetFilename(title, contentType);
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(href);
+  anchor.remove();
+  // Revoking synchronously can cancel the download before Chromium consumes the
+  // blob URL. Delay cleanup so the browser can start the download reliably.
+  window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
+function downloadTextAsset(title: string, content: string, contentType: string): void {
+  triggerBlobDownload(
+    new Blob([content], { type: `${contentType};charset=utf-8` }),
+    assetFilename(title, contentType),
+  );
 }
 
 async function downloadPrivateArtifact(path: string, filename: string): Promise<void> {
   const response = await fetch(apiUrl(path), { headers: authHeaders() });
   if (!response.ok) throw new Error(`Download failed (${response.status})`);
-  const blob = await response.blob();
-  const href = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = href;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(href);
+  triggerBlobDownload(await response.blob(), filename);
 }
 
 function checkpointForDay(payload: BlueprintV21Payload, dayNumber: number) {
