@@ -94,7 +94,7 @@ try {
   proof.verdictRendered = true;
 
   // Open the real paid Sprint intake and create a real Stripe TEST checkout session.
-  await page.locator('button:visible').filter({ hasText: 'Start 30-Day Evidence Sprint checkout' }).first().click();
+  await page.getByRole('button', { name: 'Start 30-Day Evidence Sprint checkout', exact: true }).first().click();
   const checkoutDialog = page.getByRole('dialog');
   await checkoutDialog.getByRole('heading', { name: /You tested your idea/i }).waitFor({ state: 'visible' });
   await checkoutDialog.getByText('The PDF shows the full plan. GhostTown shows your next step.', { exact: true }).waitFor({ state: 'visible' });
