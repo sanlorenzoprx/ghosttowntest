@@ -4,7 +4,7 @@ import { appendFile } from 'node:fs/promises';
 import { withAcceptanceDataBindings } from './roadmap-r2-binding-bridge.mjs';
 
 const apiUrl = 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev';
-const frontendUrl = 'https://ghosttown-acceptance.pages.dev';
+const frontendUrl = 'https://main.ghosttown-acceptance.pages.dev';
 const runId = String(process.env.GITHUB_RUN_ID || Date.now());
 const attempt = String(process.env.GITHUB_RUN_ATTEMPT || '1');
 const nonce = randomUUID().replaceAll('-', '').slice(0, 10);
