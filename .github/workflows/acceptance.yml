@@ -131,11 +131,15 @@ jobs:
           exit 1
 
       - name: Self-provision isolated customer-journey fixture
+        id: fixture
         if: ${{ inputs.deploy }}
+        continue-on-error: true
         run: node scripts/acceptance-e2e-fixture.mjs
 
       - name: Verify self-provisioned runtime acceptance inputs
-        if: ${{ inputs.deploy }}
+        id: runtime_inputs
+        if: ${{ always() && inputs.deploy && steps.fixture.outcome == 'success' }}
+        continue-on-error: true
         shell: bash
         run: |
           test -n "$GHOSTTOWN_E2E_BASE_URL"
@@ -150,20 +154,32 @@ jobs:
           test "$GHOSTTOWN_E2E_SUBMIT_LEAD" = "1"
 
       - name: Prove login, free verdict and Stripe test checkout handoff
-        if: ${{ inputs.deploy }}
-        run: node tests/e2e/front-door-acceptance.mjs
+        id: front_door
+        if: ${{ always() && inputs.deploy && steps.fixture.outcome == 'success' && steps.runtime_inputs.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: timeout --foreground 6m node tests/e2e/front-door-acceptance.mjs
 
       - name: Prove full interactive 30-Day Sprint
-        if: ${{ inputs.deploy }}
-        run: node tests/e2e/30-day-sprint-acceptance.mjs
+        id: sprint
+        if: ${{ always() && inputs.deploy && steps.fixture.outcome == 'success' && steps.runtime_inputs.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: timeout --foreground 15m node tests/e2e/30-day-sprint-acceptance.mjs
 
       - name: Prove live Get Me Live customer journey
-        if: ${{ inputs.deploy }}
-        run: node tests/e2e/get-me-live-acceptance.mjs
+        id: get_me_live
+        if: ${{ always() && inputs.deploy && steps.fixture.outcome == 'success' && steps.runtime_inputs.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: timeout --foreground 10m node tests/e2e/get-me-live-acceptance.mjs
 
       - name: Audit Get Me Live owner controls
-        if: ${{ inputs.deploy }}
-        run: node tests/e2e/get-me-live-owner-controls.mjs
+        id: owner_controls
+        if: ${{ always() && inputs.deploy && steps.fixture.outcome == 'success' && steps.runtime_inputs.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: timeout --foreground 6m node tests/e2e/get-me-live-owner-controls.mjs
 
       - name: Clean self-provisioned acceptance fixture
         if: ${{ always() && inputs.deploy }}
@@ -175,6 +191,12 @@ jobs:
         env:
           DEPLOY_REQUESTED: ${{ inputs.deploy }}
           FULL_TESTS_REQUESTED: ${{ inputs.run_full_tests }}
+          FIXTURE_OUTCOME: ${{ steps.fixture.outcome }}
+          RUNTIME_INPUTS_OUTCOME: ${{ steps.runtime_inputs.outcome }}
+          FRONT_DOOR_OUTCOME: ${{ steps.front_door.outcome }}
+          SPRINT_OUTCOME: ${{ steps.sprint.outcome }}
+          GET_ME_LIVE_OUTCOME: ${{ steps.get_me_live.outcome }}
+          OWNER_CONTROLS_OUTCOME: ${{ steps.owner_controls.outcome }}
         run: |
           mkdir -p github-acceptance
           node - <<'NODE'
@@ -191,6 +213,14 @@ jobs:
             environment: 'acceptance',
             deployRequested: process.env.DEPLOY_REQUESTED === 'true',
             fullTestsRequested: process.env.FULL_TESTS_REQUESTED === 'true',
+            stages: {
+              fixture: process.env.FIXTURE_OUTCOME || 'not_run',
+              runtimeInputs: process.env.RUNTIME_INPUTS_OUTCOME || 'not_run',
+              frontDoor: process.env.FRONT_DOOR_OUTCOME || 'not_run',
+              sprint30Day: process.env.SPRINT_OUTCOME || 'not_run',
+              getMeLive: process.env.GET_ME_LIVE_OUTCOME || 'not_run',
+              ownerControls: process.env.OWNER_CONTROLS_OUTCOME || 'not_run'
+            },
             recordedAt: new Date().toISOString()
           };
           fs.writeFileSync('github-acceptance/execution-receipt.json', JSON.stringify(receipt, null, 2) + '\n');
@@ -204,3 +234,30 @@ jobs:
           path: github-acceptance
           if-no-files-found: error
           retention-days: 14
+
+      - name: Aggregate pre-live acceptance result
+        if: ${{ always() && inputs.deploy }}
+        shell: bash
+        env:
+          FIXTURE_OUTCOME: ${{ steps.fixture.outcome }}
+          RUNTIME_INPUTS_OUTCOME: ${{ steps.runtime_inputs.outcome }}
+          FRONT_DOOR_OUTCOME: ${{ steps.front_door.outcome }}
+          SPRINT_OUTCOME: ${{ steps.sprint.outcome }}
+          GET_ME_LIVE_OUTCOME: ${{ steps.get_me_live.outcome }}
+          OWNER_CONTROLS_OUTCOME: ${{ steps.owner_controls.outcome }}
+        run: |
+          echo "fixture: $FIXTURE_OUTCOME"
+          echo "runtime-inputs: $RUNTIME_INPUTS_OUTCOME"
+          echo "front-door: $FRONT_DOOR_OUTCOME"
+          echo "sprint-30-day: $SPRINT_OUTCOME"
+          echo "get-me-live: $GET_ME_LIVE_OUTCOME"
+          echo "owner-controls: $OWNER_CONTROLS_OUTCOME"
+          failed=0
+          for outcome in "$FIXTURE_OUTCOME" "$RUNTIME_INPUTS_OUTCOME" "$FRONT_DOOR_OUTCOME" "$SPRINT_OUTCOME" "$GET_ME_LIVE_OUTCOME" "$OWNER_CONTROLS_OUTCOME"; do
+            if [ "$outcome" != "success" ]; then failed=1; fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "::error::Pre-live acceptance is BLOCKED. Inspect the stage receipts and logs above."
+            exit 1
+          fi
+          echo "Pre-live acceptance stages all passed."
