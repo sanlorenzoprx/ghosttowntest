@@ -7,9 +7,10 @@ const baseUrl = String(process.env.GHOSTTOWN_E2E_BASE_URL || '').replace(/\/$/, 
 const apiUrl = String(process.env.GHOSTTOWN_E2E_API_URL || '').replace(/\/$/, '');
 const email = String(process.env.GHOSTTOWN_E2E_FIXTURE_OWNER || '').trim();
 const password = String(process.env.GHOSTTOWN_E2E_FIXTURE_PASSWORD || '');
+const authToken = String(process.env.GHOSTTOWN_E2E_AUTH_TOKEN || '');
 const envFile = String(process.env.GITHUB_ENV || '');
-if (!baseUrl || !apiUrl || !email || !password || !envFile) {
-  throw new Error('Front-door acceptance requires base URL, API URL, fixture owner/password and GITHUB_ENV.');
+if (!baseUrl || !apiUrl || !email || !password || !authToken || !envFile) {
+  throw new Error('Front-door acceptance requires base URL, API URL, fixture owner/password, auth token and GITHUB_ENV.');
 }
 if (/ghosttowntest\.com|lit-ghosttown\.app/i.test(new URL(baseUrl).hostname)) {
   throw new Error('Front-door acceptance refuses a production frontend.');
@@ -115,17 +116,31 @@ try {
   );
   await checkoutDialog.getByRole('button', { name: /Start My 30-Day Evidence Sprint/i }).click();
   const checkoutResponse = await checkoutResponsePromise;
-  const checkoutBody = await checkoutResponse.json().catch(() => ({}));
-  if (!checkoutResponse.ok() || !/^gtt_[A-Za-z0-9_-]+$/.test(String(checkoutBody.orderId || ''))) {
-    throw new Error(`Sprint checkout creation failed HTTP ${checkoutResponse.status()}: ${JSON.stringify(checkoutBody)}`);
+  if (!checkoutResponse.ok()) {
+    const checkoutError = await checkoutResponse.text().catch(() => '');
+    throw new Error(`Sprint checkout creation failed HTTP ${checkoutResponse.status()}: ${checkoutError.slice(0, 500)}`);
   }
-  await appendFile(envFile, `GHOSTTOWN_E2E_CHECKOUT_ORDER_ID=${checkoutBody.orderId}\n`);
 
   await page.waitForURL(url => url.hostname === 'checkout.stripe.com', { timeout: 30000 });
   const stripeUrl = page.url();
   if (!/checkout\.stripe\.com/.test(stripeUrl) || !/cs_test_/i.test(stripeUrl)) {
     throw new Error(`Checkout did not reach a Stripe test session: ${stripeUrl}`);
   }
+
+  // Navigation to Stripe can discard Chrome's buffered fetch body. Prove the
+  // checkout side effect independently from the authenticated order projection.
+  const ordersResponse = await fetch(`${apiUrl}/api/paid-test/orders`, {
+    headers: { Authorization: `Bearer ${authToken}` },
+  });
+  const ordersBody = await ordersResponse.json().catch(() => ({}));
+  const checkoutOrder = Array.isArray(ordersBody?.orders)
+    ? ordersBody.orders.find(order => order?.status === 'checkout_created' && /^gtt_[A-Za-z0-9_-]+$/.test(String(order?.orderId || '')))
+    : null;
+  if (!ordersResponse.ok || !checkoutOrder?.orderId) {
+    throw new Error(`Stripe test checkout opened but GhostTown did not expose the checkout_created order: HTTP ${ordersResponse.status}`);
+  }
+  await appendFile(envFile, `GHOSTTOWN_E2E_CHECKOUT_ORDER_ID=${checkoutOrder.orderId}\n`);
+  proof.checkoutOrderId = checkoutOrder.orderId;
   proof.stripeTestCheckout = true;
   proof.controls.push({ surface: 'sprint-checkout', control: 'Start My 30-Day Evidence Sprint', result: 'passed_test_mode' });
 
