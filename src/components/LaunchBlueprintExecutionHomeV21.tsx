@@ -172,10 +172,6 @@ export default function LaunchBlueprintExecutionHomeV21({
       setMode('calendar');
       return;
     }
-    // Returning to the calendar is a local navigation action and must not be
-    // blocked by a network refresh. Show the execution home immediately, then
-    // reconcile the latest persisted progress in the background.
-    setMode('calendar');
     try {
       const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/progress`), {
         headers: authHeaders(),
@@ -189,6 +185,7 @@ export default function LaunchBlueprintExecutionHomeV21({
       setSaveState('error');
       setSaveError(error instanceof Error ? error.message : 'Latest execution progress could not be loaded');
     }
+    setMode('calendar');
   };
 
   const openDay = (dayNumber: number) => {

@@ -286,8 +286,7 @@ try {
   }
   await workspaceNav.selectOption('review');
   await verifyWebsiteEvidence(page, undefined, undefined);
-  await page.getByRole('button', { name: /Dashboard/, exact: false }).first().click();
-  await page.getByRole('region', { name: '30-day execution calendar' }).waitFor({ state: 'visible', timeout: 30000 });
+  await returnFromWorkspace(page);
   proof.surfaceAudit.push({ surface: 'structured-workspace', control: 'Return to execution home', result: 'passed' });
 
   const savedNotes = new Map();
