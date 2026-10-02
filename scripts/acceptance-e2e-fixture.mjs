@@ -74,13 +74,29 @@ async function ownerJson(path, init = {}) {
 // Cloudflare accepted the deploy but the marker was not observed yet; keep calling
 // the explicit, idempotent verify step (every 5 s, up to 10 minutes).
 async function publishAndVerify(label) {
-  const { response, body } = await ownerJson('/publish', { method: 'POST', body: '{}' });
-  if (![200, 202].includes(response.status) || !body?.releaseId || body?.duplicate) {
-    throw new Error(`Acceptance Get Me Live ${label} publish failed HTTP ${response.status}: ${body?.error || (body?.duplicate ? 'duplicate attempt' : 'unknown error')}`);
+  let response;
+  let body;
+  for (let publishAttempt = 1; publishAttempt <= 3; publishAttempt += 1) {
+    ({ response, body } = await ownerJson('/publish', { method: 'POST', body: '{}' }));
+    const usableAttempt = [200, 202].includes(response.status) && Boolean(body?.releaseId);
+    if (usableAttempt) break;
+    const transientProviderFailure = response.status === 502 || response.status === 503;
+    if (!transientProviderFailure || publishAttempt === 3) {
+      throw new Error(`Acceptance Get Me Live ${label} publish failed HTTP ${response.status}: ${body?.error || 'unknown error'}`);
+    }
+    console.warn(`[acceptance-fixture] ${label} publish attempt ${publishAttempt} hit HTTP ${response.status}; retrying in 10 s`);
+    await new Promise(resolve => setTimeout(resolve, 10000));
   }
+  if (!body?.releaseId) throw new Error(`Acceptance Get Me Live ${label} publish did not return a release ID.`);
   const releaseId = body.releaseId;
   let pagesUrl = body.pagesUrl;
-  const pagesProjectName = String(body.pagesProjectName || '');
+  let pagesProjectName = String(body.pagesProjectName || '');
+  if (!pagesProjectName && /^https:\/\/[a-z0-9-]+\.pages\.dev$/.test(String(pagesUrl || ''))) {
+    pagesProjectName = new URL(pagesUrl).hostname.replace(/\.pages\.dev$/, '');
+  }
+  if (body.duplicate) {
+    console.warn(`[acceptance-fixture] ${label} recovered existing pending publish attempt ${releaseId}; verifying it instead of creating another.`);
+  }
   // Record the real project name immediately so cleanup can delete it even if a later step fails.
   if (pagesProjectName) await appendFile(envFile, `GHOSTTOWN_E2E_PAGES_PROJECT=${pagesProjectName}\n`);
   if (body.verified !== true) {
@@ -99,6 +115,10 @@ async function publishAndVerify(label) {
     }
   }
   if (!/^https:\/\/[a-z0-9-]+\.pages\.dev$/.test(String(pagesUrl || ''))) throw new Error(`Acceptance Get Me Live ${label} pagesUrl is not a stable pages.dev URL: ${pagesUrl}`);
+  if (!pagesProjectName) {
+    pagesProjectName = new URL(pagesUrl).hostname.replace(/\.pages\.dev$/, '');
+    await appendFile(envFile, `GHOSTTOWN_E2E_PAGES_PROJECT=${pagesProjectName}\n`);
+  }
   // Independent cross-check from the runner. A freshly created pages.dev host can
   // answer transient 5xx (e.g. 522) at the edge for a short while after the Worker
   // has already observed the marker, so retry (5 s, up to 3 minutes) before failing.
