@@ -241,11 +241,24 @@ try {
     if (!contentType.includes(expectedType)) {
       throw new Error(`${name} returned ${contentType || 'no content type'} instead of ${expectedType}`);
     }
-    const bytes = await response.body();
+    // Chromium may expose an empty buffered body after the React app has already
+    // consumed this streamed R2 response into a Blob. Prove the private artifact
+    // bytes independently with the same disposable customer's auth token.
+    const artifactResponse = await fetch(artifactUrl, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (!artifactResponse.ok) {
+      throw new Error(`${name} independent artifact fetch failed HTTP ${artifactResponse.status}`);
+    }
+    const independentType = String(artifactResponse.headers.get('content-type') || '').toLowerCase();
+    if (!independentType.includes(expectedType)) {
+      throw new Error(`${name} independent fetch returned ${independentType || 'no content type'} instead of ${expectedType}`);
+    }
+    const bytes = new Uint8Array(await artifactResponse.arrayBuffer());
     if (bytes.byteLength < 100) {
       throw new Error(`${name} returned an unexpectedly small artifact (${bytes.byteLength} bytes)`);
     }
-    proof.surfaceAudit.push({ surface: 'execution-home', control: name, result: 'artifact_fetched', bytes: bytes.byteLength, contentType });
+    proof.surfaceAudit.push({ surface: 'execution-home', control: name, result: 'artifact_fetched', bytes: bytes.byteLength, contentType: independentType });
   }
 
   await page.getByRole('button', { name: 'Evidence, reviews & site', exact: true }).click();

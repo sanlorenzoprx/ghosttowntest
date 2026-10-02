@@ -14,6 +14,7 @@ describe('Get Me Live copy controls', () => {
     expect(workspace).toContain('copyText(liveUrl)');
     expect(workspace).toContain('copyText(draft.editedText)');
     expect(workspace).toContain('copyText(idea)');
+    expect(workspace).toContain('aria-label="Launch Share Pack drafts"');
     // Direct clipboard calls should exist only inside copyText itself.
     expect(workspace.match(/navigator\.clipboard/g)?.length).toBe(2);
   });

@@ -107,7 +107,9 @@ try {
 
   await page.getByRole('button', { name: 'Open Launch Share Pack', exact: true }).click();
   await page.getByRole('heading', { name: 'Three posts, ready to share', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
-  const copyButtons = page.getByRole('button', { name: 'Copy', exact: true });
+  const sharePack = page.getByRole('region', { name: 'Launch Share Pack drafts', exact: true });
+  await sharePack.waitFor({ state: 'visible', timeout: 5000 });
+  const copyButtons = sharePack.getByRole('button', { name: 'Copy', exact: true });
   const copyCount = await copyButtons.count();
   if (copyCount < 1) fail('Launch Share Pack returned no copyable drafts.');
   for (let i = 0; i < copyCount; i += 1) {
@@ -116,7 +118,7 @@ try {
   }
   proof.exercised.push({ control: 'Launch Share Pack copy buttons', result: 'passed', count: copyCount });
 
-  const shareButtons = page.getByRole('button', { name: 'Share', exact: true });
+  const shareButtons = sharePack.getByRole('button', { name: 'Share', exact: true });
   if (await shareButtons.count()) {
     await shareButtons.first().click();
     await page.waitForTimeout(300);
