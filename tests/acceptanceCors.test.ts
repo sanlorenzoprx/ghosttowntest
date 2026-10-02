@@ -6,7 +6,7 @@ const acceptanceEnv = {
   KV: {} as KVNamespace,
   AI: {} as Ai,
   DEPLOYMENT_ENV: 'acceptance',
-  FRONTEND_URL: 'https://ghosttown-acceptance.pages.dev',
+  FRONTEND_URL: 'https://main.ghosttown-acceptance.pages.dev',
   JWT_SECRET: 'test-secret',
   STRIPE_SECRET_KEY: 'sk_test_placeholder',
   STRIPE_PRICE_ID: 'price_placeholder',
@@ -29,14 +29,15 @@ function preflight(origin: string) {
 
 describe('acceptance CORS isolation', () => {
   it('allows the configured acceptance frontend', async () => {
-    const response = await preflight('https://ghosttown-acceptance.pages.dev');
+    const response = await preflight('https://main.ghosttown-acceptance.pages.dev');
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Access-Control-Allow-Origin'))
-      .toBe('https://ghosttown-acceptance.pages.dev');
+      .toBe('https://main.ghosttown-acceptance.pages.dev');
   });
 
   it.each([
+    'https://ghosttown-acceptance.pages.dev',
     'https://ghosttowntest.com',
     'https://www.ghosttowntest.com',
     'https://lit-ghosttown.app',

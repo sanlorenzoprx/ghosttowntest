@@ -106,11 +106,29 @@ jobs:
             echo "::error::Acceptance frontend build does not contain the acceptance Worker API origin"
             exit 1
           }
+          printf '%s\n' "$GITHUB_SHA" > dist/acceptance-build.txt
 
       - name: Deploy current acceptance frontend
         if: ${{ inputs.deploy }}
         run: |
           npx wrangler pages deploy dist --project-name ghosttown-acceptance --branch main 2>&1 | tee github-acceptance/pages-deploy.log
+
+      - name: Verify fresh acceptance frontend deployment
+        if: ${{ inputs.deploy }}
+        shell: bash
+        run: |
+          expected="$GITHUB_SHA"
+          url="https://main.ghosttown-acceptance.pages.dev/acceptance-build.txt"
+          for attempt in $(seq 1 24); do
+            served="$(curl -fsS -H 'Cache-Control: no-cache' "$url?sha=$expected&attempt=$attempt" 2>/dev/null || true)"
+            if [ "$served" = "$expected" ]; then
+              echo "Acceptance frontend serves current SHA $expected"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Acceptance frontend did not serve current SHA $expected from $url"
+          exit 1
 
       - name: Self-provision isolated customer-journey fixture
         if: ${{ inputs.deploy }}
