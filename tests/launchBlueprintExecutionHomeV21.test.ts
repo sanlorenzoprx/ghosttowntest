@@ -67,6 +67,16 @@ describe('Blueprint v2.1.5 guided daily execution amendment', () => {
     expect(executionSource).toContain('Latest execution progress could not be loaded');
   });
 
+  it('returns to the calendar before waiting for the workspace progress refresh', () => {
+    const start = executionSource.indexOf('const returnFromWorkspace = async () =>');
+    const end = executionSource.indexOf('const openDay =', start);
+    const block = executionSource.slice(start, end);
+    const progressFetch = block.indexOf('await fetch(apiUrl(');
+    const calendarSwitch = block.lastIndexOf("setMode('calendar');", progressFetch);
+    expect(calendarSwitch).toBeGreaterThan(-1);
+    expect(progressFetch).toBeGreaterThan(calendarSwitch);
+  });
+
   it('reads a separately purchased Get Me Live website as optional daily evidence', () => {
     expect(executionSource).toContain("import SprintWebsiteEvidence from './SprintWebsiteEvidence'");
     expect(executionSource).toContain('dayNumber={activeDay.dayNumber}');
