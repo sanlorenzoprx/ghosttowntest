@@ -8,9 +8,9 @@ const CONFIRM = String(process.env.PCJ_CONFIRM || '');
 const SCOPE = String(process.env.PCJ_SCOPE || 'surface');
 const CANARY_EMAIL = String(process.env.PCJ_CANARY_EMAIL || '').trim().toLowerCase();
 const CANARY_PASSWORD = String(process.env.PCJ_CANARY_PASSWORD || '');
-const SPRINT_ORDER_ID = String(process.env.PCJ_SPRINT_ORDER_ID || '').trim();
-const GML_ORDER_ID = String(process.env.PCJ_GML_ORDER_ID || '').trim();
-const LIVE_URL = String(process.env.PCJ_LIVE_URL || '').replace(/\/$/, '');
+const SPRINT_ORDER_ID_OVERRIDE = String(process.env.PCJ_SPRINT_ORDER_ID || '').trim();
+const GML_ORDER_ID_OVERRIDE = String(process.env.PCJ_GML_ORDER_ID || '').trim();
+const LIVE_URL_OVERRIDE = String(process.env.PCJ_LIVE_URL || '').replace(/\/$/, '');
 const ARTIFACT_DIR = String(process.env.PCJ_ARTIFACT_DIR || 'production-customer-journey-artifacts');
 
 const allowedScopes = new Set(['surface', 'full']);
@@ -20,7 +20,7 @@ if (!EXPECTED_WORKER_VERSION) throw new Error('PCJ_EXPECTED_WORKER_VERSION is re
 if (new URL(BASE_URL).hostname !== 'ghosttowntest.com') throw new Error(`Refusing non-canonical production frontend: ${BASE_URL}`);
 if (new URL(API_URL).hostname !== 'api.ghosttowntest.com') throw new Error(`Refusing non-canonical production API: ${API_URL}`);
 if (SCOPE === 'full') {
-  const required = { PCJ_CANARY_EMAIL: CANARY_EMAIL, PCJ_CANARY_PASSWORD: CANARY_PASSWORD, PCJ_SPRINT_ORDER_ID: SPRINT_ORDER_ID, PCJ_GML_ORDER_ID: GML_ORDER_ID, PCJ_LIVE_URL: LIVE_URL };
+  const required = { PCJ_CANARY_EMAIL: CANARY_EMAIL, PCJ_CANARY_PASSWORD: CANARY_PASSWORD };
   const missing = Object.entries(required).filter(([, value]) => !value).map(([name]) => name);
   if (missing.length) throw new Error('Full production journey requires: ' + missing.join(', '));
 }
@@ -272,23 +272,37 @@ async function runFullCanary(browser) {
   await page.getByRole('heading', { name: 'Previous Assessments', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
 
   const plans = await ownerGet('/api/paid-test/orders');
-  const sprint = Array.isArray(plans.body?.orders) ? plans.body.orders.find(item => item?.orderId === SPRINT_ORDER_ID) : null;
-  if (!plans.response.ok || !sprint) fail(`Configured canary Sprint ${SPRINT_ORDER_ID} is not owned by the canary account.`);
-  if (sprint.status !== 'ready') fail(`Canary Sprint must be ready; received ${sprint.status}`);
-  if (sprint.artifactType !== 'launch_blueprint_v2') fail(`Canary Sprint must expose the current Blueprint UI; received ${sprint.artifactType || 'unknown artifact'}`);
+  if (!plans.response.ok || !Array.isArray(plans.body?.orders)) fail('Canary paid-order list is unavailable.');
+  const readySprints = plans.body.orders.filter(item =>
+    item?.status === 'ready'
+    && item?.artifactType === 'launch_blueprint_v2'
+    && (!SPRINT_ORDER_ID_OVERRIDE || item.orderId === SPRINT_ORDER_ID_OVERRIDE)
+  );
 
   const gmlOrders = await ownerGet('/api/get-me-live/orders');
-  const gml = Array.isArray(gmlOrders.body?.orders) ? gmlOrders.body.orders.find(item => item?.orderId === GML_ORDER_ID) : null;
-  if (!gmlOrders.response.ok || !gml) fail(`Configured Get Me Live order ${GML_ORDER_ID} is not owned by the canary account.`);
-  if (gml.sourceSprintOrderId !== SPRINT_ORDER_ID) fail(`Get Me Live lineage mismatch: expected source Sprint ${SPRINT_ORDER_ID}, received ${gml.sourceSprintOrderId}`);
-  if (gml.status !== 'live') fail(`Canary Get Me Live order must already be live; received ${gml.status}`);
-  const projectedLiveUrl = String(gml.customDomain ? `https://${gml.customDomain}` : gml.publicUrl || '').replace(/\/$/, '');
-  if (!projectedLiveUrl) fail('Canary Get Me Live owner projection has no live URL.');
-  if (projectedLiveUrl !== LIVE_URL) fail(`Configured canary live URL does not match owner projection: ${projectedLiveUrl}`);
-  const releaseReceipt = await ownerGet(`/api/get-me-live/orders/${encodeURIComponent(GML_ORDER_ID)}/release-receipt`);
+  if (!gmlOrders.response.ok || !Array.isArray(gmlOrders.body?.orders)) fail('Canary Get Me Live order list is unavailable.');
+  const eligiblePairs = [];
+  for (const gmlCandidate of gmlOrders.body.orders) {
+    if (gmlCandidate?.status !== 'live') continue;
+    if (GML_ORDER_ID_OVERRIDE && gmlCandidate.orderId !== GML_ORDER_ID_OVERRIDE) continue;
+    const projected = String(gmlCandidate.customDomain ? `https://${gmlCandidate.customDomain}` : gmlCandidate.publicUrl || '').replace(/\/$/, '');
+    if (!projected) continue;
+    if (LIVE_URL_OVERRIDE && projected !== LIVE_URL_OVERRIDE) continue;
+    const sprintCandidate = readySprints.find(item => item.orderId === gmlCandidate.sourceSprintOrderId);
+    if (sprintCandidate) eligiblePairs.push({ sprint: sprintCandidate, gml: gmlCandidate, liveUrl: projected });
+  }
+  if (eligiblePairs.length !== 1) {
+    fail(`Full canary discovery requires exactly one ready Sprint → live Get Me Live pair after optional overrides; found ${eligiblePairs.length}. Set PCJ_SPRINT_ORDER_ID / PCJ_GML_ORDER_ID / PCJ_LIVE_URL only when disambiguation is needed.`);
+  }
+
+  const [{ sprint, gml, liveUrl }] = eligiblePairs;
+  const sprintOrderId = sprint.orderId;
+  const gmlOrderId = gml.orderId;
+
+  const releaseReceipt = await ownerGet(`/api/get-me-live/orders/${encodeURIComponent(gmlOrderId)}/release-receipt`);
   if (!releaseReceipt.response.ok || !releaseReceipt.body?.receipt) fail('Canary Get Me Live release receipt is unavailable.');
   const receiptUrl = String(releaseReceipt.body.receipt.pagesUrl || releaseReceipt.body.receipt.liveUrl || '').replace(/\/$/, '');
-  if (receiptUrl !== LIVE_URL) fail(`Release receipt live URL does not match configured canary URL: ${receiptUrl}`);
+  if (receiptUrl !== liveUrl) fail(`Release receipt live URL does not match owner projection: ${receiptUrl}`);
 
   const sprintArticle = page.locator('article').filter({ hasText: sprint.ideaName }).first();
   await sprintArticle.getByRole('button', { name: 'Open Blueprint', exact: true }).click();
@@ -300,9 +314,9 @@ async function runFullCanary(browser) {
   await dayButtons.first().click();
   await page.getByText(/Today · Day 1/, { exact: false }).waitFor({ state: 'visible', timeout: 10000 });
   proof.classifiedNotClicked.push({ surface: '30-Day Sprint', reason: 'production canary progress is read-only; evidence, notes, checkpoints, and completion are not mutated' });
-  record('ready-sprint-readonly', { orderId: SPRINT_ORDER_ID, daysVisible: dayCount });
+  record('ready-sprint-readonly', { orderId: sprintOrderId, daysVisible: dayCount });
 
-  await page.goto(`${BASE_URL}/get-me-live/setup?order_id=${encodeURIComponent(GML_ORDER_ID)}&step=review`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.goto(`${BASE_URL}/get-me-live/setup?order_id=${encodeURIComponent(gmlOrderId)}&step=review`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.getByRole('heading', { name: 'Get Me Live', exact: true }).waitFor({ state: 'visible', timeout: 30000 });
   const checklist = page.getByRole('navigation', { name: 'Launch checklist' });
   await checklist.waitFor({ state: 'visible' });
@@ -332,18 +346,18 @@ async function runFullCanary(browser) {
     reason: 'production journey inventories provider-changing controls but never publishes, attaches domains, connects payments, changes email routing, or edits provider state',
   });
   record('get-me-live-owner-workspace', {
-    orderId: GML_ORDER_ID,
-    sourceSprintOrderId: SPRINT_ORDER_ID,
+    orderId: gmlOrderId,
+    sourceSprintOrderId: sprintOrderId,
     checklistSteps: steps.length,
     releaseReceiptVerified: true,
   });
 
   const live = await context.newPage();
-  const liveNav = await live.goto(LIVE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  const liveNav = await live.goto(liveUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
   if (liveNav?.status() !== 200) fail(`Canary live page expected HTTP 200, received ${liveNav?.status()}`);
   if (await live.locator('form').count() < 1 || await live.locator('input[name="email"]').count() < 1) fail('Canary live page is missing lead capture.');
   proof.classifiedNotClicked.push({ surface: 'public lead form', reason: 'synthetic production leads are not submitted by the reusable harness' });
-  record('published-canary-page', { liveUrl: LIVE_URL, httpStatus: liveNav?.status(), leadFormPresent: true });
+  record('published-canary-page', { liveUrl, httpStatus: liveNav?.status(), leadFormPresent: true });
   await live.close();
 
   await context.close();
