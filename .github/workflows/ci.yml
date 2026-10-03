@@ -46,6 +46,9 @@ jobs:
       - name: Type check
         run: npm run type-check
 
+      - name: Stripe payment boundary regression
+        run: npx vitest run tests/stripeConnectWebhookBoundary.test.ts tests/assessmentPackReturn.test.ts
+
       - name: Tests
         run: npm run test
         env:
