@@ -341,6 +341,17 @@ try {
     await openDay(page, day.dayNumber);
     await verifyWebsiteEvidence(page, day.dayNumber, checkpoints.has(day.dayNumber) ? day.dayNumber : undefined);
 
+    const guidance = await agenticGuidance(page.request, day.dayNumber, 'daily');
+    proof.agentic.daily.push({
+      dayNumber: day.dayNumber,
+      capability: guidance.capability,
+      answer: String(guidance.answer || '').slice(0, 1600),
+      evidenceAssessment: String(guidance.evidenceAssessment || '').slice(0, 800),
+      recommendedAction: String(guidance.recommendedAction || '').slice(0, 800),
+      groundedWebSources: guidance.groundedWebSources || [],
+      receipt: guidance.receipts?.primary || null
+    });
+
     const assets = day.executionPacket?.assets || [];
     if (assets.length) {
       const assetRegion = page.getByRole('region', { name: 'Prepared assets for this day' });
@@ -357,7 +368,7 @@ try {
       await openDay(page, day.dayNumber);
     }
 
-    const note = `SYNTHETIC ACCEPTANCE DAY ${day.dayNumber}: exercised "${day.title}". Automated UI test evidence only; not a real customer or market result.`;
+    const note = `AGENTIC QA DAY ${day.dayNumber}: ${String(guidance.answer || guidance.recommendedAction || day.title).replace(/\s+/g, " ").slice(0, 900)} — QA simulation only; not real customer or market evidence.`;
     savedNotes.set(day.dayNumber, note);
     const noteField = page.getByLabel('Execution note');
     await noteField.fill(note);
@@ -376,7 +387,18 @@ try {
       .catch(() => undefined);
 
     if (checkpoints.has(day.dayNumber)) {
-      await saveCheckpoint(page, day.dayNumber);
+      const checkpointGuidance = await agenticGuidance(page.request, day.dayNumber, 'checkpoint');
+      proof.agentic.checkpoints.push({
+        dayNumber: day.dayNumber,
+        capability: checkpointGuidance.capability,
+        answer: String(checkpointGuidance.answer || '').slice(0, 1800),
+        evidenceAssessment: String(checkpointGuidance.evidenceAssessment || '').slice(0, 1200),
+        recommendedAction: String(checkpointGuidance.recommendedAction || '').slice(0, 1000),
+        critic: checkpointGuidance.critic || null,
+        groundedWebSources: checkpointGuidance.groundedWebSources || [],
+        receipt: checkpointGuidance.receipts?.primary || null
+      });
+      await saveCheckpoint(page, day.dayNumber, checkpointGuidance);
       await openDay(page, day.dayNumber);
     }
 
@@ -436,11 +458,13 @@ try {
   for (const day of [7, 14, 21, 30]) {
     if (!final.progress.checkpointReviews?.some(review => review.dayNumber === day && review.completedAt && review.evidenceSummary && review.nextAction)) throw new Error(`Checkpoint Day ${day} did not persist.`);
   }
+  if (pageErrors.length) throw new Error('Sprint produced uncaught browser errors: ' + pageErrors.join(' | '));
+  if (consoleErrors.length) throw new Error('Sprint produced browser console errors: ' + consoleErrors.join(' | '));
   if (serverErrors.length) throw new Error('Sprint produced server errors: ' + serverErrors.join(' | '));
   proof.completedDays = completed;
   proof.passed = true;
   await writeFile('github-acceptance/30-day-sprint-ui-proof.json', JSON.stringify(proof, null, 2) + '\n');
-  console.log('[sprint-e2e] PASS: visible browser UI completed Days 1-30, persisted checkpoints, and recovered historical data.');
+  console.log('[sprint-e2e] PASS: agentic Playwright completed Days 1-30, grounded daily guidance, persisted checkpoints/reminders, rejected skipped-day mutation, and recovered historical data.');
   await context.close();
 } catch (error) {
   const effectiveError = productionApiRequests.length
