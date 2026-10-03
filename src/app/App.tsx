@@ -70,6 +70,8 @@ export default function App() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [user, setUser] = useState<PublicUserData | null>(null);
   const [autoSubmitPendingVerdict, setAutoSubmitPendingVerdict] = useState(false);
+  const [paidVerdictResumeActive, setPaidVerdictResumeActive] = useState(false);
+  const [showPaidVerdictBalanceNotice, setShowPaidVerdictBalanceNotice] = useState(false);
 
   useEffect(() => {
     captureCommercialAttribution();
@@ -227,6 +229,7 @@ export default function App() {
   const handleUnlockCreditsReady = () => {
     const draft = loadEvaluationDraft();
     setPurchaseReturn(null);
+    setPaidVerdictResumeActive(true);
     const token = loadAuthToken();
     if (token) void verifyToken(token);
 
@@ -253,6 +256,10 @@ export default function App() {
     setResumeDraft(null);
     setAutoSubmitPendingVerdict(false);
     setPurchaseReturn(null);
+    if (paidVerdictResumeActive) {
+      setShowPaidVerdictBalanceNotice(true);
+      setPaidVerdictResumeActive(false);
+    }
     setScreen('result');
     const token = loadAuthToken();
     if (token) void verifyToken(token);
@@ -260,6 +267,7 @@ export default function App() {
 
   const handleReset = () => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    setShowPaidVerdictBalanceNotice(false);
     setScreen('landing');
     updatePath('/');
     updateExampleParam(null);
@@ -365,7 +373,19 @@ export default function App() {
             onCreditsReady={handleUnlockCreditsReady}
           />
         )}
-        {screen === 'result' && result && <ResultReport result={result} onReset={handleReset} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('signup'); setShowLoginModal(true); }} onRewardClaimed={() => { const token = loadAuthToken(); if (token) void verifyToken(token); }} locale={locale} />}
+        {screen === 'result' && result && (
+          <>
+            {showPaidVerdictBalanceNotice && (
+              <section className="mx-auto mt-6 max-w-4xl px-4" aria-live="polite">
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-center text-blue-950">
+                  <p className="font-black">You have used 1 of your 10 verdicts.</p>
+                  <p className="mt-1 text-sm font-semibold">You have 9 verdicts left to explore your business ideas.</p>
+                </div>
+              </section>
+            )}
+            <ResultReport result={result} onReset={handleReset} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('signup'); setShowLoginModal(true); }} onRewardClaimed={() => { const token = loadAuthToken(); if (token) void verifyToken(token); }} locale={locale} />
+          </>
+        )}
         {screen === 'dashboard' && isLoggedIn && <UserDashboard purchaseRefresh={purchaseReturn === 'success'} onLogout={handleLogout} onBuy={() => setShowPaywall(true)} onStart={handleStartTest} onOpenResult={savedResult => { setResult(savedResult); setScreen('result'); }} />}
         {getMeLiveOpening && isLoggedIn && <GetMeLiveOpening orderId={getMeLiveOrderId} />}
         {getMeLiveOpening && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Log in to open your website</h1><p className="mt-3 text-gray-700">Use the email from checkout. Your website is still going online.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
