@@ -228,8 +228,12 @@ async function runFullCanary(browser) {
   await page.getByRole('button', { name: 'Log In', exact: true }).click();
   const auth = page.getByRole('dialog');
   await auth.getByRole('heading', { name: 'Log In', exact: true }).waitFor({ state: 'visible' });
-  await auth.getByLabel('Email Address').fill(CANARY_EMAIL);
-  await auth.getByLabel('Password').fill(CANARY_PASSWORD);
+  const loginEmail = auth.locator('input[type="email"]').first();
+  const loginPassword = auth.locator('input[type="password"]').first();
+  await loginEmail.waitFor({ state: 'visible', timeout: 10000 });
+  await loginPassword.waitFor({ state: 'visible', timeout: 10000 });
+  await loginEmail.fill(CANARY_EMAIL);
+  await loginPassword.fill(CANARY_PASSWORD);
   await auth.getByRole('button', { name: 'Log In', exact: true }).click();
   await page.getByRole('button', { name: 'Dashboard', exact: true }).waitFor({ state: 'visible', timeout: 20000 });
   const token = await page.evaluate(() => localStorage.getItem('lit_user_token_v1'));
