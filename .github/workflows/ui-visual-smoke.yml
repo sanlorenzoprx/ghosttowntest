@@ -49,6 +49,7 @@ jobs:
           npx wrangler versions list --env production --json \
             > github-production-preflight/versions.json
           node -e "const v=require('./github-production-preflight/versions.json'); console.log('VERSIONS='+JSON.stringify(v.slice(0,5).map(x=>({id:x.id||x.version_id,created_on:x.created_on,tag:x.tag,message:x.message}))))"
+          node -e "const v=require('./github-production-preflight/versions.json'); console.log('VERSION_SHAPE='+JSON.stringify(v[0]||{}))"
 
       - name: Inspect active production deployment
         shell: bash
