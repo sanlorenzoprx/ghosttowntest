@@ -11,6 +11,7 @@ const required = { GHOSTTOWN_E2E_BASE_URL: baseUrl, GHOSTTOWN_E2E_API_URL: apiBa
 const missing = Object.entries(required).filter(([, value]) => !value).map(([name]) => name);
 if (missing.length) throw new Error('Runtime Sprint acceptance is mandatory. Missing: ' + missing.join(', '));
 if (!mutate) throw new Error('Runtime Sprint acceptance is mandatory. Set GHOSTTOWN_E2E_SPRINT_MUTATE=1 only for the disposable acceptance order.');
+if (!agentic) throw new Error('Agentic Sprint acceptance is mandatory. Set GHOSTTOWN_E2E_AGENTIC=1 only for the disposable acceptance order.');
 
 const productionApiHosts = new Set(['api.ghosttowntest.com', 'api.lit-ghosttown.app']);
 const apiHost = new URL(apiBase).hostname;
@@ -19,6 +20,7 @@ if (productionApiHosts.has(apiHost)) throw new Error(`Acceptance API origin poin
 const headers = { Authorization: `Bearer ${authToken}` };
 const progressUrl = `${apiBase}/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/progress`;
 const blueprintUrl = `${apiBase}/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint`;
+const copilotUrl = `${apiBase}/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/copilot`;
 const today = new Date().toISOString().slice(0, 10);
 const checkpoints = new Set([7, 14, 21, 30]);
 const externalKinds = new Set(['verified_channel', 'qualified_buyer_batch', 'existing_contact', 'fulfillment_run']);
