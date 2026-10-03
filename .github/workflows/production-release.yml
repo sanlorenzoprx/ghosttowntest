@@ -193,8 +193,10 @@ jobs:
           const created = after.filter(version => !beforeIds.has(version.id));
           const matching = created.filter(version => {
             const annotations = version.annotations || {};
-            return annotations['workers/commit_sha'] === process.env.EXPECTED_MAIN_SHA
-              && annotations['workers/message'] === `release-candidate:${process.env.EXPECTED_MAIN_SHA}`;
+            const commitSha = annotations['workers/commit_sha'];
+            const message = annotations['workers/message'];
+            return message === `release-candidate:${process.env.EXPECTED_MAIN_SHA}`
+              && (!commitSha || commitSha === process.env.EXPECTED_MAIN_SHA);
           });
           if (matching.length !== 1) {
             throw new Error(`Expected exactly one newly uploaded Worker version for ${process.env.EXPECTED_MAIN_SHA}, found ${matching.length}.`);
@@ -263,7 +265,8 @@ jobs:
           const fs = require('fs');
           const version = JSON.parse(fs.readFileSync('github-production-release/candidate-version.json','utf8'));
           const annotations = version.annotations || {};
-          if (annotations['workers/commit_sha'] !== process.env.EXPECTED_MAIN_SHA) {
+          const commitSha = annotations['workers/commit_sha'];
+          if (commitSha && commitSha !== process.env.EXPECTED_MAIN_SHA) {
             throw new Error('Promotion candidate commit SHA does not match expected_main_sha.');
           }
           if (annotations['workers/message'] !== `release-candidate:${process.env.EXPECTED_MAIN_SHA}`) {

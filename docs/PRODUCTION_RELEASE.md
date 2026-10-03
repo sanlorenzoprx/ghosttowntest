@@ -58,7 +58,7 @@ Only after the production migration ledger is clean, run:
 
 Approve the production environment.
 
-This operation uploads a fresh Worker version from that exact SHA. It creates a deployment with:
+This operation uploads a fresh Worker version after the workflow has pinned and verified that exact SHA. The uploaded version carries the full SHA in its release-candidate message; promotion requires that exact message and version UUID. If Cloudflare also emits a commit-SHA annotation, it must match. It creates a deployment with:
 
 - previous production version: 100%
 - new candidate version: 0%
