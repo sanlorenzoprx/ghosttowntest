@@ -142,6 +142,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
       },
       refs: internalRefs,
       groundedWebSources: groundingSources(primary.groundingMetadata),
+      degraded: primary.degraded || null,
       usage: {
         hourlyLimit: COPILOT_REQUESTS_PER_HOUR,
         requestNumberThisHour: budget.used
