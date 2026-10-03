@@ -183,7 +183,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx wrangler versions upload --env production --message "release-candidate:$EXPECTED_MAIN_SHA"
+          npx wrangler versions upload --env production --strict --keep-vars --message "release-candidate:$EXPECTED_MAIN_SHA"
           npx wrangler versions list --env production --json > github-production-release/versions-after-upload.json
           node <<'NODE'
           const fs = require('fs');
@@ -191,11 +191,22 @@ jobs:
           const after = JSON.parse(fs.readFileSync('github-production-release/versions-after-upload.json','utf8'));
           const beforeIds = new Set(before.map(version => version.id));
           const created = after.filter(version => !beforeIds.has(version.id));
-          if (created.length !== 1) throw new Error(`Expected exactly one newly uploaded Worker version, found ${created.length}.`);
-          const id = created[0].id;
+          const matching = created.filter(version => {
+            const annotations = version.annotations || {};
+            return annotations['workers/commit_sha'] === process.env.EXPECTED_MAIN_SHA
+              && annotations['workers/message'] === `release-candidate:${process.env.EXPECTED_MAIN_SHA}`;
+          });
+          if (matching.length !== 1) {
+            throw new Error(`Expected exactly one newly uploaded Worker version for ${process.env.EXPECTED_MAIN_SHA}, found ${matching.length}.`);
+          }
+          const id = matching[0].id;
           if (!id || !/^[0-9a-fA-F-]{36}$/.test(id)) throw new Error('New Worker version ID is invalid.');
           fs.appendFileSync(process.env.GITHUB_ENV, `NEW_VERSION_ID=${id}\n`);
-          fs.writeFileSync('github-production-release/candidate.json', JSON.stringify({ version_id:id, expected_main_sha:process.env.EXPECTED_MAIN_SHA }, null, 2) + '\n');
+          fs.writeFileSync('github-production-release/candidate.json', JSON.stringify({
+            version_id: id,
+            expected_main_sha: process.env.EXPECTED_MAIN_SHA,
+            annotations: matching[0].annotations || {}
+          }, null, 2) + '\n');
           console.log('NEW_VERSION_ID=' + id);
           NODE
 
@@ -248,6 +259,17 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_ENV, `PREVIOUS_VERSION_ID=${previous.version_id}\n`);
           NODE
           npx wrangler versions view "$VERSION_ID" --env production --json > github-production-release/candidate-version.json
+          node <<'NODE'
+          const fs = require('fs');
+          const version = JSON.parse(fs.readFileSync('github-production-release/candidate-version.json','utf8'));
+          const annotations = version.annotations || {};
+          if (annotations['workers/commit_sha'] !== process.env.EXPECTED_MAIN_SHA) {
+            throw new Error('Promotion candidate commit SHA does not match expected_main_sha.');
+          }
+          if (annotations['workers/message'] !== `release-candidate:${process.env.EXPECTED_MAIN_SHA}`) {
+            throw new Error('Promotion candidate is not the staged release candidate for this SHA.');
+          }
+          NODE
 
       - name: Re-smoke exact candidate before promotion
         if: ${{ inputs.operation == 'promote-version' }}
@@ -286,7 +308,19 @@ jobs:
           done
           if [ "$ok" -ne 1 ]; then
             echo "::error::Post-promotion smoke failed; rolling back to ${PREVIOUS_VERSION_ID}."
-            npx wrangler versions deploy "${PREVIOUS_VERSION_ID}@100%" --env production --yes --message "automatic-rollback:$EXPECTED_MAIN_SHA"
+            if ! npx wrangler versions deploy "${PREVIOUS_VERSION_ID}@100%" --env production --yes --message "automatic-rollback:$EXPECTED_MAIN_SHA"; then
+              echo "::error::Automatic rollback command failed."
+              exit 1
+            fi
+            npx wrangler deployments status --env production --json > github-production-release/deployment-rollback.json
+            node <<'NODE'
+            const fs = require('fs');
+            const d = JSON.parse(fs.readFileSync('github-production-release/deployment-rollback.json','utf8'));
+            const live = (d.versions || []).filter(v => Number(v.percentage) === 100);
+            if (live.length !== 1 || live[0].version_id !== process.env.PREVIOUS_VERSION_ID) {
+              throw new Error('Rollback did not restore the previous version to 100% traffic.');
+            }
+            NODE
             exit 1
           fi
           echo "### Production promotion complete" >> "$GITHUB_STEP_SUMMARY"
