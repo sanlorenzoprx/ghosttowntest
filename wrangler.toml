@@ -33,6 +33,9 @@ binding = "AI"
 [env.production.browser]
 binding = "BROWSER"
 
+[env.production.version_metadata]
+binding = "CF_VERSION_METADATA"
+
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "ghosttowntest-blueprints"
