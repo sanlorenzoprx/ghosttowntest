@@ -2,6 +2,9 @@ name: Production Preflight Diagnostic
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - chore/production-release-gate
 
 permissions:
   contents: read
