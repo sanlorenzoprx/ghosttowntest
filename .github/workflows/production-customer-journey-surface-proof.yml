@@ -1,0 +1,56 @@
+name: Production Customer Journey Surface Proof
+
+on:
+  push:
+    branches:
+      - test/autonomous-production-customer-journey
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghosttown-production-customer-journey-surface-proof
+  cancel-in-progress: true
+
+jobs:
+  surface-proof:
+    name: production-surface-proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PCJ_BASE_URL: https://ghosttowntest.com
+      PCJ_API_URL: https://api.ghosttowntest.com
+      PCJ_EXPECTED_WORKER_VERSION: a5514c69-5485-49d1-8a39-1bc43cbc2484
+      PCJ_SCOPE: surface
+      PCJ_CONFIRM: RUN PRODUCTION CUSTOMER JOURNEY
+      PCJ_ARTIFACT_DIR: production-customer-journey-artifacts
+
+    steps:
+      - name: Check out harness branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install standalone harness
+        run: npm --prefix production-customer-journey install --no-audit --no-fund
+
+      - name: Install Chromium
+        run: cd production-customer-journey && npx playwright install --with-deps chromium
+
+      - name: Syntax check harness
+        run: node --check production-customer-journey/run.mjs
+
+      - name: Run safe production surface proof
+        run: node production-customer-journey/run.mjs
+
+      - name: Upload surface proof receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-production-surface-proof-${{ github.run_id }}
+          path: production-customer-journey-artifacts
+          if-no-files-found: error
+          retention-days: 30
