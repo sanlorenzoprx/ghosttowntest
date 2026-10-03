@@ -1,22 +1,41 @@
-name: Production Schema Drift Diagnostic
+name: UI Visual Smoke
 
 on:
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/app/**'
+      - 'src/components/**'
+      - 'src/styles/**'
+      - 'src/lib/ghosttownOffer.ts'
+      - 'tailwind.config.js'
+      - '.github/workflows/ui-visual-smoke.yml'
   push:
     branches:
-      - chore/production-release-gate
+      - feat/launch-blueprint-spa
+    paths:
+      - 'src/app/**'
+      - 'src/components/**'
+      - 'src/styles/**'
+      - 'src/lib/ghosttownOffer.ts'
+      - 'tailwind.config.js'
+      - '.github/workflows/ui-visual-smoke.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ui-visual-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  production-schema-drift:
+  render:
+    name: render-ui
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: acceptance
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    timeout-minutes: 20
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -24,49 +43,171 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: '22'
           cache: npm
 
-      - name: Install dependencies
+      - name: Install application dependencies
         run: npm ci
 
-      - name: Inspect production schema state
-        shell: bash
-        run: |
-          mkdir -p github-production-schema
-          npx wrangler d1 execute DB --env production --remote --json \
-            --command "PRAGMA table_info(get_me_live_orders);" \
-            > github-production-schema/orders-columns.json
-          npx wrangler d1 execute DB --env production --remote --json \
-            --command "SELECT name, sql FROM sqlite_master WHERE name IN ('get_me_live_releases','get_me_live_publish_attempts') ORDER BY name;" \
-            > github-production-schema/release-tables.json
-          npx wrangler d1 execute DB --env production --remote --json \
-            --command "SELECT COUNT(*) AS get_me_live_order_count FROM get_me_live_orders;" \
-            > github-production-schema/order-count.json
-          node - <<'NODE'
-          const fs = require('node:fs');
-          const load = p => JSON.parse(fs.readFileSync(p, 'utf8'));
-          const unwrap = value => {
-            const outer = Array.isArray(value) ? value[0] : value;
-            return outer?.results || outer?.result?.[0]?.results || [];
-          };
-          const columns = unwrap(load('github-production-schema/orders-columns.json')).map(x => x.name);
-          const tables = unwrap(load('github-production-schema/release-tables.json')).map(x => x.name);
-          const count = unwrap(load('github-production-schema/order-count.json'))[0]?.get_me_live_order_count ?? null;
-          console.log('PRODUCTION_SCHEMA=' + JSON.stringify({
-            has_hosting_json: columns.includes('hosting_json'),
-            has_custom_domain_json: columns.includes('custom_domain_json'),
-            release_tables: tables,
-            get_me_live_order_count: count
-          }));
-          if (columns.includes('hosting_json') || columns.includes('custom_domain_json') || tables.length) {
-            throw new Error('Production schema shows partial or out-of-ledger 0010 state; do not apply migration automatically.');
-          }
-          NODE
+      - name: Build application
+        run: npm run build
 
-      - name: Upload schema evidence
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start built application
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/ghosttown-preview.log 2>&1 &
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ghosttown-preview.log
+          exit 1
+
+      - name: Render and assert key UI states
+        run: |
+          mkdir -p ui-visual-smoke
+          cat > /tmp/ghosttown-ui-smoke.cjs <<'EOF'
+          const { chromium } = require('playwright');
+          const fs = require('node:fs');
+
+          const base = 'http://127.0.0.1:4173/';
+          const output = 'ui-visual-smoke';
+
+          async function assertNoHorizontalOverflow(page, label) {
+            const overflow = await page.evaluate(() => ({
+              scrollWidth: document.documentElement.scrollWidth,
+              clientWidth: document.documentElement.clientWidth,
+            }));
+            if (overflow.scrollWidth > overflow.clientWidth + 1) {
+              throw new Error(`${label}: horizontal overflow ${overflow.scrollWidth}px > ${overflow.clientWidth}px`);
+            }
+          }
+
+          async function assertInsideViewport(page, selector, label) {
+            const box = await page.locator(selector).first().boundingBox();
+            if (!box) throw new Error(`${label}: element is not measurable`);
+            const width = await page.evaluate(() => window.innerWidth);
+            if (box.x < -1 || box.x + box.width > width + 1) {
+              throw new Error(`${label}: clipped horizontally at x=${box.x}, width=${box.width}, viewport=${width}`);
+            }
+          }
+
+          async function assertHeader(page, label) {
+            const brand = page.locator('button[aria-label="Ghost Town Test home"]');
+            const nav = page.locator('.site-nav');
+            await assertInsideViewport(page, 'button[aria-label="Ghost Town Test home"]', `${label} brand`);
+            await assertInsideViewport(page, '.site-nav', `${label} navigation`);
+            const brandBox = await brand.boundingBox();
+            const navBox = await nav.boundingBox();
+            if (!brandBox || !navBox) throw new Error(`${label}: header boxes are not measurable`);
+            const overlap = !(
+              brandBox.x + brandBox.width <= navBox.x ||
+              navBox.x + navBox.width <= brandBox.x ||
+              brandBox.y + brandBox.height <= navBox.y ||
+              navBox.y + navBox.height <= brandBox.y
+            );
+            if (overlap) throw new Error(`${label}: brand and navigation overlap`);
+          }
+
+          async function capture(browser, name, width, height, sectionSelector, setup) {
+            const context = await browser.newContext({ viewport: { width, height } });
+            const page = await context.newPage();
+            await page.goto(base, { waitUntil: 'networkidle' });
+            await page.waitForTimeout(500);
+            await assertNoHorizontalOverflow(page, name);
+            if (setup) await setup(page);
+            if (sectionSelector) {
+              await page.locator(sectionSelector).scrollIntoViewIfNeeded();
+              await page.waitForTimeout(250);
+            }
+            await page.screenshot({ path: `${output}/${name}.png`, fullPage: false });
+            await context.close();
+          }
+
+          async function assertHero(browser, name, width, height) {
+            await capture(browser, name, width, height, null, async page => {
+              await assertHeader(page, name);
+              await assertInsideViewport(page, 'h1', `${name} hero heading`);
+              await assertInsideViewport(page, '[aria-label="Visual story of the founder journey"]', `${name} founder carousel`);
+              if (width < 640) {
+                const sticky = page.locator('#ghosttown-commercial-sticky');
+                if (!(await sticky.isVisible())) throw new Error(`${name}: mobile sticky CTA is not visible`);
+              }
+            });
+          }
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+
+            await assertHero(browser, 'hero-mobile-375x667', 375, 667);
+            await assertHero(browser, 'hero-mobile-390x844', 390, 844);
+            await assertHero(browser, 'hero-tablet-768x1024', 768, 1024);
+            await assertHero(browser, 'hero-desktop-1366x768', 1366, 768);
+            await assertHero(browser, 'hero-desktop-1440x900', 1440, 900);
+
+            await capture(browser, 'cost-desktop-1366x768', 1366, 768, null, async page => {
+              const tabs = page.getByRole('tab');
+              await tabs.nth(5).click();
+              const costText = await page.locator('text=The Cost').count();
+              if (!costText) throw new Error('The Cost title is not visible after selecting slide 6');
+              const image = page.locator('img[alt="Older woman working at a laptop at a table"]');
+              await image.waitFor({ state: 'visible', timeout: 10000 });
+              await page.waitForFunction(() => {
+                const el = document.querySelector('img[alt="Older woman working at a laptop at a table"]');
+                return el && el.complete && el.naturalWidth > 0;
+              }, null, { timeout: 10000 });
+              await page.evaluate(() => window.scrollTo(0, 0));
+              await page.waitForTimeout(350);
+            });
+
+            await capture(browser, 'verdict-desktop-1366x768', 1366, 768, '#free-verdict', async page => {
+              const section = page.locator('#free-verdict');
+              const text = await section.innerText();
+              if (/TEST NOW/i.test(text)) throw new Error('Ambiguous TEST NOW copy regressed');
+              if (!/Prove they'll pay/i.test(text)) throw new Error("Concrete 'Prove they'll pay' action is missing");
+            });
+
+            await capture(browser, 'verdict-mobile-390x844', 390, 844, '#free-verdict');
+            await capture(browser, 'examples-desktop-1366x768', 1366, 768, '#example-gallery');
+            await capture(browser, 'examples-mobile-390x844', 390, 844, '#example-gallery');
+            await capture(browser, 'proof-desktop-1366x768', 1366, 768, '#proof-standard');
+            await capture(browser, 'proof-mobile-390x844', 390, 844, '#proof-standard');
+
+            const audit = await browser.newPage({ viewport: { width: 390, height: 844 } });
+            await audit.goto(base, { waitUntil: 'networkidle' });
+            const measurements = await audit.evaluate(() => {
+              const px = selector => {
+                const el = document.querySelector(selector);
+                return el ? Number.parseFloat(getComputedStyle(el).fontSize) : null;
+              };
+              return {
+                heroBodyPx: px('section p.text-xl'),
+                verdictBodyPx: px('#free-verdict .text-lg'),
+                exampleBodyPx: px('#example-gallery .text-lg'),
+                proofBodyPx: px('#proof-standard .text-base'),
+              };
+            });
+            fs.writeFileSync(`${output}/measurements.json`, JSON.stringify(measurements, null, 2));
+            for (const [key, value] of Object.entries(measurements)) {
+              if (value !== null && value < 16) throw new Error(`${key} is below 16px: ${value}`);
+            }
+            await audit.close();
+
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          EOF
+          NODE_PATH="$PWD/node_modules" node /tmp/ghosttown-ui-smoke.cjs
+
+      - name: Upload visual smoke evidence
         uses: actions/upload-artifact@v4
         with:
-          name: ghosttown-production-schema-${{ github.run_id }}
-          path: github-production-schema
-          retention-days: 14
+          name: ghosttown-ui-visual-smoke
+          path: ui-visual-smoke
+          retention-days: 7
