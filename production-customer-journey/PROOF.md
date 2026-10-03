@@ -46,11 +46,8 @@ Required GitHub Environment secrets:
 
 - `PCJ_CANARY_EMAIL`
 - `PCJ_CANARY_PASSWORD`
-- `PCJ_SPRINT_ORDER_ID`
-- `PCJ_GML_ORDER_ID`
-- `PCJ_LIVE_URL`
 
-The configured Sprint must already be a ready `launch_blueprint_v2` owned by the canary. The Get Me Live order must already be live, owned by the same canary, and linked to that Sprint. The harness verifies this lineage before opening the paid product surfaces.
+The account must already own at least one ready `launch_blueprint_v2` with a linked live Get Me Live order. The harness discovers that lineage automatically and requires exactly one eligible pair. Optional `PCJ_SPRINT_ORDER_ID`, `PCJ_GML_ORDER_ID`, and `PCJ_LIVE_URL` secrets are only needed to disambiguate an account with multiple eligible pairs.
 
 ## Reuse rule
 
