@@ -11,6 +11,7 @@ interface Props {
   hasDraft: boolean;
   onResume: () => void;
   isLoggedIn: boolean;
+  hasUsedFreeVerdict: boolean;
   onLoginClick: () => void;
   locale: 'en' | 'es';
 }
@@ -21,10 +22,18 @@ export default function LandingCommercial({
   hasDraft,
   onResume,
   isLoggedIn,
+  hasUsedFreeVerdict,
   onLoginClick,
   locale
 }: Props) {
   const es = locale === 'es';
+  const isReturningVerdictCustomer = isLoggedIn && hasUsedFreeVerdict;
+  const primaryVerdictCta = isReturningVerdictCustomer
+    ? (es ? 'Probar otra idea' : 'Test Another Idea')
+    : (es ? 'Probar mi idea gratis' : 'Test My Idea Free');
+  const secondaryVerdictCta = isReturningVerdictCustomer
+    ? (es ? 'Empezar otro veredicto' : 'Start Another Verdict')
+    : (es ? 'Obtener mi veredicto gratis' : 'Get My Free Verdict');
   const displayPrice = import.meta.env.VITE_30_DAY_PLAN_DISPLAY_PRICE?.trim() || DEFAULT_30_DAY_PLAN_DISPLAY_PRICE;
 
   const deliverables = es
@@ -91,13 +100,17 @@ export default function LandingCommercial({
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button type="button" onClick={onStart} className="inline-flex min-h-14 items-center justify-center rounded-full bg-[#D96F3D] px-7 py-3 text-lg font-bold text-white shadow-[0_18px_50px_rgba(217,111,61,0.28)] transition hover:-translate-y-0.5 hover:bg-[#E57B48] focus:outline-none focus:ring-4 focus:ring-white/25">
-                {es ? 'Probar mi idea gratis' : 'Test My Idea Free'} <span className="ml-2" aria-hidden="true">→</span>
+                {primaryVerdictCta} <span className="ml-2" aria-hidden="true">→</span>
               </button>
               <button type="button" onClick={() => document.getElementById('free-verdict')?.scrollIntoView({ behavior: 'smooth' })} className="inline-flex min-h-14 items-center justify-center rounded-full border border-white/30 bg-white/10 px-7 py-3 text-lg font-semibold text-white transition hover:bg-white/15 focus:outline-none focus:ring-4 focus:ring-white/20">
                 {es ? 'Ver qué recibo' : 'See What I Get'}
               </button>
             </div>
-            <p className="mt-5 text-base font-semibold text-white/82">{es ? '1 prueba gratis · Sin tarjeta · Empieza ahora' : '1 free test · No credit card · Start now'}</p>
+            <p className="mt-5 text-base font-semibold text-white/82">
+              {isReturningVerdictCustomer
+                ? (es ? 'Completa la prueba primero · Paga solo cuando pidas el veredicto' : 'Complete the test first · Pay only when you ask for the verdict')
+                : (es ? '1 prueba gratis · Sin tarjeta · Empieza ahora' : '1 free test · No credit card · Start now')}
+            </p>
 
             {hasDraft && (
               <button type="button" onClick={onResume} className="mt-7 flex w-full max-w-lg items-center justify-between rounded-2xl border border-white/25 bg-white/10 px-5 py-4 text-left transition hover:bg-white/15">
@@ -155,7 +168,7 @@ export default function LandingCommercial({
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#E7A178]">{es ? 'Tu prueba gratis' : 'Your free test'}</p>
             <h2 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">{es ? 'Una respuesta que puedes usar.' : 'An answer you can use.'}</h2>
             <p className="mt-7 text-xl leading-9 text-white/88">{es ? 'GhostTown mira las partes que más importan: ¿hay un problema real? ¿puedes llegar al comprador? ¿pagaría? ¿qué debes hacer después?' : 'GhostTown looks at the parts that matter most: Is the problem real? Can you reach the buyer? Will they pay? What should you do next?'}</p>
-            <button type="button" onClick={onStart} className="mt-9 inline-flex min-h-14 items-center justify-center rounded-full bg-[#D96F3D] px-7 py-3 text-lg font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#E57B48] focus:outline-none focus:ring-4 focus:ring-white/25">{es ? 'Obtener mi veredicto gratis' : 'Get My Free Verdict'}</button>
+            <button type="button" onClick={onStart} className="mt-9 inline-flex min-h-14 items-center justify-center rounded-full bg-[#D96F3D] px-7 py-3 text-lg font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#E57B48] focus:outline-none focus:ring-4 focus:ring-white/25">{secondaryVerdictCta}</button>
           </div>
 
           <div className="rounded-[2rem] bg-[#FFFDF9] p-5 text-[#17201C] shadow-[0_32px_100px_rgba(0,0,0,0.4)] sm:p-8">
@@ -268,7 +281,7 @@ export default function LandingCommercial({
       <section className="bg-[#101A17] text-white">
         <div className="mx-auto grid max-w-[78rem] gap-12 px-4 py-24 sm:px-6 sm:py-32 lg:grid-cols-[1fr_0.8fr] lg:items-end lg:px-8">
           <div><p className="text-sm font-bold uppercase tracking-[0.18em] text-[#E7A178]">GHOSTTOWN LAUNCH BLUEPRINT</p><h2 className="mt-4 max-w-4xl font-display text-5xl font-semibold leading-[0.98] tracking-[-0.045em] sm:text-7xl">{es ? 'De idea a prueba real en 30 días.' : 'From idea to real proof in 30 days.'}</h2><p className="mt-7 max-w-2xl text-xl leading-9 text-white/86">{es ? 'Primero haces la prueba gratis. Si vale la pena seguir, el Blueprint te da el camino.' : 'Take the free test first. If the idea is worth moving forward with, the Blueprint gives you the path.'}</p></div>
-          <div className="rounded-[2rem] border border-white/20 bg-white/10 p-7 sm:p-8"><p className="text-base font-bold uppercase tracking-[0.13em] text-white/82">{es ? 'Pago único' : 'One-time price'}</p><div className="mt-2 flex items-end gap-2"><span className="font-score text-6xl font-bold tracking-[-0.08em]">{displayPrice.replace('.00', '')}</span><span className="pb-2 text-base text-white/82">USD</span></div><p className="mt-5 text-base leading-7 text-white/88">{es ? 'No necesitas comprar para obtener tu primer veredicto.' : 'You do not need to buy anything to get your first verdict.'}</p><div className="mt-6 rounded-xl border border-white/20 bg-black/20 p-4 text-base leading-7 text-white/85"><strong className="text-white">{BUSINESS_POLICY.refundPosition}.</strong> {es ? 'Consulta la política para los requisitos.' : 'See the refund policy for the requirements.'}</div><button type="button" onClick={onStart} className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-full bg-[#D96F3D] px-7 py-3 text-lg font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#E57B48] focus:outline-none focus:ring-4 focus:ring-white/25">{es ? 'Empezar con la prueba gratis' : 'Start With the Free Test'}</button></div>
+          <div className="rounded-[2rem] border border-white/20 bg-white/10 p-7 sm:p-8"><p className="text-base font-bold uppercase tracking-[0.13em] text-white/82">{es ? 'Pago único' : 'One-time price'}</p><div className="mt-2 flex items-end gap-2"><span className="font-score text-6xl font-bold tracking-[-0.08em]">{displayPrice.replace('.00', '')}</span><span className="pb-2 text-base text-white/82">USD</span></div><p className="mt-5 text-base leading-7 text-white/88">{es ? 'No necesitas comprar para obtener tu primer veredicto.' : 'You do not need to buy anything to get your first verdict.'}</p><div className="mt-6 rounded-xl border border-white/20 bg-black/20 p-4 text-base leading-7 text-white/85"><strong className="text-white">{BUSINESS_POLICY.refundPosition}.</strong> {es ? 'Consulta la política para los requisitos.' : 'See the refund policy for the requirements.'}</div><button type="button" onClick={onStart} className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-full bg-[#D96F3D] px-7 py-3 text-lg font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#E57B48] focus:outline-none focus:ring-4 focus:ring-white/25">{isReturningVerdictCustomer ? (es ? 'Empezar otro veredicto' : 'Start Another Verdict') : (es ? 'Empezar con la prueba gratis' : 'Start With the Free Test')}</button></div>
         </div>
       </section>
 
@@ -280,10 +293,10 @@ export default function LandingCommercial({
       </section>
 
       <section className="bg-[#D96F3D] text-white">
-        <div className="mx-auto max-w-[78rem] px-4 py-20 text-center sm:px-6 sm:py-28 lg:px-8"><p className="text-base font-bold uppercase tracking-[0.15em] text-white/90">{es ? 'Antes de construir' : 'Before you build'}</p><h2 className="mx-auto mt-4 max-w-5xl font-display text-5xl font-semibold leading-[0.98] tracking-[-0.045em] sm:text-7xl">{es ? 'Descubre si vale la pena.' : 'Find out if it’s worth building.'}</h2><p className="mx-auto mt-6 max-w-2xl text-xl leading-9 text-white/95">{es ? 'Una prueba. Un veredicto. Un siguiente paso claro.' : 'One test. One verdict. One clear next step.'}</p><button type="button" onClick={onStart} className="mt-9 inline-flex min-h-14 items-center justify-center rounded-full bg-white px-8 py-3 text-lg font-bold text-[#17201C] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#FFF9F4] focus:outline-none focus:ring-4 focus:ring-white/35">{es ? 'Probar mi idea gratis' : 'Test My Idea Free'}</button><p className="mt-4 text-base font-semibold text-white/90">{es ? 'Sin tarjeta. El plan de $97 viene después, solo si lo quieres.' : 'No credit card. The $97 plan comes later, only if you want it.'}</p></div>
+        <div className="mx-auto max-w-[78rem] px-4 py-20 text-center sm:px-6 sm:py-28 lg:px-8"><p className="text-base font-bold uppercase tracking-[0.15em] text-white/90">{es ? 'Antes de construir' : 'Before you build'}</p><h2 className="mx-auto mt-4 max-w-5xl font-display text-5xl font-semibold leading-[0.98] tracking-[-0.045em] sm:text-7xl">{es ? 'Descubre si vale la pena.' : 'Find out if it’s worth building.'}</h2><p className="mx-auto mt-6 max-w-2xl text-xl leading-9 text-white/95">{es ? 'Una prueba. Un veredicto. Un siguiente paso claro.' : 'One test. One verdict. One clear next step.'}</p><button type="button" onClick={onStart} className="mt-9 inline-flex min-h-14 items-center justify-center rounded-full bg-white px-8 py-3 text-lg font-bold text-[#17201C] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#FFF9F4] focus:outline-none focus:ring-4 focus:ring-white/35">{primaryVerdictCta}</button><p className="mt-4 text-base font-semibold text-white/90">{es ? 'Sin tarjeta. El plan de $97 viene después, solo si lo quieres.' : 'No credit card. The $97 plan comes later, only if you want it.'}</p></div>
       </section>
 
-      <div id="ghosttown-commercial-sticky" className="fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-white/97 p-3 shadow-[0_-12px_35px_rgba(17,24,39,0.12)] backdrop-blur sm:hidden"><button type="button" onClick={onStart} className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#17201C] px-5 py-3 text-base font-bold text-white">{es ? 'Probar mi idea gratis' : 'Test My Idea Free'}</button></div>
+      <div id="ghosttown-commercial-sticky" className="fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-white/97 p-3 shadow-[0_-12px_35px_rgba(17,24,39,0.12)] backdrop-blur sm:hidden"><button type="button" onClick={onStart} className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#17201C] px-5 py-3 text-base font-bold text-white">{primaryVerdictCta}</button></div>
     </div>
   );
 }

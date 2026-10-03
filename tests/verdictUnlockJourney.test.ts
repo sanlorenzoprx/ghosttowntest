@@ -10,6 +10,8 @@ const checkout = readFileSync(new URL('../src/api/checkout.ts', import.meta.url)
 const questionFlow = readFileSync(new URL('../src/components/QuestionFlow.tsx', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
 const unlockPage = readFileSync(new URL('../src/components/VerdictUnlockPage.tsx', import.meta.url), 'utf8');
+const dashboard = readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
+const landing = readFileSync(new URL('../src/components/LandingCommercial.tsx', import.meta.url), 'utf8');
 
 describe('finish-second-test-then-pay journey', () => {
   it('locks the assessment pack commercial contract to 10 verdicts for $14.95', () => {
@@ -32,13 +34,38 @@ describe('finish-second-test-then-pay journey', () => {
     expect(app).toContain("if (pathname === '/unlock-verdict') return 'unlock-verdict';");
   });
 
-  it('lets a logged-in zero-credit customer finish verdict #2 before the paid offer appears', () => {
+  it('starts another verdict as a fresh assessment instead of reopening a completed unpaid draft', () => {
     expect(app).toContain('const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;');
-    expect(app).toContain('if (!canBeginAssessment()) { setShowPaywall(true); return; }');
-    expect(app).toContain('const hasCompletedPendingDraft = () => Boolean(');
-    expect(app).toContain('if (isLoggedIn && !hasAvailableTest() && hasCompletedPendingDraft())');
-    expect(app).toContain('openVerdictPurchasePage();');
+    expect(app).toContain('const startFreshAssessment = (exampleSlug?: string) => {');
+    expect(app).toContain('clearEvaluationDraft();');
+    expect(app).toContain('setResumeDraft(null);');
+    expect(app).not.toContain('hasCompletedPendingDraft');
+    expect(app).not.toMatch(/const handleStartTest[\s\S]{0,350}openVerdictPurchasePage\(\)/);
+    expect(app).toContain('const handleStartTest = () => startFreshAssessment();');
+    expect(app).toContain('const handleSelectExample = (slug: string) => startFreshAssessment(slug);');
     expect(app).toContain('onAllowanceRequired={handleAllowanceRequired}');
+  });
+
+  it('keeps Resume distinct from Start Another Verdict', () => {
+    expect(app).toContain('if (isLoggedIn && !hasAvailableTest() && isDraftComplete(resumeDraft))');
+    expect(app).toContain('openVerdictPurchasePage();');
+    expect(app).toContain("setScreen('questions');");
+  });
+
+  it('routes zero-credit dashboard CTAs into the assessment before purchase', () => {
+    expect(dashboard).toContain('You can still complete your next test. You only pay when you ask for the verdict.');
+    expect(dashboard).toContain('Complete your next GhostTown test before you buy anything.');
+    expect(dashboard).toContain('Start Another Verdict');
+    expect(dashboard).not.toContain('Buy 10 Assessments — $14.97');
+    expect(dashboard).not.toContain('onBuy: () => void;');
+  });
+
+  it('labels returning landing-page CTAs as another verdict instead of another free verdict', () => {
+    expect(landing).toContain('hasUsedFreeVerdict: boolean;');
+    expect(landing).toContain('const isReturningVerdictCustomer = isLoggedIn && hasUsedFreeVerdict;');
+    expect(landing).toContain("'Test Another Idea'");
+    expect(landing).toContain("'Start Another Verdict'");
+    expect(landing).toContain("'Complete the test first · Pay only when you ask for the verdict'");
   });
 
   it('resumes the completed second verdict only after Stripe credits are confirmed', () => {

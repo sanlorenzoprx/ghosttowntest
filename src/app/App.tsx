@@ -161,8 +161,8 @@ export default function App() {
   };
 
   const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;
-  const hasCompletedPendingDraft = () => Boolean(
-    resumeDraft && litQuestions.every(question => resumeDraft.answers[question.id] !== undefined)
+  const isDraftComplete = (draft: EvaluationDraft | null) => Boolean(
+    draft && litQuestions.every(question => draft.answers[question.id] !== undefined)
   );
 
   const openVerdictPurchasePage = () => {
@@ -171,39 +171,48 @@ export default function App() {
     setScreen('unlock-verdict');
   };
 
-  const handleStartTest = () => {
-    if (isLoggedIn && !hasAvailableTest() && hasCompletedPendingDraft()) {
-      openVerdictPurchasePage();
-      return;
-    }
+  const startFreshAssessment = (exampleSlug?: string) => {
     if (!canBeginAssessment()) { setShowPaywall(true); return; }
+
+    // Starting another verdict is always a fresh assessment. A completed
+    // unpaid draft must never hijack this action and send the customer
+    // straight to checkout. The server enforces entitlement only when the
+    // customer asks for the verdict after completing all questions.
     clearEvaluationDraft();
     setResumeDraft(null);
-    updateExampleParam(null);
+    setAutoSubmitPendingVerdict(false);
+    setPaidVerdictResumeActive(false);
+    setShowPaidVerdictBalanceNotice(false);
     updatePath('/');
-    setIdea(null);
+
+    if (exampleSlug) {
+      const example = getFeaturedExampleBySlug(exampleSlug);
+      if (!example) return;
+      updateExampleParam(exampleSlug);
+      setIdea(toIdeaIntake(example.idea));
+    } else {
+      updateExampleParam(null);
+      setIdea(null);
+    }
     setScreen('intake');
   };
 
-  const handleSelectExample = (slug: string) => {
-    if (isLoggedIn && !hasAvailableTest() && hasCompletedPendingDraft()) {
-      openVerdictPurchasePage();
-      return;
-    }
-    if (!canBeginAssessment()) { setShowPaywall(true); return; }
-    const example = getFeaturedExampleBySlug(slug);
-    if (!example) return;
-    clearEvaluationDraft();
-    setResumeDraft(null);
-    updatePath('/');
-    updateExampleParam(slug);
-    setIdea(toIdeaIntake(example.idea));
-    setScreen('intake');
-  };
+  const handleStartTest = () => startFreshAssessment();
+
+  const handleSelectExample = (slug: string) => startFreshAssessment(slug);
 
   const handleResume = () => {
     if (!resumeDraft) return;
     if (!canBeginAssessment()) { setShowPaywall(true); return; }
+
+    // Resume means continue the saved assessment. If every question is already
+    // answered and there is no verdict credit, the saved assessment is waiting
+    // at the verdict boundary and should reopen that purchase step.
+    if (isLoggedIn && !hasAvailableTest() && isDraftComplete(resumeDraft)) {
+      openVerdictPurchasePage();
+      return;
+    }
+
     updatePath('/');
     updateExampleParam(null);
     setIdea(resumeDraft.idea);
@@ -351,7 +360,7 @@ export default function App() {
             </button>
           </section>
         )}
-        {screen === 'landing' && <Landing onStart={handleStartTest} onSelectExample={handleSelectExample} hasDraft={Boolean(resumeDraft)} onResume={handleResume} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} locale={locale} />}
+        {screen === 'landing' && <Landing onStart={handleStartTest} onSelectExample={handleSelectExample} hasDraft={Boolean(resumeDraft)} onResume={handleResume} isLoggedIn={isLoggedIn} hasUsedFreeVerdict={Boolean(user && user.testsUsed > 0)} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} locale={locale} />}
         {screen === 'intake' && <IdeaIntake onSubmit={handleIdeaSubmit} initialIdea={idea} />}
         {screen === 'questions' && idea && (
           <QuestionFlow
@@ -386,7 +395,7 @@ export default function App() {
             <ResultReport result={result} onReset={handleReset} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('signup'); setShowLoginModal(true); }} onRewardClaimed={() => { const token = loadAuthToken(); if (token) void verifyToken(token); }} locale={locale} />
           </>
         )}
-        {screen === 'dashboard' && isLoggedIn && <UserDashboard purchaseRefresh={purchaseReturn === 'success'} onLogout={handleLogout} onBuy={() => setShowPaywall(true)} onStart={handleStartTest} onOpenResult={savedResult => { setResult(savedResult); setScreen('result'); }} />}
+        {screen === 'dashboard' && isLoggedIn && <UserDashboard purchaseRefresh={purchaseReturn === 'success'} onLogout={handleLogout} onStart={handleStartTest} onOpenResult={savedResult => { setResult(savedResult); setScreen('result'); }} />}
         {getMeLiveOpening && isLoggedIn && <GetMeLiveOpening orderId={getMeLiveOrderId} />}
         {getMeLiveOpening && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Log in to open your website</h1><p className="mt-3 text-gray-700">Use the email from checkout. Your website is still going online.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
         {screen === 'get-me-live' && !getMeLiveOpening && !getMeLiveSetup && <GetMeLiveLanding sourceSprintOrderId={getMeLiveSourceSprintOrderId} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} onBack={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
