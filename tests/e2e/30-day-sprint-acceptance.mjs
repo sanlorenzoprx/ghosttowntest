@@ -80,7 +80,7 @@ async function agenticGuidance(request, dayNumber, phase = 'daily') {
   const question = checkpoint
     ? `Assess the Day ${dayNumber} checkpoint using the recorded Sprint evidence and current web research where useful. This is a QA acceptance run: synthetic records are not real customer proof. Do not invent customers, quotes, commitments, revenue, or market evidence. Explain the evidence strength, primary constraint, and safest next action.`
     : `For Day ${dayNumber}, use current web research where useful and the Blueprint context to explain how a founder should execute today's task. This is a QA acceptance run. Do not invent customers, customer quotes, commitments, revenue, or completed actions. Identify what real-world evidence the founder would need to record.`;
-  return apiJson(request, copilotUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, data: { question, dayNumber, mode: 'current_experiment' } });
+  return apiJson(request, copilotUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, data: { question, dayNumber, mode: 'current_experiment' }, timeout: 60_000 });
 }
 
 async function assertServerRejectsSkippedDay(request, baseline) {
