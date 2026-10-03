@@ -1,6 +1,7 @@
 export interface CheckoutRequest {
   email: string;
   token: string;
+  resumePendingVerdict?: boolean;
 }
 
 export interface CheckoutResponse {
