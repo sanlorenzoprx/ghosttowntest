@@ -103,7 +103,8 @@ export default {
           routing: 'cloudflare_ai_gateway',
           gateway_id: env.AI_GATEWAY_ID?.trim() || 'default'
         },
-        live_publishing_enabled: false
+        live_publishing_enabled: false,
+        version_id: env.CF_VERSION_METADATA?.id ?? null
       }), { status: 200, headers });
     }
     return app.fetch(request, env);
