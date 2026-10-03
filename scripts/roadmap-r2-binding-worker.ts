@@ -347,6 +347,65 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
   blueprint.createdAt = now; blueprint.updatedAt = now;
   const sourceVerdictId = String(blueprint.sourceVerdictId || sourceOrder.verdictId || '');
 
+  // A ready synthetic Sprint must own its private artifacts under its own order
+  // key. Cloning only the D1 row creates a customer-visible Blueprint whose PDF
+  // and ZIP download routes correctly return 404. Keep the source PDF/ZIP bytes,
+  // but re-home them under the disposable order and rebuild detached integrity
+  // metadata around the target canonical JSON.
+  const sourceKeys = artifactKeys(source.order_id);
+  const targetKeys = artifactKeys(orderId);
+  if (!blueprint.generationReceipt?.artifactKeys) {
+    return json({ error: 'Acceptance source Blueprint artifact contract is incomplete' }, 409);
+  }
+  blueprint.generationReceipt.artifactKeys = targetKeys;
+  const canonicalBlueprintJson = JSON.stringify(blueprint);
+  const canonicalBlueprintBytes = new TextEncoder().encode(canonicalBlueprintJson);
+  const [sourcePdfObject, sourceZipObject] = await Promise.all([
+    env.BLUEPRINTS.get(sourceKeys.pdf),
+    env.BLUEPRINTS.get(sourceKeys.zip)
+  ]);
+  const [pdfBytes, zipBytes] = await Promise.all([
+    objectBytes(sourcePdfObject, 'source PDF'),
+    objectBytes(sourceZipObject, 'source ZIP')
+  ]);
+  let researchReceipt: any;
+  try { researchReceipt = JSON.parse(source.research_receipt_json); } catch {
+    return json({ error: 'Acceptance source research receipt is invalid' }, 409);
+  }
+  const evidence = researchReceipt?.generationReceiptEvidence;
+  if (!evidence?.hashes || !evidence?.artifactKeys) {
+    return json({ error: 'Acceptance source generation integrity receipt is incomplete' }, 409);
+  }
+  evidence.artifactKeys = targetKeys;
+  evidence.hashes.canonicalBlueprintSha256 = await sha256Hex(canonicalBlueprintBytes);
+  evidence.hashes.pdfSha256 = await sha256Hex(pdfBytes);
+  evidence.hashes.zipSha256 = await sha256Hex(zipBytes);
+  const researchReceiptJson = JSON.stringify(researchReceipt);
+
+  await Promise.all([
+    env.BLUEPRINTS.put(targetKeys.pdf, pdfBytes, {
+      httpMetadata: {
+        contentType: 'application/pdf',
+        contentDisposition: 'attachment; filename="ghosttown-launch-blueprint-' + orderId + '.pdf"'
+      },
+      customMetadata: { orderId, ownerId, schemaVersion: source.schema_version, sha256: evidence.hashes.pdfSha256 }
+    }),
+    env.BLUEPRINTS.put(targetKeys.json, canonicalBlueprintBytes, {
+      httpMetadata: {
+        contentType: 'application/json',
+        contentDisposition: 'attachment; filename="ghosttown-launch-blueprint-' + orderId + '.json"'
+      },
+      customMetadata: { orderId, ownerId, schemaVersion: source.schema_version, sha256: evidence.hashes.canonicalBlueprintSha256 }
+    }),
+    env.BLUEPRINTS.put(targetKeys.zip, zipBytes, {
+      httpMetadata: {
+        contentType: 'application/zip',
+        contentDisposition: 'attachment; filename="ghosttown-launch-blueprint-' + orderId + '-assets.zip"'
+      },
+      customMetadata: { orderId, ownerId, schemaVersion: source.schema_version, sha256: evidence.hashes.zipSha256 }
+    })
+  ]);
+
   const order = JSON.parse(JSON.stringify(sourceOrder));
   order.orderId = orderId; order.email = ownerId; order.status = 'ready';
   order.stripeCheckoutSessionId = 'cs_test_e2e_fixture_no_charge'; order.stripePaymentIntentId = 'pi_test_e2e_fixture_no_charge';
@@ -357,7 +416,22 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
       order_id, owner_id, source_verdict_id, schema_version, status,
       blueprint_json, research_receipt_json, pdf_r2_key, created_at, updated_at
     ) VALUES (?, ?, ?, ?, 'ready', ?, ?, ?, ?, ?)
-  `).bind(orderId, ownerId, sourceVerdictId, source.schema_version, JSON.stringify(blueprint), source.research_receipt_json, source.pdf_r2_key, now, now).run();
+  `).bind(orderId, ownerId, sourceVerdictId, source.schema_version, canonicalBlueprintJson, researchReceiptJson, targetKeys.pdf, now, now).run();
+
+  await Promise.all([
+    env.KV.put('paid_test_blueprint_pointer_' + orderId, JSON.stringify({
+      orderId,
+      ownerId,
+      schemaVersion: source.schema_version,
+      pdfR2Key: targetKeys.pdf,
+      jsonR2Key: targetKeys.json,
+      assetsR2Key: targetKeys.zip,
+      integrityReceiptKey: 'paid_test_blueprint_integrity_' + orderId,
+      hashes: evidence.hashes,
+      updatedAt: now
+    }), { expirationTtl: 86400 }),
+    env.KV.put('paid_test_blueprint_integrity_' + orderId, JSON.stringify(evidence), { expirationTtl: 86400 })
+  ]);
 
   // No seeded Pages project name: acceptance exercises the real naming path
   // (business-name slug + overwrite guard). The run nonce keeps the slug unique.
@@ -412,7 +486,9 @@ async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Respo
   const ownerId = String(body?.ownerId || '').trim().toLowerCase();
   const orderId = String(body?.orderId || '');
   const gmlOrderId = String(body?.gmlOrderId || '');
+  const checkoutOrderId = String(body?.checkoutOrderId || '');
   if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_') || !/^gml_e2e_[A-Za-z0-9_-]+$/.test(gmlOrderId)) return json({ error: 'Invalid E2E fixture identity' }, 400);
+  if (checkoutOrderId && !/^gtt_[A-Za-z0-9_-]+$/.test(checkoutOrderId)) return json({ error: 'Invalid E2E checkout order identity' }, 400);
   const hostingRow = await env.DB.prepare('SELECT hosting_json FROM get_me_live_orders WHERE order_id = ? AND owner_id = ?')
     .bind(gmlOrderId, ownerId).first<{ hosting_json: string | null }>().catch(() => null);
   let pagesProjectName: string | undefined;
@@ -424,11 +500,18 @@ async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Respo
   await env.DB.prepare('DELETE FROM get_me_live_orders WHERE order_id = ? AND owner_id = ?').bind(gmlOrderId, ownerId).run();
   await env.DB.prepare('DELETE FROM blueprint_execution_log WHERE order_id = ?').bind(orderId).run().catch(() => undefined);
   await env.DB.prepare('DELETE FROM launch_blueprints WHERE order_id = ? AND owner_id = ?').bind(orderId, ownerId).run();
+  const sprintKeys = artifactKeys(orderId);
   await Promise.all([
     env.BLUEPRINTS.delete('get-me-live/' + gmlOrderId + '/preview.json'),
     env.BLUEPRINTS.delete('get-me-live/' + gmlOrderId + '/preview.html'),
+    env.BLUEPRINTS.delete(sprintKeys.pdf),
+    env.BLUEPRINTS.delete(sprintKeys.json),
+    env.BLUEPRINTS.delete(sprintKeys.zip),
     env.KV.delete('get_me_live_cf_token_' + gmlOrderId),
+    env.KV.delete('paid_test_blueprint_pointer_' + orderId),
+    env.KV.delete('paid_test_blueprint_integrity_' + orderId),
     env.KV.delete('paid_test_order_' + orderId),
+    ...(checkoutOrderId ? [env.KV.delete('paid_test_order_' + checkoutOrderId)] : []),
     env.KV.delete('paid_test_orders_' + ownerId),
     env.KV.delete('user_' + ownerId)
   ]);

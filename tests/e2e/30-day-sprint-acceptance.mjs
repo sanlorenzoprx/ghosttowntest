@@ -22,7 +22,7 @@ const today = new Date().toISOString().slice(0, 10);
 const checkpoints = new Set([7, 14, 21, 30]);
 const externalKinds = new Set(['verified_channel', 'qualified_buyer_batch', 'existing_contact', 'fulfillment_run']);
 const preparationOnly = new Set([9, 15]);
-const proof = { schemaVersion: 'ghosttown-full-ui-sprint-acceptance-v2', orderId, days: [], recovery: [], contentReview: {}, recordedAt: new Date().toISOString() };
+const proof = { schemaVersion: 'ghosttown-full-ui-sprint-acceptance-v3', orderId, days: [], recovery: [], websiteEvidence: [], surfaceAudit: [], contentReview: {}, recordedAt: new Date().toISOString() };
 
 function quantity(value) {
   const match = String(value || '').match(/\b([1-9]\d?)\b/);
@@ -80,6 +80,20 @@ async function openDay(page, dayNumber) {
   await calendar.getByRole('button', { name: new RegExp(`^Day ${dayNumber}\\b`) }).click();
   await page.getByText(`Today · Day ${dayNumber}`, { exact: true }).waitFor({ state: 'visible' });
 }
+async function verifyWebsiteEvidence(page, dayNumber, checkpointDay) {
+  const region = page.getByRole('region', { name: 'Website evidence from Get Me Live' });
+  await region.waitFor({ state: 'visible', timeout: 15000 });
+  await region.getByText('Get Me Live is a separate product.', { exact: false }).waitFor({ state: 'visible' });
+  await region.getByRole('button', { name: 'Refresh website evidence', exact: true }).waitFor({ state: 'visible' });
+  if (checkpointDay) {
+    await region.getByText(`Day ${checkpointDay} reassessment`, { exact: false }).waitFor({ state: 'visible', timeout: 15000 });
+  } else if (dayNumber) {
+    await region.getByText(`Day ${dayNumber} can use these live-site signals`, { exact: false }).waitFor({ state: 'visible' });
+  }
+  const text = await region.innerText();
+  proof.websiteEvidence.push({ dayNumber: dayNumber || null, checkpointDay: checkpointDay || null, rendered: true, text: text.slice(0, 1200) });
+}
+
 async function openWorkspaceSection(page, value, label) {
   const mobileNav = page.getByLabel('Blueprint section', { exact: true });
   await mobileNav.waitFor({ state: 'attached', timeout: 15000 });
@@ -115,6 +129,7 @@ async function addEvidence(page, day, index) {
 async function saveCheckpoint(page, dayNumber) {
   await page.getByRole('button', { name: /Complete checkpoint review|Review checkpoint evidence/i }).click();
   await openWorkspaceSection(page, 'review', 'Weekly Review');
+  await verifyWebsiteEvidence(page, undefined, dayNumber);
   const section = page.locator(`#checkpoint-${dayNumber}`);
   await section.getByLabel('Strongest evidence').selectOption('weak');
   await section.getByLabel('Primary constraint').selectOption('missing_evidence');
@@ -199,9 +214,85 @@ try {
     ].join(' '));
   }
 
+  // Prove the primary navigation and durable exports before mutating execution progress.
+  await page.getByRole('button', { name: 'Asset Library', exact: true }).click();
+  await page.getByRole('heading', { name: 'Asset Library', exact: true }).waitFor({ state: 'visible' });
+  proof.surfaceAudit.push({ surface: 'execution-home', control: 'Asset Library', result: 'passed' });
+
+  await page.getByRole('button', { name: '30-Day Calendar', exact: true }).click();
+  await page.getByRole('region', { name: '30-day execution calendar' }).waitFor({ state: 'visible' });
+  proof.surfaceAudit.push({ surface: 'execution-home', control: '30-Day Calendar', result: 'passed' });
+
+  for (const [name, path, expectedType] of [
+    ['Download Blueprint PDF', `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint.pdf`, 'application/pdf'],
+    ['Export all assets', `/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint-assets.zip`, 'application/zip'],
+  ]) {
+    const artifactUrl = `${apiBase}${path}`;
+    const responsePromise = page.waitForResponse(
+      response => response.url() === artifactUrl && response.request().method() === 'GET',
+      { timeout: 30000 },
+    );
+    await page.getByRole('button', { name, exact: true }).click();
+    const response = await responsePromise;
+    if (!response.ok()) {
+      throw new Error(`${name} artifact request failed HTTP ${response.status()}`);
+    }
+    const contentType = String(response.headers()['content-type'] || '').toLowerCase();
+    if (!contentType.includes(expectedType)) {
+      throw new Error(`${name} returned ${contentType || 'no content type'} instead of ${expectedType}`);
+    }
+    // Chromium may expose an empty buffered body after the React app has already
+    // consumed this streamed R2 response into a Blob. Prove the private artifact
+    // bytes independently with the same disposable customer's auth token.
+    const artifactResponse = await fetch(artifactUrl, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (!artifactResponse.ok) {
+      throw new Error(`${name} independent artifact fetch failed HTTP ${artifactResponse.status}`);
+    }
+    const independentType = String(artifactResponse.headers.get('content-type') || '').toLowerCase();
+    if (!independentType.includes(expectedType)) {
+      throw new Error(`${name} independent fetch returned ${independentType || 'no content type'} instead of ${expectedType}`);
+    }
+    const bytes = new Uint8Array(await artifactResponse.arrayBuffer());
+    if (bytes.byteLength < 100) {
+      throw new Error(`${name} returned an unexpectedly small artifact (${bytes.byteLength} bytes)`);
+    }
+    proof.surfaceAudit.push({ surface: 'execution-home', control: name, result: 'artifact_fetched', bytes: bytes.byteLength, contentType: independentType });
+  }
+
+  await page.getByRole('button', { name: 'Evidence, reviews & site', exact: true }).click();
+  const workspaceNav = page.getByLabel('Blueprint section', { exact: true });
+  await workspaceNav.waitFor({ state: 'visible', timeout: 15000 });
+  const workspaceTabs = [
+    ['overview', 'Overview'],
+    ['today', 'Today'],
+    ['record', 'Record Results'],
+    ['followups', 'Follow-ups'],
+    ['evidence', 'Evidence'],
+    ['review', 'Weekly Review'],
+    ['reminders', 'Reminders'],
+    ['audit', 'Starting State'],
+    ['research', 'Research & Access'],
+    ['revenue', 'First Revenue'],
+    ['fulfillment', 'Fulfillment'],
+    ['calendar', '30-Day Calendar'],
+  ];
+  for (const [value, label] of workspaceTabs) {
+    await workspaceNav.selectOption(value);
+    if ((await workspaceNav.inputValue()) !== value) throw new Error(`Workspace did not switch to ${label}`);
+    await page.waitForTimeout(50);
+    proof.surfaceAudit.push({ surface: 'structured-workspace', control: label, result: 'passed' });
+  }
+  await workspaceNav.selectOption('review');
+  await verifyWebsiteEvidence(page, undefined, undefined);
+  await returnFromWorkspace(page);
+  proof.surfaceAudit.push({ surface: 'structured-workspace', control: 'Return to execution home', result: 'passed' });
+
   const savedNotes = new Map();
   for (const day of blueprint.dailyCalendar) {
     await openDay(page, day.dayNumber);
+    await verifyWebsiteEvidence(page, day.dayNumber, checkpoints.has(day.dayNumber) ? day.dayNumber : undefined);
 
     const assets = day.executionPacket?.assets || [];
     if (assets.length) {

@@ -24,6 +24,11 @@ import {
   persistBlueprintExecutionArchitecture,
   type ExecutionProgressSnapshot
 } from './blueprintExecutionStore';
+import {
+  getGetMeLiveActivity,
+  listGetMeLiveLeads,
+  loadGetMeLiveBySprint
+} from './getMeLiveStore';
 
 const json = (body: unknown, status = 200, headers: HeadersInit = {}) => new Response(JSON.stringify(body), {
   status,
@@ -135,6 +140,59 @@ export async function handleLaunchBlueprint(request: Request, env: Env, orderId:
       targetTypeCounts: record.researchReceipt.targetTypeCounts
     }
   });
+}
+
+export async function handleLaunchBlueprintWebsiteEvidence(request: Request, env: Env, orderId: string): Promise<Response> {
+  const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+
+  const getMeLive = await loadGetMeLiveBySprint(env, owned.email, orderId);
+  if (!getMeLive) {
+    return json({
+      websiteEvidence: {
+        available: false,
+        separateProduct: true,
+        capturedAt: new Date().toISOString()
+      }
+    }, 200, { 'Cache-Control': 'private, no-store' });
+  }
+
+  const [activity, leads] = await Promise.all([
+    getGetMeLiveActivity(env, getMeLive.orderId, orderId),
+    listGetMeLiveLeads(env, getMeLive.orderId)
+  ]);
+  const activeCustomDomain = getMeLive.customDomainState?.status === 'active'
+    ? getMeLive.customDomainState.name
+    : undefined;
+  const liveUrl = activeCustomDomain
+    ? `https://${activeCustomDomain}`
+    : getMeLive.hosting?.pagesUrl || getMeLive.publicUrl;
+
+  return json({
+    websiteEvidence: {
+      available: true,
+      separateProduct: true,
+      getMeLiveOrderId: getMeLive.orderId,
+      status: getMeLive.status,
+      liveUrl,
+      activity: {
+        visits: activity.visits,
+        leads: leads.length,
+        shares: activity.shares,
+        sales: activity.sales,
+        revenueCents: activity.revenueCents
+      },
+      recentFeedback: leads
+        .filter(lead => Boolean(lead.message?.trim()))
+        .slice(0, 5)
+        .map(lead => ({
+          createdAt: lead.createdAt,
+          message: lead.message!.trim(),
+          sourcePath: lead.sourcePath
+        })),
+      capturedAt: new Date().toISOString()
+    }
+  }, 200, { 'Cache-Control': 'private, no-store' });
 }
 
 export async function handleLaunchBlueprintJson(request: Request, env: Env, orderId: string): Promise<Response> {

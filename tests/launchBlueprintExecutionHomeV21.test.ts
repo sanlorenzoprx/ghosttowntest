@@ -67,6 +67,19 @@ describe('Blueprint v2.1.5 guided daily execution amendment', () => {
     expect(executionSource).toContain('Latest execution progress could not be loaded');
   });
 
+  it('reads a separately purchased Get Me Live website as optional daily evidence', () => {
+    expect(executionSource).toContain("import SprintWebsiteEvidence from './SprintWebsiteEvidence'");
+    expect(executionSource).toContain('dayNumber={activeDay.dayNumber}');
+    expect(executionSource).toContain('checkpointDay={activeCheckpoint?.dayNumber}');
+  });
+
+  it('starts blob downloads before revoking their object URLs', () => {
+    expect(executionSource).toContain('document.body.appendChild(anchor)');
+    expect(executionSource).toContain('anchor.remove()');
+    expect(executionSource).toContain('window.setTimeout(() => URL.revokeObjectURL(href), 1000)');
+    expect(executionSource).not.toContain('anchor.click();\n  URL.revokeObjectURL(href);');
+  });
+
   it('preserves commercial measurement without emitting completion before persistence succeeds', () => {
     expect(executionSource).toContain("recordCommercialEvent('daily_packet_opened'");
     expect(executionSource).toContain("recordCommercialEvent('day_completed'");

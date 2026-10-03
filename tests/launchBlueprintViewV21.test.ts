@@ -72,6 +72,11 @@ describe('executable Blueprint v2.1 account surface', () => {
     expect(viewSource).toContain('window.setTimeout(() => void persist(next), 650)');
   });
 
+  it('shows linked Get Me Live website evidence during checkpoint reviews without merging the products', () => {
+    expect(viewSource).toContain('SprintWebsiteEvidence');
+    expect(viewSource).toContain('<SprintWebsiteEvidence orderId={orderId} checkpointDay={reviewCheckpointDay} />');
+  });
+
   it('integrates the Daily Execution Log as evidence rather than plan mutation', () => {
     expect(viewSource).toContain('GhostTown Daily Execution Log');
     expect(viewSource).toContain('It cannot silently rewrite the plan.');

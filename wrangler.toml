@@ -88,7 +88,7 @@ VERTEX_BLUEPRINT_REQUIRED = "true"
 VERTEX_PROJECT_ID = "ghosttowntest"
 VERTEX_LOCATION = "us"
 VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"
-FRONTEND_URL = "https://ghosttown-acceptance.pages.dev"
+FRONTEND_URL = "https://main.ghosttown-acceptance.pages.dev"
 
 [[env.acceptance.kv_namespaces]]
 binding = "KV"

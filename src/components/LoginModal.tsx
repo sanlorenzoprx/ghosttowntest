@@ -118,8 +118,11 @@ export default function LoginModal({ onLogin, onClose, initialMode = 'login' }: 
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-bold mb-1">Email Address</label>
+            <label htmlFor="auth-email" className="block text-sm font-bold mb-1">Email Address</label>
             <input
+              id="auth-email"
+              name="email"
+              autoComplete="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -130,8 +133,11 @@ export default function LoginModal({ onLogin, onClose, initialMode = 'login' }: 
           </div>
 
           <div>
-            <label className="block text-sm font-bold mb-1">Password</label>
+            <label htmlFor="auth-password" className="block text-sm font-bold mb-1">Password</label>
             <input
+              id="auth-password"
+              name="password"
+              autoComplete={isSignup ? 'new-password' : 'current-password'}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

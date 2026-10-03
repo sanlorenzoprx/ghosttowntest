@@ -44,7 +44,7 @@ describe('#18 popup blocking does not prevent completion', () => {
     expect(workspace).toContain('Your website is ready.');
     expect(workspace).toContain('We built your website and put it online. You can open it, share it, and start receiving leads.');
     expect(workspace).toContain('<a href={liveUrl} target="_blank" rel="noreferrer" className="block rounded-xl border-2 border-ghost-rust bg-ghost-rust px-5 py-4 text-center font-black text-white">Open My Website</a>');
-    expect(workspace).toContain('navigator.clipboard.writeText(liveUrl)');
+    expect(workspace).toContain('copyText(liveUrl)');
     expect(workspace).toContain('Your latest changes are still going online.');
   });
 

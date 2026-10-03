@@ -88,7 +88,7 @@ describe('acceptance Cloudflare environment', () => {
       expect(productionVars).not.toContain(legacy);
     }
 
-    expect(acceptanceVars).toContain('FRONTEND_URL = "https://ghosttown-acceptance.pages.dev"');
+    expect(acceptanceVars).toContain('FRONTEND_URL = "https://main.ghosttown-acceptance.pages.dev"');
     expect(acceptanceVars).not.toContain('https://ghosttowntest.com');
     expect(acceptanceVars).not.toContain('https://lit-ghosttown.app');
   });

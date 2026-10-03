@@ -7,6 +7,7 @@ import LaunchBlueprintViewV21, {
   type BlueprintProgressV21,
   type BlueprintV21Payload,
 } from './LaunchBlueprintViewV21';
+import SprintWebsiteEvidence from './SprintWebsiteEvidence';
 
 type ExecutionMode = 'calendar' | 'assets' | 'workspace';
 type DailyAction = BlueprintV21Payload['blueprint']['dailyCalendar'][number];
@@ -17,26 +18,31 @@ function assetFilename(title: string, contentType: string): string {
   return `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}.${suffix}`;
 }
 
-function downloadTextAsset(title: string, content: string, contentType: string): void {
-  const blob = new Blob([content], { type: `${contentType};charset=utf-8` });
+function triggerBlobDownload(blob: Blob, filename: string): void {
   const href = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = href;
-  anchor.download = assetFilename(title, contentType);
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(href);
+  anchor.remove();
+  // Revoking synchronously can cancel the download before Chromium consumes the
+  // blob URL. Delay cleanup so the browser can start the download reliably.
+  window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
+function downloadTextAsset(title: string, content: string, contentType: string): void {
+  triggerBlobDownload(
+    new Blob([content], { type: `${contentType};charset=utf-8` }),
+    assetFilename(title, contentType),
+  );
 }
 
 async function downloadPrivateArtifact(path: string, filename: string): Promise<void> {
   const response = await fetch(apiUrl(path), { headers: authHeaders() });
   if (!response.ok) throw new Error(`Download failed (${response.status})`);
-  const blob = await response.blob();
-  const href = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = href;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(href);
+  triggerBlobDownload(await response.blob(), filename);
 }
 
 function checkpointForDay(payload: BlueprintV21Payload, dayNumber: number) {
@@ -355,6 +361,8 @@ export default function LaunchBlueprintExecutionHomeV21({
             </div>
 
             {activeCheckpoint && <article className="rounded-2xl border border-amber-300 bg-amber-50 p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.12em] text-amber-900">Day {activeCheckpoint.dayNumber} evidence checkpoint</p><h3 className="mt-2 text-2xl font-black">{activeCheckpoint.title}</h3></div><span className={`rounded-full px-3 py-1 text-xs font-black ${activeCompletion.checkpointComplete ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-200 text-amber-950'}`}>{activeCompletion.checkpointComplete ? 'Review saved' : 'Review required'}</span></div><div className="mt-5 grid gap-5 lg:grid-cols-2"><FieldList title="Questions to answer" items={activeCheckpoint.questions} /><FieldList title="Evidence required" items={activeCheckpoint.evidenceRequired} /></div><div className="mt-5"><FieldList title="Decision branches" items={activeCheckpoint.branches.map(branch => `IF ${branch.condition} THEN ${branch.action}`)} /></div>{activeCheckpointReview?.nextAction && <p className="mt-5 rounded-xl bg-white p-4 text-sm"><strong>Saved evidence route:</strong> {activeCheckpointReview.nextAction}</p>}<button type="button" onClick={() => { setWorkspaceDay(activeDay.dayNumber); setMode('workspace'); }} className="mt-5 rounded-lg bg-amber-900 px-4 py-3 text-sm font-black text-white">{activeCompletion.checkpointComplete ? 'Review checkpoint evidence' : 'Complete checkpoint review'}</button></article>}
+
+            <SprintWebsiteEvidence orderId={orderId} dayNumber={activeDay.dayNumber} checkpointDay={activeCheckpoint?.dayNumber} />
 
             <section aria-label="Prepared assets for this day" className="space-y-4"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-ghost-rust">Prepared for this day</p><h3 className="mt-1 text-2xl font-black">Open the asset here. Do the work here.</h3></div>{activeDay.executionPacket?.assets.length ? activeDay.executionPacket.assets.map(asset => renderAsset(asset)) : <article className="rounded-2xl border border-black/10 bg-white p-6"><p className="font-black">No separate file is needed for this action.</p><p className="mt-2 text-sm text-gray-600">{activeDay.executionPacket?.nonAssetJustification || 'The work for this day is completed directly from the instructions and evidence fields above.'}</p></article>}</section>
 
