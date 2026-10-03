@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { apiUrl } from '../lib/api';
+import { ASSESSMENT_PACK_CREDITS, ASSESSMENT_PACK_DISPLAY_PRICE } from '../lib/assessmentPack';
 
 interface Props {
   isLoggedIn: boolean;
@@ -44,12 +45,12 @@ export default function PaywallModal({ isLoggedIn, onLoginClick, onClose, contex
         <h2 className="text-2xl font-bold">{context === 'plan-declined' ? 'Keep exploring before you commit' : 'Keep testing before you build'}</h2>
         <p className="mt-3 text-gray-600">
           {context === 'plan-declined'
-            ? 'Not ready for the $97.00 30-day PDF plan? You can still buy 10 additional assessments and keep testing ideas before committing to a longer evidence sprint.'
-            : 'Your current allowance has been used. Registered members can share one completed result to unlock one bonus assessment, or get 10 more for $14.97.'}
+            ? `Not ready for the $97.00 30-day PDF plan? You can still buy ${ASSESSMENT_PACK_CREDITS} additional assessments and keep testing ideas before committing to a longer evidence sprint.`
+            : `Your current allowance has been used. Registered members can share one completed result to unlock one bonus assessment, or get ${ASSESSMENT_PACK_CREDITS} more for ${ASSESSMENT_PACK_DISPLAY_PRICE}.`}
         </p>
 
         <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
-          <div className="text-3xl font-bold text-blue-900">10 assessments · $14.97</div>
+          <div className="text-3xl font-bold text-blue-900">{ASSESSMENT_PACK_CREDITS} assessments · {ASSESSMENT_PACK_DISPLAY_PRICE}</div>
           <p className="mt-1 text-sm text-blue-800">One-time purchase. No subscription.</p>
         </div>
 
@@ -61,7 +62,7 @@ export default function PaywallModal({ isLoggedIn, onLoginClick, onClose, contex
           disabled={loading}
           className="mt-6 w-full rounded bg-blue-600 px-4 py-3 font-bold text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          {loading ? 'Opening checkout...' : isLoggedIn ? 'Buy 10 Assessments — $14.97' : 'Log In or Sign Up'}
+          {loading ? 'Opening checkout...' : isLoggedIn ? `Buy ${ASSESSMENT_PACK_CREDITS} Assessments — ${ASSESSMENT_PACK_DISPLAY_PRICE}` : 'Log In or Sign Up'}
         </button>
         <button type="button" onClick={onClose} className="mt-3 w-full py-2 text-sm text-gray-600 hover:text-gray-900">
           Not now
