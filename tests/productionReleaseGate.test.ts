@@ -45,6 +45,10 @@ describe('production release gate', () => {
     expect(workflow).toContain('automatic-rollback:');
     expect(workflow).toContain('deployment-rollback.json');
     expect(workflow).toContain('Rollback did not restore the previous version to 100% traffic.');
+    const rollbackStep = workflow.split('- name: Smoke production and rollback on failure')[1]
+      ?.split('- name: Upload production release evidence')[0] || '';
+    expect(rollbackStep).not.toContain("node <<'NODE'");
+    expect(rollbackStep).toContain("node -e \"const fs=require('fs');");
   });
 
   it('exposes Cloudflare version metadata for exact smoke attribution', () => {
