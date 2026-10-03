@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - test/autonomous-production-customer-journey
+    paths:
+      - .github/workflows/production-customer-journey-full-proof.yml
 
 permissions:
   contents: read
