@@ -33,11 +33,26 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: Query live production canary candidates
+      - name: Query production paid-state inventory
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p production-canary-inventory
+
+          npx wrangler d1 execute ghosttowntest-blueprints --env production --remote --json --command "
+            SELECT status, COUNT(*) AS count
+            FROM launch_blueprints
+            GROUP BY status
+            ORDER BY status;
+          " > production-canary-inventory/blueprint-status-raw.json
+
+          npx wrangler d1 execute ghosttowntest-blueprints --env production --remote --json --command "
+            SELECT status, COUNT(*) AS count
+            FROM get_me_live_orders
+            GROUP BY status
+            ORDER BY status;
+          " > production-canary-inventory/gml-status-raw.json
+
           npx wrangler d1 execute ghosttowntest-blueprints --env production --remote --json --command "
             SELECT
               g.owner_id,
@@ -46,21 +61,29 @@ jobs:
               g.status AS gml_status,
               g.public_url,
               g.custom_domain,
+              g.paid_at,
+              g.published_at,
               g.updated_at,
-              b.status AS sprint_status
+              b.status AS sprint_status,
+              b.updated_at AS sprint_updated_at
             FROM get_me_live_orders g
             LEFT JOIN launch_blueprints b
               ON b.order_id = g.source_sprint_order_id
              AND b.owner_id = g.owner_id
-            WHERE g.status = 'live'
-              AND b.status = 'ready'
             ORDER BY g.updated_at DESC
             LIMIT 100;
-          " > production-canary-inventory/raw.json
+          " > production-canary-inventory/lineage-raw.json
+
           node <<'NODE'
           const fs = require('fs');
-          const raw = JSON.parse(fs.readFileSync('production-canary-inventory/raw.json','utf8'));
-          const rows = Array.isArray(raw) ? (raw[0]?.results || raw[0]?.result || []) : (raw?.results || []);
+          const unwrap = path => {
+            const raw = JSON.parse(fs.readFileSync(path, 'utf8'));
+            return Array.isArray(raw) ? (raw[0]?.results || raw[0]?.result || []) : (raw?.results || []);
+          };
+          const blueprintStatus = unwrap('production-canary-inventory/blueprint-status-raw.json');
+          const gmlStatus = unwrap('production-canary-inventory/gml-status-raw.json');
+          const lineage = unwrap('production-canary-inventory/lineage-raw.json');
+
           const maskEmail = value => {
             const text = String(value || '').toLowerCase();
             const [local, domain] = text.split('@');
@@ -70,19 +93,33 @@ jobs:
             return head + '***' + tail + '@' + domain;
           };
           const looksSynthetic = value => /test|e2e|accept|canary|qa|ghosttown|demo|sandbox/i.test(String(value || ''));
-          const candidates = rows.filter(row => looksSynthetic(row.owner_id)).map(row => ({
+
+          const mapped = lineage.map(row => ({
             ownerHint: maskEmail(row.owner_id),
+            syntheticLooking: looksSynthetic(row.owner_id),
             gmlOrderId: row.gml_order_id,
             sprintOrderId: row.source_sprint_order_id,
             gmlStatus: row.gml_status,
-            sprintStatus: row.sprint_status,
-            liveUrl: row.custom_domain ? 'https://' + row.custom_domain : row.public_url,
-            updatedAt: row.updated_at
+            sprintStatus: row.sprint_status || null,
+            hasPublicUrl: Boolean(row.public_url || row.custom_domain),
+            hasPaidAt: Boolean(row.paid_at),
+            hasPublishedAt: Boolean(row.published_at),
+            updatedAt: row.updated_at,
+            sprintUpdatedAt: row.sprint_updated_at || null
           }));
-          const out = { totalReadyLivePairs: rows.length, syntheticLookingPairs: candidates.length, candidates };
+
+          const out = {
+            blueprintStatus,
+            getMeLiveStatus: gmlStatus,
+            totalGetMeLiveRows: mapped.length,
+            syntheticLookingRows: mapped.filter(row => row.syntheticLooking).length,
+            lineages: mapped
+          };
           fs.writeFileSync('production-canary-inventory/inventory.json', JSON.stringify(out, null, 2) + '\n');
           console.log(JSON.stringify(out, null, 2));
           NODE
+
+          rm -f production-canary-inventory/*-raw.json
 
       - name: Upload masked inventory
         uses: actions/upload-artifact@v4
