@@ -226,7 +226,10 @@ async function runFullCanary(browser) {
   if (!token) fail('Canary login succeeded visually but no auth token was stored.');
 
   const ownerGet = async path => jsonFetch(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
-  const verified = await ownerGet('/api/auth/verify');
+  const verified = await jsonFetch(`${API_URL}/api/auth/verify`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (!verified.response.ok || verified.body?.user?.email?.toLowerCase() !== CANARY_EMAIL) fail('Canary auth verification failed.');
   record('canary-login', { emailMatched: true });
 
@@ -241,6 +244,13 @@ async function runFullCanary(browser) {
   const sprint = Array.isArray(plans.body?.orders) ? plans.body.orders.find(item => item?.orderId === SPRINT_ORDER_ID) : null;
   if (!plans.response.ok || !sprint) fail(`Configured canary Sprint ${SPRINT_ORDER_ID} is not owned by the canary account.`);
   if (sprint.status !== 'ready') fail(`Canary Sprint must be ready; received ${sprint.status}`);
+  if (sprint.artifactType !== 'launch_blueprint_v2') fail(`Canary Sprint must expose the current Blueprint UI; received ${sprint.artifactType || 'unknown artifact'}`);
+
+  const gmlOrders = await ownerGet('/api/get-me-live/orders');
+  const gml = Array.isArray(gmlOrders.body?.orders) ? gmlOrders.body.orders.find(item => item?.orderId === GML_ORDER_ID) : null;
+  if (!gmlOrders.response.ok || !gml) fail(`Configured Get Me Live order ${GML_ORDER_ID} is not owned by the canary account.`);
+  const projectedLiveUrl = String(gml.customDomain ? `https://${gml.customDomain}` : gml.publicUrl || '').replace(/\/$/, '');
+  if (projectedLiveUrl && projectedLiveUrl !== LIVE_URL) fail(`Configured canary live URL does not match owner projection: ${projectedLiveUrl}`);
 
   const sprintArticle = page.locator('article').filter({ hasText: sprint.ideaName }).first();
   await sprintArticle.getByRole('button', { name: 'Open Blueprint', exact: true }).click();
