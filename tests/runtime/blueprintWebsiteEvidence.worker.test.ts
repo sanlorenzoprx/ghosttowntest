@@ -16,7 +16,7 @@ async function createOwner(label: string): Promise<{ email: string; token: strin
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password: 'runtime-password' }),
   }), env);
-  expect(signup.status).toBe(200);
+  expect(signup.status).toBe(201);
   const { token } = await signup.json() as { token: string };
 
   await env.KV.put(`paid_test_order_${sprintId}`, JSON.stringify({
