@@ -6,11 +6,12 @@ const baseUrl = String(process.env.GHOSTTOWN_E2E_BASE_URL || '').replace(/\/$/, 
 const apiBase = String(process.env.GHOSTTOWN_E2E_API_URL || '').replace(/\/$/, '');
 const authToken = String(process.env.GHOSTTOWN_E2E_AUTH_TOKEN || '');
 const getMeLiveOrderId = String(process.env.GHOSTTOWN_E2E_GML_ORDER_ID || '');
+const sprintOrderId = String(process.env.GHOSTTOWN_E2E_SPRINT_ORDER_ID || '');
 // Cross-check only: the URL under test comes from the stored launch receipt.
 const fixtureLiveUrl = String(process.env.GHOSTTOWN_E2E_LIVE_URL || '').replace(/\/$/, '');
 const submitLead = process.env.GHOSTTOWN_E2E_SUBMIT_LEAD === '1';
 
-const required = { GHOSTTOWN_E2E_BASE_URL: baseUrl, GHOSTTOWN_E2E_API_URL: apiBase, GHOSTTOWN_E2E_AUTH_TOKEN: authToken, GHOSTTOWN_E2E_GML_ORDER_ID: getMeLiveOrderId, GHOSTTOWN_E2E_LIVE_URL: fixtureLiveUrl };
+const required = { GHOSTTOWN_E2E_BASE_URL: baseUrl, GHOSTTOWN_E2E_API_URL: apiBase, GHOSTTOWN_E2E_AUTH_TOKEN: authToken, GHOSTTOWN_E2E_GML_ORDER_ID: getMeLiveOrderId, GHOSTTOWN_E2E_SPRINT_ORDER_ID: sprintOrderId, GHOSTTOWN_E2E_LIVE_URL: fixtureLiveUrl };
 const missing = Object.entries(required).filter(([, value]) => !value).map(([name]) => name);
 if (missing.length) throw new Error('Runtime Get Me Live acceptance is mandatory. Missing: ' + missing.join(', '));
 if (!submitLead) throw new Error('Runtime Get Me Live acceptance must submit a disposable lead. Set GHOSTTOWN_E2E_SUBMIT_LEAD=1.');
@@ -42,7 +43,7 @@ if (liveUrl !== fixtureLiveUrl) fail(`Release receipt URL ${liveUrl} does not ma
 const repeatReceipt = await ownerGet('/release-receipt');
 if ((await repeatReceipt.text()) !== receiptText) fail('Release receipt changed between two reads; the launch receipt must be byte-identical.');
 
-const proof = { schemaVersion: 'ghosttown-get-me-live-browser-proof-v2', liveUrl, receiptSchema: receiptVersion, getMeLiveOrderId, viewports: [], lead: null, recordedAt: new Date().toISOString() };
+const proof = { schemaVersion: 'ghosttown-get-me-live-browser-proof-v3', liveUrl, receiptSchema: receiptVersion, getMeLiveOrderId, sprintOrderId, separateEntitlement: null, viewports: [], lead: null, recordedAt: new Date().toISOString() };
 await mkdir('github-acceptance', { recursive: true });
 const productionApiRequests = [];
 try {
@@ -64,6 +65,14 @@ try {
     if (response.status() >= 500) serverErrors.push(`${response.status()} ${response.request().method()} ${response.url()}`);
   });
 
+  const entitlementResponse = await page.request.get(`${apiBase}/api/get-me-live/orders/${encodeURIComponent(getMeLiveOrderId)}`, { headers: { Authorization: `Bearer ${authToken}` } });
+  if (entitlementResponse.status() !== 200) fail(`Get Me Live entitlement expected HTTP 200, received ${entitlementResponse.status()}`);
+  const entitlementBody = await entitlementResponse.json();
+  if (entitlementBody.order?.orderId !== getMeLiveOrderId) fail('Get Me Live returned the wrong durable order.');
+  if (entitlementBody.order?.sourceSprintOrderId !== sprintOrderId) fail(`Get Me Live is not linked to the source Sprint ${sprintOrderId}.`);
+  if (getMeLiveOrderId === sprintOrderId) fail('Get Me Live and the 30-Day Sprint must have separate order identities.');
+  if (!entitlementBody.order?.paidAt) fail('Get Me Live entitlement is missing its paid-at proof.');
+  proof.separateEntitlement = { distinctOrderId: true, sourceSprintOrderId: entitlementBody.order.sourceSprintOrderId, paidAtPresent: true, offerId: entitlementBody.order.offerId || null };
   const navigation = await page.goto(liveUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
   if (navigation?.status() !== 200) fail(`Live page expected HTTP 200, received ${navigation?.status()}`);
   if (await page.locator('form').count() < 1) fail('Live page is missing its lead form.');
@@ -127,8 +136,9 @@ try {
     );
     if (orderResponse.status() !== 200) fail(`Owner order expected HTTP 200, received ${orderResponse.status()}`);
     const orderBody = await orderResponse.json();
+    if (orderBody.order?.sourceSprintOrderId !== sprintOrderId) fail('Owner dashboard Get Me Live order lost its source Sprint link.');
     if (!Array.isArray(orderBody.leads) || !orderBody.leads.some(lead => lead.email === marker)) fail('Submitted E2E lead did not return to the GhostTown owner view.');
-    proof.lead = { email: marker, submittedThroughVisibleForm: true, canonicalSuccessState: true, returnedToPagesUrl: returned.origin, recoveredInOwnerOrder: true };
+    proof.lead = { email: marker, submittedThroughVisibleForm: true, canonicalSuccessState: true, returnedToPagesUrl: returned.origin, recoveredInOwnerOrder: true, sourceSprintOrderId: orderBody.order.sourceSprintOrderId };
     console.log('[ghosttown-e2e] PASS: disposable lead submitted and observed in GhostTown.');
   }
 
