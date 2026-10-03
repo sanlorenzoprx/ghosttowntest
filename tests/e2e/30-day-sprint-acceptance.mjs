@@ -86,7 +86,7 @@ async function verifyWebsiteEvidence(page, dayNumber, checkpointDay) {
   await region.getByText('Get Me Live is a separate product.', { exact: false }).waitFor({ state: 'visible' });
   await region.getByRole('button', { name: 'Refresh website evidence', exact: true }).waitFor({ state: 'visible' });
   if (checkpointDay) {
-    await page.locator('#checkpoint-' + checkpointDay).waitFor({ state: 'visible', timeout: 15000 });
+    await region.getByText(`Day ${checkpointDay} reassessment`, { exact: false }).waitFor({ state: 'visible', timeout: 15000 });
   } else if (dayNumber) {
     await region.getByText(`Day ${dayNumber} can use these live-site signals`, { exact: false }).waitFor({ state: 'visible' });
   }
