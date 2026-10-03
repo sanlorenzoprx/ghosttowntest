@@ -6,6 +6,7 @@ const apiBase = String(process.env.GHOSTTOWN_E2E_API_URL || '').replace(/\/$/, '
 const authToken = String(process.env.GHOSTTOWN_E2E_AUTH_TOKEN || '');
 const orderId = String(process.env.GHOSTTOWN_E2E_SPRINT_ORDER_ID || '');
 const mutate = process.env.GHOSTTOWN_E2E_SPRINT_MUTATE === '1';
+const agentic = process.env.GHOSTTOWN_E2E_AGENTIC === '1';
 const required = { GHOSTTOWN_E2E_BASE_URL: baseUrl, GHOSTTOWN_E2E_API_URL: apiBase, GHOSTTOWN_E2E_AUTH_TOKEN: authToken, GHOSTTOWN_E2E_SPRINT_ORDER_ID: orderId };
 const missing = Object.entries(required).filter(([, value]) => !value).map(([name]) => name);
 if (missing.length) throw new Error('Runtime Sprint acceptance is mandatory. Missing: ' + missing.join(', '));
