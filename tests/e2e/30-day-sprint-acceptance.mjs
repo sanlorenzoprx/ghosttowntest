@@ -237,6 +237,20 @@ try {
     ].join(' '));
   }
 
+  // Prove the same Sprint shell on desktop before the 30-day mutation run.
+  const desktop = await context.newPage();
+  await desktop.setViewportSize({ width: 1440, height: 1000 });
+  await desktop.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await desktop.evaluate(token => localStorage.setItem('lit_user_token_v1', token), authToken);
+  await desktop.reload({ waitUntil: 'domcontentloaded' });
+  await desktop.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  await desktop.getByRole('button', { name: 'Open Blueprint', exact: true }).click();
+  await desktop.getByRole('region', { name: '30-day execution calendar' }).waitFor({ state: 'visible', timeout: 30000 });
+  const desktopOverflow = await desktop.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 4);
+  if (desktopOverflow) throw new Error('Desktop Sprint shell has unexpected horizontal overflow.');
+  proof.viewports.push({ name: 'desktop', width: 1440, height: 1000, calendarVisible: true, horizontalOverflow: false });
+  await desktop.close();
+  proof.viewports.push({ name: 'mobile', width: 390, height: 844, calendarVisible: true });
   // Prove the primary navigation and durable exports before mutating execution progress.
   await page.getByRole('button', { name: 'Asset Library', exact: true }).click();
   await page.getByRole('heading', { name: 'Asset Library', exact: true }).waitFor({ state: 'visible' });
@@ -307,6 +321,16 @@ try {
     await page.waitForTimeout(50);
     proof.surfaceAudit.push({ surface: 'structured-workspace', control: label, result: 'passed' });
   }
+  await workspaceNav.selectOption('reminders');
+  await page.getByRole('button', { name: 'Schedule upcoming checkpoint reviews', exact: true }).click();
+  await waitSaved(page);
+  const reminderState = await apiJson(page.request, progressUrl);
+  const checkpointReminders = (reminderState.progress?.scheduledReminders || []).filter(item => item.kind === 'checkpoint' && item.status === 'pending');
+  if (checkpointReminders.length !== 4) throw new Error(`Expected 4 persisted checkpoint reminders; received ${checkpointReminders.length}.`);
+  proof.reminders = { scheduled: checkpointReminders.length, checkpointIds: checkpointReminders.map(item => item.checkpointId), persisted: true };
+  await page.getByRole('button', { name: 'Open referenced item', exact: true }).first().click();
+  await page.getByText(/Day 7/, { exact: false }).first().waitFor({ state: 'visible', timeout: 10000 });
+  proof.reminders.navigation = true;
   await workspaceNav.selectOption('review');
   await verifyWebsiteEvidence(page, undefined, undefined);
   await returnFromWorkspace(page);
