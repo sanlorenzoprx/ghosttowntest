@@ -34,6 +34,8 @@ describe('completed verdict unlock journey', () => {
 
   it('lets an authenticated zero-credit customer finish another assessment before the paywall', () => {
     expect(app).toContain('const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;');
+    expect(app).toContain('const hasCompletedPendingDraft = () => Boolean(');
+    expect(app).toContain('openPendingVerdictUnlock();');
     expect(app).toContain('onAllowanceRequired={handleAllowanceRequired}');
   });
 
