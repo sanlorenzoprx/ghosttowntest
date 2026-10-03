@@ -158,6 +158,11 @@ export default function App() {
     return !hasHitFreeTierLimit();
   };
 
+  const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;
+  const hasCompletedPendingDraft = () => Boolean(
+    resumeDraft && litQuestions.every(question => resumeDraft.answers[question.id] !== undefined)
+  );
+
   const openVerdictPurchasePage = () => {
     if (resumeDraft) setIdea(resumeDraft.idea);
     updatePath('/unlock-verdict');
@@ -165,11 +170,11 @@ export default function App() {
   };
 
   const handleStartTest = () => {
-    if (!hasAvailableTest()) {
-      if (isLoggedIn) openVerdictPurchasePage();
-      else setShowPaywall(true);
+    if (isLoggedIn && !hasAvailableTest() && hasCompletedPendingDraft()) {
+      openVerdictPurchasePage();
       return;
     }
+    if (!canBeginAssessment()) { setShowPaywall(true); return; }
     clearEvaluationDraft();
     setResumeDraft(null);
     updateExampleParam(null);
@@ -179,11 +184,11 @@ export default function App() {
   };
 
   const handleSelectExample = (slug: string) => {
-    if (!hasAvailableTest()) {
-      if (isLoggedIn) openVerdictPurchasePage();
-      else setShowPaywall(true);
+    if (isLoggedIn && !hasAvailableTest() && hasCompletedPendingDraft()) {
+      openVerdictPurchasePage();
       return;
     }
+    if (!canBeginAssessment()) { setShowPaywall(true); return; }
     const example = getFeaturedExampleBySlug(slug);
     if (!example) return;
     clearEvaluationDraft();
@@ -196,11 +201,7 @@ export default function App() {
 
   const handleResume = () => {
     if (!resumeDraft) return;
-    if (!hasAvailableTest()) {
-      if (isLoggedIn) openVerdictPurchasePage();
-      else setShowPaywall(true);
-      return;
-    }
+    if (!canBeginAssessment()) { setShowPaywall(true); return; }
     updatePath('/');
     updateExampleParam(null);
     setIdea(resumeDraft.idea);
@@ -208,14 +209,7 @@ export default function App() {
   };
 
   const handleIdeaSubmit = (ideaData: IdeaIntakeType) => {
-    if (!hasAvailableTest()) {
-      const draft = saveEvaluationDraft(ideaData, {}, 0);
-      setResumeDraft(draft);
-      setIdea(ideaData);
-      if (isLoggedIn) openVerdictPurchasePage();
-      else setShowPaywall(true);
-      return;
-    }
+    if (!canBeginAssessment()) { setShowPaywall(true); return; }
     updatePath('/');
     updateExampleParam(null);
     const draft = saveEvaluationDraft(ideaData, {}, 0);
