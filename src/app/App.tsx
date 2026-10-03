@@ -148,10 +148,14 @@ export default function App() {
   }
 
   const hasAvailableTest = () => {
-    const testsAvailable = user
-      ? Math.max(0, 1 + user.testsPurchased + Math.min(user.shareCredits || 0, 1) - user.testsUsed)
-      : hasHitFreeTierLimit() ? 0 : 1;
-    return testsAvailable > 0;
+    if (isLoggedIn) {
+      if (!user) return false;
+      return Math.max(
+        0,
+        1 + user.testsPurchased + Math.min(user.shareCredits || 0, 1) - user.testsUsed
+      ) > 0;
+    }
+    return !hasHitFreeTierLimit();
   };
 
   const hasCompletedPendingDraft = () => Boolean(
