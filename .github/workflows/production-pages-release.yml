@@ -1,0 +1,148 @@
+name: Production Pages Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: "Exact full SHA currently on protected main"
+        required: true
+        type: string
+      confirm:
+        description: "Exact confirmation phrase"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghosttown-production-pages-release
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: production-pages-deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+    env:
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      CONFIRM: ${{ inputs.confirm }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PRODUCTION_RELEASE_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PAGES_PROJECT: ghosttowntest
+      PRODUCTION_URL: https://ghosttowntest.com
+      VITE_API_URL: https://api.ghosttowntest.com
+
+    steps:
+      - name: Check out protected main
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Guard branch, SHA and confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main" || { echo "::error::Production Pages release must run from main."; exit 1; }
+          git fetch origin main
+          head_sha="$(git rev-parse HEAD)"
+          main_sha="$(git rev-parse origin/main)"
+          test "$head_sha" = "$EXPECTED_MAIN_SHA" || { echo "::error::Checked-out SHA does not match expected_main_sha."; exit 1; }
+          test "$main_sha" = "$EXPECTED_MAIN_SHA" || { echo "::error::origin/main moved after release was prepared."; exit 1; }
+          test "$CONFIRM" = "DEPLOY PAGES TO PRODUCTION" || { echo "::error::Confirmation phrase mismatch."; exit 1; }
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify release credentials
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing production release token."; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing Cloudflare account ID."; exit 1; }
+
+      - name: Type check release SHA
+        run: npm run type-check
+
+      - name: Build production frontend
+        run: npm run build
+
+      - name: Capture expected production asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p github-production-pages-release
+          cp dist/index.html github-production-pages-release/index-built.html
+          node <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('dist/index.html', 'utf8');
+          const match = html.match(/<script[^>]+src="([^"]+)"[^>]*><\/script>/);
+          if (!match) throw new Error('Could not find production module script in dist/index.html');
+          const asset = match[1].replace(/^\//, '');
+          if (!asset.startsWith('assets/')) throw new Error('Unexpected production asset path: ' + asset);
+          fs.appendFileSync(process.env.GITHUB_ENV, `EXPECTED_ASSET=/${asset}\n`);
+          fs.writeFileSync('github-production-pages-release/expected.json', JSON.stringify({
+            expected_main_sha: process.env.EXPECTED_MAIN_SHA,
+            expected_asset: '/' + asset
+          }, null, 2) + '\n');
+          console.log('EXPECTED_ASSET=/' + asset);
+          NODE
+
+      - name: Deploy exact build to Cloudflare Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler pages deploy dist             --project-name "$PAGES_PROJECT"             --branch main             --commit-hash "$EXPECTED_MAIN_SHA"             --commit-message "production-pages:$EXPECTED_MAIN_SHA"             | tee github-production-pages-release/deploy.txt
+
+      - name: Verify custom domain serves this exact frontend build
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in {1..20}; do
+            curl -fsS --connect-timeout 10 --max-time 20               -H 'Cache-Control: no-cache, no-store, max-age=0'               "$PRODUCTION_URL/?release=$EXPECTED_MAIN_SHA&attempt=$attempt"               > github-production-pages-release/index-live.html || true
+            if grep -Fq "$EXPECTED_ASSET" github-production-pages-release/index-live.html; then
+              ok=1
+              break
+            fi
+            sleep 3
+          done
+          test "$ok" -eq 1 || {
+            echo "::error::ghosttowntest.com is not serving the frontend asset built from $EXPECTED_MAIN_SHA."
+            echo "Expected asset: $EXPECTED_ASSET"
+            exit 1
+          }
+
+          curl -fsS --connect-timeout 10 --max-time 30             -H 'Cache-Control: no-cache, no-store, max-age=0'             "$PRODUCTION_URL$EXPECTED_ASSET"             > github-production-pages-release/app-live.js
+
+          grep -Fq "You’re out of free verdicts." github-production-pages-release/app-live.js || {
+            echo "::error::Live frontend bundle does not contain the completed-verdict paywall flow."
+            exit 1
+          }
+          grep -Fq "You have used 1 of your 10 verdicts." github-production-pages-release/app-live.js || {
+            echo "::error::Live frontend bundle does not contain the post-payment verdict balance copy."
+            exit 1
+          }
+
+          {
+            echo "### Production Pages release complete"
+            echo "SHA: `$EXPECTED_MAIN_SHA`"
+            echo "Asset: `$EXPECTED_ASSET`"
+            echo "Custom domain: `$PRODUCTION_URL`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload production Pages evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-production-pages-${{ github.run_id }}
+          path: github-production-pages-release
+          if-no-files-found: warn
+          retention-days: 30
