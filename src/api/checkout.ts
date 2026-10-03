@@ -1,8 +1,10 @@
-import { verifyJWT } from './auth';
+import { authenticateRequest } from './auth';
 import type { CheckoutRequest } from '../types/stripe';
 
 interface Env {
+  KV: KVNamespace;
   JWT_SECRET: string;
+  FRONTEND_URL?: string;
   STRIPE_SECRET_KEY: string;
   STRIPE_PRICE_ID: string;
 }
@@ -22,24 +24,30 @@ export async function handleCheckout(request: Request, env: Env) {
       );
     }
 
-    // Verify JWT
-    const payload = await verifyJWT(token, env.JWT_SECRET);
-    if (!payload) {
+    // Verify JWT and the account's current authVersion so revoked sessions
+    // cannot open a checkout.
+    const auth = await authenticateRequest(
+      new Request(request.url, { headers: { Authorization: `Bearer ${token}` } }),
+      env
+    );
+    if (!auth) {
       return new Response(
         JSON.stringify({ error: 'Invalid token' }),
         { status: 401 }
       );
     }
 
-    const email = payload.email;
+    const email = auth.email;
+    // Return customers to the frontend. The API host has no /success route.
+    const frontendUrl = env.FRONTEND_URL?.replace(/\/$/, '') || new URL(request.url).origin;
 
     // Create Stripe Checkout session
     const checkoutData = new URLSearchParams({
       'line_items[0][price]': env.STRIPE_PRICE_ID,
       'line_items[0][quantity]': '1',
       'mode': 'payment',
-      'success_url': `${new URL(request.url).origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      'cancel_url': `${new URL(request.url).origin}/cancel`,
+      'success_url': `${frontendUrl}/?purchase=assessments_success`,
+      'cancel_url': `${frontendUrl}/?purchase=assessments_cancelled`,
       'customer_email': email,
       'metadata[purchase_type]': 'assessment_pack',
       'metadata[test_credits]': '10'

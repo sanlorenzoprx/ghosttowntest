@@ -43,6 +43,15 @@ function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/internal-metrics') return 'internal-metrics';
   return hasExample ? 'intake' : 'landing';
 }
+
+export type AssessmentPackReturn = 'success' | 'cancelled' | null;
+
+export function assessmentPackReturnFromSearch(search: string): AssessmentPackReturn {
+  const purchase = new URLSearchParams(search).get('purchase');
+  if (purchase === 'assessments_success') return 'success';
+  if (purchase === 'assessments_cancelled') return 'cancelled';
+  return null;
+}
 export default function App() {
   const [locale, setLocale] = useState<'en' | 'es'>(() => localStorage.getItem('lit_locale') === 'es' ? 'es' : 'en');
   const [initialExample] = useState(() => getFeaturedExampleBySlug(new URLSearchParams(window.location.search).get('example')));
@@ -54,6 +63,7 @@ export default function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [showPaywall, setShowPaywall] = useState(false);
+  const [purchaseReturn, setPurchaseReturn] = useState<AssessmentPackReturn>(() => assessmentPackReturnFromSearch(window.location.search));
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [user, setUser] = useState<PublicUserData | null>(null);
 
@@ -69,6 +79,22 @@ export default function App() {
       verifyToken(token);
     }
   }, []);
+
+  useEffect(() => {
+    if (!purchaseReturn) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('purchase');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+
+    if (purchaseReturn === 'success') {
+      const token = loadAuthToken();
+      if (token) {
+        setIsLoggedIn(true);
+        setScreen('dashboard');
+        void verifyToken(token);
+      }
+    }
+  }, [purchaseReturn]);
 
   useEffect(() => {
     const orderId = new URLSearchParams(window.location.search).get('order_id');
@@ -239,11 +265,30 @@ export default function App() {
       </header>
 
       <main>
+        {purchaseReturn && (
+          <section
+            role="status"
+            className="mx-auto mt-6 flex max-w-5xl items-start justify-between gap-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950"
+          >
+            <p>
+              {purchaseReturn === 'success'
+                ? 'Payment received. Your 10 assessments will appear in your dashboard as soon as Stripe confirms the payment. If the count has not updated yet, give it a few seconds.'
+                : 'Checkout was cancelled. You were not charged, and you can try again whenever you are ready.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => setPurchaseReturn(null)}
+              className="shrink-0 font-bold text-blue-800 hover:underline"
+            >
+              Dismiss
+            </button>
+          </section>
+        )}
         {screen === 'landing' && <Landing onStart={handleStartTest} onSelectExample={handleSelectExample} hasDraft={Boolean(resumeDraft)} onResume={handleResume} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} locale={locale} />}
         {screen === 'intake' && <IdeaIntake onSubmit={handleIdeaSubmit} initialIdea={idea} />}
         {screen === 'questions' && idea && <QuestionFlow idea={idea} onResult={handleResultReceived} initialDraft={resumeDraft} onDraftChange={setResumeDraft} />}
         {screen === 'result' && result && <ResultReport result={result} onReset={handleReset} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('signup'); setShowLoginModal(true); }} onRewardClaimed={() => { const token = loadAuthToken(); if (token) void verifyToken(token); }} locale={locale} />}
-        {screen === 'dashboard' && isLoggedIn && <UserDashboard onLogout={handleLogout} onBuy={() => setShowPaywall(true)} onStart={handleStartTest} onOpenResult={savedResult => { setResult(savedResult); setScreen('result'); }} />}
+        {screen === 'dashboard' && isLoggedIn && <UserDashboard purchaseRefresh={purchaseReturn === 'success'} onLogout={handleLogout} onBuy={() => setShowPaywall(true)} onStart={handleStartTest} onOpenResult={savedResult => { setResult(savedResult); setScreen('result'); }} />}
         {getMeLiveOpening && isLoggedIn && <GetMeLiveOpening orderId={getMeLiveOrderId} />}
         {getMeLiveOpening && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Log in to open your website</h1><p className="mt-3 text-gray-700">Use the email from checkout. Your website is still going online.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
         {screen === 'get-me-live' && !getMeLiveOpening && !getMeLiveSetup && <GetMeLiveLanding sourceSprintOrderId={getMeLiveSourceSprintOrderId} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} onBack={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}

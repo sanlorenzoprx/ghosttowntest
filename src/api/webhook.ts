@@ -95,6 +95,24 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
         ? session.metadata as Record<string, unknown>
         : {};
 
+      // Connected-account boundary. Customer Stripe accounts are created with a
+      // full dashboard, so their owners author their own Checkout sessions and
+      // metadata. An event from a connected account (Connect endpoint signature
+      // or an `account` field) may only ever record a customer-site experiment
+      // payment. It must never fulfill a GhostTown platform purchase.
+      const connectedAccountId = typeof event.account === 'string' && event.account ? event.account : undefined;
+      if (connectSignatureValid || connectedAccountId) {
+        const experimentOrderId = metadata.get_me_live_experiment_order_id;
+        if (connectedAccountId && typeof experimentOrderId === 'string' && experimentOrderId) {
+          const recorded = await recordGetMeLiveExperimentPayment(env, event.id, session, connectedAccountId);
+          await env.KV.put(eventKey, JSON.stringify({ receivedAt: new Date().toISOString(), experimentPayment: recorded }), { expirationTtl: 86400 * 90 });
+          return new Response(JSON.stringify({ received: true, experimentPayment: recorded }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+        console.warn('Ignored connected-account checkout event outside the experiment-payment boundary', { eventId: event.id, account: connectedAccountId ?? null });
+        await env.KV.put(eventKey, JSON.stringify({ receivedAt: new Date().toISOString(), ignored: 'connected_account_boundary' }), { expirationTtl: 86400 * 90 });
+        return new Response(JSON.stringify({ received: true, ignored: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
       const getMeLiveOrderId = metadata.fulfillment_type === 'get_me_live_v1'
         ? metadata.get_me_live_order_id
         : undefined;
@@ -156,6 +174,12 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
         return new Response(JSON.stringify({ received: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
 
+      if (session.payment_status !== 'paid') {
+        // Delayed payment methods complete with payment_status 'unpaid' and are
+        // credited once, on checkout.session.async_payment_succeeded.
+        await env.KV.put(eventKey, new Date().toISOString(), { expirationTtl: 86400 * 90 });
+        return new Response(JSON.stringify({ received: true, assessmentPack: 'payment_pending' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
       const purchasedCredits = metadata.purchase_type === 'assessment_pack'
         ? Math.max(0, Number(metadata.test_credits) || 10)
         : 10;
