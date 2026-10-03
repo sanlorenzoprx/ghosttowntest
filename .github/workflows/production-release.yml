@@ -1,0 +1,302 @@
+name: Production Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Production operation"
+        required: true
+        type: choice
+        options:
+          - preflight
+          - migrate-0010
+          - stage-version
+          - promote-version
+      expected_main_sha:
+        description: "Exact full SHA currently on protected main"
+        required: true
+        type: string
+      version_id:
+        description: "Candidate Worker version UUID; required only for promote-version"
+        required: false
+        default: ""
+        type: string
+      confirm:
+        description: "Exact confirmation phrase for the selected operation"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghosttown-production-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: production-${{ inputs.operation }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+    env:
+      OPERATION: ${{ inputs.operation }}
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      VERSION_ID: ${{ inputs.version_id }}
+      CONFIRM: ${{ inputs.confirm }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PRODUCTION_RELEASE_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WORKER_NAME: lit-ghost-town-api-production
+      HEALTH_URL: https://api.ghosttowntest.com/api/integrations/shorts-factory/health
+    steps:
+      - name: Check out protected main
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Guard branch, SHA and confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main" || { echo "::error::Production release must run from main."; exit 1; }
+          git fetch origin main
+          head_sha="$(git rev-parse HEAD)"
+          main_sha="$(git rev-parse origin/main)"
+          test "$head_sha" = "$EXPECTED_MAIN_SHA" || { echo "::error::Checked-out SHA does not match expected_main_sha."; exit 1; }
+          test "$main_sha" = "$EXPECTED_MAIN_SHA" || { echo "::error::origin/main moved after release was prepared."; exit 1; }
+          case "$OPERATION" in
+            preflight) expected="PREFLIGHT PRODUCTION" ;;
+            migrate-0010) expected="APPLY 0010 TO PRODUCTION" ;;
+            stage-version) expected="STAGE VERSION FOR PRODUCTION" ;;
+            promote-version) expected="PROMOTE VERSION TO PRODUCTION" ;;
+            *) echo "::error::Unknown operation $OPERATION"; exit 1 ;;
+          esac
+          test "$CONFIRM" = "$expected" || { echo "::error::Confirmation phrase does not match $OPERATION."; exit 1; }
+          if [ "$OPERATION" = "promote-version" ]; then
+            [[ "$VERSION_ID" =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "::error::A Worker version UUID is required."; exit 1; }
+          fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify release credentials
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing production release token."; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing Cloudflare account ID."; exit 1; }
+
+      - name: Type check release SHA
+        run: npm run type-check
+
+      - name: Capture production state before operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p github-production-release
+          npx wrangler d1 migrations list DB --env production --remote | tee github-production-release/migrations-before.txt
+          npx wrangler versions list --env production --json > github-production-release/versions-before.json
+          npx wrangler deployments status --env production --json > github-production-release/deployment-before.json
+          curl -fsS --connect-timeout 10 --max-time 20 "$HEALTH_URL" > github-production-release/health-before.json
+          node -e "const h=require('./github-production-release/health-before.json'); if(h.status!=='ok'||h.service!=='ghosttowntest') process.exit(1)"
+
+      - name: Require clean migration ledger before staging or promotion
+        if: ${{ inputs.operation == 'stage-version' || inputs.operation == 'promote-version' }}
+        shell: bash
+        run: |
+          if grep -Eq '[0-9]{4}_[A-Za-z0-9_-]+\.sql' github-production-release/migrations-before.txt; then
+            echo "::error::Production has unapplied D1 migrations. Refusing Worker staging/promotion."
+            cat github-production-release/migrations-before.txt
+            exit 1
+          fi
+
+      - name: Verify only migration 0010 is pending
+        if: ${{ inputs.operation == 'migrate-0010' }}
+        shell: bash
+        run: |
+          mapfile -t pending < <(grep -oE '[0-9]{4}_[A-Za-z0-9_-]+\.sql' github-production-release/migrations-before.txt | sort -u)
+          test "${#pending[@]}" -eq 1 || { echo "::error::Expected exactly one pending migration."; printf '%s\n' "${pending[@]}"; exit 1; }
+          test "${pending[0]}" = "0010_get_me_live_hosting_releases.sql" || { echo "::error::Unexpected pending migration ${pending[0]}."; exit 1; }
+
+      - name: Capture production schema before 0010
+        if: ${{ inputs.operation == 'migrate-0010' }}
+        run: npx wrangler d1 export DB --env production --remote --no-data --output github-production-release/schema-before.sql --skip-confirmation
+
+      - name: Apply production migration 0010
+        if: ${{ inputs.operation == 'migrate-0010' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 migrations apply DB --env production --remote | tee github-production-release/migration-apply.txt
+          npx wrangler d1 migrations list DB --env production --remote | tee github-production-release/migrations-after.txt
+          if grep -Fq '0010_get_me_live_hosting_releases.sql' github-production-release/migrations-after.txt; then
+            echo "::error::Migration 0010 is still pending after apply."
+            exit 1
+          fi
+
+      - name: Verify production schema after 0010
+        if: ${{ inputs.operation == 'migrate-0010' }}
+        shell: bash
+        run: |
+          SCHEMA_SQL="SELECT
+            (SELECT COUNT(*) FROM pragma_table_info('get_me_live_orders') WHERE name='hosting_json') AS hosting_json,
+            (SELECT COUNT(*) FROM pragma_table_info('get_me_live_orders') WHERE name='custom_domain_json') AS custom_domain_json,
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='get_me_live_releases') AS releases_table,
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='get_me_live_publish_attempts') AS attempts_table,
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_get_me_live_releases_order_created') AS releases_index,
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_get_me_live_releases_one_launch') AS launch_index;"
+          npx wrangler d1 execute DB --env production --remote --command "$SCHEMA_SQL" --json > github-production-release/schema-verification.json
+          node <<'NODE'
+          const fs = require('fs');
+          const parsed = JSON.parse(fs.readFileSync('github-production-release/schema-verification.json', 'utf8'));
+          const result = Array.isArray(parsed) ? parsed[0] : parsed;
+          const row = (result.results || result.result || [])[0] || {};
+          const expected = ['hosting_json','custom_domain_json','releases_table','attempts_table','releases_index','launch_index'];
+          const missing = expected.filter(key => Number(row[key]) !== 1);
+          if (missing.length) throw new Error('Production schema verification failed: ' + missing.join(', '));
+          console.log('MIGRATION_0010_SCHEMA_OK=' + JSON.stringify(row));
+          NODE
+          curl -fsS --connect-timeout 10 --max-time 20 "$HEALTH_URL" > github-production-release/health-after-migration.json
+          node -e "const h=require('./github-production-release/health-after-migration.json'); if(h.status!=='ok'||h.service!=='ghosttowntest') process.exit(1)"
+
+      - name: Resolve current 100 percent production version
+        if: ${{ inputs.operation == 'stage-version' }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const d = JSON.parse(fs.readFileSync('github-production-release/deployment-before.json','utf8'));
+          const live = (d.versions || []).filter(v => Number(v.percentage) === 100);
+          if (live.length !== 1) throw new Error('Expected exactly one 100% production version before staging.');
+          fs.appendFileSync(process.env.GITHUB_ENV, `PREVIOUS_VERSION_ID=${live[0].version_id}\n`);
+          console.log('PREVIOUS_VERSION_ID=' + live[0].version_id);
+          NODE
+
+      - name: Upload undeployed release candidate
+        if: ${{ inputs.operation == 'stage-version' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export WRANGLER_OUTPUT_FILE="$PWD/github-production-release/wrangler-output.jsonl"
+          : > "$WRANGLER_OUTPUT_FILE"
+          npx wrangler versions upload --env production --message "release-candidate:$EXPECTED_MAIN_SHA"
+          node <<'NODE'
+          const fs = require('fs');
+          const entries = fs.readFileSync('github-production-release/wrangler-output.jsonl','utf8')
+            .split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+          const entry = [...entries].reverse().find(item => item.type === 'version-upload');
+          const id = entry?.version_id || entry?.versionId;
+          if (!id || !/^[0-9a-fA-F-]{36}$/.test(id)) throw new Error('Could not resolve uploaded Worker version ID.');
+          fs.appendFileSync(process.env.GITHUB_ENV, `NEW_VERSION_ID=${id}\n`);
+          fs.writeFileSync('github-production-release/candidate.json', JSON.stringify({ version_id:id, expected_main_sha:process.env.EXPECTED_MAIN_SHA }, null, 2) + '\n');
+          console.log('NEW_VERSION_ID=' + id);
+          NODE
+
+      - name: Stage candidate at zero percent
+        if: ${{ inputs.operation == 'stage-version' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler versions deploy "${NEW_VERSION_ID}@0%" "${PREVIOUS_VERSION_ID}@100%" --env production --yes --message "stage:$EXPECTED_MAIN_SHA"
+          npx wrangler deployments status --env production --json > github-production-release/deployment-staged.json
+          node <<'NODE'
+          const fs = require('fs');
+          const d = JSON.parse(fs.readFileSync('github-production-release/deployment-staged.json','utf8'));
+          const versions = d.versions || [];
+          const candidate = versions.find(v => v.version_id === process.env.NEW_VERSION_ID);
+          const previous = versions.find(v => v.version_id === process.env.PREVIOUS_VERSION_ID);
+          if (!candidate || Number(candidate.percentage) !== 0) throw new Error('Candidate is not staged at 0%.');
+          if (!previous || Number(previous.percentage) !== 100) throw new Error('Previous version is not holding 100% traffic.');
+          NODE
+
+      - name: Smoke exact zero-percent candidate
+        if: ${{ inputs.operation == 'stage-version' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in {1..10}; do
+            if curl -fsS --connect-timeout 10 --max-time 20 -H 'Cache-Control: no-cache' -H "Cloudflare-Workers-Version-Overrides: ${WORKER_NAME}=\"${NEW_VERSION_ID}\"" "$HEALTH_URL" > github-production-release/candidate-health.json; then
+              if node -e "const h=require('./github-production-release/candidate-health.json'); if(h.status!=='ok'||h.service!=='ghosttowntest'||h.version_id!==process.env.NEW_VERSION_ID) process.exit(1)"; then ok=1; break; fi
+            fi
+            sleep 2
+          done
+          test "$ok" -eq 1 || { echo "::error::Exact candidate version failed production-route smoke test."; exit 1; }
+          echo "### Staged production candidate" >> "$GITHUB_STEP_SUMMARY"
+          echo "Version: \`${NEW_VERSION_ID}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Traffic: 0% (previous version remains 100%)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate candidate is staged before promotion
+        if: ${{ inputs.operation == 'promote-version' }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const d = JSON.parse(fs.readFileSync('github-production-release/deployment-before.json','utf8'));
+          const versions = d.versions || [];
+          const candidate = versions.find(v => v.version_id === process.env.VERSION_ID);
+          const previous = versions.find(v => Number(v.percentage) === 100 && v.version_id !== process.env.VERSION_ID);
+          if (!candidate || Number(candidate.percentage) !== 0) throw new Error('Promotion candidate must already be staged at 0%.');
+          if (!previous) throw new Error('Could not resolve previous 100% production version for rollback.');
+          fs.appendFileSync(process.env.GITHUB_ENV, `PREVIOUS_VERSION_ID=${previous.version_id}\n`);
+          NODE
+          npx wrangler versions view "$VERSION_ID" --env production --json > github-production-release/candidate-version.json
+
+      - name: Re-smoke exact candidate before promotion
+        if: ${{ inputs.operation == 'promote-version' }}
+        shell: bash
+        run: |
+          curl -fsS --connect-timeout 10 --max-time 20 -H 'Cache-Control: no-cache' -H "Cloudflare-Workers-Version-Overrides: ${WORKER_NAME}=\"${VERSION_ID}\"" "$HEALTH_URL" > github-production-release/pre-promote-health.json
+          node -e "const h=require('./github-production-release/pre-promote-health.json'); if(h.status!=='ok'||h.service!=='ghosttowntest'||h.version_id!==process.env.VERSION_ID) process.exit(1)"
+
+      - name: Promote exact candidate to 100 percent
+        if: ${{ inputs.operation == 'promote-version' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler versions deploy "${VERSION_ID}@100%" --env production --yes --message "release:$EXPECTED_MAIN_SHA"
+          npx wrangler deployments status --env production --json > github-production-release/deployment-after.json
+          node <<'NODE'
+          const fs = require('fs');
+          const d = JSON.parse(fs.readFileSync('github-production-release/deployment-after.json','utf8'));
+          const candidate = (d.versions || []).find(v => v.version_id === process.env.VERSION_ID);
+          if (!candidate || Number(candidate.percentage) !== 100) throw new Error('Candidate did not reach 100% production traffic.');
+          NODE
+
+      - name: Smoke production and rollback on failure
+        if: ${{ inputs.operation == 'promote-version' }}
+        shell: bash
+        run: |
+          set +e
+          ok=0
+          for attempt in {1..10}; do
+            curl -fsS --connect-timeout 10 --max-time 20 -H 'Cache-Control: no-cache' "$HEALTH_URL" > github-production-release/production-health.json
+            if [ $? -eq 0 ]; then
+              node -e "const h=require('./github-production-release/production-health.json'); if(h.status!=='ok'||h.service!=='ghosttowntest'||h.version_id!==process.env.VERSION_ID) process.exit(1)"
+              if [ $? -eq 0 ]; then ok=1; break; fi
+            fi
+            sleep 2
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "::error::Post-promotion smoke failed; rolling back to ${PREVIOUS_VERSION_ID}."
+            npx wrangler versions deploy "${PREVIOUS_VERSION_ID}@100%" --env production --yes --message "automatic-rollback:$EXPECTED_MAIN_SHA"
+            exit 1
+          fi
+          echo "### Production promotion complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "Version: \`${VERSION_ID}\` at 100%" >> "$GITHUB_STEP_SUMMARY"
+          echo "Rollback version: \`${PREVIOUS_VERSION_ID}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload production release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-production-${{ inputs.operation }}-${{ github.run_id }}
+          path: github-production-release
+          if-no-files-found: warn
+          retention-days: 30
