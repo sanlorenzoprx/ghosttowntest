@@ -146,15 +146,17 @@ async function addEvidence(page, day, index) {
   await page.getByText(/^Saved /).waitFor({ state: 'visible', timeout: 15000 });
   await returnFromWorkspace(page);
 }
-async function saveCheckpoint(page, dayNumber) {
+async function saveCheckpoint(page, dayNumber, guidance) {
   await page.getByRole('button', { name: /Complete checkpoint review|Review checkpoint evidence/i }).click();
   await openWorkspaceSection(page, 'review', 'Weekly Review');
   await verifyWebsiteEvidence(page, undefined, dayNumber);
   const section = page.locator(`#checkpoint-${dayNumber}`);
   await section.getByLabel('Strongest evidence').selectOption('weak');
   await section.getByLabel('Primary constraint').selectOption('missing_evidence');
-  await section.getByLabel('Evidence summary').fill(`Synthetic Day ${dayNumber} acceptance evidence only; no real market conclusion.`);
-  await section.getByLabel('Next action').fill(dayNumber === 30 ? 'Acceptance Sprint complete; continue to Get Me Live proof.' : `Continue to Day ${dayNumber + 1} in acceptance.`);
+  const summary = String(guidance?.evidenceAssessment || guidance?.answer || `Synthetic Day ${dayNumber} acceptance evidence only; no real market conclusion.`).slice(0, 1800);
+  const nextAction = String(guidance?.recommendedAction || (dayNumber === 30 ? 'Acceptance Sprint complete; continue to Get Me Live proof.' : `Continue to Day ${dayNumber + 1} in acceptance.`)).slice(0, 1200);
+  await section.getByLabel('Evidence summary').fill(`AGENTIC QA — synthetic acceptance evidence is not market proof. ${summary}`);
+  await section.getByLabel('Next action').fill(nextAction);
   await section.getByRole('button', { name: `Save Day ${dayNumber} review`, exact: true }).click();
   await page.getByText(/^Saved /).waitFor({ state: 'visible', timeout: 15000 });
   await returnFromWorkspace(page);
@@ -210,6 +212,7 @@ try {
     finalDecision: undefined
   };
   await apiJson(page.request, progressUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, data: resetProgress });
+  await assertServerRejectsSkippedDay(page.request, resetProgress);
 
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.evaluate(token => localStorage.setItem('lit_user_token_v1', token), authToken);
