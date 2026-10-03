@@ -247,7 +247,9 @@ export default function App() {
 
     setResumeDraft(draft);
     setIdea(draft.idea);
-    setAutoSubmitPendingVerdict(hasCompletedPendingDraft());
+    setAutoSubmitPendingVerdict(
+      litQuestions.every(question => draft.answers[question.id] !== undefined)
+    );
     updatePath('/');
     setScreen('questions');
   };
