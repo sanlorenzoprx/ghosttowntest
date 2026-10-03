@@ -333,6 +333,14 @@ async function runFullCanary(browser) {
 
   const gmlOrders = await ownerGet('/api/get-me-live/orders');
   if (!gmlOrders.response.ok || !Array.isArray(gmlOrders.body?.orders)) fail('Canary Get Me Live order list is unavailable.');
+
+  record('canary-paid-state-inventory', {
+    paidOrders: plans.body.orders.length,
+    readyBlueprints: readySprints.length,
+    getMeLiveOrders: gmlOrders.body.orders.length,
+    liveGetMeLiveOrders: gmlOrders.body.orders.filter(item => item?.status === 'live').length,
+  });
+
   const eligiblePairs = [];
   for (const gmlCandidate of gmlOrders.body.orders) {
     if (gmlCandidate?.status !== 'live') continue;
@@ -344,7 +352,7 @@ async function runFullCanary(browser) {
     if (sprintCandidate) eligiblePairs.push({ sprint: sprintCandidate, gml: gmlCandidate, liveUrl: projected });
   }
   if (eligiblePairs.length !== 1) {
-    fail(`Full canary discovery requires exactly one ready Sprint → live Get Me Live pair after optional overrides; found ${eligiblePairs.length}. Set PCJ_SPRINT_ORDER_ID / PCJ_GML_ORDER_ID / PCJ_LIVE_URL only when disambiguation is needed.`);
+    fail(`Full canary discovery requires exactly one ready Sprint → live Get Me Live pair after optional overrides; found ${eligiblePairs.length}. Inventory: paidOrders=${plans.body.orders.length}, readyBlueprints=${readySprints.length}, getMeLiveOrders=${gmlOrders.body.orders.length}, liveGetMeLiveOrders=${gmlOrders.body.orders.filter(item => item?.status === 'live').length}.`);
   }
 
   const [{ sprint, gml, liveUrl }] = eligiblePairs;
