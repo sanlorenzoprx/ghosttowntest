@@ -61,7 +61,6 @@ interface GetMeLiveSummary {
 interface Props {
   purchaseRefresh?: boolean;
   onLogout: () => void;
-  onBuy: () => void;
   onStart: () => void;
   onOpenResult: (result: EvaluationResult) => void;
 }
@@ -69,7 +68,6 @@ interface Props {
 export default function UserDashboard({
   purchaseRefresh = false,
   onLogout,
-  onBuy,
   onStart,
   onOpenResult,
 }: Props) {
@@ -340,8 +338,9 @@ export default function UserDashboard({
             Ready to test another idea?
           </h2>
           <p className="mt-1 text-sm text-white/75">
-            {availableTests} assessment{availableTests === 1 ? "" : "s"}{" "}
-            available.
+            {availableTests > 0
+              ? `${availableTests} verdict${availableTests === 1 ? "" : "s"} available.`
+              : "You can still complete your next test. You only pay when you ask for the verdict."}
           </p>
         </div>
         <button
@@ -349,7 +348,7 @@ export default function UserDashboard({
           onClick={onStart}
           className="min-h-14 rounded-lg bg-ghost-rust px-7 py-4 font-black text-white"
         >
-          Start New Assessment
+          Start Another Verdict
         </button>
       </section>
 
@@ -365,7 +364,7 @@ export default function UserDashboard({
           className={`rounded-lg border-l-4 p-6 ${needsToPurchase ? "border-red-400 bg-red-50" : "border-green-400 bg-green-50"}`}
         >
           <div className="text-sm font-bold uppercase text-gray-600">
-            Available Tests
+            Verdicts Available
           </div>
           <div
             className={`mt-2 text-5xl font-bold ${needsToPurchase ? "text-red-600" : "text-green-600"}`}
@@ -581,16 +580,17 @@ export default function UserDashboard({
 
       {needsToPurchase && (
         <div className="mb-8 rounded-lg bg-blue-600 p-8 text-center text-white">
-          <h3 className="text-2xl font-bold">Ready to test more ideas?</h3>
-          <p className="mb-6 mt-2">
-            Share a result to unlock another assessment, or get 10 more for
-            $14.97.
+          <h3 className="text-2xl font-bold">Test the idea first.</h3>
+          <p className="mx-auto mb-6 mt-2 max-w-2xl">
+            Complete your next GhostTown test before you buy anything. When you ask for the verdict,
+            GhostTown will save your answers and offer 10 verdicts for $14.95.
           </p>
           <button
-            onClick={onBuy}
+            type="button"
+            onClick={onStart}
             className="rounded bg-white px-6 py-3 font-bold text-blue-600"
           >
-            Buy 10 Assessments — $14.97
+            Start Another Verdict
           </button>
         </div>
       )}
