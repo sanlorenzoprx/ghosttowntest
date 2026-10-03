@@ -185,8 +185,8 @@ async function runSurfaceJourney(browser) {
   // account or checkout session.
   const authDialog = page.getByRole('dialog');
   await authDialog.getByRole('heading', { name: 'Create Account', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
-  await authDialog.getByLabel('Email Address').waitFor({ state: 'visible' });
-  await authDialog.getByLabel('Password').waitFor({ state: 'visible' });
+  await authDialog.locator('input[name="email"]').waitFor({ state: 'visible', timeout: 10000 });
+  await authDialog.locator('input[name="password"]').waitFor({ state: 'visible', timeout: 10000 });
   proof.controlsInventoried.push({ surface: 'paid-offer', control: 'Create Account before Sprint checkout', action: 'observed' });
   proof.classifiedNotClicked.push({ control: 'Create Account', reason: 'surface scope does not create persistent production accounts' });
   await authDialog.getByRole('button', { name: 'Close registration form', exact: true }).click();
