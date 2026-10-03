@@ -45,7 +45,8 @@ describe('pay-before-second-verdict journey', () => {
   it('resumes the second paid verdict only after Stripe credits are confirmed', () => {
     expect(unlockPage).toContain("purchaseReturn !== 'success'");
     expect(unlockPage).toContain('availableTests(body.user) > 0');
-    expect(app).toContain('setAutoSubmitPendingVerdict(true)');
+    expect(app).toContain('setAutoSubmitPendingVerdict(');
+    expect(app).toContain('litQuestions.every(question => draft.answers[question.id] !== undefined)');
     expect(questionFlow).toContain('autoSubmitCompleteDraft');
     expect(questionFlow).toContain('litQuestions.every(question => answers[question.id] !== undefined)');
   });
