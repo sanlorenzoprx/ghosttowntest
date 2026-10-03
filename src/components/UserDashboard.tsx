@@ -337,11 +337,11 @@ export default function UserDashboard({
           <h2 className="mt-2 text-2xl font-bold">
             Ready to test another idea?
           </h2>
-          <p className="mt-1 text-sm text-white/75">
-            {availableTests > 0
-              ? `${availableTests} verdict${availableTests === 1 ? "" : "s"} available.`
-              : "You can still complete your next test. You only pay when you ask for the verdict."}
-          </p>
+          {availableTests > 0 && (
+            <p className="mt-1 text-sm text-white/75">
+              {availableTests} verdict{availableTests === 1 ? "" : "s"} available.
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -578,22 +578,6 @@ export default function UserDashboard({
         </div>
       </div>
 
-      {needsToPurchase && (
-        <div className="mb-8 rounded-lg bg-blue-600 p-8 text-center text-white">
-          <h3 className="text-2xl font-bold">Test the idea first.</h3>
-          <p className="mx-auto mb-6 mt-2 max-w-2xl">
-            Complete your next GhostTown test before you buy anything. When you ask for the verdict,
-            GhostTown will save your answers and offer 10 verdicts for $14.95.
-          </p>
-          <button
-            type="button"
-            onClick={onStart}
-            className="rounded bg-white px-6 py-3 font-bold text-blue-600"
-          >
-            Start Another Verdict
-          </button>
-        </div>
-      )}
     </div>
   );
 }
