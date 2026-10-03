@@ -111,21 +111,21 @@ export default function VerdictUnlockPage({
     <section className="mx-auto max-w-2xl px-4 py-12 sm:py-16">
       <div className="rounded-2xl border border-ghost-ink bg-white p-6 shadow-lg sm:p-10">
         <p className="text-sm font-black uppercase tracking-[0.18em] text-ghost-rust">
-          {draft ? 'Your second verdict is saved' : 'Your free verdict has been used'}
+          {draft ? 'Your answers are saved' : 'Your free verdict has been used'}
         </p>
         <h1 className="mt-3 font-display text-4xl font-black leading-tight text-ghost-ink">
-          Get {ASSESSMENT_PACK_CREDITS} more verdicts for {ASSESSMENT_PACK_DISPLAY_PRICE}.
+          You’re out of free verdicts.
         </h1>
         <p className="mt-5 text-lg leading-8 text-gray-700">
           {draft
-            ? <>Your test for <strong>{ideaName}</strong> is waiting for you. Complete payment, then GhostTown will resume that second verdict from where you left off.</>
-            : <>You’ve used your free verdict. Complete payment to continue with verdict #2 and get {ASSESSMENT_PACK_CREDITS} paid verdicts.</>}
+            ? <>You finished the questions for <strong>{ideaName}</strong>. Buy {ASSESSMENT_PACK_CREDITS} verdicts for {ASSESSMENT_PACK_DISPLAY_PRICE}, then GhostTown will finish this saved second verdict.</>
+            : <>You’ve used your free verdict. Buy {ASSESSMENT_PACK_CREDITS} more verdicts for {ASSESSMENT_PACK_DISPLAY_PRICE} to continue.</>}
         </p>
 
         <div className="mt-7 rounded-xl border border-blue-200 bg-blue-50 p-5">
           <p className="text-3xl font-black text-blue-950">{ASSESSMENT_PACK_CREDITS} verdicts · {ASSESSMENT_PACK_DISPLAY_PRICE}</p>
           <p className="mt-2 text-sm leading-6 text-blue-900">
-            One-time purchase. No subscription. Verdict #2 uses one of the {ASSESSMENT_PACK_CREDITS}, so you’ll have 9 verdicts left after it is completed.
+            One-time purchase. No subscription. This second verdict uses one of the {ASSESSMENT_PACK_CREDITS}, so you’ll have 9 verdicts left after it is completed.
           </p>
         </div>
 
@@ -137,7 +137,7 @@ export default function VerdictUnlockPage({
 
         {purchaseReturn === 'success' && checkingPayment && (
           <p role="status" className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-950">
-            Payment received. Confirming your verdict credits, then resuming verdict #2…
+            Payment received. Confirming your verdict credits, then finishing your saved second verdict…
           </p>
         )}
 
@@ -162,15 +162,15 @@ export default function VerdictUnlockPage({
             {openingCheckout
               ? 'Opening secure checkout…'
               : isLoggedIn
-                ? `Continue Verdict #2 + ${ASSESSMENT_PACK_CREDITS} Verdicts — ${ASSESSMENT_PACK_DISPLAY_PRICE}`
-                : 'Log In to Continue Verdict #2'}
+                ? `Buy ${ASSESSMENT_PACK_CREDITS} Verdicts — ${ASSESSMENT_PACK_DISPLAY_PRICE}`
+                : 'Log In to Buy Verdicts'}
           </button>
         )}
 
         <p className="mt-4 text-center text-xs leading-5 text-gray-500">
           {draft
-            ? 'Your saved answers stay on this device. After payment, GhostTown resumes that same verdict.'
-            : 'Payment unlocks verdict #2 before any additional assessment is completed.'}
+            ? 'Your saved answers stay on this device. After payment, GhostTown finishes this same verdict.'
+            : 'Your next verdict continues after payment is confirmed.'}
         </p>
       </div>
     </section>
