@@ -1,4 +1,4 @@
-name: Production Version Metadata Diagnostic
+name: Production Version Annotation Diagnostic
 
 on:
   workflow_dispatch:
@@ -12,47 +12,27 @@ permissions:
 jobs:
   inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     environment: acceptance
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      PREVIOUS_VERSION_ID: 7c9a1db4-c3d2-473f-98ee-9e905c10b4d3
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Inspect versions and deployment
+      - name: Inspect newest production Worker versions
         shell: bash
         run: |
-          npx wrangler versions list --env production --json > versions.json
-          npx wrangler deployments status --env production --json > deployment.json
           node - <<'NODE'
-          const fs = require('node:fs');
-          const versions = JSON.parse(fs.readFileSync('versions.json','utf8'));
-          const deployment = JSON.parse(fs.readFileSync('deployment.json','utf8'));
-          console.log('VERSION_METADATA=' + JSON.stringify(versions.slice(0,8).map(v => ({
+          const account = process.env.CLOUDFLARE_ACCOUNT_ID;
+          const headers = { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}` };
+          const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/workers/scripts/lit-ghost-town-api-production/versions`, { headers });
+          const b = await r.json();
+          if (!r.ok || b.success === false) throw new Error(JSON.stringify(b.errors || b));
+          const rows = Array.isArray(b.result) ? b.result : (b.result?.items || b.result?.versions || []);
+          const slim = rows.map(v => ({
             id: v.id,
             number: v.number,
-            metadata: v.metadata,
-            annotations: v.annotations
-          }))));
-          console.log('ACTIVE_DEPLOYMENT=' + JSON.stringify(deployment));
-          const live = (deployment.versions || []).filter(v => Number(v.percentage) === 100);
-          if (live.length !== 1 || live[0].version_id !== process.env.PREVIOUS_VERSION_ID) {
-            throw new Error('Production traffic changed unexpectedly.');
-          }
-          console.log('TRAFFIC_UNCHANGED=' + JSON.stringify({
-            version_id: live[0].version_id,
-            percentage: live[0].percentage
+            created_on: v.metadata?.created_on || v.created_on,
+            annotations: v.annotations || v.metadata?.annotations || {}
           }));
+          console.log('NEWEST_VERSION_ANNOTATIONS=' + JSON.stringify(slim.slice(-12)));
           NODE
