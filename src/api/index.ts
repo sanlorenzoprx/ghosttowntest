@@ -94,6 +94,7 @@ export default {
         return new Response(JSON.stringify({
           status: 'ok',
           service: 'ghosttowntest',
+          version_id: env.CF_VERSION_METADATA?.id || null,
           contract_version: 'lit-verdict-v1',
           verdict_endpoint: '/api/verdict',
           authentication: env.LIT_API_KEY?.trim() ? 'bearer_required' : 'not_configured',
