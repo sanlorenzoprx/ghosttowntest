@@ -250,8 +250,51 @@ async function runFullCanary(browser) {
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await page.getByRole('heading', { name: 'Previous Assessments', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
 
-  const results = await ownerGet('/api/results');
-  if (!results.response.ok || !Array.isArray(results.body?.results) || results.body.results.length < 1) fail('Canary has no saved assessment available for persistence proof.');
+  let results = await ownerGet('/api/results');
+  if (!results.response.ok || !Array.isArray(results.body?.results)) fail('Canary saved-assessment list is unavailable.');
+
+  if (results.body.results.length < 1) {
+    // A dedicated canary is allowed to create one synthetic free assessment.
+    // This is customer-visible production state, but it spends no money and
+    // does not touch external providers.
+    await page.getByRole('button', { name: 'Start New Assessment', exact: true }).click();
+    await page.getByRole('heading', { name: 'Tell us about your idea', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+    const nonce = String(Date.now()).slice(-8);
+    await page.getByLabel("What's your idea called?").fill(`Production Canary Account ${nonce}`);
+    await page.getByLabel('What does it do?').fill('A synthetic canary service used only to verify the live GhostTown account journey.');
+    await page.getByLabel('Who is it for? (Be specific)').fill('Independent local service business owners');
+    await page.getByLabel('What painful problem does it solve?').fill('Potential customers are lost when follow-up is slow or inconsistent.');
+    await page.getByLabel('How do people solve this today?').fill('Manual inbox follow-up, spreadsheets, and text reminders.');
+    await page.getByLabel('Why do you want to build this?').fill('Production canary verification only.');
+    await page.getByRole('checkbox').check();
+    await page.getByTestId('evaluate-button').click();
+
+    for (let index = 0; index < 17; index += 1) {
+      const footer = page.getByText("There are no wrong answers. We're evaluating your idea objectively.", { exact: true });
+      await footer.waitFor({ state: 'visible', timeout: 20000 });
+      const card = footer.locator('..');
+      const options = card.getByRole('button');
+      const count = await options.count();
+      if (count < 4) fail(`Canary question ${index + 1} exposed only ${count} answer buttons.`);
+      await options.nth(Math.min(2, count - 1)).click();
+    }
+
+    await page.getByTestId('verdict-card').waitFor({ state: 'visible', timeout: 180000 });
+    await page.getByTestId('next-step').waitFor({ state: 'visible', timeout: 15000 });
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      results = await ownerGet('/api/results');
+      if (results.response.ok && Array.isArray(results.body?.results) && results.body.results.length > 0) break;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    if (!results.response.ok || !Array.isArray(results.body?.results) || results.body.results.length < 1) {
+      fail('Canary free assessment rendered but did not persist to the account.');
+    }
+    record('canary-free-verdict-bootstrap', { created: true, count: results.body.results.length });
+    await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+    await page.getByRole('heading', { name: 'Previous Assessments', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+  }
+
   const savedResult = results.body.results[0];
   const resultArticle = page.locator('article').filter({ hasText: savedResult.ideaName }).first();
   await resultArticle.getByRole('button', { name: 'View Report', exact: true }).click();
