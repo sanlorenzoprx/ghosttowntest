@@ -123,7 +123,7 @@ async function runProtectedRouteNegative() {
   if (response.status !== 401) fail(`Invalid-token protected route expected 401, received ${response.status}`);
   const serialized = JSON.stringify(body || {});
   if (/stack|trace|exception|d1|kv|r2|vertex/i.test(serialized)) fail('Protected-route error leaks internal details.');
-  record('negative-auth-boundary', { status: response.status });
+  record('negative-auth-boundary', { httpStatus: response.status });
 }
 
 async function runSurfaceJourney(browser) {
@@ -180,13 +180,17 @@ async function runSurfaceJourney(browser) {
   record('anonymous-free-verdict', { questionsAnswered: 17, verdictRendered: true });
 
   await page.getByRole('button', { name: 'Start 30-Day Evidence Sprint checkout', exact: true }).first().click();
-  const dialog = page.getByRole('dialog');
-  await dialog.getByRole('heading', { name: /You tested your idea/i }).waitFor({ state: 'visible', timeout: 10000 });
-  await dialog.getByText('The PDF shows the full plan. GhostTown shows your next step.', { exact: true }).waitFor({ state: 'visible' });
-  proof.controlsInventoried.push({ surface: 'paid-offer', control: 'Start My 30-Day Evidence Sprint', action: 'not_clicked' });
-  proof.classifiedNotClicked.push({ control: 'Start My 30-Day Evidence Sprint', reason: 'real production checkout creation is intentionally not automated' });
-  await dialog.getByRole('button', { name: 'Close checkout', exact: true }).click();
-  record('paid-offer-boundary', { checkoutModalRendered: true, realCheckoutCreated: false });
+  // Anonymous customers must cross the account boundary before the paid intake
+  // is shown. Surface scope proves that gate without creating a production
+  // account or checkout session.
+  const authDialog = page.getByRole('dialog');
+  await authDialog.getByRole('heading', { name: 'Create Account', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+  await authDialog.getByLabel('Email Address').waitFor({ state: 'visible' });
+  await authDialog.getByLabel('Password').waitFor({ state: 'visible' });
+  proof.controlsInventoried.push({ surface: 'paid-offer', control: 'Create Account before Sprint checkout', action: 'observed' });
+  proof.classifiedNotClicked.push({ control: 'Create Account', reason: 'surface scope does not create persistent production accounts' });
+  await authDialog.getByRole('button', { name: 'Close registration form', exact: true }).click();
+  record('paid-offer-auth-gate', { registrationRequired: true, realCheckoutCreated: false });
 
   await context.close();
 
@@ -245,6 +249,19 @@ async function runFullCanary(browser) {
   await page.getByTestId('next-step').waitFor({ state: 'visible' });
   await assertNoInternalLanguage(page, 'Saved verdict');
   record('saved-verdict-persistence', { count: results.body.results.length, reopenedViaUi: true });
+
+  // In full scope the canary is authenticated, so the same CTA must expose the
+  // real paid Sprint intake. Stop before submit so no production checkout is
+  // created and no money path is exercised.
+  await page.getByRole('button', { name: 'Start 30-Day Evidence Sprint checkout', exact: true }).first().click();
+  const paidDialog = page.getByRole('dialog');
+  await paidDialog.getByRole('heading', { name: /You tested your idea/i }).waitFor({ state: 'visible', timeout: 10000 });
+  await paidDialog.getByText('The PDF shows the full plan. GhostTown shows your next step.', { exact: true }).waitFor({ state: 'visible' });
+  proof.controlsInventoried.push({ surface: 'paid-offer-authenticated', control: 'Start My 30-Day Evidence Sprint', action: 'intake_rendered_submit_not_clicked' });
+  proof.classifiedNotClicked.push({ control: 'Start My 30-Day Evidence Sprint submit', reason: 'reusable production harness never creates a real Stripe checkout session' });
+  await paidDialog.getByRole('button', { name: 'Close checkout', exact: true }).click();
+  record('paid-offer-boundary', { authenticatedIntakeRendered: true, realCheckoutCreated: false });
+
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await page.getByRole('heading', { name: 'Previous Assessments', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
 
