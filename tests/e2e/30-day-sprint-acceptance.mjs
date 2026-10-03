@@ -355,6 +355,7 @@ try {
       evidenceAssessment: String(guidance.evidenceAssessment || '').slice(0, 800),
       recommendedAction: String(guidance.recommendedAction || '').slice(0, 800),
       groundedWebSources: guidance.groundedWebSources || [],
+      degraded: guidance.degraded || null,
       receipt: guidance.receipts?.primary || null
     });
 
@@ -402,6 +403,7 @@ try {
         recommendedAction: String(checkpointGuidance.recommendedAction || '').slice(0, 1000),
         critic: checkpointGuidance.critic || null,
         groundedWebSources: checkpointGuidance.groundedWebSources || [],
+        degraded: checkpointGuidance.degraded || null,
         receipt: checkpointGuidance.receipts?.primary || null
       });
       await saveCheckpoint(page, day.dayNumber, checkpointGuidance);
