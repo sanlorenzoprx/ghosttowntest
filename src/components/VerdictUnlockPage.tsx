@@ -47,7 +47,7 @@ export default function VerdictUnlockPage({
   };
 
   useEffect(() => {
-    if (purchaseReturn !== 'success' || !isLoggedIn || !draft) return;
+    if (purchaseReturn !== 'success' || !isLoggedIn) return;
     let cancelled = false;
 
     const confirm = async () => {
@@ -68,7 +68,7 @@ export default function VerdictUnlockPage({
 
     void confirm();
     return () => { cancelled = true; };
-  }, [purchaseReturn, isLoggedIn, draft, onCreditsReady]);
+  }, [purchaseReturn, isLoggedIn, onCreditsReady]);
 
   const openCheckout = async () => {
     const token = localStorage.getItem('lit_user_token_v1');
@@ -107,42 +107,37 @@ export default function VerdictUnlockPage({
     setError('Your payment is still being confirmed. Your answers are safe. Try again in a moment.');
   };
 
-  if (!draft) {
-    return (
-      <section className="mx-auto max-w-xl px-4 py-16 text-center">
-        <h1 className="font-display text-4xl font-black text-ghost-ink">Your verdict draft is not on this device.</h1>
-        <p className="mt-4 text-gray-700">Return to the device where you answered the questions. GhostTown keeps the in-progress assessment in that browser until the verdict is completed.</p>
-      </section>
-    );
-  }
-
   return (
     <section className="mx-auto max-w-2xl px-4 py-12 sm:py-16">
       <div className="rounded-2xl border border-ghost-ink bg-white p-6 shadow-lg sm:p-10">
-        <p className="text-sm font-black uppercase tracking-[0.18em] text-ghost-rust">Your answers are saved</p>
+        <p className="text-sm font-black uppercase tracking-[0.18em] text-ghost-rust">
+          {draft ? 'Your second verdict is saved' : 'Your free verdict has been used'}
+        </p>
         <h1 className="mt-3 font-display text-4xl font-black leading-tight text-ghost-ink">
-          You’ve used your free verdict.
+          Get {ASSESSMENT_PACK_CREDITS} more verdicts for {ASSESSMENT_PACK_DISPLAY_PRICE}.
         </h1>
         <p className="mt-5 text-lg leading-8 text-gray-700">
-          You finished the test for <strong>{ideaName}</strong>. See that result now and get {ASSESSMENT_PACK_CREDITS} more GhostTown verdicts for {ASSESSMENT_PACK_DISPLAY_PRICE}.
+          {draft
+            ? <>Your test for <strong>{ideaName}</strong> is waiting for you. Complete payment, then GhostTown will resume that second verdict from where you left off.</>
+            : <>You’ve used your free verdict. Complete payment to continue with verdict #2 and get {ASSESSMENT_PACK_CREDITS} paid verdicts.</>}
         </p>
 
         <div className="mt-7 rounded-xl border border-blue-200 bg-blue-50 p-5">
           <p className="text-3xl font-black text-blue-950">{ASSESSMENT_PACK_CREDITS} verdicts · {ASSESSMENT_PACK_DISPLAY_PRICE}</p>
           <p className="mt-2 text-sm leading-6 text-blue-900">
-            One-time purchase. No subscription. This pending verdict uses one of the {ASSESSMENT_PACK_CREDITS}, so you’ll have 9 verdicts left after it opens.
+            One-time purchase. No subscription. Verdict #2 uses one of the {ASSESSMENT_PACK_CREDITS}, so you’ll have 9 verdicts left after it is completed.
           </p>
         </div>
 
         {purchaseReturn === 'cancelled' && (
           <p role="status" className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            Checkout was cancelled. Your answers are still saved. You can unlock this verdict whenever you’re ready.
+            Checkout was cancelled. {draft ? 'Your second verdict is still saved.' : 'You can continue with verdict #2 whenever you’re ready.'}
           </p>
         )}
 
         {purchaseReturn === 'success' && checkingPayment && (
           <p role="status" className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-950">
-            Payment received. Confirming your verdict credits and opening your saved result…
+            Payment received. Confirming your verdict credits, then resuming verdict #2…
           </p>
         )}
 
@@ -167,13 +162,15 @@ export default function VerdictUnlockPage({
             {openingCheckout
               ? 'Opening secure checkout…'
               : isLoggedIn
-                ? `Get My Verdict + ${ASSESSMENT_PACK_CREDITS} Tests — ${ASSESSMENT_PACK_DISPLAY_PRICE}`
-                : 'Log In to Unlock My Verdict'}
+                ? `Continue Verdict #2 + ${ASSESSMENT_PACK_CREDITS} Verdicts — ${ASSESSMENT_PACK_DISPLAY_PRICE}`
+                : 'Log In to Continue Verdict #2'}
           </button>
         )}
 
         <p className="mt-4 text-center text-xs leading-5 text-gray-500">
-          Your completed answers stay on this device until the verdict is successfully generated.
+          {draft
+            ? 'Your saved StoryFactory answers stay on this device. After payment, GhostTown resumes that same verdict.'
+            : 'Payment unlocks verdict #2 before any additional assessment is completed.'}
         </p>
       </div>
     </section>
