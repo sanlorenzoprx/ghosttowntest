@@ -25,7 +25,7 @@ jobs:
   acceptance:
     name: acceptance
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     environment: acceptance
     env:
       CI: "true"
@@ -38,6 +38,7 @@ jobs:
       GHOSTTOWN_E2E_SPRINT_MUTATE: ${{ vars.GHOSTTOWN_E2E_SPRINT_MUTATE || '0' }}
       GHOSTTOWN_E2E_LIVE_URL: ${{ secrets.GHOSTTOWN_E2E_LIVE_URL }}
       GHOSTTOWN_E2E_SUBMIT_LEAD: ${{ vars.GHOSTTOWN_E2E_SUBMIT_LEAD || '0' }}
+      GHOSTTOWN_E2E_AGENTIC: "1"
 
     steps:
       - name: Check out repository
@@ -165,7 +166,7 @@ jobs:
         if: ${{ always() && inputs.deploy && steps.fixture.outcome == 'success' && steps.runtime_inputs.outcome == 'success' }}
         continue-on-error: true
         shell: bash
-        run: timeout --foreground 15m node tests/e2e/30-day-sprint-acceptance.mjs
+        run: timeout --foreground 35m node tests/e2e/30-day-sprint-acceptance.mjs
 
       - name: Prove live Get Me Live customer journey
         id: get_me_live
@@ -180,6 +181,12 @@ jobs:
         continue-on-error: true
         shell: bash
         run: timeout --foreground 6m node tests/e2e/get-me-live-owner-controls.mjs
+
+      - name: Aggregate agentic go-live gate
+        id: go_live_gate
+        if: ${{ always() && inputs.deploy }}
+        continue-on-error: true
+        run: node scripts/acceptance-go-live-gate-report.mjs
 
       - name: Clean self-provisioned acceptance fixture
         if: ${{ always() && inputs.deploy }}
@@ -197,6 +204,7 @@ jobs:
           SPRINT_OUTCOME: ${{ steps.sprint.outcome }}
           GET_ME_LIVE_OUTCOME: ${{ steps.get_me_live.outcome }}
           OWNER_CONTROLS_OUTCOME: ${{ steps.owner_controls.outcome }}
+          GO_LIVE_GATE_OUTCOME: ${{ steps.go_live_gate.outcome }}
         run: |
           mkdir -p github-acceptance
           node - <<'NODE'
@@ -219,7 +227,8 @@ jobs:
               frontDoor: process.env.FRONT_DOOR_OUTCOME || 'not_run',
               sprint30Day: process.env.SPRINT_OUTCOME || 'not_run',
               getMeLive: process.env.GET_ME_LIVE_OUTCOME || 'not_run',
-              ownerControls: process.env.OWNER_CONTROLS_OUTCOME || 'not_run'
+              ownerControls: process.env.OWNER_CONTROLS_OUTCOME || 'not_run',
+              agenticGoLiveGate: process.env.GO_LIVE_GATE_OUTCOME || 'not_run'
             },
             recordedAt: new Date().toISOString()
           };
@@ -245,6 +254,7 @@ jobs:
           SPRINT_OUTCOME: ${{ steps.sprint.outcome }}
           GET_ME_LIVE_OUTCOME: ${{ steps.get_me_live.outcome }}
           OWNER_CONTROLS_OUTCOME: ${{ steps.owner_controls.outcome }}
+          GO_LIVE_GATE_OUTCOME: ${{ steps.go_live_gate.outcome }}
         run: |
           echo "fixture: $FIXTURE_OUTCOME"
           echo "runtime-inputs: $RUNTIME_INPUTS_OUTCOME"
@@ -252,8 +262,9 @@ jobs:
           echo "sprint-30-day: $SPRINT_OUTCOME"
           echo "get-me-live: $GET_ME_LIVE_OUTCOME"
           echo "owner-controls: $OWNER_CONTROLS_OUTCOME"
+          echo "agentic-go-live-gate: $GO_LIVE_GATE_OUTCOME"
           failed=0
-          for outcome in "$FIXTURE_OUTCOME" "$RUNTIME_INPUTS_OUTCOME" "$FRONT_DOOR_OUTCOME" "$SPRINT_OUTCOME" "$GET_ME_LIVE_OUTCOME" "$OWNER_CONTROLS_OUTCOME"; do
+          for outcome in "$FIXTURE_OUTCOME" "$RUNTIME_INPUTS_OUTCOME" "$FRONT_DOOR_OUTCOME" "$SPRINT_OUTCOME" "$GET_ME_LIVE_OUTCOME" "$OWNER_CONTROLS_OUTCOME" "$GO_LIVE_GATE_OUTCOME"; do
             if [ "$outcome" != "success" ]; then failed=1; fi
           done
           if [ "$failed" -ne 0 ]; then
