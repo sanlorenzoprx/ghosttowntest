@@ -316,14 +316,7 @@ jobs:
               exit 1
             fi
             npx wrangler deployments status --env production --json > github-production-release/deployment-rollback.json
-            node <<'NODE'
-            const fs = require('fs');
-            const d = JSON.parse(fs.readFileSync('github-production-release/deployment-rollback.json','utf8'));
-            const live = (d.versions || []).filter(v => Number(v.percentage) === 100);
-            if (live.length !== 1 || live[0].version_id !== process.env.PREVIOUS_VERSION_ID) {
-              throw new Error('Rollback did not restore the previous version to 100% traffic.');
-            }
-            NODE
+            node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('github-production-release/deployment-rollback.json','utf8')); const live=(d.versions||[]).filter(v=>Number(v.percentage)===100); if(live.length!==1||live[0].version_id!==process.env.PREVIOUS_VERSION_ID) throw new Error('Rollback did not restore the previous version to 100% traffic.');"
             exit 1
           fi
           echo "### Production promotion complete" >> "$GITHUB_STEP_SUMMARY"
