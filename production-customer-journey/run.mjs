@@ -185,8 +185,14 @@ async function runSurfaceJourney(browser) {
   // account or checkout session.
   const authDialog = page.getByRole('dialog');
   await authDialog.getByRole('heading', { name: 'Create Account', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
-  await authDialog.locator('input[name="email"]').waitFor({ state: 'visible', timeout: 10000 });
-  await authDialog.locator('input[name="password"]').waitFor({ state: 'visible', timeout: 10000 });
+  const emailField = authDialog.locator('input[type="email"]');
+  const passwordField = authDialog.locator('input[type="password"]');
+  if (await emailField.count() < 1 || await passwordField.count() < 1) {
+    const dialogText = (await authDialog.innerText().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 500);
+    fail(`Account gate opened without expected email/password fields. Dialog text: ${dialogText}`);
+  }
+  await emailField.first().waitFor({ state: 'visible', timeout: 10000 });
+  await passwordField.first().waitFor({ state: 'visible', timeout: 10000 });
   proof.controlsInventoried.push({ surface: 'paid-offer', control: 'Create Account before Sprint checkout', action: 'observed' });
   proof.classifiedNotClicked.push({ control: 'Create Account', reason: 'surface scope does not create persistent production accounts' });
   await authDialog.getByRole('button', { name: 'Close registration form', exact: true }).click();
