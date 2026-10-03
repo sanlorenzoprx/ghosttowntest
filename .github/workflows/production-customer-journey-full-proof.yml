@@ -1,0 +1,84 @@
+name: Production Customer Journey Full Proof
+
+on:
+  push:
+    branches:
+      - test/autonomous-production-customer-journey
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghosttown-production-customer-journey-full-proof
+  cancel-in-progress: true
+
+jobs:
+  full-proof:
+    name: production-full-customer-journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production-customer-journey
+    env:
+      PCJ_BASE_URL: https://ghosttowntest.com
+      PCJ_API_URL: https://api.ghosttowntest.com
+      PCJ_EXPECTED_WORKER_VERSION: a5514c69-5485-49d1-8a39-1bc43cbc2484
+      PCJ_SCOPE: full
+      PCJ_CONFIRM: RUN PRODUCTION CUSTOMER JOURNEY
+      PCJ_CANARY_EMAIL: ${{ secrets.PCJ_CANARY_EMAIL }}
+      PCJ_CANARY_PASSWORD: ${{ secrets.PCJ_CANARY_PASSWORD }}
+      PCJ_SPRINT_ORDER_ID: ${{ secrets.PCJ_SPRINT_ORDER_ID }}
+      PCJ_GML_ORDER_ID: ${{ secrets.PCJ_GML_ORDER_ID }}
+      PCJ_LIVE_URL: ${{ secrets.PCJ_LIVE_URL }}
+      PCJ_ARTIFACT_DIR: production-customer-journey-artifacts
+      EXPECTED_PRODUCT_MAIN_SHA: 8fa4eee25f4f7b6dc0cc1f46cdde2ad7ecc2b555
+
+    steps:
+      - name: Check out harness branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Prove production product main is still frozen
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          current_main="$(git rev-parse origin/main)"
+          test "$current_main" = "$EXPECTED_PRODUCT_MAIN_SHA" || {
+            echo "::error::Protected main moved. Expected $EXPECTED_PRODUCT_MAIN_SHA, found $current_main. Re-review production identity before full canary proof."
+            exit 1
+          }
+
+      - name: Verify dedicated production canary credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PCJ_CANARY_EMAIL" || { echo "::error::Missing production-customer-journey secret PCJ_CANARY_EMAIL"; exit 1; }
+          test -n "$PCJ_CANARY_PASSWORD" || { echo "::error::Missing production-customer-journey secret PCJ_CANARY_PASSWORD"; exit 1; }
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install standalone harness
+        run: npm --prefix production-customer-journey install --no-audit --no-fund
+
+      - name: Install Chromium
+        run: cd production-customer-journey && npx playwright install --with-deps chromium
+
+      - name: Syntax check harness
+        run: node --check production-customer-journey/run.mjs
+
+      - name: Run full production customer journey
+        run: node production-customer-journey/run.mjs
+
+      - name: Upload full production journey receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-production-full-customer-journey-${{ github.run_id }}
+          path: production-customer-journey-artifacts
+          if-no-files-found: warn
+          retention-days: 30
