@@ -50,6 +50,13 @@ describe('finish-second-test-then-pay journey', () => {
     expect(questionFlow).toContain('litQuestions.every(question => answers[question.id] !== undefined)');
   });
 
+  it('shows the exact paid verdict balance after verdict #2 is generated', () => {
+    expect(app).toContain('setPaidVerdictResumeActive(true)');
+    expect(app).toContain('if (paidVerdictResumeActive)');
+    expect(app).toContain('You have used 1 of your 10 verdicts.');
+    expect(app).toContain('You have 9 verdicts left to explore your business ideas.');
+  });
+
   it('shows the out-of-free-verdicts offer only after the second test is saved', () => {
     expect(unlockPage).toContain('Your answers are saved');
     expect(unlockPage).toContain('You’re out of free verdicts.');
