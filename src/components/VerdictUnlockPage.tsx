@@ -169,7 +169,7 @@ export default function VerdictUnlockPage({
 
         <p className="mt-4 text-center text-xs leading-5 text-gray-500">
           {draft
-            ? 'Your saved StoryFactory answers stay on this device. After payment, GhostTown resumes that same verdict.'
+            ? 'Your saved answers stay on this device. After payment, GhostTown resumes that same verdict.'
             : 'Payment unlocks verdict #2 before any additional assessment is completed.'}
         </p>
       </div>
