@@ -148,30 +148,28 @@ export default function App() {
   }
 
   const hasAvailableTest = () => {
-    const testsAvailable = user
-      ? Math.max(0, 1 + user.testsPurchased + Math.min(user.shareCredits || 0, 1) - user.testsUsed)
-      : hasHitFreeTierLimit() ? 0 : 1;
-    return testsAvailable > 0;
+    if (isLoggedIn) {
+      if (!user) return false;
+      return Math.max(
+        0,
+        1 + user.testsPurchased + Math.min(user.shareCredits || 0, 1) - user.testsUsed
+      ) > 0;
+    }
+    return !hasHitFreeTierLimit();
   };
 
-  const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;
-  const hasCompletedPendingDraft = () => Boolean(
-    resumeDraft && litQuestions.every(question => resumeDraft.answers[question.id] !== undefined)
-  );
-
-  const openPendingVerdictUnlock = () => {
-    if (!resumeDraft) return;
-    setIdea(resumeDraft.idea);
+  const openVerdictPurchasePage = () => {
+    if (resumeDraft) setIdea(resumeDraft.idea);
     updatePath('/unlock-verdict');
     setScreen('unlock-verdict');
   };
 
   const handleStartTest = () => {
-    if (isLoggedIn && !hasAvailableTest() && hasCompletedPendingDraft()) {
-      openPendingVerdictUnlock();
+    if (!hasAvailableTest()) {
+      if (isLoggedIn) openVerdictPurchasePage();
+      else setShowPaywall(true);
       return;
     }
-    if (!canBeginAssessment()) { setShowPaywall(true); return; }
     clearEvaluationDraft();
     setResumeDraft(null);
     updateExampleParam(null);
@@ -181,11 +179,11 @@ export default function App() {
   };
 
   const handleSelectExample = (slug: string) => {
-    if (isLoggedIn && !hasAvailableTest() && hasCompletedPendingDraft()) {
-      openPendingVerdictUnlock();
+    if (!hasAvailableTest()) {
+      if (isLoggedIn) openVerdictPurchasePage();
+      else setShowPaywall(true);
       return;
     }
-    if (!canBeginAssessment()) { setShowPaywall(true); return; }
     const example = getFeaturedExampleBySlug(slug);
     if (!example) return;
     clearEvaluationDraft();
@@ -198,7 +196,11 @@ export default function App() {
 
   const handleResume = () => {
     if (!resumeDraft) return;
-    if (!canBeginAssessment()) { setShowPaywall(true); return; }
+    if (!hasAvailableTest()) {
+      if (isLoggedIn) openVerdictPurchasePage();
+      else setShowPaywall(true);
+      return;
+    }
     updatePath('/');
     updateExampleParam(null);
     setIdea(resumeDraft.idea);
@@ -206,7 +208,14 @@ export default function App() {
   };
 
   const handleIdeaSubmit = (ideaData: IdeaIntakeType) => {
-    if (!canBeginAssessment()) { setShowPaywall(true); return; }
+    if (!hasAvailableTest()) {
+      const draft = saveEvaluationDraft(ideaData, {}, 0);
+      setResumeDraft(draft);
+      setIdea(ideaData);
+      if (isLoggedIn) openVerdictPurchasePage();
+      else setShowPaywall(true);
+      return;
+    }
     updatePath('/');
     updateExampleParam(null);
     const draft = saveEvaluationDraft(ideaData, {}, 0);
@@ -223,21 +232,26 @@ export default function App() {
 
   const handleUnlockCreditsReady = () => {
     const draft = loadEvaluationDraft();
-    if (!draft) {
-      setResumeDraft(null);
-      setPurchaseReturn(null);
-      updatePath('/');
-      setScreen('landing');
-      return;
-    }
     setPurchaseReturn(null);
-    setResumeDraft(draft);
-    setIdea(draft.idea);
-    setAutoSubmitPendingVerdict(true);
-    updatePath('/');
-    setScreen('questions');
     const token = loadAuthToken();
     if (token) void verifyToken(token);
+
+    if (!draft) {
+      setResumeDraft(null);
+      setIdea(null);
+      setAutoSubmitPendingVerdict(false);
+      updatePath('/');
+      setScreen('intake');
+      return;
+    }
+
+    setResumeDraft(draft);
+    setIdea(draft.idea);
+    setAutoSubmitPendingVerdict(
+      litQuestions.every(question => draft.answers[question.id] !== undefined)
+    );
+    updatePath('/');
+    setScreen('questions');
   };
 
   const handleResultReceived = (res: EvaluationResult) => {

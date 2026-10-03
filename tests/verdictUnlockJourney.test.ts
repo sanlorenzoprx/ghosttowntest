@@ -11,7 +11,7 @@ const questionFlow = readFileSync(new URL('../src/components/QuestionFlow.tsx', 
 const app = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
 const unlockPage = readFileSync(new URL('../src/components/VerdictUnlockPage.tsx', import.meta.url), 'utf8');
 
-describe('completed verdict unlock journey', () => {
+describe('pay-before-second-verdict journey', () => {
   it('locks the assessment pack commercial contract to 10 verdicts for $14.95', () => {
     expect(ASSESSMENT_PACK_CREDITS).toBe(10);
     expect(ASSESSMENT_PACK_AMOUNT_CENTS).toBe(1495);
@@ -32,25 +32,29 @@ describe('completed verdict unlock journey', () => {
     expect(app).toContain("if (pathname === '/unlock-verdict') return 'unlock-verdict';");
   });
 
-  it('lets an authenticated zero-credit customer finish another assessment before the paywall', () => {
-    expect(app).toContain('const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;');
-    expect(app).toContain('const hasCompletedPendingDraft = () => Boolean(');
-    expect(app).toContain('openPendingVerdictUnlock();');
+  it('redirects an authenticated zero-credit customer to payment before verdict #2 continues', () => {
+    expect(app).not.toContain('const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;');
+    expect(app).toContain('if (isLoggedIn) {');
+    expect(app).toContain('if (!user) return false;');
+    expect(app).toContain('if (!hasAvailableTest()) {');
+    expect(app).toContain('if (isLoggedIn) openVerdictPurchasePage();');
+    expect(app).toContain("updatePath('/unlock-verdict');");
     expect(app).toContain('onAllowanceRequired={handleAllowanceRequired}');
   });
 
-  it('resubmits the complete saved draft after Stripe credits are confirmed', () => {
+  it('resumes the second paid verdict only after Stripe credits are confirmed', () => {
     expect(unlockPage).toContain("purchaseReturn !== 'success'");
     expect(unlockPage).toContain('availableTests(body.user) > 0');
-    expect(app).toContain('setAutoSubmitPendingVerdict(true)');
+    expect(app).toContain('setAutoSubmitPendingVerdict(');
+    expect(app).toContain('litQuestions.every(question => draft.answers[question.id] !== undefined)');
     expect(questionFlow).toContain('autoSubmitCompleteDraft');
     expect(questionFlow).toContain('litQuestions.every(question => answers[question.id] !== undefined)');
   });
 
-  it('shows the promised customer-facing saved-work and counting rules', () => {
-    expect(unlockPage).toContain('Your answers are saved');
-    expect(unlockPage).toContain('You’ve used your free verdict.');
-    expect(unlockPage).toContain('This pending verdict uses one of the');
-    expect(unlockPage).toContain('9 verdicts left after it opens');
+  it('shows the promised pay-first customer flow and counting rules', () => {
+    expect(unlockPage).toContain('Your free verdict has been used');
+    expect(unlockPage).toContain('Complete payment to continue with verdict #2');
+    expect(unlockPage).toContain('Verdict #2 uses one of the');
+    expect(unlockPage).toContain('9 verdicts left after it is completed');
   });
 });
