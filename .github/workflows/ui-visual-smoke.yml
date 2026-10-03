@@ -1,4 +1,4 @@
-name: Production Workers Build Gate Repair
+name: Production Version Metadata Diagnostic
 
 on:
   workflow_dispatch:
@@ -10,14 +10,13 @@ permissions:
   contents: read
 
 jobs:
-  repair-and-prove:
+  inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     environment: acceptance
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      MAIN_SHA: 7821024955c513258c0c34b82ffe916ac2c6b777
       PREVIOUS_VERSION_ID: 7c9a1db4-c3d2-473f-98ee-9e905c10b4d3
     steps:
       - name: Check out repository
@@ -32,111 +31,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Repair production Workers Build trigger and prove safe upload
+      - name: Inspect versions and deployment
         shell: bash
         run: |
-          node - <<'NODE'
-          const account = process.env.CLOUDFLARE_ACCOUNT_ID;
-          const token = process.env.CLOUDFLARE_API_TOKEN;
-          const mainSha = process.env.MAIN_SHA;
-          const headers = {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          };
-          async function cf(path, init = {}) {
-            const r = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
-              ...init,
-              headers: { ...headers, ...(init.headers || {}) }
-            });
-            const b = await r.json();
-            if (!r.ok || b.success === false) {
-              throw new Error(`${init.method || 'GET'} ${path} failed ${r.status}: ${JSON.stringify(b.errors || b)}`);
-            }
-            return b.result;
-          }
-
-          const scripts = await cf(`/accounts/${account}/workers/scripts`);
-          const worker = scripts.find(x => x.id === 'lit-ghost-town-api-production');
-          if (!worker?.tag) throw new Error('Production Worker tag not found.');
-
-          const triggers = await cf(`/accounts/${account}/builds/workers/${worker.tag}/triggers`);
-          const trigger = triggers.find(x => Array.isArray(x.branch_includes) && x.branch_includes.includes('main'));
-          if (!trigger?.trigger_uuid) throw new Error('main production build trigger not found.');
-
-          const before = String(trigger.deploy_command || '').trim();
-          const expected = 'npx wrangler versions upload --env production';
-          if (before !== expected) {
-            if (before !== 'npx wrangler versions upload') {
-              throw new Error(`Refusing unexpected deploy command: ${before}`);
-            }
-            const updated = await cf(
-              `/accounts/${account}/builds/triggers/${trigger.trigger_uuid}`,
-              { method: 'PATCH', body: JSON.stringify({ deploy_command: expected }) }
-            );
-            if (String(updated.deploy_command || '').trim() !== expected) {
-              throw new Error('Failed to verify repaired deploy command.');
-            }
-          }
-
-          const build = await cf(
-            `/accounts/${account}/builds/triggers/${trigger.trigger_uuid}/builds`,
-            { method: 'POST', body: JSON.stringify({ branch: 'main', commit_hash: mainSha }) }
-          );
-          const buildId = build.build_uuid;
-          if (!buildId) throw new Error('Manual proof build did not return build_uuid.');
-          console.log('PROOF_BUILD_UUID=' + buildId);
-
-          let finalBuild;
-          for (let i = 0; i < 90; i += 1) {
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            finalBuild = await cf(`/accounts/${account}/builds/builds/${buildId}`);
-            const outcome = finalBuild.build_outcome;
-            if (['success','fail','skipped','cancelled','terminated'].includes(outcome)) break;
-          }
-          if (!finalBuild || finalBuild.build_outcome !== 'success') {
-            const logs = await cf(`/accounts/${account}/builds/builds/${buildId}/logs`);
-            const lines = (logs.lines || []).map(row => Array.isArray(row) ? String(row[row.length - 1]) : String(row));
-            const safe = lines.filter(line => /error|fail|wrangler|version|deploy|permission|namespace|config/i.test(line)).slice(-80);
-            console.log('PROOF_BUILD_LOG_SAFE=' + JSON.stringify(safe));
-            throw new Error(`Proof build outcome was ${finalBuild?.build_outcome || 'unknown'}`);
-          }
-
-          console.log('PRODUCTION_BUILD_GATE_OK=' + JSON.stringify({
-            trigger_uuid: trigger.trigger_uuid,
-            deploy_command: expected,
-            build_uuid: buildId,
-            commit_hash: finalBuild.build_trigger_metadata?.commit_hash,
-            outcome: finalBuild.build_outcome
-          }));
-          NODE
-
-      - name: Verify proof build created version but did not move traffic
-        shell: bash
-        run: |
-          mkdir -p github-build-gate-proof
-          npx wrangler versions list --env production --json > github-build-gate-proof/versions.json
-          npx wrangler deployments status --env production --json > github-build-gate-proof/deployment.json
+          npx wrangler versions list --env production --json > versions.json
+          npx wrangler deployments status --env production --json > deployment.json
           node - <<'NODE'
           const fs = require('node:fs');
-          const versions = JSON.parse(fs.readFileSync('github-build-gate-proof/versions.json','utf8'));
-          const deployment = JSON.parse(fs.readFileSync('github-build-gate-proof/deployment.json','utf8'));
-          const uploaded = versions.find(v => v.annotations?.['workers/commit_sha'] === process.env.MAIN_SHA);
-          if (!uploaded?.id) throw new Error('Could not find uploaded version for exact main SHA.');
+          const versions = JSON.parse(fs.readFileSync('versions.json','utf8'));
+          const deployment = JSON.parse(fs.readFileSync('deployment.json','utf8'));
+          console.log('VERSION_METADATA=' + JSON.stringify(versions.slice(0,8).map(v => ({
+            id: v.id,
+            number: v.number,
+            metadata: v.metadata,
+            annotations: v.annotations
+          }))));
+          console.log('ACTIVE_DEPLOYMENT=' + JSON.stringify(deployment));
           const live = (deployment.versions || []).filter(v => Number(v.percentage) === 100);
           if (live.length !== 1 || live[0].version_id !== process.env.PREVIOUS_VERSION_ID) {
-            throw new Error('Production traffic changed during versions-upload proof.');
+            throw new Error('Production traffic changed unexpectedly.');
           }
-          console.log('SAFE_UPLOAD_PROOF=' + JSON.stringify({
-            uploaded_version_id: uploaded.id,
-            uploaded_commit_sha: uploaded.annotations?.['workers/commit_sha'],
-            active_version_id: live[0].version_id,
-            active_percentage: live[0].percentage
+          console.log('TRAFFIC_UNCHANGED=' + JSON.stringify({
+            version_id: live[0].version_id,
+            percentage: live[0].percentage
           }));
           NODE
-
-      - name: Upload proof evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-workers-build-gate-${{ github.run_id }}
-          path: github-build-gate-proof
-          retention-days: 14
