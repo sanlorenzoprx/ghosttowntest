@@ -48,8 +48,16 @@ add('sprint.entitlement', '$97 Sprint entitlement exists for isolated customer f
   { proof: '30-day-sprint-ui-proof.json', orderId: sprint.orderId || null });
 add('sprint.blueprint', 'Canonical Blueprint renders all 30 days', sprint.passed === true && completedDays.length === 30,
   { proof: '30-day-sprint-ui-proof.json', completedDays });
-add('sprint.agentic.daily', 'Agentic daily research/guidance runs for Days 1-30', dailyAgentDays.size === 30,
-  { count: dailyAgentDays.size, days: [...dailyAgentDays].sort((a,b) => a-b) });
+const dailyAgentic = sprint.agentic?.daily || [];
+const dailyGrounded = dailyAgentic.filter(item => item.capability === 'grounded_research' && item.receipt?.task === 'grounded_research');
+add('sprint.agentic.daily', 'Agentic grounded research/guidance runs for Days 1-30',
+  dailyAgentDays.size === 30 && dailyGrounded.length === 30,
+  {
+    count: dailyAgentDays.size,
+    groundedResearchCount: dailyGrounded.length,
+    days: [...dailyAgentDays].sort((a,b) => a-b),
+    receiptTasks: [...new Set(dailyAgentic.map(item => item.receipt?.task).filter(Boolean))]
+  });
 add('sprint.notes_evidence', 'Daily notes and structured evidence persist through reload/re-entry', sprint.passed === true && Array.isArray(sprint.recovery) && sprint.recovery.length > 0,
   { recovery: sprint.recovery || [], days: sprint.days || [] });
 add('sprint.sequence', 'Days cannot be skipped through the API', sprint.sequencing?.serverRejectedSkippedDay === true,
