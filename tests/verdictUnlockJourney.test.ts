@@ -52,6 +52,16 @@ describe('finish-second-test-then-pay journey', () => {
     expect(app).toContain("setScreen('questions');");
   });
 
+  it('shows a dashboard resume button only when a saved verdict draft exists', () => {
+    expect(dashboard).toContain('hasDraft: boolean;');
+    expect(dashboard).toContain('onResume: () => void;');
+    expect(dashboard).toContain('{hasDraft && (');
+    expect(dashboard).toContain('onClick={onResume}');
+    expect(dashboard).toContain('Resume Saved Verdict');
+    expect(app).toContain('hasDraft={Boolean(resumeDraft)}');
+    expect(app).toContain('onResume={handleResume}');
+  });
+
   it('opens the verdict intake directly from the dashboard without a zero-credit explainer or buy-first CTA', () => {
     expect(dashboard).toContain('onClick={onStart}');
     expect(dashboard).toContain('Start Another Verdict');
