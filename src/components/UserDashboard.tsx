@@ -60,14 +60,18 @@ interface GetMeLiveSummary {
 
 interface Props {
   purchaseRefresh?: boolean;
+  hasDraft: boolean;
   onLogout: () => void;
+  onResume: () => void;
   onStart: () => void;
   onOpenResult: (result: EvaluationResult) => void;
 }
 
 export default function UserDashboard({
   purchaseRefresh = false,
+  hasDraft,
   onLogout,
+  onResume,
   onStart,
   onOpenResult,
 }: Props) {
@@ -322,11 +326,22 @@ export default function UserDashboard({
 
   return (
     <div className="mx-auto max-w-4xl p-4 py-8">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-bold">Your Dashboard</h1>
-        <button onClick={onLogout} className="font-medium text-red-600">
-          Log Out
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {hasDraft && (
+            <button
+              type="button"
+              onClick={onResume}
+              className="rounded-lg bg-ghost-rust px-5 py-3 font-black text-white shadow-lantern transition hover:bg-[#96360d]"
+            >
+              Resume Saved Verdict
+            </button>
+          )}
+          <button onClick={onLogout} className="font-medium text-red-600">
+            Log Out
+          </button>
+        </div>
       </div>
 
       <section className="mb-8 flex flex-col gap-5 rounded-xl bg-ghost-ink p-6 text-white shadow-lantern sm:flex-row sm:items-center sm:justify-between">
