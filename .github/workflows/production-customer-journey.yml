@@ -79,9 +79,6 @@ jobs:
           set -euo pipefail
           test -n "$PCJ_CANARY_EMAIL" || { echo "::error::Missing production-customer-journey secret PCJ_CANARY_EMAIL"; exit 1; }
           test -n "$PCJ_CANARY_PASSWORD" || { echo "::error::Missing production-customer-journey secret PCJ_CANARY_PASSWORD"; exit 1; }
-          test -n "$PCJ_SPRINT_ORDER_ID" || { echo "::error::Missing production-customer-journey secret PCJ_SPRINT_ORDER_ID"; exit 1; }
-          test -n "$PCJ_GML_ORDER_ID" || { echo "::error::Missing production-customer-journey secret PCJ_GML_ORDER_ID"; exit 1; }
-          test -n "$PCJ_LIVE_URL" || { echo "::error::Missing production-customer-journey secret PCJ_LIVE_URL"; exit 1; }
 
       - name: Set up Node
         uses: actions/setup-node@v6
