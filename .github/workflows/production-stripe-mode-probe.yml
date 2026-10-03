@@ -1,0 +1,45 @@
+name: Production Stripe Mode Probe
+
+on:
+  push:
+    branches:
+      - test/autonomous-production-customer-journey
+    paths:
+      - .github/workflows/production-stripe-mode-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: production-stripe-mode-probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production-customer-journey
+    env:
+      PCJ_CANARY_EMAIL: ${{ secrets.PCJ_CANARY_EMAIL }}
+      PCJ_CANARY_PASSWORD: ${{ secrets.PCJ_CANARY_PASSWORD }}
+      PCJ_EXPECTED_WORKER_VERSION: a5514c69-5485-49d1-8a39-1bc43cbc2484
+      PCJ_CONFIRM: PROBE PRODUCTION STRIPE MODE
+
+    steps:
+      - name: Check out harness branch
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Probe real production checkout without paying
+        run: node production-customer-journey/probe-checkout-mode.mjs
+
+      - name: Upload checkout probe receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-production-stripe-mode-probe-${{ github.run_id }}
+          path: production-checkout-probe/receipt.json
+          if-no-files-found: warn
+          retention-days: 7
