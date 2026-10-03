@@ -52,10 +52,11 @@ describe('finish-second-test-then-pay journey', () => {
     expect(app).toContain("setScreen('questions');");
   });
 
-  it('routes zero-credit dashboard CTAs into the assessment before purchase', () => {
-    expect(dashboard).toContain('You can still complete your next test. You only pay when you ask for the verdict.');
-    expect(dashboard).toContain('Complete your next GhostTown test before you buy anything.');
+  it('opens the verdict intake directly from the dashboard without a zero-credit explainer or buy-first CTA', () => {
+    expect(dashboard).toContain('onClick={onStart}');
     expect(dashboard).toContain('Start Another Verdict');
+    expect(dashboard).not.toContain('You can still complete your next test. You only pay when you ask for the verdict.');
+    expect(dashboard).not.toContain('Complete your next GhostTown test before you buy anything.');
     expect(dashboard).not.toContain('Buy 10 Assessments — $14.97');
     expect(dashboard).not.toContain('onBuy: () => void;');
   });
