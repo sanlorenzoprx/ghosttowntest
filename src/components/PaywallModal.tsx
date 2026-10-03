@@ -45,8 +45,8 @@ export default function PaywallModal({ isLoggedIn, onLoginClick, onClose, contex
         <h2 className="text-2xl font-bold">{context === 'plan-declined' ? 'Keep exploring before you commit' : 'Keep testing before you build'}</h2>
         <p className="mt-3 text-gray-600">
           {context === 'plan-declined'
-            ? 'Not ready for the $97.00 30-day PDF plan? You can still buy ${ASSESSMENT_PACK_CREDITS} additional assessments and keep testing ideas before committing to a longer evidence sprint.'
-            : 'Your current allowance has been used. Registered members can share one completed result to unlock one bonus assessment, or get ${ASSESSMENT_PACK_CREDITS} more for ${ASSESSMENT_PACK_DISPLAY_PRICE}.'}
+            ? `Not ready for the $97.00 30-day PDF plan? You can still buy ${ASSESSMENT_PACK_CREDITS} additional assessments and keep testing ideas before committing to a longer evidence sprint.`
+            : `Your current allowance has been used. Registered members can share one completed result to unlock one bonus assessment, or get ${ASSESSMENT_PACK_CREDITS} more for ${ASSESSMENT_PACK_DISPLAY_PRICE}.`}
         </p>
 
         <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
