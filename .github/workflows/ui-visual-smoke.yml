@@ -1,4 +1,4 @@
-name: Production Version Annotation Diagnostic
+name: Production Release Annotation Probe
 
 on:
   workflow_dispatch:
@@ -10,29 +10,54 @@ permissions:
   contents: read
 
 jobs:
-  inspect:
+  probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     environment: acceptance
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PREVIOUS_VERSION_ID: 7c9a1db4-c3d2-473f-98ee-9e905c10b4d3
     steps:
-      - name: Inspect newest production Worker versions
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Upload undeployed annotation probe
         shell: bash
         run: |
+          npx wrangler versions list --env production --json > before.json
+          npx wrangler versions upload --env production --strict --keep-vars --message "annotation-probe:$GITHUB_SHA"
+          npx wrangler versions list --env production --json > after.json
+          npx wrangler deployments status --env production --json > deployment.json
           node - <<'NODE'
-          const account = process.env.CLOUDFLARE_ACCOUNT_ID;
-          const headers = { Authorization: `Bearer ${process.env.CLOUDFLARE_API_TOKEN}` };
-          const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/workers/scripts/lit-ghost-town-api-production/versions`, { headers });
-          const b = await r.json();
-          if (!r.ok || b.success === false) throw new Error(JSON.stringify(b.errors || b));
-          const rows = Array.isArray(b.result) ? b.result : (b.result?.items || b.result?.versions || []);
-          const slim = rows.map(v => ({
+          const fs = require('node:fs');
+          const before = JSON.parse(fs.readFileSync('before.json','utf8'));
+          const after = JSON.parse(fs.readFileSync('after.json','utf8'));
+          const deployment = JSON.parse(fs.readFileSync('deployment.json','utf8'));
+          const beforeIds = new Set(before.map(v => v.id));
+          const created = after.filter(v => !beforeIds.has(v.id));
+          if (created.length !== 1) throw new Error(`Expected one probe version, found ${created.length}`);
+          const v = created[0];
+          console.log('ANNOTATION_PROBE=' + JSON.stringify({
             id: v.id,
-            number: v.number,
-            created_on: v.metadata?.created_on || v.created_on,
-            annotations: v.annotations || v.metadata?.annotations || {}
+            annotations: v.annotations || {},
+            github_sha: process.env.GITHUB_SHA
           }));
-          console.log('NEWEST_VERSION_ANNOTATIONS=' + JSON.stringify(slim.slice(-12)));
+          const live = (deployment.versions || []).filter(v => Number(v.percentage) === 100);
+          if (live.length !== 1 || live[0].version_id !== process.env.PREVIOUS_VERSION_ID) {
+            throw new Error('Production traffic changed during annotation probe.');
+          }
+          console.log('PROBE_TRAFFIC_UNCHANGED=' + JSON.stringify({
+            version_id: live[0].version_id,
+            percentage: live[0].percentage
+          }));
           NODE
