@@ -35,7 +35,9 @@ describe('autonomous production customer journey harness', () => {
     expect(runner).toContain('PCJ_SPRINT_ORDER_ID');
     expect(runner).toContain('PCJ_GML_ORDER_ID');
     expect(runner).toContain('PCJ_LIVE_URL');
-    expect(runner).toContain("sprint.status !== 'ready'");
+    expect(runner).toContain("item?.status === 'ready'");
+    expect(runner).toContain("gmlCandidate?.status !== 'live'");
+    expect(runner).toContain('eligiblePairs.length !== 1');
     expect(runner).toContain("30-day execution calendar");
     expect(runner).toContain("Launch checklist");
     expect(readme).toContain('pre-provisioned canary paid state');
