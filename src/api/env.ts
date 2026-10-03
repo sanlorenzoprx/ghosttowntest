@@ -41,6 +41,7 @@ export interface Env {
   VIDEOS?: R2Bucket;
   BLUEPRINTS?: R2Bucket;
   BROWSER?: BrowserRunBinding;
+  CF_VERSION_METADATA?: { id: string; tag?: string; timestamp: string };
   LAUNCH_BLUEPRINT_WORKFLOW?: LaunchBlueprintWorkflowBinding;
   AI_GATEWAY_ID?: string;
   AI_GATEWAY_TOKEN?: string;
