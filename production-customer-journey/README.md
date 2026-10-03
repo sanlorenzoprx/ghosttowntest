@@ -26,11 +26,14 @@ For `PCJ_SCOPE=full`:
 
 - `PCJ_CANARY_EMAIL`
 - `PCJ_CANARY_PASSWORD`
+
+The harness automatically discovers a ready current Blueprint and its linked live Get Me Live order from that account. If the canary owns more than one eligible pair, these optional secrets can disambiguate it:
+
 - `PCJ_SPRINT_ORDER_ID`
 - `PCJ_GML_ORDER_ID`
 - `PCJ_LIVE_URL`
 
-Credentials are supplied only as GitHub Environment secrets. They must never be committed or written to artifacts.
+Credentials and optional overrides are supplied only as GitHub Environment secrets. They must never be committed or written to artifacts.
 
 ## What a PASS means
 
