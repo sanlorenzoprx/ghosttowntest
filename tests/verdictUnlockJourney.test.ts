@@ -34,6 +34,8 @@ describe('pay-before-second-verdict journey', () => {
 
   it('redirects an authenticated zero-credit customer to payment before verdict #2 continues', () => {
     expect(app).not.toContain('const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;');
+    expect(app).toContain('if (isLoggedIn) {');
+    expect(app).toContain('if (!user) return false;');
     expect(app).toContain('if (!hasAvailableTest()) {');
     expect(app).toContain('if (isLoggedIn) openVerdictPurchasePage();');
     expect(app).toContain("updatePath('/unlock-verdict');");
