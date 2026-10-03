@@ -150,6 +150,7 @@ jobs:
           test -n "$GHOSTTOWN_E2E_FIXTURE_PASSWORD"
           test -n "$GHOSTTOWN_E2E_SPRINT_ORDER_ID"
           test "$GHOSTTOWN_E2E_SPRINT_MUTATE" = "1"
+          test "$GHOSTTOWN_E2E_AGENTIC" = "1"
           test -n "$GHOSTTOWN_E2E_GML_ORDER_ID"
           test -n "$GHOSTTOWN_E2E_LIVE_URL"
           test "$GHOSTTOWN_E2E_SUBMIT_LEAD" = "1"
