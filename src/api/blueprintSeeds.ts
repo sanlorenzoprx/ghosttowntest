@@ -9,9 +9,7 @@ import type {
   PaidTestOrder
 } from '../types/paidTest';
 import { startLaunchBlueprintWorkflow } from './blueprintFulfillment';
-
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+import { generateAIJson, type GenerativeAIResponseSchema } from './generativeAIService';
 const orderKey = (orderId: string) => `paid_test_order_${orderId}`;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
@@ -26,11 +24,6 @@ interface SuggestedSeedPayload {
     reason?: unknown;
     confidence?: unknown;
   }>;
-}
-
-interface GeminiResponse {
-  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  error?: { message?: string };
 }
 
 interface SeedInput {
@@ -163,34 +156,48 @@ Return only JSON:
 {"suggestions":[{"name":"Public brand name","website":"https://official-domain.example","relationship":"direct_competitor|adjacent_product|current_alternative","reason":"Why its distribution footprint is relevant","confidence":"high|medium|low"}]}`;
 }
 
-function parseSuggestions(value: string): SuggestedSeedPayload {
-  const fenced = value.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
-  const source = fenced || value;
-  const first = source.indexOf('{');
-  const last = source.lastIndexOf('}');
-  if (first < 0 || last <= first) return {};
-  try {
-    return JSON.parse(source.slice(first, last + 1)) as SuggestedSeedPayload;
-  } catch {
-    return {};
-  }
-}
+const SEED_SUGGESTION_SCHEMA: GenerativeAIResponseSchema = {
+  type: 'OBJECT',
+  properties: {
+    suggestions: {
+      type: 'ARRAY',
+      minItems: 3,
+      maxItems: 8,
+      items: {
+        type: 'OBJECT',
+        properties: {
+          name: { type: 'STRING' },
+          website: { type: 'STRING' },
+          relationship: {
+            type: 'STRING',
+            enum: ['direct_competitor', 'adjacent_product', 'current_alternative']
+          },
+          reason: { type: 'STRING' },
+          confidence: { type: 'STRING', enum: ['high', 'medium', 'low'] }
+        },
+        required: ['name', 'website', 'relationship', 'reason', 'confidence']
+      }
+    }
+  },
+  required: ['suggestions']
+};
 
 async function aiSuggestions(env: Env, order: PaidTestOrder, verdict: EvaluationResult): Promise<SuggestedSeedPayload> {
-  if (!env.GEMINI_API_KEY?.trim()) return {};
-  const model = env.GEMINI_RESEARCH_MODEL?.trim() || DEFAULT_MODEL;
-  const response = await fetch(`${GEMINI_ENDPOINT}/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: suggestionPrompt(order, verdict) }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 1800, responseMimeType: 'application/json' }
-    })
+  const generated = await generateAIJson<SuggestedSeedPayload>(env, {
+    task: 'candidate_selection',
+    systemInstruction: [
+      'You select real public market-reference resources for a paying GhostTown customer.',
+      'Never invent a company, brand, product, publication, marketplace, or domain.',
+      'Prefer official homepages for established resources.',
+      'Return only resources whose official domain you are confident is correct.'
+    ].join(' '),
+    prompt: suggestionPrompt(order, verdict),
+    responseSchema: SEED_SUGGESTION_SCHEMA,
+    temperature: 0.1,
+    maxOutputTokens: 2200,
+    timeoutMs: 45_000
   });
-  const body = await response.json() as GeminiResponse;
-  if (!response.ok) throw new Error(body.error?.message || `Seed suggestion model returned HTTP ${response.status}`);
-  const output = body.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('\n') || '';
-  return parseSuggestions(output);
+  return generated.data;
 }
 
 async function buildSuggestions(env: Env, order: PaidTestOrder, verdict: EvaluationResult): Promise<CompetitorSeedSuggestion[]> {
@@ -217,7 +224,15 @@ async function buildSuggestions(env: Env, order: PaidTestOrder, verdict: Evaluat
       confidence: 'high'
     });
   }
-  const payload = await aiSuggestions(env, order, verdict).catch(() => ({} as SuggestedSeedPayload));
+  let payload: SuggestedSeedPayload = {};
+  try {
+    payload = await aiSuggestions(env, order, verdict);
+  } catch (error) {
+    if (candidates.length < 3) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`GhostTown could not preselect the starting research set with Vertex AI: ${message}`);
+    }
+  }
   for (const item of payload.suggestions || []) {
     candidates.push({
       name: text(item.name),
@@ -248,7 +263,11 @@ async function buildSuggestions(env: Env, order: PaidTestOrder, verdict: Evaluat
       verified: true
     });
   }
-  return suggestions.slice(0, 6);
+  const result = suggestions.slice(0, 6);
+  if (result.length < 2) {
+    throw new Error(`GhostTown could verify only ${result.length} starting research resource${result.length === 1 ? '' : 's'}. At least two verified resources are required before the Blueprint can start.`);
+  }
+  return result;
 }
 
 export async function handleBlueprintSeeds(request: Request, env: Env, orderId: string): Promise<Response> {
