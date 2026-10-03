@@ -30,7 +30,8 @@ describe('production release gate', () => {
     expect(workflow).toContain('wrangler versions upload --env production --strict --keep-vars');
     expect(workflow).toContain("const commitSha = annotations['workers/commit_sha']");
     expect(workflow).toContain("!commitSha || commitSha === process.env.EXPECTED_MAIN_SHA");
-    expect(workflow).toContain("annotations['workers/message'] === `release-candidate:${process.env.EXPECTED_MAIN_SHA}`");
+    expect(workflow).toContain("const message = annotations['workers/message']");
+    expect(workflow).toContain("message === `release-candidate:${process.env.EXPECTED_MAIN_SHA}`");
     expect(workflow).toContain('${NEW_VERSION_ID}@0%');
     expect(workflow).toContain('${PREVIOUS_VERSION_ID}@100%');
     expect(workflow).toContain('Cloudflare-Workers-Version-Overrides');
