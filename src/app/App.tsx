@@ -158,10 +158,6 @@ export default function App() {
     return !hasHitFreeTierLimit();
   };
 
-  const hasCompletedPendingDraft = () => Boolean(
-    resumeDraft && litQuestions.every(question => resumeDraft.answers[question.id] !== undefined)
-  );
-
   const openVerdictPurchasePage = () => {
     if (resumeDraft) setIdea(resumeDraft.idea);
     updatePath('/unlock-verdict');
