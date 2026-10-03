@@ -322,8 +322,14 @@ try {
     proof.surfaceAudit.push({ surface: 'structured-workspace', control: label, result: 'passed' });
   }
   await workspaceNav.selectOption('reminders');
+  const reminderSaveResponse = page.waitForResponse(response =>
+    response.url() === progressUrl && response.request().method() === 'POST',
+  { timeout: 15000 });
   await page.getByRole('button', { name: 'Schedule upcoming checkpoint reviews', exact: true }).click();
-  await waitSaved(page);
+  const savedReminderResponse = await reminderSaveResponse;
+  if (!savedReminderResponse.ok()) {
+    throw new Error(`Checkpoint reminder save failed HTTP ${savedReminderResponse.status()}.`);
+  }
   const reminderState = await apiJson(page.request, progressUrl);
   const checkpointReminders = (reminderState.progress?.scheduledReminders || []).filter(item => item.kind === 'checkpoint' && item.status === 'pending');
   if (checkpointReminders.length !== 4) throw new Error(`Expected 4 persisted checkpoint reminders; received ${checkpointReminders.length}.`);
