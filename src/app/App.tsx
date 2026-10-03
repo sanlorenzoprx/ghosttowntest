@@ -9,6 +9,7 @@ import GetMeLiveLanding from '../components/GetMeLiveLanding';
 import GetMeLiveOpening from '../components/GetMeLiveOpening';
 import LoginModal from '../components/LoginModal';
 import PaywallModal from '../components/PaywallModal';
+import VerdictUnlockPage from '../components/VerdictUnlockPage';
 import Contact from '../components/Contact';
 import LegalPage, { type LegalPageKind } from '../components/LegalPage';
 import ActionPlanSuccess from '../components/ActionPlanSuccess';
@@ -29,7 +30,7 @@ import type { PublicUserData } from '../types/auth';
 import { getFeaturedExampleBySlug, toIdeaIntake } from '../lib/exampleIdeas';
 import { captureCommercialAttribution, recordCommercialEvent } from '../lib/commercialAttribution';
 
-type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'get-me-live' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | LegalPageKind;
+type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'get-me-live' | 'unlock-verdict' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | LegalPageKind;
 
 function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/contact') return 'contact';
@@ -38,6 +39,7 @@ function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/refunds' || pathname === '/refund-policy') return 'refund';
   if (pathname === '/disclaimer') return 'disclaimer';
   if (pathname === '/paid-test/success') return 'action-plan-success';
+  if (pathname === '/unlock-verdict') return 'unlock-verdict';
   if (pathname.startsWith('/get-me-live')) return 'get-me-live';
   if (pathname === '/internal-research') return 'internal-research';
   if (pathname === '/internal-metrics') return 'internal-metrics';
@@ -66,6 +68,7 @@ export default function App() {
   const [purchaseReturn, setPurchaseReturn] = useState<AssessmentPackReturn>(() => assessmentPackReturnFromSearch(window.location.search));
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [user, setUser] = useState<PublicUserData | null>(null);
+  const [autoSubmitPendingVerdict, setAutoSubmitPendingVerdict] = useState(false);
 
   useEffect(() => {
     captureCommercialAttribution();
@@ -81,7 +84,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!purchaseReturn) return;
+    if (!purchaseReturn || window.location.pathname === '/unlock-verdict') return;
     const url = new URL(window.location.href);
     url.searchParams.delete('purchase');
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
@@ -150,8 +153,10 @@ export default function App() {
     return testsAvailable > 0;
   };
 
+  const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;
+
   const handleStartTest = () => {
-    if (!hasAvailableTest()) { setShowPaywall(true); return; }
+    if (!canBeginAssessment()) { setShowPaywall(true); return; }
     clearEvaluationDraft();
     setResumeDraft(null);
     updateExampleParam(null);
@@ -161,7 +166,7 @@ export default function App() {
   };
 
   const handleSelectExample = (slug: string) => {
-    if (!hasAvailableTest()) { setShowPaywall(true); return; }
+    if (!canBeginAssessment()) { setShowPaywall(true); return; }
     const example = getFeaturedExampleBySlug(slug);
     if (!example) return;
     clearEvaluationDraft();
@@ -174,7 +179,7 @@ export default function App() {
 
   const handleResume = () => {
     if (!resumeDraft) return;
-    if (!hasAvailableTest()) { setShowPaywall(true); return; }
+    if (!canBeginAssessment()) { setShowPaywall(true); return; }
     updatePath('/');
     updateExampleParam(null);
     setIdea(resumeDraft.idea);
@@ -182,7 +187,7 @@ export default function App() {
   };
 
   const handleIdeaSubmit = (ideaData: IdeaIntakeType) => {
-    if (!hasAvailableTest()) { setShowPaywall(true); return; }
+    if (!canBeginAssessment()) { setShowPaywall(true); return; }
     updatePath('/');
     updateExampleParam(null);
     const draft = saveEvaluationDraft(ideaData, {}, 0);
@@ -191,9 +196,36 @@ export default function App() {
     setScreen('questions');
   };
 
+  const handleAllowanceRequired = () => {
+    setAutoSubmitPendingVerdict(false);
+    updatePath('/unlock-verdict');
+    setScreen('unlock-verdict');
+  };
+
+  const handleUnlockCreditsReady = () => {
+    const draft = loadEvaluationDraft();
+    if (!draft) {
+      setResumeDraft(null);
+      setPurchaseReturn(null);
+      updatePath('/');
+      setScreen('landing');
+      return;
+    }
+    setPurchaseReturn(null);
+    setResumeDraft(draft);
+    setIdea(draft.idea);
+    setAutoSubmitPendingVerdict(true);
+    updatePath('/');
+    setScreen('questions');
+    const token = loadAuthToken();
+    if (token) void verifyToken(token);
+  };
+
   const handleResultReceived = (res: EvaluationResult) => {
     setResult(res);
     setResumeDraft(null);
+    setAutoSubmitPendingVerdict(false);
+    setPurchaseReturn(null);
     setScreen('result');
     const token = loadAuthToken();
     if (token) void verifyToken(token);
@@ -265,7 +297,7 @@ export default function App() {
       </header>
 
       <main>
-        {purchaseReturn && (
+        {purchaseReturn && screen !== 'unlock-verdict' && (
           <section
             role="status"
             className="mx-auto mt-6 flex max-w-5xl items-start justify-between gap-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950"
@@ -286,7 +318,26 @@ export default function App() {
         )}
         {screen === 'landing' && <Landing onStart={handleStartTest} onSelectExample={handleSelectExample} hasDraft={Boolean(resumeDraft)} onResume={handleResume} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} locale={locale} />}
         {screen === 'intake' && <IdeaIntake onSubmit={handleIdeaSubmit} initialIdea={idea} />}
-        {screen === 'questions' && idea && <QuestionFlow idea={idea} onResult={handleResultReceived} initialDraft={resumeDraft} onDraftChange={setResumeDraft} />}
+        {screen === 'questions' && idea && (
+          <QuestionFlow
+            idea={idea}
+            onResult={handleResultReceived}
+            initialDraft={resumeDraft}
+            onDraftChange={setResumeDraft}
+            onAllowanceRequired={handleAllowanceRequired}
+            autoSubmitCompleteDraft={autoSubmitPendingVerdict}
+            onAutoSubmitConsumed={() => setAutoSubmitPendingVerdict(false)}
+          />
+        )}
+        {screen === 'unlock-verdict' && (
+          <VerdictUnlockPage
+            draft={resumeDraft}
+            isLoggedIn={isLoggedIn}
+            purchaseReturn={purchaseReturn}
+            onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }}
+            onCreditsReady={handleUnlockCreditsReady}
+          />
+        )}
         {screen === 'result' && result && <ResultReport result={result} onReset={handleReset} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('signup'); setShowLoginModal(true); }} onRewardClaimed={() => { const token = loadAuthToken(); if (token) void verifyToken(token); }} locale={locale} />}
         {screen === 'dashboard' && isLoggedIn && <UserDashboard purchaseRefresh={purchaseReturn === 'success'} onLogout={handleLogout} onBuy={() => setShowPaywall(true)} onStart={handleStartTest} onOpenResult={savedResult => { setResult(savedResult); setScreen('result'); }} />}
         {getMeLiveOpening && isLoggedIn && <GetMeLiveOpening orderId={getMeLiveOrderId} />}
