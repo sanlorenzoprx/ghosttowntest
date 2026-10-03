@@ -59,6 +59,7 @@ interface GetMeLiveSummary {
 }
 
 interface Props {
+  purchaseRefresh?: boolean;
   onLogout: () => void;
   onBuy: () => void;
   onStart: () => void;
@@ -66,6 +67,7 @@ interface Props {
 }
 
 export default function UserDashboard({
+  purchaseRefresh = false,
   onLogout,
   onBuy,
   onStart,
@@ -101,6 +103,20 @@ export default function UserDashboard({
       .then((data) => setPaidPlans(data.orders ?? []))
       .catch(() => setPaidPlans([]));
 
+  const refreshUser = () => {
+    const token = localStorage.getItem("lit_user_token_v1");
+    if (!token) return Promise.resolve();
+    return fetch(apiUrl("/api/auth/verify"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((response) => response.json<{ user?: PublicUserData }>())
+      .then((data) => {
+        if (data.user) setUser(data.user);
+      })
+      .catch(() => undefined);
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("lit_user_token_v1");
     if (!token) {
@@ -129,6 +145,15 @@ export default function UserDashboard({
     void loadPaidPlans();
     void loadGetMeLive();
   }, []);
+
+  useEffect(() => {
+    if (!purchaseRefresh) return;
+    const timers = [
+      window.setTimeout(() => { void refreshUser(); }, 1500),
+      window.setTimeout(() => { void refreshUser(); }, 4000),
+    ];
+    return () => timers.forEach(timer => window.clearTimeout(timer));
+  }, [purchaseRefresh]);
 
   useEffect(() => {
     const hasWorkingPlan = paidPlans.some(
