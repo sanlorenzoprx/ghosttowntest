@@ -24,6 +24,7 @@ import {
   persistBlueprintExecutionArchitecture,
   type ExecutionProgressSnapshot
 } from './blueprintExecutionStore';
+import { completionTransitionFailures } from '../lib/blueprintExecutionCompletion';
 import {
   getGetMeLiveActivity,
   listGetMeLiveLeads,
@@ -262,6 +263,20 @@ export async function handleLaunchBlueprintProgress(request: Request, env: Env, 
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   const body = await request.json<Partial<BlueprintProgress>>();
+  if (isV21(record.blueprint)) {
+    const before = await loadBlueprintProgress(env, orderId, owned.email);
+    const failures = completionTransitionFailures(
+      record.blueprint,
+      before,
+      body,
+    );
+    if (failures.length) {
+      return json({
+        error: 'Day completion blocked by Sprint execution rules',
+        completionFailures: failures,
+      }, 409, { 'Cache-Control': 'private, no-store' });
+    }
+  }
   const initiallySaved = await saveBlueprintProgress(env, orderId, owned.email, body);
   const progress = versionAttachedProgress(record.blueprint, owned.email, initiallySaved);
 
