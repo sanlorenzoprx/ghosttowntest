@@ -29,6 +29,7 @@ import { apiUrl } from '../lib/api';
 import type { PublicUserData } from '../types/auth';
 import { getFeaturedExampleBySlug, toIdeaIntake } from '../lib/exampleIdeas';
 import { captureCommercialAttribution, recordCommercialEvent } from '../lib/commercialAttribution';
+import { litQuestions } from '../lib/litQuestions';
 
 type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'get-me-live' | 'unlock-verdict' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | LegalPageKind;
 
@@ -154,8 +155,22 @@ export default function App() {
   };
 
   const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;
+  const hasCompletedPendingDraft = () => Boolean(
+    resumeDraft && litQuestions.every(question => resumeDraft.answers[question.id] !== undefined)
+  );
+
+  const openPendingVerdictUnlock = () => {
+    if (!resumeDraft) return;
+    setIdea(resumeDraft.idea);
+    updatePath('/unlock-verdict');
+    setScreen('unlock-verdict');
+  };
 
   const handleStartTest = () => {
+    if (isLoggedIn && !hasAvailableTest() && hasCompletedPendingDraft()) {
+      openPendingVerdictUnlock();
+      return;
+    }
     if (!canBeginAssessment()) { setShowPaywall(true); return; }
     clearEvaluationDraft();
     setResumeDraft(null);
@@ -166,6 +181,10 @@ export default function App() {
   };
 
   const handleSelectExample = (slug: string) => {
+    if (isLoggedIn && !hasAvailableTest() && hasCompletedPendingDraft()) {
+      openPendingVerdictUnlock();
+      return;
+    }
     if (!canBeginAssessment()) { setShowPaywall(true); return; }
     const example = getFeaturedExampleBySlug(slug);
     if (!example) return;
