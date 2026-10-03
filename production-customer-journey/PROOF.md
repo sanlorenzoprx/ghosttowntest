@@ -52,3 +52,34 @@ The account must already own at least one ready `launch_blueprint_v2` with a lin
 ## Reuse rule
 
 Keep production mutation policy stricter than product-specific acceptance. Production journey harnesses may observe and exercise reversible UI behavior, but provider changes, real purchases, publishing, domain attachment, and durable execution-progress writes belong in pre-production acceptance unless a future product explicitly defines a disposable production canary contract.
+
+
+## Production paid-state inventory
+
+Status: **NO REUSABLE HISTORICAL PAID STATE**
+
+Read-only production D1 inventory run `37136445984` completed successfully.
+
+Observed production state:
+
+- `launch_blueprints`: no rows in any status;
+- `get_me_live_orders`: no rows in any status;
+- ready Blueprint → live Get Me Live pairs: 0.
+
+This confirms that prior automated end-to-end fixtures were not production fixtures. The acceptance fixture intentionally creates isolated `ghosttown-e2e-...@example.invalid` accounts against the acceptance Worker and requires `productionMutated=false`.
+
+## Stripe production-mode probe
+
+Status: **TEST MODE CONFIRMED; NO PAYMENT ATTEMPTED**
+
+Production probe run `37136816835` created a real Sprint Checkout Session for the dedicated canary and stopped before payment.
+
+- Worker: `a5514c69-5485-49d1-8a39-1bc43cbc2484`;
+- checkout order: `gtt_df81bb20-8405-4726-af38-02d5c752b968`;
+- Stripe mode: `test`;
+- checkout created: yes;
+- payment attempted: no;
+- purchase completed: no;
+- receipt artifact ID: `11279075061`.
+
+Because production Stripe is currently test mode, the canary can be progressed through the real Stripe checkout without charging real money. The harness still does not enter payment credentials automatically.
