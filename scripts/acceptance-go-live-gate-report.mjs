@@ -58,6 +58,14 @@ add('sprint.agentic.daily', 'Agentic grounded research/guidance runs for Days 1-
     days: [...dailyAgentDays].sort((a,b) => a-b),
     receiptTasks: [...new Set(dailyAgentic.map(item => item.receipt?.task).filter(Boolean))]
   });
+const degradedAgentic = [
+  ...dailyAgentic,
+  ...(sprint.agentic?.checkpoints || [])
+].filter(item => item.degraded?.active === true);
+add('sprint.agentic.degradation', 'Agentic guidance returns native structured output without provider-format degradation',
+  degradedAgentic.length === 0,
+  { count: degradedAgentic.length, samples: degradedAgentic.slice(0, 6).map(item => ({ dayNumber: item.dayNumber, degraded: item.degraded })) },
+  false);
 add('sprint.notes_evidence', 'Daily notes and structured evidence persist through reload/re-entry', sprint.passed === true && Array.isArray(sprint.recovery) && sprint.recovery.length > 0,
   { recovery: sprint.recovery || [], days: sprint.days || [] });
 add('sprint.sequence', 'Days cannot be skipped through the API', sprint.sequencing?.serverRejectedSkippedDay === true,
