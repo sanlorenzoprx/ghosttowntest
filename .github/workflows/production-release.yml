@@ -183,16 +183,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          export WRANGLER_OUTPUT_FILE="$PWD/github-production-release/wrangler-output.jsonl"
-          : > "$WRANGLER_OUTPUT_FILE"
           npx wrangler versions upload --env production --message "release-candidate:$EXPECTED_MAIN_SHA"
+          npx wrangler versions list --env production --json > github-production-release/versions-after-upload.json
           node <<'NODE'
           const fs = require('fs');
-          const entries = fs.readFileSync('github-production-release/wrangler-output.jsonl','utf8')
-            .split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
-          const entry = [...entries].reverse().find(item => item.type === 'version-upload');
-          const id = entry?.version_id || entry?.versionId;
-          if (!id || !/^[0-9a-fA-F-]{36}$/.test(id)) throw new Error('Could not resolve uploaded Worker version ID.');
+          const before = JSON.parse(fs.readFileSync('github-production-release/versions-before.json','utf8'));
+          const after = JSON.parse(fs.readFileSync('github-production-release/versions-after-upload.json','utf8'));
+          const beforeIds = new Set(before.map(version => version.id));
+          const created = after.filter(version => !beforeIds.has(version.id));
+          if (created.length !== 1) throw new Error(`Expected exactly one newly uploaded Worker version, found ${created.length}.`);
+          const id = created[0].id;
+          if (!id || !/^[0-9a-fA-F-]{36}$/.test(id)) throw new Error('New Worker version ID is invalid.');
           fs.appendFileSync(process.env.GITHUB_ENV, `NEW_VERSION_ID=${id}\n`);
           fs.writeFileSync('github-production-release/candidate.json', JSON.stringify({ version_id:id, expected_main_sha:process.env.EXPECTED_MAIN_SHA }, null, 2) + '\n');
           console.log('NEW_VERSION_ID=' + id);
