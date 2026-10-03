@@ -87,6 +87,10 @@ function createEnv(apiKey = '', aiMode: AiMode = 'valid') {
     VERTEX_VERDICT_MODEL: 'gemini-3.5-flash-lite',
     FRONTEND_URL: 'https://ghosttowntest.com',
     DEPLOYMENT_ENV: 'production' as const,
+    CF_VERSION_METADATA: {
+      id: '00000000-0000-4000-8000-000000000123',
+      timestamp: '2026-10-03T00:00:00.000Z'
+    },
     LIT_API_KEY: apiKey,
     JWT_SECRET: 'test-secret',
     STRIPE_SECRET_KEY: 'sk_test_placeholder',
@@ -136,7 +140,8 @@ describe('Shorts Factory verdict API contract', () => {
         routing: 'cloudflare_ai_gateway',
         gateway_id: 'default'
       },
-      live_publishing_enabled: false
+      live_publishing_enabled: false,
+      version_id: '00000000-0000-4000-8000-000000000123'
     });
     expect(JSON.stringify(body)).not.toContain('factory-secret');
   });
