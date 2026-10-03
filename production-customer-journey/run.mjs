@@ -238,7 +238,15 @@ async function runFullCanary(browser) {
 
   const results = await ownerGet('/api/results');
   if (!results.response.ok || !Array.isArray(results.body?.results) || results.body.results.length < 1) fail('Canary has no saved assessment available for persistence proof.');
-  record('saved-verdict-persistence', { count: results.body.results.length });
+  const savedResult = results.body.results[0];
+  const resultArticle = page.locator('article').filter({ hasText: savedResult.ideaName }).first();
+  await resultArticle.getByRole('button', { name: 'View Report', exact: true }).click();
+  await page.getByTestId('verdict-card').waitFor({ state: 'visible', timeout: 20000 });
+  await page.getByTestId('next-step').waitFor({ state: 'visible' });
+  await assertNoInternalLanguage(page, 'Saved verdict');
+  record('saved-verdict-persistence', { count: results.body.results.length, reopenedViaUi: true });
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
+  await page.getByRole('heading', { name: 'Previous Assessments', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
 
   const plans = await ownerGet('/api/paid-test/orders');
   const sprint = Array.isArray(plans.body?.orders) ? plans.body.orders.find(item => item?.orderId === SPRINT_ORDER_ID) : null;
@@ -249,8 +257,15 @@ async function runFullCanary(browser) {
   const gmlOrders = await ownerGet('/api/get-me-live/orders');
   const gml = Array.isArray(gmlOrders.body?.orders) ? gmlOrders.body.orders.find(item => item?.orderId === GML_ORDER_ID) : null;
   if (!gmlOrders.response.ok || !gml) fail(`Configured Get Me Live order ${GML_ORDER_ID} is not owned by the canary account.`);
+  if (gml.sourceSprintOrderId !== SPRINT_ORDER_ID) fail(`Get Me Live lineage mismatch: expected source Sprint ${SPRINT_ORDER_ID}, received ${gml.sourceSprintOrderId}`);
+  if (gml.status !== 'live') fail(`Canary Get Me Live order must already be live; received ${gml.status}`);
   const projectedLiveUrl = String(gml.customDomain ? `https://${gml.customDomain}` : gml.publicUrl || '').replace(/\/$/, '');
-  if (projectedLiveUrl && projectedLiveUrl !== LIVE_URL) fail(`Configured canary live URL does not match owner projection: ${projectedLiveUrl}`);
+  if (!projectedLiveUrl) fail('Canary Get Me Live owner projection has no live URL.');
+  if (projectedLiveUrl !== LIVE_URL) fail(`Configured canary live URL does not match owner projection: ${projectedLiveUrl}`);
+  const releaseReceipt = await ownerGet(`/api/get-me-live/orders/${encodeURIComponent(GML_ORDER_ID)}/release-receipt`);
+  if (!releaseReceipt.response.ok || !releaseReceipt.body?.receipt) fail('Canary Get Me Live release receipt is unavailable.');
+  const receiptUrl = String(releaseReceipt.body.receipt.pagesUrl || releaseReceipt.body.receipt.liveUrl || '').replace(/\/$/, '');
+  if (receiptUrl !== LIVE_URL) fail(`Release receipt live URL does not match configured canary URL: ${receiptUrl}`);
 
   const sprintArticle = page.locator('article').filter({ hasText: sprint.ideaName }).first();
   await sprintArticle.getByRole('button', { name: 'Open Blueprint', exact: true }).click();
@@ -293,7 +308,12 @@ async function runFullCanary(browser) {
     surface: 'Get Me Live provider controls',
     reason: 'production journey inventories provider-changing controls but never publishes, attaches domains, connects payments, changes email routing, or edits provider state',
   });
-  record('get-me-live-owner-workspace', { orderId: GML_ORDER_ID, checklistSteps: steps.length });
+  record('get-me-live-owner-workspace', {
+    orderId: GML_ORDER_ID,
+    sourceSprintOrderId: SPRINT_ORDER_ID,
+    checklistSteps: steps.length,
+    releaseReceiptVerified: true,
+  });
 
   const live = await context.newPage();
   const liveNav = await live.goto(LIVE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
