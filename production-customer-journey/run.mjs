@@ -313,7 +313,12 @@ async function runFullCanary(browser) {
   proof.controlsInventoried.push({ surface: 'paid-offer-authenticated', control: 'Start My 30-Day Evidence Sprint', action: 'intake_rendered_submit_not_clicked' });
   proof.classifiedNotClicked.push({ control: 'Start My 30-Day Evidence Sprint submit', reason: 'reusable production harness never creates a real Stripe checkout session' });
   await paidDialog.getByRole('button', { name: 'Close checkout', exact: true }).click();
-  record('paid-offer-boundary', { authenticatedIntakeRendered: true, realCheckoutCreated: false });
+  // Closing the Sprint intake intentionally offers the lower-priced assessment
+  // pack. Close that decline offer too so the harness can continue without
+  // creating any checkout session.
+  const declineButton = page.getByRole('button', { name: 'Not now', exact: true });
+  if (await declineButton.isVisible().catch(() => false)) await declineButton.click();
+  record('paid-offer-boundary', { authenticatedIntakeRendered: true, declinedOfferObserved: true, realCheckoutCreated: false });
 
   await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await page.getByRole('heading', { name: 'Previous Assessments', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
