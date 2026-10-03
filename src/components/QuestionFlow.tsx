@@ -104,7 +104,6 @@ export default function QuestionFlow({
       if (!response.ok) {
         const body: { error?: string } = await response.json<{ error?: string }>().catch(() => ({}));
         if (response.status === 402 && body.error === 'No tests remaining') {
-          void recordCommercialEvent('verdict_locked', { content: idea.ideaName });
           setLoading(false);
           onAllowanceRequired();
           return;
