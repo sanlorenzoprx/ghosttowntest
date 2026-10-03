@@ -11,7 +11,7 @@ const questionFlow = readFileSync(new URL('../src/components/QuestionFlow.tsx', 
 const app = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
 const unlockPage = readFileSync(new URL('../src/components/VerdictUnlockPage.tsx', import.meta.url), 'utf8');
 
-describe('pay-before-second-verdict journey', () => {
+describe('finish-second-test-then-pay journey', () => {
   it('locks the assessment pack commercial contract to 10 verdicts for $14.95', () => {
     expect(ASSESSMENT_PACK_CREDITS).toBe(10);
     expect(ASSESSMENT_PACK_AMOUNT_CENTS).toBe(1495);
@@ -32,17 +32,16 @@ describe('pay-before-second-verdict journey', () => {
     expect(app).toContain("if (pathname === '/unlock-verdict') return 'unlock-verdict';");
   });
 
-  it('redirects an authenticated zero-credit customer to payment before verdict #2 continues', () => {
-    expect(app).not.toContain('const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;');
-    expect(app).toContain('if (isLoggedIn) {');
-    expect(app).toContain('if (!user) return false;');
-    expect(app).toContain('if (!hasAvailableTest()) {');
-    expect(app).toContain('if (isLoggedIn) openVerdictPurchasePage();');
-    expect(app).toContain("updatePath('/unlock-verdict');");
+  it('lets a logged-in zero-credit customer finish verdict #2 before the paid offer appears', () => {
+    expect(app).toContain('const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;');
+    expect(app).toContain('if (!canBeginAssessment()) { setShowPaywall(true); return; }');
+    expect(app).toContain('const hasCompletedPendingDraft = () => Boolean(');
+    expect(app).toContain('if (isLoggedIn && !hasAvailableTest() && hasCompletedPendingDraft())');
+    expect(app).toContain('openVerdictPurchasePage();');
     expect(app).toContain('onAllowanceRequired={handleAllowanceRequired}');
   });
 
-  it('resumes the second paid verdict only after Stripe credits are confirmed', () => {
+  it('resumes the completed second verdict only after Stripe credits are confirmed', () => {
     expect(unlockPage).toContain("purchaseReturn !== 'success'");
     expect(unlockPage).toContain('availableTests(body.user) > 0');
     expect(app).toContain('setAutoSubmitPendingVerdict(');
@@ -51,10 +50,12 @@ describe('pay-before-second-verdict journey', () => {
     expect(questionFlow).toContain('litQuestions.every(question => answers[question.id] !== undefined)');
   });
 
-  it('shows the promised pay-first customer flow and counting rules', () => {
-    expect(unlockPage).toContain('Your free verdict has been used');
-    expect(unlockPage).toContain('Complete payment to continue with verdict #2');
-    expect(unlockPage).toContain('Verdict #2 uses one of the');
+  it('shows the out-of-free-verdicts offer only after the second test is saved', () => {
+    expect(unlockPage).toContain('Your answers are saved');
+    expect(unlockPage).toContain('You’re out of free verdicts.');
+    expect(unlockPage).toContain('You finished the questions for');
+    expect(unlockPage).toContain('Buy ${ASSESSMENT_PACK_CREDITS} Verdicts — ${ASSESSMENT_PACK_DISPLAY_PRICE}');
+    expect(unlockPage).toContain('This second verdict uses one of the');
     expect(unlockPage).toContain('9 verdicts left after it is completed');
   });
 });
