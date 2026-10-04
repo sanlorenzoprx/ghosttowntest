@@ -144,6 +144,7 @@ export interface ExecutionRagContext {
     latestCheckpointReview: ExecutionCheckpointReviewLike | null;
   };
   research: ExecutionRetrievedSource[];
+  coachMemory?: ExecutionCoachMemoryContext;
   immutableRules: string[];
 }
 
