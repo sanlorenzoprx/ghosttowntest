@@ -58,13 +58,24 @@ const groundedAttempts = [...dailyGrounded, ...checkpointGrounded];
 const nativeGrounded = groundedAttempts.filter(item =>
   item.receipt?.task === 'grounded_research' && item.degraded?.active !== true
 );
-add('sprint.agentic.daily', 'Agentic guidance runs for every Sprint day',
-  dailyAgentDays.size === 30,
+add('sprint.agentic.daily', 'Learning Coach assesses and saves every Sprint day',
+  dailyAgentDays.size === 30
+    && dailyAgentic.every(item => item.phase === 'review' && item.memory?.saved === true && Boolean(item.cache?.responseId)),
   {
     count: dailyAgentDays.size,
     days: [...dailyAgentDays].sort((a,b) => a-b),
+    savedReviewCount: dailyAgentic.filter(item => item.phase === 'review' && item.memory?.saved === true && Boolean(item.cache?.responseId)).length,
     receiptTasks: [...new Set(dailyAgentic.map(item => item.receipt?.task).filter(Boolean))]
   });
+add('sprint.agentic.memory', 'All 30 daily Learning Coach assessments persist in owner-scoped memory',
+  sprint.coachMemory?.persisted === true
+    && sprint.coachMemory?.reviewCount === 30
+    && Array.isArray(sprint.coachMemory?.days)
+    && sprint.coachMemory.days.length === 30,
+  { proof: sprint.coachMemory || null });
+add('sprint.agentic.cache', 'Repeated Day 1 assessment reuses the exact-context cache',
+  sprint.agentic?.cache?.hit === true && Boolean(sprint.agentic?.cache?.responseId),
+  { proof: sprint.agentic?.cache || null });
 add('sprint.agentic.grounded_samples', 'Grounded web research is exercised on representative days and all checkpoints',
   groundedDailyRequired.every(day => dailyGrounded.some(item => item.dayNumber === day))
     && groundedCheckpointRequired.every(day => checkpointGrounded.some(item => item.dayNumber === day)),
@@ -170,7 +181,7 @@ ${blockerText}
 
 ## Evidence
 
-This gate is intentionally strict. Agent-generated daily guidance may help drive the acceptance browser, but it is never counted as real customer evidence, customer language, commitment, revenue, or market proof. The disposable acceptance fixture must remain isolated from production and real charges.
+This gate is intentionally strict. The Learning Coach must assess and persist each day's recorded result, but agent-generated assessments are never counted as customer evidence, customer language, commitment, revenue, or market proof. The disposable acceptance fixture must remain isolated from production and real charges.
 
 Generated: ${report.recordedAt}
 `;
