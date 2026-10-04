@@ -133,12 +133,50 @@ async function verifyPayment(env, ctx) {
 
   const now = Date.now();
   const orders = await allOrderRecords(env);
-  const candidates = orders.filter(order => {
+  const recentHumanOrders = orders.filter(order => {
     const email = String(order?.email || '').trim().toLowerCase();
-    const paidAt = Date.parse(String(order?.paidAt || ''));
+    const activityAt = Date.parse(String(order?.paidAt || order?.updatedAt || order?.createdAt || ''));
     return email
       && !email.endsWith('@example.invalid')
-      && Number.isFinite(paidAt)
+      && Number.isFinite(activityAt)
+      && now - activityAt >= 0
+      && now - activityAt <= MAX_PURCHASE_AGE_MS;
+  }).sort((left, right) => String(right.paidAt || right.updatedAt || right.createdAt || '').localeCompare(String(left.paidAt || left.updatedAt || left.createdAt || '')));
+
+  const diagnostics = [];
+  for (const order of recentHumanOrders.slice(0, 10)) {
+    const sessionId = typeof order?.stripeCheckoutSessionId === 'string' ? order.stripeCheckoutSessionId : '';
+    let stripeSession = null;
+    let stripeSessionLookupOk = false;
+    if (sessionId) {
+      const result = await stripeJson('https://api.stripe.com/v1/checkout/sessions/' + encodeURIComponent(sessionId), stripeKey);
+      stripeSessionLookupOk = result.response.ok;
+      stripeSession = result.body;
+    }
+    diagnostics.push({
+      orderIdSha256: order?.orderId ? await sha256(order.orderId) : null,
+      status: order?.status || null,
+      stripeMode: order?.stripeMode || null,
+      offerId: order?.offerId || null,
+      artifactType: order?.artifactType || null,
+      paidAtPresent: Boolean(order?.paidAt),
+      checkoutSessionPresent: Boolean(sessionId),
+      stripeEventIdPresent: typeof order?.stripeEventId === 'string',
+      paymentIntentPresent: typeof order?.stripePaymentIntentId === 'string',
+      stripeSessionLookupOk,
+      stripeSessionStatus: stripeSession?.status || null,
+      stripePaymentStatus: stripeSession?.payment_status || null,
+      stripeAmountTotal: stripeSession?.amount_total ?? null,
+      stripeCurrency: stripeSession?.currency || null,
+      stripeLivemode: typeof stripeSession?.livemode === 'boolean' ? stripeSession.livemode : null,
+      expectedThirtyDayOffer: order?.offerId === GHOSTTOWN_30_DAY_PLAN_V1.offerId,
+      expectedBlueprintArtifact: order?.artifactType === 'launch_blueprint_v2'
+    });
+  }
+
+  const candidates = recentHumanOrders.filter(order => {
+    const paidAt = Date.parse(String(order?.paidAt || ''));
+    return Number.isFinite(paidAt)
       && now - paidAt >= 0
       && now - paidAt <= MAX_PURCHASE_AGE_MS
       && order?.stripeMode === 'test'
@@ -249,7 +287,12 @@ async function verifyPayment(env, ctx) {
   return json({
     ok: false,
     inputRequired: true,
-    error: 'No qualifying recent acceptance Stripe test-mode $97 payment with a recorded GhostTown webhook entitlement was found'
+    error: 'No qualifying recent acceptance Stripe test-mode $97 payment with a recorded GhostTown webhook entitlement was found',
+    diagnostics: {
+      recentHumanOrderCount: recentHumanOrders.length,
+      qualifyingCandidateCount: candidates.length,
+      recentOrders: diagnostics
+    }
   }, 409);
 }
 
@@ -283,6 +326,7 @@ try {
   if (!body) throw new Error(`Stripe payment proof returned non-JSON HTTP ${response.status}`);
   if (!response.ok || body?.ok !== true || body?.passed !== true) {
     if (body?.inputRequired === true) {
+      evidence = { passed: false, diagnostics: body?.diagnostics || null };
       throw new Error('INPUT_REQUIRED: no qualifying recent Stripe test payment/webhook entitlement was found in acceptance.');
     }
     throw new Error(`Stripe payment proof failed HTTP ${response.status}: ${body?.error || 'unknown error'}`);
@@ -336,6 +380,7 @@ const proof = evidence ? {
 } : {
   schemaVersion: 'ghosttown-acceptance-stripe-payment-webhook-v1',
   passed: false,
+  diagnostics: evidence?.diagnostics || null,
   error: smokeError instanceof Error ? smokeError.message : String(smokeError || 'unknown failure'),
   secretValuesRecorded: false,
   recordedAt: new Date().toISOString()
