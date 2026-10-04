@@ -41,6 +41,25 @@ describe('Blueprint Execution Copilot contract', () => {
     expect(handler).toContain('runExecutionCritic');
   });
 
+
+  it('degrades grounded-search formatting failures without inventing customer evidence', () => {
+    expect(service).toContain('groundedFallbackOutput');
+    expect(service).toContain("reason: 'grounded_non_json' | 'grounding_only'");
+    expect(service).toContain('This Copilot call does not create customer evidence.');
+    expect(service).toContain('GhostTown did not infer market facts from source titles or URLs.');
+    expect(service).toContain("if (capability === 'grounded_research')");
+    expect(service).toContain('const generated = await generateAI(env, options)');
+    expect(handler).toContain('degraded: primary.degraded || null');
+  });
+
+  it('keeps the paid Sprint usable when grounded research itself times out', () => {
+    expect(handler).toContain("capability === 'grounded_research' && /request timed out/i.test(message)");
+    expect(handler).toContain("reason: 'grounded_timeout'");
+    expect(handler).toContain('No new market evidence was created by this timed-out research call.');
+    expect(handler).toContain('receipts: {');
+    expect(handler).toContain('primary: null');
+  });
+
   it('bounds paid model usage with an atomic D1 hourly counter and no owner email in the scope', () => {
     expect(handler).toContain('COPILOT_REQUESTS_PER_HOUR = 60');
     expect(handler).toContain('consumeHourlyRateLimit');

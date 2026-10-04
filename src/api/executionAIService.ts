@@ -1,5 +1,6 @@
 import type { Env } from './env';
 import {
+  generateAI,
   generateAIJson,
   type GenerativeAITask,
   type GenerativeAIResponseSchema,
@@ -92,6 +93,49 @@ function promptFor(context: ExecutionRagContext, question: string, history: Arra
   });
 }
 
+function parseStructuredOutput<T>(value: string): T {
+  const fenced = value.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
+  const source = (fenced || value).trim();
+  const firstObject = source.indexOf('{');
+  const firstArray = source.indexOf('[');
+  const start = firstObject < 0 ? firstArray : firstArray < 0 ? firstObject : Math.min(firstObject, firstArray);
+  const end = Math.max(source.lastIndexOf('}'), source.lastIndexOf(']'));
+  if (start < 0 || end <= start) throw new Error('Grounded Copilot response did not contain JSON');
+  return JSON.parse(source.slice(start, end + 1)) as T;
+}
+
+function groundedFallbackOutput(
+  context: ExecutionRagContext,
+  rawText: string,
+  groundingMetadata?: GroundingMetadata
+): { output: ExecutionCopilotModelOutput; reason: 'grounded_non_json' | 'grounding_only' } {
+  const narrative = rawText.trim();
+  const sourceCount = (groundingMetadata?.groundingChunks || []).filter(chunk => Boolean(chunk.web?.uri?.trim())).length;
+  const recommendedAction = context.branch.nextAction?.trim()
+    || context.experiment.exactActions[0]?.instruction?.trim()
+    || `Complete Day ${context.experiment.dayNumber} exactly as written in the Blueprint.`;
+  const answer = narrative || [
+    `GhostTown found ${sourceCount} current web source${sourceCount === 1 ? '' : 's'}, but Vertex returned source grounding without a narrative JSON answer.`,
+    `Treat those sources as external context only. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint actions and collect the required real-world evidence before drawing a market conclusion.`
+  ].join(' ');
+
+  return {
+    reason: narrative ? 'grounded_non_json' : 'grounding_only',
+    output: {
+      answer,
+      evidenceAssessment: 'This Copilot call does not create customer evidence. Grounded web sources are external context only; recorded customer behavior remains authoritative.',
+      contradictionDetected: false,
+      recommendedAction,
+      evidenceToRecord: context.experiment.evidenceToCapture.slice(0, 10),
+      assumptions: [
+        narrative
+          ? 'Vertex returned grounded prose rather than the requested JSON; GhostTown preserved the prose and derived only control fields from the deterministic Blueprint context.'
+          : 'Vertex returned grounding references without narrative JSON; GhostTown did not infer market facts from source titles or URLs.'
+      ]
+    }
+  };
+}
+
 export async function runExecutionCopilot(
   env: Env,
   capability: ExecutionCapability,
@@ -99,9 +143,9 @@ export async function runExecutionCopilot(
   context: ExecutionRagContext,
   question: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }>
-): Promise<{ output: ExecutionCopilotModelOutput; receipt: GenerativeAIReceipt; groundingMetadata?: GroundingMetadata }> {
+): Promise<{ output: ExecutionCopilotModelOutput; receipt: GenerativeAIReceipt; groundingMetadata?: GroundingMetadata; degraded?: { active: true; reason: 'grounded_non_json' | 'grounding_only' } }> {
   const task = generativeTaskForExecutionCapability(capability);
-  const generated = await generateAIJson<ExecutionCopilotModelOutput>(env, {
+  const options = {
     task,
     prompt: promptFor(context, question, history),
     systemInstruction: systemInstruction(mode, capability),
@@ -110,7 +154,28 @@ export async function runExecutionCopilot(
     maxOutputTokens: 1800,
     timeoutMs: 35_000,
     googleSearch: capability === 'grounded_research'
-  });
+  } as const;
+
+  if (capability === 'grounded_research') {
+    const generated = await generateAI(env, options);
+    try {
+      return {
+        output: parseStructuredOutput<ExecutionCopilotModelOutput>(generated.text),
+        receipt: generated.receipt,
+        groundingMetadata: generated.groundingMetadata
+      };
+    } catch {
+      const fallback = groundedFallbackOutput(context, generated.text, generated.groundingMetadata);
+      return {
+        output: fallback.output,
+        receipt: generated.receipt,
+        groundingMetadata: generated.groundingMetadata,
+        degraded: { active: true as const, reason: fallback.reason }
+      };
+    }
+  }
+
+  const generated = await generateAIJson<ExecutionCopilotModelOutput>(env, options);
   return {
     output: generated.data,
     receipt: generated.result.receipt,

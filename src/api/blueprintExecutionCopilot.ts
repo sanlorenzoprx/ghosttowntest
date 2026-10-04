@@ -100,17 +100,18 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
     }, 429, { 'Retry-After': String(budget.retryAfter) });
   }
 
+  const internalRefs = {
+    blueprint: `${context.blueprint.blueprintId}@${context.blueprint.blueprintVersion}`,
+    day: `day-${context.experiment.dayNumber}`,
+    evidenceEntryIds: context.progress.relevantEvidence.map(entry => entry.entryId).filter(Boolean),
+    sourceIds: context.research.map(source => source.sourceId).filter(Boolean)
+  };
+
   try {
     const primary = await runExecutionCopilot(env, capability, mode, context, question, sanitizedHistory(body.history));
     const highImpact = capability === 'strategy_reasoner' && mode === 'current_experiment'
       && (context.branch.route !== 'continue' || /\b(pivot|change|price|offer|customer|stop|pause)\b/i.test(question));
     const critic = highImpact ? await runExecutionCritic(env, context, question, primary.output) : null;
-    const internalRefs = {
-      blueprint: `${context.blueprint.blueprintId}@${context.blueprint.blueprintVersion}`,
-      day: `day-${context.experiment.dayNumber}`,
-      evidenceEntryIds: context.progress.relevantEvidence.map(entry => entry.entryId).filter(Boolean),
-      sourceIds: context.research.map(source => source.sourceId).filter(Boolean)
-    };
     return json({
       mode,
       capability,
@@ -142,6 +143,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
       },
       refs: internalRefs,
       groundedWebSources: groundingSources(primary.groundingMetadata),
+      degraded: primary.degraded || null,
       usage: {
         hourlyLimit: COPILOT_REQUESTS_PER_HOUR,
         requestNumberThisHour: budget.used
@@ -152,7 +154,59 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
       }
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Execution Copilot failed';
+    if (capability === 'grounded_research' && /request timed out/i.test(message)) {
+      const recommendedAction = context.branch.nextAction?.trim()
+        || context.experiment.exactActions[0]?.instruction?.trim()
+        || `Complete Day ${context.experiment.dayNumber} exactly as written in the Blueprint.`;
+      console.warn('Execution Copilot grounded research timed out; returning deterministic Blueprint fallback', {
+        orderId,
+        dayNumber,
+        capability
+      });
+      return json({
+        mode,
+        capability,
+        answer: `Live web research did not finish in time. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint task instead of waiting or guessing.`,
+        evidenceAssessment: 'No new market evidence was created by this timed-out research call. Recorded customer behavior remains authoritative.',
+        contradictionDetected: false,
+        recommendedAction,
+        evidenceToRecord: context.experiment.evidenceToCapture.slice(0, 10),
+        assumptions: ['Grounded web research timed out, so GhostTown did not infer external facts or fabricate a provider result.'],
+        critic: null,
+        guardrails: {
+          route: context.branch.route,
+          checkpointDay: context.branch.checkpointDay,
+          primaryConstraint: context.branch.primaryConstraint,
+          mayChange: mode === 'strategy_room' ? [] : context.branch.mayChange,
+          mustKeep: mode === 'strategy_room' ? [] : context.branch.mustKeep,
+          branchReason: context.branch.reason,
+          nextAction: context.branch.nextAction,
+          strategyRoomDoesNotMutateLiveExperiment: mode === 'strategy_room'
+        },
+        lane: context.blueprint.laneProfile,
+        today: {
+          dayNumber: context.experiment.dayNumber,
+          title: context.experiment.title,
+          objective: context.experiment.objective,
+          successThreshold: context.experiment.successThreshold,
+          failureThreshold: context.experiment.failureThreshold,
+          assets: context.experiment.assets.map(asset => ({ assetId: asset.assetId, title: asset.title }))
+        },
+        refs: internalRefs,
+        groundedWebSources: [],
+        degraded: { active: true, reason: 'grounded_timeout' },
+        usage: {
+          hourlyLimit: COPILOT_REQUESTS_PER_HOUR,
+          requestNumberThisHour: budget.used
+        },
+        receipts: {
+          primary: null,
+          critic: null
+        }
+      });
+    }
     console.error('Execution Copilot failed', { orderId, dayNumber, capability, error });
-    return json({ error: error instanceof Error ? error.message : 'Execution Copilot failed' }, 502);
+    return json({ error: message }, 502);
   }
 }
