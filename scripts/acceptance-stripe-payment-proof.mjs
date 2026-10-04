@@ -106,7 +106,25 @@ async function stripeJson(url, stripeKey) {
   return { response, body };
 }
 
-async function verifyPayment(env) {
+async function stripeSignature(body, secret) {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const digest = new Uint8Array(await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(timestamp + '.' + body)
+  ));
+  const signature = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
+  return 't=' + timestamp + ',v1=' + signature;
+}
+
+async function verifyPayment(env, ctx) {
   const stripeKey = String(env.STRIPE_SECRET_KEY || '').trim();
   const signingSecret = String(env.STRIPE_WEBHOOK_SECRET || '').trim();
   if ((!stripeKey.startsWith('sk_test_') && !stripeKey.startsWith('rk_test_')) || !signingSecret.startsWith('whsec_')) {
@@ -175,6 +193,23 @@ async function verifyPayment(env) {
     const matchingOrders = orders.filter(item => item?.stripeCheckoutSessionId === session.id);
     if (matchingOrders.length !== 1 || matchingOrders[0]?.orderId !== order.orderId) continue;
 
+    const replayBody = JSON.stringify(stripeEvent);
+    const replaySignature = await stripeSignature(replayBody, signingSecret);
+    const replayResponse = await app.fetch(new Request('https://acceptance.internal/api/webhook/stripe', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'stripe-signature': replaySignature
+      },
+      body: replayBody
+    }), env, ctx);
+    let replayResult = null;
+    try { replayResult = await replayResponse.json(); } catch {}
+    if (!replayResponse.ok || replayResult?.received !== true || replayResult?.duplicate !== true) continue;
+
+    const matchingAfterReplay = (await allOrderRecords(env)).filter(item => item?.stripeCheckoutSessionId === session.id);
+    if (matchingAfterReplay.length !== 1 || matchingAfterReplay[0]?.orderId !== order.orderId) continue;
+
     const summaryRaw = await env.KV.get('paid_test_orders_' + String(order.email).trim().toLowerCase());
     let summaries = [];
     try { summaries = summaryRaw ? JSON.parse(summaryRaw) : []; } catch {}
@@ -199,6 +234,9 @@ async function verifyPayment(env) {
       matchingOrderCount: matchingOrders.length,
       successfulChargeCount: successfulCharges.length,
       idempotencyEventKeyPresent: true,
+      duplicateReplayPerformed: true,
+      duplicateReplayRejectedAsDuplicate: true,
+      matchingOrderCountAfterReplay: matchingAfterReplay.length,
       orderIdSha256: await sha256(order.orderId),
       checkoutSessionSha256: await sha256(session.id),
       paymentIntentSha256: await sha256(session.payment_intent),
@@ -222,7 +260,7 @@ export default {
       if (env.DEPLOYMENT_ENV !== 'acceptance') return new Response('Not found', { status: 404 });
       if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
       if (request.headers.get('X-Acceptance-Token') !== AUTH_TOKEN) return new Response('Unauthorized', { status: 401 });
-      return verifyPayment(env);
+      return verifyPayment(env, ctx);
     }
     return app.fetch(request, env, ctx);
   }
@@ -285,6 +323,9 @@ const proof = evidence ? {
   matchingOrderCount: evidence.matchingOrderCount,
   successfulChargeCount: evidence.successfulChargeCount,
   idempotencyEventKeyPresent: evidence.idempotencyEventKeyPresent,
+  duplicateReplayPerformed: evidence.duplicateReplayPerformed,
+  duplicateReplayRejectedAsDuplicate: evidence.duplicateReplayRejectedAsDuplicate,
+  matchingOrderCountAfterReplay: evidence.matchingOrderCountAfterReplay,
   orderIdSha256: evidence.orderIdSha256,
   checkoutSessionSha256: evidence.checkoutSessionSha256,
   paymentIntentSha256: evidence.paymentIntentSha256,
