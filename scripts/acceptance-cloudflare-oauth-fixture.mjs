@@ -12,8 +12,8 @@ const gmlOrderId = `gml_e2e_oauth_${runId}`;
 const frontendUrl = 'https://main.ghosttown-acceptance.pages.dev';
 const fixture = await withAcceptanceDataBindings(client => client.createE2eSprintFixture({
   ownerId,
-  orderId: effectiveOrderId,
-  gmlOrderId: effectiveGmlOrderId,
+  orderId,
+  gmlOrderId,
   cloudflareMode: 'oauth'
 }));
 if (fixture?.ok !== true || fixture?.cloudflareMode !== 'oauth' || fixture?.productionMutated !== false || fixture?.stripeChargeCreated !== false) {
@@ -28,8 +28,8 @@ const receipt = {
   schemaVersion: 'ghosttown-cloudflare-oauth-fixture-v1',
   environment: 'acceptance',
   ownerId,
-  orderId,
-  gmlOrderId,
+  orderId: effectiveOrderId,
+  gmlOrderId: effectiveGmlOrderId,
   setupUrl,
   tokenInjected: false,
   paidFixture: true,
