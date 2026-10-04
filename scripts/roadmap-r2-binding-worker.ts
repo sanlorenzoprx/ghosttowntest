@@ -481,6 +481,45 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
   return json({ ok: true, orderId, gmlOrderId, ownerId, sourceOrderId: source.order_id, expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false });
 }
 
+async function removeE2eGetMeLiveFixture(env: Env, request: Request): Promise<Response> {
+  let body: any; try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
+  const ownerId = String(body?.ownerId || '').trim().toLowerCase();
+  const orderId = String(body?.orderId || '');
+  const gmlOrderId = String(body?.gmlOrderId || '');
+  if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_') || !/^gml_e2e_[A-Za-z0-9_-]+$/.test(gmlOrderId)) {
+    return json({ error: 'Invalid E2E Get Me Live fixture identity' }, 400);
+  }
+  const row = await env.DB.prepare(`
+    SELECT source_sprint_order_id, owner_id
+    FROM get_me_live_orders
+    WHERE order_id = ?
+  `).bind(gmlOrderId).first<{ source_sprint_order_id: string; owner_id: string }>();
+  if (!row || row.owner_id !== ownerId || row.source_sprint_order_id !== orderId) {
+    return json({ error: 'Disposable Get Me Live fixture does not match the requested Sprint owner/link' }, 409);
+  }
+
+  await env.DB.prepare('DELETE FROM get_me_live_publish_attempts WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_releases WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_leads WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_share_drafts WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_orders WHERE order_id = ? AND owner_id = ? AND source_sprint_order_id = ?')
+    .bind(gmlOrderId, ownerId, orderId).run();
+  await env.KV.delete('get_me_live_cf_token_' + gmlOrderId);
+
+  const sprintStillExists = await env.DB.prepare('SELECT order_id FROM launch_blueprints WHERE order_id = ? AND owner_id = ?')
+    .bind(orderId, ownerId).first<{ order_id: string }>();
+  if (!sprintStillExists) return json({ error: 'Sprint disappeared while removing Get Me Live fixture' }, 500);
+
+  return json({
+    ok: true,
+    removed: true,
+    orderId,
+    gmlOrderId,
+    sprintPreserved: true,
+    productionMutated: false
+  });
+}
+
 async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Response> {
   let body: any; try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
   const ownerId = String(body?.ownerId || '').trim().toLowerCase();
@@ -543,6 +582,7 @@ export default {
     if (url.pathname === '/rematerialize' && request.method === 'POST') return rematerialize(env, request);
     if (url.pathname === '/e2e-sprint-fixture' && request.method === 'POST') return createE2eSprintFixture(env, request);
     if (url.pathname === '/e2e-sprint-fixture' && request.method === 'DELETE') return deleteE2eSprintFixture(env, request);
+    if (url.pathname === '/e2e-get-me-live-fixture' && request.method === 'DELETE') return removeE2eGetMeLiveFixture(env, request);
 
     if (url.pathname !== '/object') return json({ error: 'Not found' }, 404);
     const key = url.searchParams.get('key') || '';
