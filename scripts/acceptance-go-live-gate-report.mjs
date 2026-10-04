@@ -154,6 +154,9 @@ add('payments.full_webhook', 'Hosted Stripe test payment completes and webhook c
     && stripePayment.matchingOrderCount === 1
     && stripePayment.successfulChargeCount === 1
     && stripePayment.idempotencyEventKeyPresent === true
+    && stripePayment.duplicateReplayPerformed === true
+    && stripePayment.duplicateReplayRejectedAsDuplicate === true
+    && stripePayment.matchingOrderCountAfterReplay === 1
     && stripePayment.secretValuesRecorded === false,
   { proof: 'stripe-payment-webhook-proof.json', payment: stripePayment });
 add('gml.cloudflare_oauth', 'Real Cloudflare authorization callback/refresh path is exercised',
