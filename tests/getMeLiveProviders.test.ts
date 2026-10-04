@@ -126,7 +126,7 @@ describe('Get Me Live Pages hostname truth (plan §3)', () => {
 describe('Cloudflare OAuth least privilege (Slice 9)', () => {
   it('never requests Registrar scopes, whatever the configured list says', () => {
     expect(providers.cloudflareOAuthScopes('account:read registrar:write page.write pages:write, zone:read registrar:read dns_records:edit'))
-      .toEqual(['account.read', 'pages.write', 'zone.read', 'dns.write']);
+      .toEqual(['memberships.read', 'page.write', 'zone.read', 'dns.write']);
     expect(() => providers.cloudflareOAuthScopes(' ')).toThrow('CLOUDFLARE_OAUTH_SCOPES is not configured');
   });
 
@@ -135,7 +135,7 @@ describe('Cloudflare OAuth least privilege (Slice 9)', () => {
     const url = new URL(await providers.createCloudflareAuthorizationUrl({
       KV: kv, CLOUDFLARE_OAUTH_CLIENT_ID: 'client', CLOUDFLARE_OAUTH_SCOPES: 'account:read registrar:write page.write'
     } as unknown as Env, { orderId: 'gml_1', ownerId: 'owner@example.com', redirectUri: 'https://api.test/cb' }));
-    expect(url.searchParams.get('scope')).toBe('account.read pages.write');
+    expect(url.searchParams.get('scope')).toBe('memberships.read page.write');
   });
 
   it('no Registrar API call remains in the Worker source', async () => {
