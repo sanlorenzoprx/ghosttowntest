@@ -327,6 +327,7 @@ try {
   if (!response.ok || body?.ok !== true || body?.passed !== true) {
     if (body?.inputRequired === true) {
       evidence = { passed: false, diagnostics: body?.diagnostics || null };
+      console.error('[acceptance-stripe-payment] diagnostics', JSON.stringify(body?.diagnostics || null));
       throw new Error('INPUT_REQUIRED: no qualifying recent Stripe test payment/webhook entitlement was found in acceptance.');
     }
     throw new Error(`Stripe payment proof failed HTTP ${response.status}: ${body?.error || 'unknown error'}`);
@@ -349,7 +350,7 @@ try {
   }
 }
 
-const proof = evidence ? {
+const proof = evidence?.passed === true ? {
   schemaVersion: 'ghosttown-acceptance-stripe-payment-webhook-v1',
   passed: true,
   stripeMode: evidence.stripeMode,
