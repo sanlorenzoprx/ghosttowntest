@@ -90,6 +90,12 @@ jobs:
         if: ${{ inputs.run_full_tests }}
         run: npm test
 
+      - name: Apply acceptance D1 migrations
+        if: ${{ inputs.deploy }}
+        run: |
+          mkdir -p github-acceptance
+          npx wrangler d1 migrations apply DB --env acceptance --remote 2>&1 | tee github-acceptance/migration-apply.txt
+
       - name: Deploy acceptance Worker
         if: ${{ inputs.deploy }}
         run: |
