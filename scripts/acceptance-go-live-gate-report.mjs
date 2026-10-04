@@ -168,8 +168,8 @@ add('gml.cloudflare_oauth', 'Real Cloudflare authorization callback/refresh path
     && cloudflareOAuth.providerStateConnected === true
     && cloudflareOAuth.accessTokenStored === true
     && cloudflareOAuth.refreshTokenStored === true
-    && cloudflareOAuth.accountReadScopeConfigured === true
-    && cloudflareOAuth.pagesWriteScopeConfigured === true
+    && cloudflareOAuth.membershipsReadScopeConfigured === true
+    && cloudflareOAuth.pageWriteScopeConfigured === true
     && Number(cloudflareOAuth.accountListBeforeRefreshCount || 0) > 0
     && cloudflareOAuth.forcedExpiryApplied === true
     && cloudflareOAuth.refreshPathExercised === true
