@@ -42,8 +42,9 @@ function required(value: string | undefined, name: string): string {
 export function cloudflareOAuthScopes(configured: string | undefined): string[] {
   const legacyAliases: Record<string, string> = {
     'account:read': 'account.read',
-    'page.write': 'pages.write',
-    'pages:write': 'pages.write',
+    'page.write': 'page.write',
+    'pages:write': 'page.write',
+    'pages.write': 'page.write',
     'zone:read': 'zone.read',
     'dns_records:edit': 'dns.write',
     'dns_records:write': 'dns.write'
