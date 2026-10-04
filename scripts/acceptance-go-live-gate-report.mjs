@@ -13,11 +13,12 @@ async function jsonFile(name) {
   }
 }
 
-const [frontDoor, sprint, getMeLive, ownerControls] = await Promise.all([
+const [frontDoor, sprint, getMeLive, ownerControls, sprintWithoutGml] = await Promise.all([
   jsonFile('front-door-proof.json'),
   jsonFile('30-day-sprint-ui-proof.json'),
   jsonFile('get-me-live-browser-proof.json'),
   jsonFile('get-me-live-owner-controls.json'),
+  jsonFile('sprint-without-gml-proof.json'),
 ]);
 
 const checks = [];
@@ -144,8 +145,15 @@ add('gml.cloudflare_oauth', 'Real Cloudflare authorization callback/refresh path
   getMeLive.cloudflareOAuthVerified === true,
   { currentProof: 'Disposable fixture injects an acceptance Cloudflare token; this does not prove the customer OAuth consent/callback path.' });
 add('sprint.without_gml', 'A runtime Sprint remains fully usable when no Get Me Live order exists',
-  sprint.sprintWithoutGetMeLiveVerified === true,
-  { currentProof: 'Current disposable fixture always links a Get Me Live order; component tests are not enough for this runtime gate.' });
+  sprintWithoutGml.passed === true
+    && sprintWithoutGml.detached === true
+    && sprintWithoutGml.dashboard?.sprintOpenedFromDashboard === true
+    && sprintWithoutGml.progress?.writeRoundTrip === true
+    && sprintWithoutGml.coachMemory?.reviewCount === 30
+    && sprintWithoutGml.websiteEvidence?.available === false
+    && Number(sprintWithoutGml.artifacts?.pdf?.bytes || 0) > 0
+    && Number(sprintWithoutGml.artifacts?.assets?.bytes || 0) > 0,
+  { proof: 'sprint-without-gml-proof.json', runtime: sprintWithoutGml });
 
 const result = blockers.length === 0 ? 'PASS' : 'BLOCKED';
 const report = {
@@ -159,6 +167,7 @@ const report = {
     sprint: 'github-acceptance/30-day-sprint-ui-proof.json',
     getMeLive: 'github-acceptance/get-me-live-browser-proof.json',
     ownerControls: 'github-acceptance/get-me-live-owner-controls.json',
+    sprintWithoutGetMeLive: 'github-acceptance/sprint-without-gml-proof.json',
   },
   recordedAt: new Date().toISOString(),
 };
