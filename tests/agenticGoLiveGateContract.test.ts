@@ -6,14 +6,15 @@ import { describe, expect, it } from 'vitest';
 const sprintPath = fileURLToPath(new URL('../tests/e2e/30-day-sprint-acceptance.mjs', import.meta.url));
 const reportPath = fileURLToPath(new URL('../scripts/acceptance-go-live-gate-report.mjs', import.meta.url));
 const sprintWithoutGmlPath = fileURLToPath(new URL('../tests/e2e/sprint-without-gml-acceptance.mjs', import.meta.url));
+const stripeProofPath = fileURLToPath(new URL('../scripts/acceptance-stripe-payment-proof.mjs', import.meta.url));
 const workflow = readFileSync(new URL('../.github/workflows/acceptance.yml', import.meta.url), 'utf8');
 const sprint = readFileSync(sprintPath, 'utf8');
 const report = readFileSync(reportPath, 'utf8');
-const stripeProof = readFileSync(new URL('../scripts/acceptance-stripe-payment-proof.mjs', import.meta.url), 'utf8');
+const stripeProof = readFileSync(stripeProofPath, 'utf8');
 
 describe('agentic go-live gate contract', () => {
   it('keeps both orchestration scripts syntactically valid', () => {
-    for (const path of [sprintPath, sprintWithoutGmlPath, reportPath]) {
+    for (const path of [sprintPath, sprintWithoutGmlPath, stripeProofPath, reportPath]) {
       const checked = spawnSync(process.execPath, ['--check', path], { encoding: 'utf8' });
       expect(checked.status, checked.stderr).toBe(0);
     }
