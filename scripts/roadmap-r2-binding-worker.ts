@@ -527,10 +527,24 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
   }
 
   await env.KV.put('paid_test_order_' + orderId, JSON.stringify(order), { expirationTtl: 86400 });
-  await env.KV.put('paid_test_orders_' + ownerId, JSON.stringify([{
+  const summaryKey = 'paid_test_orders_' + ownerId;
+  const existingSummaryRaw = await env.KV.get(summaryKey);
+  let existingSummaries: any[] = [];
+  try {
+    const parsed = existingSummaryRaw ? JSON.parse(existingSummaryRaw) : [];
+    existingSummaries = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    existingSummaries = [];
+  }
+  const syntheticSummary = {
     orderId, ideaName: 'Synthetic Acceptance Sprint', status: 'ready', createdAt: now, updatedAt: now,
     artifactType: order.artifactType, offerName: '30-Day Evidence Sprint', sourceVerdictId, planVersion: order.planVersion || '1.0'
-  }]), { expirationTtl: 86400 });
+  };
+  const mergedSummaries = [
+    syntheticSummary,
+    ...existingSummaries.filter(item => item?.orderId !== orderId)
+  ].slice(0, 50);
+  await env.KV.put(summaryKey, JSON.stringify(mergedSummaries), { expirationTtl: 86400 });
   if (cloudflareMode === 'oauth') {
     await env.KV.put('acceptance_cloudflare_oauth_fixture_v1', JSON.stringify({
       orderId, gmlOrderId, ownerId, createdAt: now
