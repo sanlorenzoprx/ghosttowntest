@@ -33,7 +33,9 @@ describe('30-Day Sprint Learning Coach contract', () => {
     expect(memory).toContain('privacySafeLesson');
     expect(memory).toContain('@[A-Z0-9.-]+');
     expect(memory).toContain('https?:');
-    expect(memory).toContain('globalEligible = privacySafe');
+    expect(memory).toContain('globalEligible = input.allowGlobalLearning === true');
+    expect(handler).toContain('containsSyntheticAcceptanceEvidence');
+    expect(handler).toContain("!containsSyntheticAcceptanceEvidence(context)");
   });
 
   it('loads prior daily assessments into the next day and checks exact-context cache before model budget', () => {
