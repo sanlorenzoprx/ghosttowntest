@@ -13,13 +13,14 @@ async function jsonFile(name) {
   }
 }
 
-const [frontDoor, sprint, getMeLive, ownerControls, sprintWithoutGml, stripePayment] = await Promise.all([
+const [frontDoor, sprint, getMeLive, ownerControls, sprintWithoutGml, stripePayment, cloudflareOAuth] = await Promise.all([
   jsonFile('front-door-proof.json'),
   jsonFile('30-day-sprint-ui-proof.json'),
   jsonFile('get-me-live-browser-proof.json'),
   jsonFile('get-me-live-owner-controls.json'),
   jsonFile('sprint-without-gml-proof.json'),
   jsonFile('stripe-payment-webhook-proof.json'),
+  jsonFile('cloudflare-oauth-proof.json'),
 ]);
 
 const checks = [];
@@ -160,8 +161,23 @@ add('payments.full_webhook', 'Hosted Stripe test payment completes and webhook c
     && stripePayment.secretValuesRecorded === false,
   { proof: 'stripe-payment-webhook-proof.json', payment: stripePayment });
 add('gml.cloudflare_oauth', 'Real Cloudflare authorization callback/refresh path is exercised',
-  getMeLive.cloudflareOAuthVerified === true,
-  { currentProof: 'Disposable fixture injects an acceptance Cloudflare token; this does not prove the customer OAuth consent/callback path.' });
+  cloudflareOAuth.passed === true
+    && cloudflareOAuth.environment === 'acceptance'
+    && cloudflareOAuth.tokenInjected === false
+    && cloudflareOAuth.consentCallbackPersisted === true
+    && cloudflareOAuth.providerStateConnected === true
+    && cloudflareOAuth.accessTokenStored === true
+    && cloudflareOAuth.refreshTokenStored === true
+    && cloudflareOAuth.accountReadScopeConfigured === true
+    && cloudflareOAuth.pagesWriteScopeConfigured === true
+    && Number(cloudflareOAuth.accountListBeforeRefreshCount || 0) > 0
+    && cloudflareOAuth.forcedExpiryApplied === true
+    && cloudflareOAuth.refreshPathExercised === true
+    && cloudflareOAuth.refreshSucceeded === true
+    && Number(cloudflareOAuth.accountListAfterRefreshCount || 0) > 0
+    && cloudflareOAuth.refreshedTokenExpiresInFuture === true
+    && cloudflareOAuth.secretValuesRecorded === false,
+  { proof: 'cloudflare-oauth-proof.json', oauth: cloudflareOAuth });
 add('sprint.without_gml', 'A runtime Sprint remains fully usable when no Get Me Live order exists',
   sprintWithoutGml.passed === true
     && sprintWithoutGml.detached === true
@@ -187,6 +203,7 @@ const report = {
     ownerControls: 'github-acceptance/get-me-live-owner-controls.json',
     sprintWithoutGetMeLive: 'github-acceptance/sprint-without-gml-proof.json',
     stripePaymentWebhook: 'github-acceptance/stripe-payment-webhook-proof.json',
+    cloudflareOAuth: 'github-acceptance/cloudflare-oauth-proof.json',
   },
   recordedAt: new Date().toISOString(),
 };
