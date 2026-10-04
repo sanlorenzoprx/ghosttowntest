@@ -317,6 +317,35 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
   }
 
   const cloudflareMode = body?.cloudflareMode === 'oauth' ? 'oauth' : 'injected';
+
+  if (cloudflareMode === 'oauth') {
+    const pointerRaw = await env.KV.get('acceptance_cloudflare_oauth_fixture_v1');
+    let pointer: any = null;
+    try { pointer = pointerRaw ? JSON.parse(pointerRaw) : null; } catch { pointer = null; }
+    if (pointer?.ownerId === ownerId && pointer?.orderId && pointer?.gmlOrderId) {
+      const reusable = await env.DB.prepare(`
+        SELECT order_id, owner_id, source_sprint_order_id, provider_state_json, paid_at
+        FROM get_me_live_orders WHERE order_id = ?
+      `).bind(pointer.gmlOrderId).first<any>();
+      if (reusable
+          && reusable.owner_id === ownerId
+          && reusable.source_sprint_order_id === pointer.orderId
+          && reusable.paid_at) {
+        return json({
+          ok: true,
+          orderId: pointer.orderId,
+          gmlOrderId: pointer.gmlOrderId,
+          ownerId,
+          reused: true,
+          cloudflareMode: 'oauth',
+          expiresInSeconds: 86400,
+          stripeChargeCreated: false,
+          productionMutated: false
+        });
+      }
+    }
+  }
+
   const existing = await env.DB.prepare(`
     SELECT order_id, owner_id, source_sprint_order_id, provider_state_json
     FROM get_me_live_orders WHERE order_id = ?
@@ -325,10 +354,9 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
     if (existing.owner_id !== ownerId || existing.source_sprint_order_id !== orderId) {
       return json({ error: 'Existing E2E Get Me Live fixture identity does not match' }, 409);
     }
-    const provider = JSON.parse(existing.provider_state_json || '{}');
     return json({
       ok: true, orderId, gmlOrderId, ownerId, reused: true,
-      cloudflareMode: provider.cloudflareConnected ? 'injected' : 'oauth',
+      cloudflareMode,
       expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false
     });
   }
