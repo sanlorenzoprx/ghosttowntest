@@ -1,0 +1,56 @@
+name: Stripe Payment Proof
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghosttown-stripe-payment-proof
+  cancel-in-progress: false
+
+jobs:
+  stripe-payment-proof:
+    name: stripe-payment-proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: acceptance
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify acceptance Cloudflare credentials
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing acceptance CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing acceptance CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+
+      - name: Syntax-check Stripe payment verifier
+        run: node --check scripts/acceptance-stripe-payment-proof.mjs
+
+      - name: Prove real Stripe payment webhook entitlement
+        run: node scripts/acceptance-stripe-payment-proof.mjs
+
+      - name: Upload Stripe payment proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-stripe-payment-proof-${{ github.run_id }}
+          path: github-acceptance/stripe-payment-webhook-proof.json
+          if-no-files-found: error
+          retention-days: 14
