@@ -111,7 +111,21 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
     const primary = await runExecutionCopilot(env, capability, mode, context, question, sanitizedHistory(body.history));
     const highImpact = capability === 'strategy_reasoner' && mode === 'current_experiment'
       && (context.branch.route !== 'continue' || /\b(pivot|change|price|offer|customer|stop|pause)\b/i.test(question));
-    const critic = highImpact ? await runExecutionCritic(env, context, question, primary.output) : null;
+    let critic: Awaited<ReturnType<typeof runExecutionCritic>> | null = null;
+    let criticDegraded: { active: true; reason: 'critic_failure' } | null = null;
+    if (highImpact) {
+      try {
+        critic = await runExecutionCritic(env, context, question, primary.output);
+      } catch (criticError) {
+        criticDegraded = { active: true, reason: 'critic_failure' };
+        console.warn('Execution Copilot critic degraded; primary guidance remains available', {
+          orderId,
+          dayNumber,
+          capability,
+          error: criticError instanceof Error ? criticError.message : String(criticError)
+        });
+      }
+    }
     return json({
       mode,
       capability,
@@ -143,7 +157,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
       },
       refs: internalRefs,
       groundedWebSources: groundingSources(primary.groundingMetadata),
-      degraded: primary.degraded || null,
+      degraded: primary.degraded || criticDegraded || null,
       usage: {
         hourlyLimit: COPILOT_REQUESTS_PER_HOUR,
         requestNumberThisHour: budget.used
@@ -155,11 +169,12 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Execution Copilot failed';
-    if (capability === 'grounded_research' && /request timed out/i.test(message)) {
+    if (/request timed out/i.test(message)) {
+      const grounded = capability === 'grounded_research';
       const recommendedAction = context.branch.nextAction?.trim()
         || context.experiment.exactActions[0]?.instruction?.trim()
         || `Complete Day ${context.experiment.dayNumber} exactly as written in the Blueprint.`;
-      console.warn('Execution Copilot grounded research timed out; returning deterministic Blueprint fallback', {
+      console.warn('Execution Copilot provider timed out; returning deterministic Blueprint fallback', {
         orderId,
         dayNumber,
         capability
@@ -167,12 +182,18 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
       return json({
         mode,
         capability,
-        answer: `Live web research did not finish in time. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint task instead of waiting or guessing.`,
-        evidenceAssessment: 'No new market evidence was created by this timed-out research call. Recorded customer behavior remains authoritative.',
+        answer: grounded
+          ? `Live web research did not finish in time. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint task instead of waiting or guessing.`
+          : `AI guidance did not finish in time. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint task instead of waiting or guessing.`,
+        evidenceAssessment: grounded
+          ? 'No new market evidence was created by this timed-out research call. Recorded customer behavior remains authoritative.'
+          : 'No new customer evidence was created by this timed-out AI call. Deterministic Blueprint state remains authoritative.',
         contradictionDetected: false,
         recommendedAction,
         evidenceToRecord: context.experiment.evidenceToCapture.slice(0, 10),
-        assumptions: ['Grounded web research timed out, so GhostTown did not infer external facts or fabricate a provider result.'],
+        assumptions: [grounded
+          ? 'Grounded web research timed out, so GhostTown did not infer external facts or fabricate a provider result.'
+          : 'The AI provider timed out, so GhostTown continued from deterministic Blueprint context without fabricating guidance.'],
         critic: null,
         guardrails: {
           route: context.branch.route,
@@ -195,7 +216,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
         },
         refs: internalRefs,
         groundedWebSources: [],
-        degraded: { active: true, reason: 'grounded_timeout' },
+        degraded: { active: true, reason: grounded ? 'grounded_timeout' : 'provider_timeout' },
         usage: {
           hourlyLimit: COPILOT_REQUESTS_PER_HOUR,
           requestNumberThisHour: budget.used
