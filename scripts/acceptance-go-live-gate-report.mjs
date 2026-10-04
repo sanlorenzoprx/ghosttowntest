@@ -49,18 +49,41 @@ add('sprint.entitlement', '$97 Sprint entitlement exists for isolated customer f
 add('sprint.blueprint', 'Canonical Blueprint renders all 30 days', sprint.passed === true && completedDays.length === 30,
   { proof: '30-day-sprint-ui-proof.json', completedDays });
 const dailyAgentic = sprint.agentic?.daily || [];
-const dailyGrounded = dailyAgentic.filter(item => item.capability === 'grounded_research' && item.receipt?.task === 'grounded_research');
-add('sprint.agentic.daily', 'Agentic grounded research/guidance runs for Days 1-30',
-  dailyAgentDays.size === 30 && dailyGrounded.length === 30,
+const checkpointAgentic = sprint.agentic?.checkpoints || [];
+const groundedDailyRequired = [1, 15, 30];
+const groundedCheckpointRequired = [7, 14, 21, 30];
+const dailyGrounded = dailyAgentic.filter(item => item.capability === 'grounded_research');
+const checkpointGrounded = checkpointAgentic.filter(item => item.capability === 'grounded_research');
+const groundedAttempts = [...dailyGrounded, ...checkpointGrounded];
+const nativeGrounded = groundedAttempts.filter(item =>
+  item.receipt?.task === 'grounded_research' && item.degraded?.active !== true
+);
+add('sprint.agentic.daily', 'Agentic guidance runs for every Sprint day',
+  dailyAgentDays.size === 30,
   {
     count: dailyAgentDays.size,
-    groundedResearchCount: dailyGrounded.length,
     days: [...dailyAgentDays].sort((a,b) => a-b),
     receiptTasks: [...new Set(dailyAgentic.map(item => item.receipt?.task).filter(Boolean))]
   });
+add('sprint.agentic.grounded_samples', 'Grounded web research is exercised on representative days and all checkpoints',
+  groundedDailyRequired.every(day => dailyGrounded.some(item => item.dayNumber === day))
+    && groundedCheckpointRequired.every(day => checkpointGrounded.some(item => item.dayNumber === day)),
+  {
+    dailyRequired: groundedDailyRequired,
+    dailyObserved: dailyGrounded.map(item => item.dayNumber),
+    checkpointRequired: groundedCheckpointRequired,
+    checkpointObserved: checkpointGrounded.map(item => item.dayNumber)
+  });
+add('sprint.agentic.grounded_native', 'At least one sampled grounded request returns a native provider result',
+  nativeGrounded.length > 0,
+  {
+    nativeGroundedCount: nativeGrounded.length,
+    nativeDays: nativeGrounded.map(item => item.dayNumber),
+    degradedGroundedCount: groundedAttempts.filter(item => item.degraded?.active === true).length
+  });
 const degradedAgentic = [
   ...dailyAgentic,
-  ...(sprint.agentic?.checkpoints || [])
+  ...checkpointAgentic
 ].filter(item => item.degraded?.active === true);
 add('sprint.agentic.degradation', 'Agentic guidance returns native structured output without provider-format degradation',
   degradedAgentic.length === 0,
