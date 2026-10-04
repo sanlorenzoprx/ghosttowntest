@@ -40,6 +40,6 @@ describe('30-Day Sprint Learning Coach contract', () => {
     expect(memory).toContain("phase = 'review' AND day_number < ?");
     expect(memory).toContain('ORDER BY day_number DESC');
     expect(handler).toContain('context.coachMemory = await loadExecutionCoachMemory');
-    expect(handler.indexOf('loadCachedExecutionCoachResponse')).toBeLessThan(handler.indexOf('consumeHourlyRateLimit'));
+    expect(handler.indexOf('const cached = await loadCachedExecutionCoachResponse')).toBeLessThan(handler.indexOf('const budget = await consumeHourlyRateLimit'));
   });
 });
