@@ -206,6 +206,13 @@ jobs:
         shell: bash
         run: timeout --foreground 6m node scripts/acceptance-stripe-payment-proof.mjs
 
+      - name: Prove real Cloudflare OAuth consent and refresh
+        id: cloudflare_oauth
+        if: ${{ always() && inputs.deploy }}
+        continue-on-error: true
+        shell: bash
+        run: timeout --foreground 6m node scripts/acceptance-cloudflare-oauth-proof.mjs
+
       - name: Aggregate agentic go-live gate
         id: go_live_gate
         if: ${{ always() && inputs.deploy }}
@@ -230,6 +237,7 @@ jobs:
           OWNER_CONTROLS_OUTCOME: ${{ steps.owner_controls.outcome }}
           SPRINT_WITHOUT_GML_OUTCOME: ${{ steps.sprint_without_gml.outcome }}
           STRIPE_PAYMENT_OUTCOME: ${{ steps.stripe_payment.outcome }}
+          CLOUDFLARE_OAUTH_OUTCOME: ${{ steps.cloudflare_oauth.outcome }}
           GO_LIVE_GATE_OUTCOME: ${{ steps.go_live_gate.outcome }}
         run: |
           mkdir -p github-acceptance
@@ -256,6 +264,7 @@ jobs:
               ownerControls: process.env.OWNER_CONTROLS_OUTCOME || 'not_run',
               sprintWithoutGetMeLive: process.env.SPRINT_WITHOUT_GML_OUTCOME || 'not_run',
               stripePaymentWebhook: process.env.STRIPE_PAYMENT_OUTCOME || 'not_run',
+              cloudflareOAuth: process.env.CLOUDFLARE_OAUTH_OUTCOME || 'not_run',
               agenticGoLiveGate: process.env.GO_LIVE_GATE_OUTCOME || 'not_run'
             },
             recordedAt: new Date().toISOString()
@@ -284,6 +293,7 @@ jobs:
           OWNER_CONTROLS_OUTCOME: ${{ steps.owner_controls.outcome }}
           SPRINT_WITHOUT_GML_OUTCOME: ${{ steps.sprint_without_gml.outcome }}
           STRIPE_PAYMENT_OUTCOME: ${{ steps.stripe_payment.outcome }}
+          CLOUDFLARE_OAUTH_OUTCOME: ${{ steps.cloudflare_oauth.outcome }}
           GO_LIVE_GATE_OUTCOME: ${{ steps.go_live_gate.outcome }}
         run: |
           echo "fixture: $FIXTURE_OUTCOME"
@@ -294,6 +304,7 @@ jobs:
           echo "owner-controls: $OWNER_CONTROLS_OUTCOME"
           echo "sprint-without-gml: $SPRINT_WITHOUT_GML_OUTCOME"
           echo "stripe-payment-webhook: $STRIPE_PAYMENT_OUTCOME"
+          echo "cloudflare-oauth: $CLOUDFLARE_OAUTH_OUTCOME"
           echo "agentic-go-live-gate: $GO_LIVE_GATE_OUTCOME"
           failed=0
           for outcome in "$FIXTURE_OUTCOME" "$RUNTIME_INPUTS_OUTCOME" "$FRONT_DOOR_OUTCOME" "$SPRINT_OUTCOME" "$GET_ME_LIVE_OUTCOME" "$OWNER_CONTROLS_OUTCOME" "$SPRINT_WITHOUT_GML_OUTCOME" "$STRIPE_PAYMENT_OUTCOME" "$GO_LIVE_GATE_OUTCOME"; do
