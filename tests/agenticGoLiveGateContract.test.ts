@@ -17,16 +17,19 @@ describe('agentic go-live gate contract', () => {
     }
   });
 
-  it('runs AI guidance daily, samples grounded research, and never turns generated text into market evidence', () => {
+  it('runs the Learning Coach after recorded results, samples grounded freshness, and never turns generated text into market evidence', () => {
     expect(sprint).toContain("const agentic = process.env.GHOSTTOWN_E2E_AGENTIC === '1';");
     expect(sprint).toContain("const groundedDailyDays = new Set([1, 15, 30]);");
-    expect(sprint).toContain("phase = 'daily'");
-    expect(sprint).toContain('representative grounded-research QA sample');
-    expect(sprint).toContain('Do not invent customers, customer quotes, commitments, revenue');
+    expect(sprint).toContain("phase = 'review'");
+    expect(sprint).toContain('Review the recorded results for Day');
+    expect(sprint).toContain('synthetic records are not real customer proof');
     expect(sprint).toContain('QA simulation only; not real customer or market evidence.');
+    expect(sprint).toContain('coachMemory.reviewCount !== 30');
+    expect(sprint).toContain("cachedReview.cache?.hit !== true");
     expect(report).toContain("groundedDailyRequired = [1, 15, 30]");
     expect(report).toContain("groundedCheckpointRequired = [7, 14, 21, 30]");
-    expect(report).toContain("item.receipt?.task === 'grounded_research'");
+    expect(report).toContain("'sprint.agentic.memory'");
+    expect(report).toContain("'sprint.agentic.cache'");
   });
 
   it('treats missing provider proof as a blocker instead of assuming success', () => {
@@ -38,6 +41,7 @@ describe('agentic go-live gate contract', () => {
 
   it('wires the gate into acceptance and preserves its evidence even when blocked', () => {
     expect(workflow).toContain('GHOSTTOWN_E2E_AGENTIC: "1"');
+    expect(workflow).toContain('npx wrangler d1 migrations apply DB --env acceptance --remote');
     expect(workflow).toContain('timeout --foreground 35m node tests/e2e/30-day-sprint-acceptance.mjs');
     expect(workflow).toContain('node scripts/acceptance-go-live-gate-report.mjs');
     expect(workflow).toContain('GO_LIVE_GATE_OUTCOME');
