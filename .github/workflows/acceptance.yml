@@ -73,6 +73,9 @@ jobs:
           tests/blueprintPdfV21.test.ts
           tests/blueprintReleaseQualityGateV21.test.ts
           tests/blueprintWebsiteEvidence.test.ts
+          tests/blueprintExecutionCopilotContract.test.ts
+          tests/executionLearningCoachContract.test.ts
+          tests/agenticGoLiveGateContract.test.ts
           tests/launchBlueprintExecutionHomeV21.test.ts
           tests/launchBlueprintViewV21.test.ts
           --no-file-parallelism
