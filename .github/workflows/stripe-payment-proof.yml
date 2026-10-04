@@ -8,6 +8,9 @@ on:
     paths:
       - .github/workflows/stripe-payment-proof.yml
       - scripts/acceptance-stripe-payment-proof.mjs
+      - src/lib/api.ts
+      - tests/acceptanceEnvironment.test.ts
+      - tests/agenticGoLiveGateContract.test.ts
 
 permissions:
   contents: read
@@ -48,6 +51,34 @@ jobs:
 
       - name: Syntax-check Stripe payment verifier
         run: node --check scripts/acceptance-stripe-payment-proof.mjs
+
+      - name: Build acceptance frontend against acceptance Worker
+        env:
+          VITE_API_URL: https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev
+        run: |
+          rm -rf dist
+          npm run build
+          grep -R -F "https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev" dist/assets >/dev/null
+          printf '%s\n' "$GITHUB_SHA" > dist/acceptance-build.txt
+
+      - name: Deploy hardened acceptance frontend
+        run: npx wrangler pages deploy dist --project-name ghosttown-acceptance --branch main
+
+      - name: Verify hardened acceptance frontend
+        shell: bash
+        run: |
+          expected="$GITHUB_SHA"
+          url="https://main.ghosttown-acceptance.pages.dev/acceptance-build.txt"
+          for attempt in $(seq 1 24); do
+            served="$(curl -fsS -H 'Cache-Control: no-cache' "$url?sha=$expected&attempt=$attempt" 2>/dev/null || true)"
+            if [ "$served" = "$expected" ]; then
+              echo "Acceptance frontend serves current SHA $expected"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Acceptance frontend did not serve current SHA $expected"
+          exit 1
 
       - name: Prove real Stripe payment webhook entitlement
         run: node scripts/acceptance-stripe-payment-proof.mjs
