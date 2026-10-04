@@ -72,7 +72,7 @@ describe('Blueprint Execution Copilot contract', () => {
     expect(handler).toContain('loadCachedExecutionCoachResponse');
     expect(handler).toContain('saveExecutionCoachResponse');
     expect(handler).toContain('handleBlueprintCoachMemory');
-    expect(handler.indexOf('loadCachedExecutionCoachResponse')).toBeLessThan(handler.indexOf('consumeHourlyRateLimit'));
+    expect(handler.indexOf('const cached = await loadCachedExecutionCoachResponse')).toBeLessThan(handler.indexOf('const budget = await consumeHourlyRateLimit'));
     expect(service).toContain("phase === 'review'");
     expect(service).toContain("RECORDED result");
     expect(service).toContain('learningCandidates');
