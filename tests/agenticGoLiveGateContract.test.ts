@@ -49,7 +49,7 @@ describe('agentic go-live gate contract', () => {
   });
 
   it('proves one recent real Stripe test payment through the signed webhook and duplicate replay boundary', () => {
-    expect(stripeProof).toContain("!email.endsWith('@example.invalid')");
+    expect(stripeProof).toContain("!customerEmail.endsWith('@example.invalid')");
     expect(stripeProof).toContain("session.payment_status === 'paid'");
     expect(stripeProof).toContain("session.amount_total === GHOSTTOWN_30_DAY_PLAN_V1.amountCents");
     expect(stripeProof).toContain("env.KV.get('stripe_event_' + order.stripeEventId)");
