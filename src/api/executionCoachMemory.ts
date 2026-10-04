@@ -239,6 +239,7 @@ export async function saveExecutionCoachResponse(
     receipt?: unknown;
     degradation?: unknown;
     learningCandidates?: unknown;
+    allowGlobalLearning?: boolean;
   }
 ): Promise<{ responseId: string; expiresAt?: string; learningCandidateCount: number }> {
   if (!env.DB) throw new Error('Launch Blueprint D1 binding is not configured');
@@ -301,7 +302,8 @@ export async function saveExecutionCoachResponse(
     const lesson = candidate.lesson.trim().slice(0, 1200);
     const evidenceBasis = candidate.evidenceBasis.trim().slice(0, 1200);
     const privacySafe = privacySafeLesson(candidate);
-    const globalEligible = privacySafe
+    const globalEligible = input.allowGlobalLearning === true
+      && privacySafe
       && candidate.scope !== 'customer_specific'
       && input.phase === 'review';
     const candidateId = `learn_${await sha256Hex(JSON.stringify({
