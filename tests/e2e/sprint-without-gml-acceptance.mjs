@@ -111,7 +111,9 @@ try {
   await page.getByText('Your customer page and activity will appear here after you start Get Me Live.', { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
   await page.getByRole('button', { name: 'Open Blueprint', exact: true }).click();
   await page.getByRole('region', { name: '30-day execution calendar' }).waitFor({ state: 'visible', timeout: 30000 });
-  const websiteRegionCount = await page.getByRole('region', { name: 'Website evidence from Get Me Live' }).count();
+  const websiteRegion = page.getByRole('region', { name: 'Website evidence from Get Me Live' });
+  await websiteRegion.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => undefined);
+  const websiteRegionCount = await websiteRegion.count();
   if (websiteRegionCount !== 0) throw new Error('Sprint rendered linked website evidence after Get Me Live entitlement was removed.');
   proof.dashboard = {
     sprintOpenedFromDashboard: true,
