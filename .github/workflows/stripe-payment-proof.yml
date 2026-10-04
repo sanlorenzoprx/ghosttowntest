@@ -8,6 +8,8 @@ on:
     paths:
       - .github/workflows/stripe-payment-proof.yml
       - scripts/acceptance-stripe-payment-proof.mjs
+      - scripts/roadmap-r2-binding-worker.ts
+      - scripts/acceptance-cloudflare-oauth-fixture.mjs
       - src/lib/api.ts
       - tests/acceptanceEnvironment.test.ts
       - tests/agenticGoLiveGateContract.test.ts
