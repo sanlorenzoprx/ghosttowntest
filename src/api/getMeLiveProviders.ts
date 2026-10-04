@@ -41,7 +41,9 @@ function required(value: string | undefined, name: string): string {
  */
 export function cloudflareOAuthScopes(configured: string | undefined): string[] {
   const legacyAliases: Record<string, string> = {
-    'account:read': 'account.read',
+    'account:read': 'memberships.read',
+    'account.read': 'memberships.read',
+    'memberships:read': 'memberships.read',
     'page.write': 'page.write',
     'pages:write': 'page.write',
     'pages.write': 'page.write',
