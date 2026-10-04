@@ -17,12 +17,15 @@ describe('agentic go-live gate contract', () => {
     }
   });
 
-  it('runs grounded daily research without turning generated text into market evidence', () => {
+  it('runs AI guidance daily, samples grounded research, and never turns generated text into market evidence', () => {
     expect(sprint).toContain("const agentic = process.env.GHOSTTOWN_E2E_AGENTIC === '1';");
+    expect(sprint).toContain("const groundedDailyDays = new Set([1, 15, 30]);");
     expect(sprint).toContain("phase = 'daily'");
-    expect(sprint).toContain('Do not invent customers, customer quotes, commitments, revenue, or completed actions.');
+    expect(sprint).toContain('representative grounded-research QA sample');
+    expect(sprint).toContain('Do not invent customers, customer quotes, commitments, revenue');
     expect(sprint).toContain('QA simulation only; not real customer or market evidence.');
-    expect(report).toContain("item.capability === 'grounded_research'");
+    expect(report).toContain("groundedDailyRequired = [1, 15, 30]");
+    expect(report).toContain("groundedCheckpointRequired = [7, 14, 21, 30]");
     expect(report).toContain("item.receipt?.task === 'grounded_research'");
   });
 
