@@ -66,8 +66,8 @@ describe('agentic go-live gate contract', () => {
     expect(cloudflareOAuthProof).toContain("acceptance_cloudflare_oauth_fixture_v1");
     expect(cloudflareOAuthProof).toContain("provider?.cloudflareConnected !== true");
     expect(cloudflareOAuthProof).toContain("!before?.accessToken || !before?.refreshToken");
-    expect(cloudflareOAuthProof).toContain("configuredScopes.includes('account.read')");
-    expect(cloudflareOAuthProof).toContain("configuredScopes.includes('pages.write')");
+    expect(cloudflareOAuthProof).toContain("configuredScopes.includes('memberships.read')");
+    expect(cloudflareOAuthProof).toContain("configuredScopes.includes('page.write')");
     expect(cloudflareOAuthProof).toContain("expiresAt: new Date(Date.now() - 60_000).toISOString()");
     expect(cloudflareOAuthProof).toContain("accountsAfter = await listCloudflareAccounts");
     expect(cloudflareOAuthProof).toContain("refreshSucceeded: true");
