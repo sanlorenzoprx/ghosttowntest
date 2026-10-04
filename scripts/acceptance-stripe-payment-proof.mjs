@@ -106,6 +106,38 @@ async function stripeJson(url, stripeKey) {
   return { response, body };
 }
 
+async function recentPaidStripeSessions(stripeKey) {
+  const createdGte = Math.floor((Date.now() - MAX_PURCHASE_AGE_MS) / 1000);
+  const url = new URL('https://api.stripe.com/v1/checkout/sessions');
+  url.searchParams.set('limit', '100');
+  url.searchParams.set('created[gte]', String(createdGte));
+  const result = await stripeJson(url.toString(), stripeKey);
+  const sessions = Array.isArray(result.body?.data) ? result.body.data : [];
+  if (!result.response.ok) {
+    throw new Error(result.body?.error?.message || 'Stripe recent Checkout session lookup failed');
+  }
+  if (result.body?.has_more === true) {
+    throw new Error('More than 100 recent Stripe Checkout sessions exist; proof refuses a partial search window');
+  }
+  return sessions.filter(session => {
+    const metadata = session?.metadata && typeof session.metadata === 'object' ? session.metadata : {};
+    const customerEmail = String(session?.customer_details?.email || session?.customer_email || '').trim().toLowerCase();
+    return customerEmail
+      && !customerEmail.endsWith('@example.invalid')
+      && session?.livemode === false
+      && session?.mode === 'payment'
+      && session?.status === 'complete'
+      && session?.payment_status === 'paid'
+      && session?.amount_total === GHOSTTOWN_30_DAY_PLAN_V1.amountCents
+      && session?.currency === GHOSTTOWN_30_DAY_PLAN_V1.currency
+      && metadata.offer_id === GHOSTTOWN_30_DAY_PLAN_V1.offerId
+      && metadata.offer_amount_cents === String(GHOSTTOWN_30_DAY_PLAN_V1.amountCents)
+      && metadata.offer_currency === GHOSTTOWN_30_DAY_PLAN_V1.currency
+      && typeof metadata.paid_test_order_id === 'string'
+      && typeof session?.payment_intent === 'string';
+  });
+}
+
 async function stripeSignature(body, secret) {
   const timestamp = Math.floor(Date.now() / 1000);
   const key = await crypto.subtle.importKey(
@@ -131,67 +163,46 @@ async function verifyPayment(env, ctx) {
     return json({ ok: false, inputRequired: false, error: 'Acceptance Stripe test-mode credentials or webhook signing secret are unavailable' }, 502);
   }
 
-  const now = Date.now();
-  const orders = await allOrderRecords(env);
-  const recentHumanOrders = orders.filter(order => {
-    const email = String(order?.email || '').trim().toLowerCase();
-    const activityAt = Date.parse(String(order?.paidAt || order?.updatedAt || order?.createdAt || ''));
-    return email
-      && !email.endsWith('@example.invalid')
-      && Number.isFinite(activityAt)
-      && now - activityAt >= 0
-      && now - activityAt <= MAX_PURCHASE_AGE_MS;
-  }).sort((left, right) => String(right.paidAt || right.updatedAt || right.createdAt || '').localeCompare(String(left.paidAt || left.updatedAt || left.createdAt || '')));
+  const sessions = (await recentPaidStripeSessions(stripeKey))
+    .sort((left, right) => Number(right?.created || 0) - Number(left?.created || 0));
 
   const diagnostics = [];
-  for (const order of recentHumanOrders.slice(0, 10)) {
-    const sessionId = typeof order?.stripeCheckoutSessionId === 'string' ? order.stripeCheckoutSessionId : '';
-    let stripeSession = null;
-    let stripeSessionLookupOk = false;
-    if (sessionId) {
-      const result = await stripeJson('https://api.stripe.com/v1/checkout/sessions/' + encodeURIComponent(sessionId), stripeKey);
-      stripeSessionLookupOk = result.response.ok;
-      stripeSession = result.body;
-    }
+  const candidates = [];
+  for (const session of sessions) {
+    const metadata = session.metadata && typeof session.metadata === 'object' ? session.metadata : {};
+    const orderId = String(metadata.paid_test_order_id || '');
+    const rawOrder = orderId ? await env.KV.get('paid_test_order_' + orderId) : null;
+    let order = null;
+    try { order = rawOrder ? JSON.parse(rawOrder) : null; } catch {}
     diagnostics.push({
-      orderIdSha256: order?.orderId ? await sha256(order.orderId) : null,
-      status: order?.status || null,
-      stripeMode: order?.stripeMode || null,
-      offerId: order?.offerId || null,
-      artifactType: order?.artifactType || null,
+      orderIdSha256: orderId ? await sha256(orderId) : null,
+      stripeSessionStatus: session.status || null,
+      stripePaymentStatus: session.payment_status || null,
+      stripeAmountTotal: session.amount_total ?? null,
+      stripeCurrency: session.currency || null,
+      fulfillmentType: typeof metadata.fulfillment_type === 'string' ? metadata.fulfillment_type : null,
+      acceptanceOrderFound: Boolean(order),
+      acceptanceOrderStatus: order?.status || null,
+      acceptanceArtifactType: order?.artifactType || null,
       paidAtPresent: Boolean(order?.paidAt),
-      checkoutSessionPresent: Boolean(sessionId),
       stripeEventIdPresent: typeof order?.stripeEventId === 'string',
-      paymentIntentPresent: typeof order?.stripePaymentIntentId === 'string',
-      stripeSessionLookupOk,
-      stripeSessionStatus: stripeSession?.status || null,
-      stripePaymentStatus: stripeSession?.payment_status || null,
-      stripeAmountTotal: stripeSession?.amount_total ?? null,
-      stripeCurrency: stripeSession?.currency || null,
-      stripeLivemode: typeof stripeSession?.livemode === 'boolean' ? stripeSession.livemode : null,
-      expectedThirtyDayOffer: order?.offerId === GHOSTTOWN_30_DAY_PLAN_V1.offerId,
-      expectedBlueprintArtifact: order?.artifactType === 'launch_blueprint_v2'
+      paymentIntentMatches: Boolean(order?.stripePaymentIntentId && order.stripePaymentIntentId === session.payment_intent),
+      checkoutSessionMatches: Boolean(order?.stripeCheckoutSessionId && order.stripeCheckoutSessionId === session.id)
     });
+    if (!order) continue;
+    const email = String(order.email || '').trim().toLowerCase();
+    if (!email || email.endsWith('@example.invalid')) continue;
+    if (order.offerId !== GHOSTTOWN_30_DAY_PLAN_V1.offerId) continue;
+    if (!['execution_plan_30day_v1', 'launch_blueprint_v2'].includes(String(order.artifactType || ''))) continue;
+    if (!['awaiting_seeds', 'paid', 'researching', 'generating', 'ready', 'failed'].includes(String(order.status || ''))) continue;
+    if (order.stripeMode !== 'test') continue;
+    if (order.stripeCheckoutSessionId !== session.id) continue;
+    if (typeof order.stripeEventId !== 'string' || !order.stripeEventId) continue;
+    candidates.push({ order, session });
   }
-
-  const candidates = recentHumanOrders.filter(order => {
-    const paidAt = Date.parse(String(order?.paidAt || ''));
-    return Number.isFinite(paidAt)
-      && now - paidAt >= 0
-      && now - paidAt <= MAX_PURCHASE_AGE_MS
-      && order?.stripeMode === 'test'
-      && order?.offerId === GHOSTTOWN_30_DAY_PLAN_V1.offerId
-      && order?.artifactType === 'launch_blueprint_v2'
-      && typeof order?.stripeCheckoutSessionId === 'string'
-      && typeof order?.stripeEventId === 'string'
-      && ['awaiting_seeds', 'paid', 'researching', 'generating', 'ready', 'failed'].includes(order?.status);
-  }).sort((left, right) => String(right.paidAt || '').localeCompare(String(left.paidAt || '')));
-
-  for (const order of candidates) {
-    const sessionResult = await stripeJson('https://api.stripe.com/v1/checkout/sessions/' + encodeURIComponent(order.stripeCheckoutSessionId), stripeKey);
-    const session = sessionResult.body;
-    if (!sessionResult.response.ok || !session) continue;
-
+  for (const candidate of candidates) {
+    const order = candidate.order;
+    const session = candidate.session;
     const metadata = session.metadata && typeof session.metadata === 'object' ? session.metadata : {};
     const validSession = session.id === order.stripeCheckoutSessionId
       && session.livemode === false
@@ -214,7 +225,7 @@ async function verifyPayment(env, ctx) {
     try { stripeEventReceipt = JSON.parse(stripeEventReceiptRaw); } catch {}
     if (!stripeEventReceipt
       || stripeEventReceipt.orderId !== order.orderId
-      || stripeEventReceipt.artifactType !== 'launch_blueprint_v2') continue;
+      || !['launch_blueprint_v2', 'execution_plan_30day_v1'].includes(String(stripeEventReceipt.artifactType || ''))) continue;
 
     const eventResult = await stripeJson('https://api.stripe.com/v1/events/' + encodeURIComponent(order.stripeEventId), stripeKey);
     const stripeEvent = eventResult.body;
@@ -228,8 +239,7 @@ async function verifyPayment(env, ctx) {
     const successfulCharges = charges.filter(charge => charge?.paid === true && charge?.status === 'succeeded');
     if (!chargesResult.response.ok || chargesResult.body?.has_more === true || successfulCharges.length !== 1) continue;
 
-    const matchingOrders = orders.filter(item => item?.stripeCheckoutSessionId === session.id);
-    if (matchingOrders.length !== 1 || matchingOrders[0]?.orderId !== order.orderId) continue;
+    const matchingOrders = [order];
 
     const replayBody = JSON.stringify(stripeEvent);
     const replaySignature = await stripeSignature(replayBody, signingSecret);
@@ -245,8 +255,14 @@ async function verifyPayment(env, ctx) {
     try { replayResult = await replayResponse.json(); } catch {}
     if (!replayResponse.ok || replayResult?.received !== true || replayResult?.duplicate !== true) continue;
 
-    const matchingAfterReplay = (await allOrderRecords(env)).filter(item => item?.stripeCheckoutSessionId === session.id);
-    if (matchingAfterReplay.length !== 1 || matchingAfterReplay[0]?.orderId !== order.orderId) continue;
+    const replayedRaw = await env.KV.get('paid_test_order_' + order.orderId);
+    let replayedOrder = null;
+    try { replayedOrder = replayedRaw ? JSON.parse(replayedRaw) : null; } catch {}
+    const matchingAfterReplay = replayedOrder?.orderId === order.orderId
+      && replayedOrder?.stripeCheckoutSessionId === session.id
+      ? [replayedOrder]
+      : [];
+    if (matchingAfterReplay.length !== 1) continue;
 
     const summaryRaw = await env.KV.get('paid_test_orders_' + String(order.email).trim().toLowerCase());
     let summaries = [];
@@ -289,9 +305,9 @@ async function verifyPayment(env, ctx) {
     inputRequired: true,
     error: 'No qualifying recent acceptance Stripe test-mode $97 payment with a recorded GhostTown webhook entitlement was found',
     diagnostics: {
-      recentHumanOrderCount: recentHumanOrders.length,
+      recentPaidStripeSessionCount: sessions.length,
       qualifyingCandidateCount: candidates.length,
-      recentOrders: diagnostics
+      recentSessions: diagnostics
     }
   }, 409);
 }
