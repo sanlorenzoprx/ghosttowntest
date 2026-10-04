@@ -13,12 +13,13 @@ async function jsonFile(name) {
   }
 }
 
-const [frontDoor, sprint, getMeLive, ownerControls, sprintWithoutGml] = await Promise.all([
+const [frontDoor, sprint, getMeLive, ownerControls, sprintWithoutGml, stripePayment] = await Promise.all([
   jsonFile('front-door-proof.json'),
   jsonFile('30-day-sprint-ui-proof.json'),
   jsonFile('get-me-live-browser-proof.json'),
   jsonFile('get-me-live-owner-controls.json'),
   jsonFile('sprint-without-gml-proof.json'),
+  jsonFile('stripe-payment-webhook-proof.json'),
 ]);
 
 const checks = [];
@@ -139,8 +140,22 @@ add('interaction.errors', 'No 5xx responses or uncaught browser errors in audite
 
 // Hard go-live gaps: these cannot be inferred from fixture state.
 add('payments.full_webhook', 'Hosted Stripe test payment completes and webhook creates the Sprint entitlement',
-  frontDoor.fullPaymentWebhookVerified === true,
-  { currentProof: 'Front-door currently proves checkout handoff only; fixture entitlement is no-charge and must not be treated as Stripe webhook proof.' });
+  stripePayment.passed === true
+    && stripePayment.stripeMode === 'test'
+    && stripePayment.sessionStatus === 'complete'
+    && stripePayment.paymentStatus === 'paid'
+    && stripePayment.amountTotal === 9700
+    && stripePayment.currency === 'usd'
+    && stripePayment.artifactType === 'launch_blueprint_v2'
+    && stripePayment.signedWebhookAccepted === true
+    && stripePayment.webhookEventRecorded === true
+    && stripePayment.eventReceiptMatchesOrder === true
+    && stripePayment.dashboardProjectionPresent === true
+    && stripePayment.matchingOrderCount === 1
+    && stripePayment.successfulChargeCount === 1
+    && stripePayment.idempotencyEventKeyPresent === true
+    && stripePayment.secretValuesRecorded === false,
+  { proof: 'stripe-payment-webhook-proof.json', payment: stripePayment });
 add('gml.cloudflare_oauth', 'Real Cloudflare authorization callback/refresh path is exercised',
   getMeLive.cloudflareOAuthVerified === true,
   { currentProof: 'Disposable fixture injects an acceptance Cloudflare token; this does not prove the customer OAuth consent/callback path.' });
@@ -168,6 +183,7 @@ const report = {
     getMeLive: 'github-acceptance/get-me-live-browser-proof.json',
     ownerControls: 'github-acceptance/get-me-live-owner-controls.json',
     sprintWithoutGetMeLive: 'github-acceptance/sprint-without-gml-proof.json',
+    stripePaymentWebhook: 'github-acceptance/stripe-payment-webhook-proof.json',
   },
   recordedAt: new Date().toISOString(),
 };
