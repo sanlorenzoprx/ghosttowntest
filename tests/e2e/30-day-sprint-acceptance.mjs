@@ -23,6 +23,7 @@ const blueprintUrl = `${apiBase}/api/paid-test/orders/${encodeURIComponent(order
 const copilotUrl = `${apiBase}/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/copilot`;
 const today = new Date().toISOString().slice(0, 10);
 const checkpoints = new Set([7, 14, 21, 30]);
+const groundedDailyDays = new Set([1, 15, 30]);
 const externalKinds = new Set(['verified_channel', 'qualified_buyer_batch', 'existing_contact', 'fulfillment_run']);
 const preparationOnly = new Set([9, 15]);
 const proof = { schemaVersion: 'ghosttown-agentic-go-live-sprint-v1', orderId, days: [], recovery: [], websiteEvidence: [], surfaceAudit: [], contentReview: {}, agentic: { daily: [], checkpoints: [] }, sequencing: {}, reminders: {}, viewports: [], recordedAt: new Date().toISOString() };
@@ -77,9 +78,12 @@ async function apiJson(request, url, options = {}) {
 }
 async function agenticGuidance(request, dayNumber, phase = 'daily') {
   const checkpoint = phase === 'checkpoint';
+  const groundedDailySample = !checkpoint && groundedDailyDays.has(dayNumber);
   const question = checkpoint
     ? `Assess the Day ${dayNumber} checkpoint using the recorded Sprint evidence and current web research where useful. This is a QA acceptance run: synthetic records are not real customer proof. Do not invent customers, quotes, commitments, revenue, or market evidence. Explain the evidence strength, primary constraint, and safest next action.`
-    : `For Day ${dayNumber}, use current web research where useful and the Blueprint context to explain how a founder should execute today's task. This is a QA acceptance run. Do not invent customers, customer quotes, commitments, revenue, or completed actions. Identify what real-world evidence the founder would need to record.`;
+    : groundedDailySample
+      ? `For Day ${dayNumber}, use current web research where useful and the Blueprint context to explain how a founder should execute today's task. This is a representative grounded-research QA sample. Do not invent customers, customer quotes, commitments, revenue, or completed actions. Identify what real-world evidence the founder would need to record.`
+      : `For Day ${dayNumber}, use the Blueprint context to explain how a founder should execute today's task. This is a QA acceptance run. Do not invent customers, customer quotes, commitments, revenue, market evidence, or completed actions. Identify what real-world evidence the founder would need to record.`;
   return apiJson(request, copilotUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, data: { question, dayNumber, mode: 'current_experiment' }, timeout: 60_000 });
 }
 
