@@ -70,7 +70,7 @@ import { GHOSTTOWN_30_DAY_PLAN_V1 } from '../src/lib/ghosttownOffer.ts';
 export { LaunchBlueprintWorkflow } from '../src/api/launchBlueprintWorkflow.ts';
 
 const AUTH_TOKEN = ${JSON.stringify(token)};
-const MAX_PURCHASE_AGE_MS = 6 * 60 * 60 * 1000;
+const MAX_PURCHASE_AGE_MS = 24 * 60 * 60 * 1000;
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
