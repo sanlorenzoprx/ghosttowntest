@@ -372,6 +372,7 @@ export async function listExecutionCoachReviews(
     return [{
       responseId: row.response_id,
       dayNumber: row.day_number,
+      phase: 'review',
       ...payload,
       degradation: row.degradation_json ? parseJsonObject(row.degradation_json) : null,
       cacheExpiresAt: row.cache_expires_at,
