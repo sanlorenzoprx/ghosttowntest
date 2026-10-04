@@ -5,13 +5,14 @@ import { describe, expect, it } from 'vitest';
 
 const sprintPath = fileURLToPath(new URL('../tests/e2e/30-day-sprint-acceptance.mjs', import.meta.url));
 const reportPath = fileURLToPath(new URL('../scripts/acceptance-go-live-gate-report.mjs', import.meta.url));
+const sprintWithoutGmlPath = fileURLToPath(new URL('../tests/e2e/sprint-without-gml-acceptance.mjs', import.meta.url));
 const workflow = readFileSync(new URL('../.github/workflows/acceptance.yml', import.meta.url), 'utf8');
 const sprint = readFileSync(sprintPath, 'utf8');
 const report = readFileSync(reportPath, 'utf8');
 
 describe('agentic go-live gate contract', () => {
   it('keeps both orchestration scripts syntactically valid', () => {
-    for (const path of [sprintPath, reportPath]) {
+    for (const path of [sprintPath, sprintWithoutGmlPath, reportPath]) {
       const checked = spawnSync(process.execPath, ['--check', path], { encoding: 'utf8' });
       expect(checked.status, checked.stderr).toBe(0);
     }
@@ -36,6 +37,9 @@ describe('agentic go-live gate contract', () => {
     expect(report).toContain("'payments.full_webhook'");
     expect(report).toContain("'gml.cloudflare_oauth'");
     expect(report).toContain("'sprint.without_gml'");
+    expect(report).toContain("jsonFile('sprint-without-gml-proof.json')");
+    expect(report).toContain("sprintWithoutGml.progress?.writeRoundTrip === true");
+    expect(report).toContain("sprintWithoutGml.coachMemory?.reviewCount === 30");
     expect(report).toContain("const result = blockers.length === 0 ? 'PASS' : 'BLOCKED';");
   });
 
@@ -43,6 +47,8 @@ describe('agentic go-live gate contract', () => {
     expect(workflow).toContain('GHOSTTOWN_E2E_AGENTIC: "1"');
     expect(workflow).toContain('npx wrangler d1 migrations apply DB --env acceptance --remote');
     expect(workflow).toContain('timeout --foreground 35m node tests/e2e/30-day-sprint-acceptance.mjs');
+    expect(workflow).toContain('timeout --foreground 6m node tests/e2e/sprint-without-gml-acceptance.mjs');
+    expect(workflow).toContain('SPRINT_WITHOUT_GML_OUTCOME');
     expect(workflow).toContain('node scripts/acceptance-go-live-gate-report.mjs');
     expect(workflow).toContain('GO_LIVE_GATE_OUTCOME');
     expect(workflow).toContain('Upload acceptance execution evidence');
