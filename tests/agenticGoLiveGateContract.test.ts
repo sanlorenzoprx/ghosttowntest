@@ -7,14 +7,16 @@ const sprintPath = fileURLToPath(new URL('../tests/e2e/30-day-sprint-acceptance.
 const reportPath = fileURLToPath(new URL('../scripts/acceptance-go-live-gate-report.mjs', import.meta.url));
 const sprintWithoutGmlPath = fileURLToPath(new URL('../tests/e2e/sprint-without-gml-acceptance.mjs', import.meta.url));
 const stripeProofPath = fileURLToPath(new URL('../scripts/acceptance-stripe-payment-proof.mjs', import.meta.url));
+const cloudflareOAuthProofPath = fileURLToPath(new URL('../scripts/acceptance-cloudflare-oauth-proof.mjs', import.meta.url));
 const workflow = readFileSync(new URL('../.github/workflows/acceptance.yml', import.meta.url), 'utf8');
 const sprint = readFileSync(sprintPath, 'utf8');
 const report = readFileSync(reportPath, 'utf8');
 const stripeProof = readFileSync(stripeProofPath, 'utf8');
+const cloudflareOAuthProof = readFileSync(cloudflareOAuthProofPath, 'utf8');
 
 describe('agentic go-live gate contract', () => {
   it('keeps both orchestration scripts syntactically valid', () => {
-    for (const path of [sprintPath, sprintWithoutGmlPath, stripeProofPath, reportPath]) {
+    for (const path of [sprintPath, sprintWithoutGmlPath, stripeProofPath, cloudflareOAuthProofPath, reportPath]) {
       const checked = spawnSync(process.execPath, ['--check', path], { encoding: 'utf8' });
       expect(checked.status, checked.stderr).toBe(0);
     }
@@ -41,6 +43,7 @@ describe('agentic go-live gate contract', () => {
     expect(report).toContain("'sprint.without_gml'");
     expect(report).toContain("jsonFile('sprint-without-gml-proof.json')");
     expect(report).toContain("jsonFile('stripe-payment-webhook-proof.json')");
+    expect(report).toContain("jsonFile('cloudflare-oauth-proof.json')");
     expect(report).toContain("stripePayment.signedWebhookAccepted === true");
     expect(report).toContain("stripePayment.duplicateReplayRejectedAsDuplicate === true");
     expect(report).toContain("sprintWithoutGml.progress?.writeRoundTrip === true");
@@ -59,14 +62,30 @@ describe('agentic go-live gate contract', () => {
     expect(stripeProof).toContain("secretValuesRecorded: false");
   });
 
+  it('proves real Cloudflare consent, token persistence, account access, and refresh without injected credentials', () => {
+    expect(cloudflareOAuthProof).toContain("acceptance_cloudflare_oauth_fixture_v1");
+    expect(cloudflareOAuthProof).toContain("provider?.cloudflareConnected !== true");
+    expect(cloudflareOAuthProof).toContain("!before?.accessToken || !before?.refreshToken");
+    expect(cloudflareOAuthProof).toContain("configuredScopes.includes('account.read')");
+    expect(cloudflareOAuthProof).toContain("configuredScopes.includes('pages.write')");
+    expect(cloudflareOAuthProof).toContain("expiresAt: new Date(Date.now() - 60_000).toISOString()");
+    expect(cloudflareOAuthProof).toContain("accountsAfter = await listCloudflareAccounts");
+    expect(cloudflareOAuthProof).toContain("refreshSucceeded: true");
+    expect(cloudflareOAuthProof).toContain("secretValuesRecorded: false");
+    expect(report).toContain("cloudflareOAuth.consentCallbackPersisted === true");
+    expect(report).toContain("cloudflareOAuth.refreshSucceeded === true");
+  });
+
   it('wires the gate into acceptance and preserves its evidence even when blocked', () => {
     expect(workflow).toContain('GHOSTTOWN_E2E_AGENTIC: "1"');
     expect(workflow).toContain('npx wrangler d1 migrations apply DB --env acceptance --remote');
     expect(workflow).toContain('timeout --foreground 35m node tests/e2e/30-day-sprint-acceptance.mjs');
     expect(workflow).toContain('timeout --foreground 6m node tests/e2e/sprint-without-gml-acceptance.mjs');
     expect(workflow).toContain('timeout --foreground 6m node scripts/acceptance-stripe-payment-proof.mjs');
+    expect(workflow).toContain('timeout --foreground 6m node scripts/acceptance-cloudflare-oauth-proof.mjs');
     expect(workflow).toContain('SPRINT_WITHOUT_GML_OUTCOME');
     expect(workflow).toContain('STRIPE_PAYMENT_OUTCOME');
+    expect(workflow).toContain('CLOUDFLARE_OAUTH_OUTCOME');
     expect(workflow).toContain('node scripts/acceptance-go-live-gate-report.mjs');
     expect(workflow).toContain('GO_LIVE_GATE_OUTCOME');
     expect(workflow).toContain('Upload acceptance execution evidence');
