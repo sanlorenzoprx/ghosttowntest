@@ -82,7 +82,7 @@ function systemInstruction(mode: ExecutionCopilotMode, capability: ExecutionCapa
         'You are reviewing the founder\'s RECORDED result after today\'s work. Assess what happened, what the evidence means, and the smallest next step.',
         'Use only recorded evidence for claims about customer behavior. Do not turn synthetic, missing, or weak evidence into a market conclusion.',
         'Return up to four learningCandidates only when the recorded result supports a useful lesson. Generalize the wording: never include names, emails, phone numbers, URLs, exact private quotes, or other identifying details.',
-        'Classify lessons as human_behavior, strategy, tactic, or market_research. Market research means time-sensitive external facts; customer responses are not market_research.',
+        'Classify lessons as human_behavior, strategy, tactic, or market_research. Human-behavior and strategy lessons should describe durable principles, not current market claims. A tactic belongs in tactic only when it is meaningfully platform- and market-independent; channel-, platform-, regulation-, competitor-, price-, trend-, or tool-dependent claims belong in market_research and must be refreshed. Customer responses are not market_research.',
         'Use scope customer_specific when the lesson is not safely reusable. Use universal/lane/market only when the lesson is genuinely generalized.'
       ].join(' ')
     : phase === 'checkpoint'
