@@ -174,6 +174,11 @@ async function verifyPayment(env, ctx) {
     const rawOrder = orderId ? await env.KV.get('paid_test_order_' + orderId) : null;
     let order = null;
     try { order = rawOrder ? JSON.parse(rawOrder) : null; } catch {}
+    const customerEmail = String(session?.customer_details?.email || session?.customer_email || '').trim().toLowerCase();
+    let successUrlHost = null;
+    try { successUrlHost = session?.success_url ? new URL(session.success_url).hostname : null; } catch {}
+    const acceptanceUserFound = customerEmail ? Boolean(await env.KV.get('user_' + customerEmail)) : false;
+    const acceptanceOrderIndexFound = customerEmail ? Boolean(await env.KV.get('paid_test_orders_' + customerEmail)) : false;
     diagnostics.push({
       orderIdSha256: orderId ? await sha256(orderId) : null,
       stripeSessionStatus: session.status || null,
@@ -181,6 +186,9 @@ async function verifyPayment(env, ctx) {
       stripeAmountTotal: session.amount_total ?? null,
       stripeCurrency: session.currency || null,
       fulfillmentType: typeof metadata.fulfillment_type === 'string' ? metadata.fulfillment_type : null,
+      successUrlHost,
+      acceptanceUserFound,
+      acceptanceOrderIndexFound,
       acceptanceOrderFound: Boolean(order),
       acceptanceOrderStatus: order?.status || null,
       acceptanceArtifactType: order?.artifactType || null,
