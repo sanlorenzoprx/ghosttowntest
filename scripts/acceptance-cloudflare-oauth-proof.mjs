@@ -94,8 +94,8 @@ async function verify(env) {
   }
 
   const configuredScopes = cloudflareOAuthScopes(env.CLOUDFLARE_OAUTH_SCOPES);
-  if (!configuredScopes.includes('account.read') || !configuredScopes.includes('pages.write')) {
-    return json({ ok: false, error: 'Cloudflare OAuth scopes do not include account.read and pages.write', configuredScopes }, 409);
+  if (!configuredScopes.includes('memberships.read') || !configuredScopes.includes('page.write')) {
+    return json({ ok: false, error: 'Cloudflare OAuth scopes do not include memberships.read and page.write', configuredScopes }, 409);
   }
   if (!env.CLOUDFLARE_OAUTH_CLIENT_ID || !env.CLOUDFLARE_OAUTH_CLIENT_SECRET) {
     return json({ ok: false, error: 'Cloudflare OAuth client credentials are not configured' }, 500);
@@ -146,8 +146,8 @@ async function verify(env) {
     accessTokenStored: true,
     refreshTokenStored: true,
     configuredScopes,
-    accountReadScopeConfigured: configuredScopes.includes('account.read'),
-    pagesWriteScopeConfigured: configuredScopes.includes('pages.write'),
+    membershipsReadScopeConfigured: configuredScopes.includes('memberships.read'),
+    pageWriteScopeConfigured: configuredScopes.includes('page.write'),
     grantedScopeFieldPresent: typeof before.scope === 'string' && before.scope.length > 0,
     accountListBeforeRefreshCount: accountsBefore.length,
     forcedExpiryApplied: true,
