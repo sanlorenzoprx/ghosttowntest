@@ -40,9 +40,21 @@ function required(value: string | undefined, name: string): string {
  * the customer reconnects.
  */
 export function cloudflareOAuthScopes(configured: string | undefined): string[] {
-  return required(configured, 'CLOUDFLARE_OAUTH_SCOPES')
-    .split(/[\s,]+/).map(item => item.trim()).filter(Boolean)
-    .filter(scope => !/registrar/i.test(scope));
+  const legacyAliases: Record<string, string> = {
+    'account:read': 'account.read',
+    'page.write': 'pages.write',
+    'pages:write': 'pages.write',
+    'zone:read': 'zone.read',
+    'dns_records:edit': 'dns.write',
+    'dns_records:write': 'dns.write'
+  };
+  const scopes = required(configured, 'CLOUDFLARE_OAUTH_SCOPES')
+    .split(/[\s,]+/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .filter(scope => !/registrar/i.test(scope))
+    .map(scope => legacyAliases[scope.toLowerCase()] || scope);
+  return [...new Set(scopes)];
 }
 
 function cfScopes(env: Env): string[] {
