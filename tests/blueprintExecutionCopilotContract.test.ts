@@ -42,22 +42,29 @@ describe('Blueprint Execution Copilot contract', () => {
   });
 
 
-  it('degrades grounded-search formatting failures without inventing customer evidence', () => {
-    expect(service).toContain('groundedFallbackOutput');
-    expect(service).toContain("reason: 'grounded_non_json' | 'grounding_only'");
+  it('degrades unstructured Copilot responses across capabilities without inventing customer evidence', () => {
+    expect(service).toContain('copilotFallbackOutput');
+    expect(service).toContain("'unstructured_response'");
     expect(service).toContain('This Copilot call does not create customer evidence.');
     expect(service).toContain('GhostTown did not infer market facts from source titles or URLs.');
-    expect(service).toContain("if (capability === 'grounded_research')");
+    expect(service).toContain('The provider response was unstructured, so deterministic Blueprint state remains authoritative.');
     expect(service).toContain('const generated = await generateAI(env, options)');
-    expect(handler).toContain('degraded: primary.degraded || null');
+    expect(handler).toContain('degraded: primary.degraded || criticDegraded || null');
   });
 
-  it('keeps the paid Sprint usable when grounded research itself times out', () => {
-    expect(handler).toContain("capability === 'grounded_research' && /request timed out/i.test(message)");
-    expect(handler).toContain("reason: 'grounded_timeout'");
+  it('keeps the paid Sprint usable when any primary Copilot provider call times out', () => {
+    expect(handler).toContain("if (/request timed out/i.test(message))");
+    expect(handler).toContain("'grounded_timeout' : 'provider_timeout'");
     expect(handler).toContain('No new market evidence was created by this timed-out research call.');
+    expect(handler).toContain('No new customer evidence was created by this timed-out AI call.');
     expect(handler).toContain('receipts: {');
     expect(handler).toContain('primary: null');
+  });
+
+  it('keeps secondary critic failure from taking down primary Sprint guidance', () => {
+    expect(handler).toContain("reason: 'critic_failure'");
+    expect(handler).toContain('Execution Copilot critic degraded; primary guidance remains available');
+    expect(handler).toContain('critic = await runExecutionCritic');
   });
 
   it('bounds paid model usage with an atomic D1 hourly counter and no owner email in the scope', () => {
