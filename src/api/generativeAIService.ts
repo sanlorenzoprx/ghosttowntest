@@ -63,6 +63,7 @@ interface VertexGenerateContentResponse {
     promptTokenCount?: number;
     candidatesTokenCount?: number;
     totalTokenCount?: number;
+    thoughtsTokenCount?: number;
   };
   error?: { message?: string };
 }
@@ -80,6 +81,7 @@ export interface GenerativeAIReceipt {
   promptTokenCount?: number;
   candidatesTokenCount?: number;
   totalTokenCount?: number;
+  thoughtsTokenCount?: number;
   completedAt: string;
 }
 
@@ -415,6 +417,7 @@ export async function generateAI(env: Env, options: GenerateOptions): Promise<Ge
       promptTokenCount: body.usageMetadata?.promptTokenCount,
       candidatesTokenCount: body.usageMetadata?.candidatesTokenCount,
       totalTokenCount: body.usageMetadata?.totalTokenCount,
+      thoughtsTokenCount: body.usageMetadata?.thoughtsTokenCount,
       completedAt: new Date().toISOString()
     }
   };
