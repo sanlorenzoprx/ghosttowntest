@@ -179,6 +179,13 @@ async function verifyPayment(env, ctx) {
     try { successUrlHost = session?.success_url ? new URL(session.success_url).hostname : null; } catch {}
     const acceptanceUserFound = customerEmail ? Boolean(await env.KV.get('user_' + customerEmail)) : false;
     const acceptanceOrderIndexFound = customerEmail ? Boolean(await env.KV.get('paid_test_orders_' + customerEmail)) : false;
+    const summaryRaw = order?.email ? await env.KV.get('paid_test_orders_' + String(order.email).trim().toLowerCase()) : null;
+    let summaryItems = [];
+    try { summaryItems = summaryRaw ? JSON.parse(summaryRaw) : []; } catch {}
+    const summaryMatch = Array.isArray(summaryItems) ? summaryItems.find(item => item?.orderId === orderId) : null;
+    const eventReceiptRaw = order?.stripeEventId ? await env.KV.get('stripe_event_' + order.stripeEventId) : null;
+    let eventReceipt = null;
+    try { eventReceipt = eventReceiptRaw ? JSON.parse(eventReceiptRaw) : null; } catch {}
     diagnostics.push({
       orderIdSha256: orderId ? await sha256(orderId) : null,
       stripeSessionStatus: session.status || null,
@@ -189,6 +196,11 @@ async function verifyPayment(env, ctx) {
       successUrlHost,
       acceptanceUserFound,
       acceptanceOrderIndexFound,
+      dashboardSummaryContainsOrder: Boolean(summaryMatch),
+      dashboardSummaryArtifactType: summaryMatch?.artifactType || null,
+      webhookEventReceiptPresent: Boolean(eventReceiptRaw),
+      webhookEventReceiptMatchesOrder: eventReceipt?.orderId === orderId,
+      webhookEventReceiptArtifactType: eventReceipt?.artifactType || null,
       acceptanceOrderFound: Boolean(order),
       acceptanceOrderStatus: order?.status || null,
       acceptanceArtifactType: order?.artifactType || null,
