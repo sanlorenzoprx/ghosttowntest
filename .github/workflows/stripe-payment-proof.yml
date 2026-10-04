@@ -2,6 +2,11 @@ name: Stripe Payment Proof
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - test/agentic-go-live-gate
+    paths:
+      - .github/workflows/stripe-payment-proof.yml
 
 permissions:
   contents: read
