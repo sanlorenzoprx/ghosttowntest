@@ -316,6 +316,23 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
     return json({ error: 'Invalid E2E fixture identity' }, 400);
   }
 
+  const cloudflareMode = body?.cloudflareMode === 'oauth' ? 'oauth' : 'injected';
+  const existing = await env.DB.prepare(`
+    SELECT order_id, owner_id, source_sprint_order_id, provider_state_json
+    FROM get_me_live_orders WHERE order_id = ?
+  `).bind(gmlOrderId).first<any>();
+  if (existing) {
+    if (existing.owner_id !== ownerId || existing.source_sprint_order_id !== orderId) {
+      return json({ error: 'Existing E2E Get Me Live fixture identity does not match' }, 409);
+    }
+    const provider = JSON.parse(existing.provider_state_json || '{}');
+    return json({
+      ok: true, orderId, gmlOrderId, ownerId, reused: true,
+      cloudflareMode: provider.cloudflareConnected ? 'injected' : 'oauth',
+      expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false
+    });
+  }
+
   const sprintRows = await env.DB.prepare(`
     SELECT order_id, blueprint_json, research_receipt_json, schema_version, status, pdf_r2_key, created_at
     FROM launch_blueprints WHERE status = 'ready' ORDER BY updated_at DESC LIMIT 50
@@ -447,13 +464,17 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
       ctaLabel: 'I am interested'
     },
     contact: { contactEmail: ownerId, leadDestinationEmail: ownerId, businessEmailLocalPart: 'hello' },
-    domain: { cloudflareAccountId: String(body?.cloudflareAccountId || '') },
+    domain: { cloudflareAccountId: cloudflareMode === 'oauth' ? '' : String(body?.cloudflareAccountId || '') },
     payments: { enabled: false }
   };
-  if (!config.domain.cloudflareAccountId) return json({ error: 'Acceptance Cloudflare account ID is required for the disposable Get Me Live site' }, 400);
-  const provider = { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false };
-  const acceptanceCloudflareToken = String(env.ACCEPTANCE_CLOUDFLARE_API_TOKEN || '').trim();
-  if (!acceptanceCloudflareToken) return json({ error: 'Acceptance Cloudflare API token is not bound to the disposable fixture bridge' }, 500);
+  if (cloudflareMode !== 'oauth' && !config.domain.cloudflareAccountId) {
+    return json({ error: 'Acceptance Cloudflare account ID is required for the disposable Get Me Live site' }, 400);
+  }
+  const provider = { cloudflareConnected: cloudflareMode !== 'oauth', stripeConnected: false, businessEmailVerified: false };
+  const acceptanceCloudflareToken = cloudflareMode === 'oauth' ? '' : String(env.ACCEPTANCE_CLOUDFLARE_API_TOKEN || '').trim();
+  if (cloudflareMode !== 'oauth' && !acceptanceCloudflareToken) {
+    return json({ error: 'Acceptance Cloudflare API token is not bound to the disposable fixture bridge' }, 500);
+  }
   await env.DB.prepare(`
     INSERT INTO get_me_live_orders (
       order_id, owner_id, source_sprint_order_id, source_blueprint_id, offer_id, offer_version,
@@ -467,18 +488,30 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
     now, now, now
   ).run();
 
-  await env.KV.put('get_me_live_cf_token_' + gmlOrderId, JSON.stringify({
-    accessToken: acceptanceCloudflareToken,
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-    scope: 'acceptance-workflow-token'
-  }), { expirationTtl: 3600 });
+  if (cloudflareMode === 'oauth') {
+    await env.KV.delete('get_me_live_cf_token_' + gmlOrderId);
+  } else {
+    await env.KV.put('get_me_live_cf_token_' + gmlOrderId, JSON.stringify({
+      accessToken: acceptanceCloudflareToken,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      scope: 'acceptance-workflow-token'
+    }), { expirationTtl: 3600 });
+  }
 
   await env.KV.put('paid_test_order_' + orderId, JSON.stringify(order), { expirationTtl: 86400 });
   await env.KV.put('paid_test_orders_' + ownerId, JSON.stringify([{
     orderId, ideaName: 'Synthetic Acceptance Sprint', status: 'ready', createdAt: now, updatedAt: now,
     artifactType: order.artifactType, offerName: '30-Day Evidence Sprint', sourceVerdictId, planVersion: order.planVersion || '1.0'
   }]), { expirationTtl: 86400 });
-  return json({ ok: true, orderId, gmlOrderId, ownerId, sourceOrderId: source.order_id, expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false });
+  if (cloudflareMode === 'oauth') {
+    await env.KV.put('acceptance_cloudflare_oauth_fixture_v1', JSON.stringify({
+      orderId, gmlOrderId, ownerId, createdAt: now
+    }), { expirationTtl: 86400 * 7 });
+  }
+  return json({
+    ok: true, orderId, gmlOrderId, ownerId, sourceOrderId: source.order_id,
+    cloudflareMode, expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false
+  });
 }
 
 async function removeE2eGetMeLiveFixture(env: Env, request: Request): Promise<Response> {
