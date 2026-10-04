@@ -5,17 +5,26 @@ import { generativeAIConfigured } from './generativeAIService';
 import { runExecutionCopilot, runExecutionCritic } from './executionAIService';
 import { consumeHourlyRateLimit } from './runtimeControls';
 import {
+  executionCoachCacheIdentity,
+  listExecutionCoachReviews,
+  loadCachedExecutionCoachResponse,
+  loadExecutionCoachMemory,
+  saveExecutionCoachResponse
+} from './executionCoachMemory';
+import {
   buildExecutionRagContext,
   routeExecutionCapability,
   type ExecutionCopilotMode,
   type ExecutionProgressLike
 } from '../lib/blueprintExecutionIntelligence';
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
+import type { ExecutionCoachPhase } from '../types/executionLearning';
 
 interface CopilotRequestBody {
   question?: string;
   dayNumber?: number;
   mode?: ExecutionCopilotMode;
+  phase?: ExecutionCoachPhase;
   history?: Array<{ role?: string; content?: string }>;
 }
 
@@ -72,13 +81,44 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
   const question = cleanText(body.question, 5000);
   if (!question) return json({ error: 'Ask a question about the current experiment or business strategy' }, 400);
   const mode: ExecutionCopilotMode = body.mode === 'strategy_room' ? 'strategy_room' : 'current_experiment';
+  const phase: ExecutionCoachPhase = body.phase === 'plan' || body.phase === 'review' || body.phase === 'checkpoint'
+    ? body.phase
+    : 'chat';
   const progress = await loadBlueprintProgress(env, orderId, owned.email);
   const nextIncomplete = record.blueprint.dailyCalendar.find(day => !(progress.completedDays || []).includes(day.dayNumber))?.dayNumber || 30;
   const dayNumber = Number.isInteger(body.dayNumber) && Number(body.dayNumber) >= 1 && Number(body.dayNumber) <= 30
     ? Number(body.dayNumber)
     : nextIncomplete;
   const context = buildExecutionRagContext(record.blueprint, progress as unknown as ExecutionProgressLike, dayNumber, question);
+  context.coachMemory = await loadExecutionCoachMemory(
+    env,
+    owned.email,
+    orderId,
+    record.blueprint.businessModelLane.lane,
+    dayNumber
+  );
   const capability = routeExecutionCapability(question, mode, context);
+  const cacheIdentity = await executionCoachCacheIdentity(context, phase, question);
+  const cached = await loadCachedExecutionCoachResponse(env, {
+    accountId: owned.email,
+    blueprintId: record.blueprint.blueprintId,
+    blueprintVersion: record.blueprint.blueprintVersion,
+    dayNumber,
+    phase,
+    identity: cacheIdentity
+  });
+  if (cached) {
+    return json({
+      ...cached.payload,
+      cache: {
+        hit: true,
+        responseId: cached.responseId,
+        createdAt: cached.createdAt,
+        expiresAt: cached.expiresAt || null,
+        hitCount: cached.hitCount
+      }
+    });
+  }
 
   if (!generativeAIConfigured(env)) {
     return json({
@@ -108,7 +148,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
   };
 
   try {
-    const primary = await runExecutionCopilot(env, capability, mode, context, question, sanitizedHistory(body.history));
+    const primary = await runExecutionCopilot(env, capability, mode, context, question, sanitizedHistory(body.history), phase);
     const highImpact = capability === 'strategy_reasoner' && mode === 'current_experiment'
       && (context.branch.route !== 'continue' || /\b(pivot|change|price|offer|customer|stop|pause)\b/i.test(question));
     let critic: Awaited<ReturnType<typeof runExecutionCritic>> | null = null;
@@ -126,8 +166,9 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
         });
       }
     }
-    return json({
+    const responsePayload = {
       mode,
+      phase,
       capability,
       answer: primary.output.answer,
       evidenceAssessment: primary.output.evidenceAssessment,
@@ -162,9 +203,40 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
         hourlyLimit: COPILOT_REQUESTS_PER_HOUR,
         requestNumberThisHour: budget.used
       },
+      learningCandidates: primary.output.learningCandidates || [],
       receipts: {
         primary: primary.receipt,
         critic: critic?.receipt || null
+      }
+    };
+    const stored = await saveExecutionCoachResponse(env, {
+      accountId: owned.email,
+      orderId,
+      blueprintId: record.blueprint.blueprintId,
+      blueprintVersion: record.blueprint.blueprintVersion,
+      lane: record.blueprint.businessModelLane.lane,
+      dayNumber,
+      phase,
+      capability,
+      identity: cacheIdentity,
+      payload: responsePayload,
+      receipt: primary.receipt,
+      degradation: primary.degraded || criticDegraded || undefined,
+      learningCandidates: primary.output.learningCandidates
+    });
+    return json({
+      ...responsePayload,
+      cache: {
+        hit: false,
+        responseId: stored.responseId,
+        expiresAt: stored.expiresAt || null,
+        hitCount: 0
+      },
+      memory: {
+        saved: true,
+        learningCandidateCount: stored.learningCandidateCount,
+        priorDailyAssessmentCount: context.coachMemory?.priorDailyAssessments.length || 0,
+        reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0
       }
     });
   } catch (error) {
@@ -179,8 +251,9 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
         dayNumber,
         capability
       });
-      return json({
+      const responsePayload = {
         mode,
+        phase,
         capability,
         answer: grounded
           ? `Live web research did not finish in time. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint task instead of waiting or guessing.`
@@ -221,13 +294,56 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
           hourlyLimit: COPILOT_REQUESTS_PER_HOUR,
           requestNumberThisHour: budget.used
         },
+        learningCandidates: [],
         receipts: {
           primary: null,
           critic: null
+        }
+      };
+      const stored = await saveExecutionCoachResponse(env, {
+        accountId: owned.email,
+        orderId,
+        blueprintId: record.blueprint.blueprintId,
+        blueprintVersion: record.blueprint.blueprintVersion,
+        lane: record.blueprint.businessModelLane.lane,
+        dayNumber,
+        phase,
+        capability,
+        identity: cacheIdentity,
+        payload: responsePayload,
+        degradation: responsePayload.degraded
+      });
+      return json({
+        ...responsePayload,
+        cache: {
+          hit: false,
+          responseId: stored.responseId,
+          expiresAt: stored.expiresAt || null,
+          hitCount: 0
+        },
+        memory: {
+          saved: true,
+          learningCandidateCount: 0,
+          priorDailyAssessmentCount: context.coachMemory?.priorDailyAssessments.length || 0,
+          reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0
         }
       });
     }
     console.error('Execution Copilot failed', { orderId, dayNumber, capability, error });
     return json({ error: message }, 502);
   }
+}
+
+
+export async function handleBlueprintCoachMemory(request: Request, env: Env, orderId: string): Promise<Response> {
+  if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
+  const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const reviews = await listExecutionCoachReviews(env, owned.email, orderId);
+  return json({
+    schemaVersion: 'ghosttown-learning-coach-memory-v1',
+    orderId,
+    dailyReviews: reviews,
+    reviewCount: reviews.length
+  }, 200, { 'Cache-Control': 'private, no-store' });
 }
