@@ -52,6 +52,17 @@ function sanitizedHistory(value: CopilotRequestBody['history']): Array<{ role: '
   });
 }
 
+function containsSyntheticAcceptanceEvidence(context: ReturnType<typeof buildExecutionRagContext>): boolean {
+  return context.progress.relevantEvidence.some(entry =>
+    /SYNTHETIC ACCEPTANCE|AUTOMATED PLAYWRIGHT ACCEPTANCE FIXTURE|QA simulation only/i.test([
+      entry.contactOrChannel,
+      entry.response,
+      entry.customerLanguage,
+      entry.sourceNote
+    ].filter(Boolean).join(' '))
+  );
+}
+
 function groundingSources(metadata: unknown): Array<{ title: string; url: string }> {
   if (!metadata || typeof metadata !== 'object') return [];
   const chunks = (metadata as { groundingChunks?: Array<{ web?: { uri?: string; title?: string } }> }).groundingChunks;
@@ -98,6 +109,9 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
     dayNumber
   );
   const capability = routeExecutionCapability(question, mode, context);
+  const allowGlobalLearning = phase === 'review'
+    && context.progress.relevantEvidence.length > 0
+    && !containsSyntheticAcceptanceEvidence(context);
   const cacheIdentity = await executionCoachCacheIdentity(context, phase, question);
   const cached = await loadCachedExecutionCoachResponse(env, {
     accountId: owned.email,
@@ -222,7 +236,8 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
       payload: responsePayload,
       receipt: primary.receipt,
       degradation: primary.degraded || criticDegraded || undefined,
-      learningCandidates: primary.output.learningCandidates
+      learningCandidates: primary.output.learningCandidates,
+      allowGlobalLearning
     });
     return json({
       ...responsePayload,
