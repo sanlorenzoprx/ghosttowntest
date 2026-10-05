@@ -8,6 +8,9 @@ const handler = readFileSync(new URL('../src/api/blueprintExecutionCopilot.ts', 
 const migration = readFileSync(new URL('../migrations/0011_execution_learning_coach.sql', import.meta.url), 'utf8');
 const recency = readFileSync(new URL('../src/api/evidenceRecency.ts', import.meta.url), 'utf8');
 const executionHome = readFileSync(new URL('../src/components/LaunchBlueprintExecutionHomeV21.tsx', import.meta.url), 'utf8');
+const copilotUi = readFileSync(new URL('../src/components/LaunchBlueprintCopilotV21.tsx', import.meta.url), 'utf8');
+const intelligence = readFileSync(new URL('../src/lib/blueprintExecutionIntelligence.ts', import.meta.url), 'utf8');
+const aiService = readFileSync(new URL('../src/api/executionAIService.ts', import.meta.url), 'utf8');
 const productLearningReview = readFileSync(new URL('../scripts/execution-product-learning-review.mjs', import.meta.url), 'utf8');
 const productLearningWorkflow = readFileSync(new URL('../.github/workflows/execution-product-learning-review.yml', import.meta.url), 'utf8');
 const productLearningReviewPath = fileURLToPath(new URL('../scripts/execution-product-learning-review.mjs', import.meta.url));
@@ -61,14 +64,14 @@ describe('30-Day Sprint Learning Coach contract', () => {
     expect(handler.indexOf('const cached = await loadCachedExecutionCoachResponse')).toBeLessThan(handler.indexOf('const budget = await consumeHourlyRateLimit'));
   });
 
-  it('makes learning review part of the real customer completion flow without giving AI completion authority', () => {
+  it('makes learning review part of the real customer completion flow without giving AI completion authority or automatic web access', () => {
     expect(executionHome).toContain("void reviewCompletedDay(dayNumber)");
     expect(executionHome).toContain("phase: 'review'");
     expect(executionHome).toContain('Your day is saved.');
     expect(executionHome).toContain('Retry Coach review');
     expect(executionHome).toContain('Saved to your Sprint learning history and available to the next day’s Coach.');
-    expect(executionHome).toContain('[1, 15, 30].includes(dayNumber)');
-    expect(executionHome).toContain('Keep external facts separate from the founder’s recorded customer evidence.');
+    expect(executionHome).toContain('Use only this Sprint’s Blueprint, recorded evidence, saved Sprint research, and prior Sprint learning');
+    expect(executionHome).not.toContain('[1, 15, 30].includes(dayNumber)');
   });
 
   it('backfills a missing latest-day review from persisted Sprint memory after reload', () => {
@@ -78,11 +81,32 @@ describe('30-Day Sprint Learning Coach contract', () => {
     expect(executionHome).toContain('void reviewCompletedDay(latestCompletedDay)');
   });
 
-  it('puts checkpoint Coach assessment on the real checkpoint surface without mutating the deterministic review', () => {
+  it('puts checkpoint Coach assessment on the real checkpoint surface without mutating the deterministic review or automatically searching outside the Sprint', () => {
     expect(executionHome).toContain('Ask GhostTown to assess checkpoint');
     expect(executionHome).toContain("phase: 'checkpoint'");
     expect(executionHome).toContain('GhostTown checkpoint review');
+    expect(executionHome).toContain('Do not use outside research unless I explicitly ask through the Sprint research control.');
     expect(executionHome).toContain('Advisory only. Your saved checkpoint evidence and deterministic branch rules remain authoritative.');
+  });
+
+  it('enforces the Sprint boundary and external-research relevance before any AI budget or model call', () => {
+    expect(intelligence).toContain('evaluateExecutionInteraction');
+    expect(intelligence).toContain('externalResearchAllowed');
+    expect(handler).toContain("capability: 'sprint_boundary'");
+    expect(handler).toContain("boundary: '30_day_sprint_only'");
+    expect(handler).toContain('No Sprint evidence was changed and no outside research was performed.');
+    expect(handler.indexOf('const interaction = evaluateExecutionInteraction')).toBeLessThan(handler.indexOf('context.coachMemory = await loadExecutionCoachMemory'));
+    expect(handler.indexOf('const interaction = evaluateExecutionInteraction')).toBeLessThan(handler.indexOf('const budget = await consumeHourlyRateLimit'));
+    expect(aiService).toContain('limited to the active 30-Day Sprint');
+    expect(aiService).toContain('Do not answer unrelated general-knowledge, entertainment, news, weather, sports');
+  });
+
+  it('makes outside research an explicit Sprint-scoped customer control', () => {
+    expect(copilotUi).toContain('GhostTown stays inside your 30-Day Sprint.');
+    expect(copilotUi).toContain('Check current market information for this decision');
+    expect(copilotUi).toContain('Outside research approved for this Sprint decision');
+    expect(copilotUi).toContain('Outside research blocked');
+    expect(copilotUi).toContain('Keep questions tied to the active 30-Day Sprint.');
   });
 
   it('requires governed human approval before reusable product learning becomes active', () => {
