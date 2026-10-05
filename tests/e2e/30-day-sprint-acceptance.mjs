@@ -24,10 +24,9 @@ const copilotUrl = `${apiBase}/api/paid-test/orders/${encodeURIComponent(orderId
 const coachMemoryUrl = `${apiBase}/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/coach-memory`;
 const today = new Date().toISOString().slice(0, 10);
 const checkpoints = new Set([7, 14, 21, 30]);
-const groundedDailyDays = new Set([1, 15, 30]);
 const externalKinds = new Set(['verified_channel', 'qualified_buyer_batch', 'existing_contact', 'fulfillment_run']);
 const preparationOnly = new Set([9, 15]);
-const proof = { schemaVersion: 'ghosttown-agentic-go-live-sprint-v1', orderId, days: [], recovery: [], websiteEvidence: [], surfaceAudit: [], contentReview: {}, agentic: { daily: [], checkpoints: [] }, sequencing: {}, reminders: {}, viewports: [], recordedAt: new Date().toISOString() };
+const proof = { schemaVersion: 'ghosttown-agentic-go-live-sprint-v1', orderId, days: [], recovery: [], websiteEvidence: [], surfaceAudit: [], contentReview: {}, agentic: { daily: [], checkpoints: [], researchGate: {} }, sequencing: {}, reminders: {}, viewports: [], recordedAt: new Date().toISOString() };
 
 function quantity(value) {
   const match = String(value || '').match(/\b([1-9]\d?)\b/);
@@ -78,22 +77,72 @@ async function apiJson(request, url, options = {}) {
   return body;
 }
 async function agenticCoach(request, dayNumber, phase = 'review') {
-  const checkpoint = phase === 'checkpoint';
-  const groundedDailySample = phase === 'review' && groundedDailyDays.has(dayNumber);
-  const question = checkpoint
-    ? `Assess the Day ${dayNumber} checkpoint using the recorded Sprint evidence and current web research where useful. Explain the evidence strength, primary constraint, and safest next action. Keep external facts separate from the founder’s recorded customer evidence. Do not change the live experiment; the saved checkpoint review remains authoritative.`
-    : [
-        `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, the smallest next action, and what lesson—if any—is worth remembering.`,
-        groundedDailySample
-          ? 'Separately use current web research only where useful as a freshness check. Keep external facts separate from the founder’s recorded customer evidence.'
-          : ''
-      ].filter(Boolean).join(' ');
+  const question = phase === 'checkpoint'
+    ? `Assess the Day ${dayNumber} checkpoint using only the recorded Sprint evidence, saved Blueprint research, and prior Sprint learning. Explain the evidence strength, primary constraint, and safest next action. Do not use outside research unless I explicitly ask through the Sprint research control. Do not change the live experiment; the saved checkpoint review remains authoritative.`
+    : `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, the smallest next action, and what lesson—if any—is worth remembering. Use only this Sprint’s Blueprint, recorded evidence, saved Sprint research, and prior Sprint learning unless I explicitly ask for current outside research.`;
   return apiJson(request, copilotUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     data: { question, dayNumber, mode: 'current_experiment', phase },
     timeout: 60_000
   });
+}
+
+async function verifySprintResearchGate(request, dayNumber) {
+  const blockedQuestion = 'Search the web for the latest football scores and weather in Tokyo.';
+  const blocked = await apiJson(request, copilotUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { question: blockedQuestion, dayNumber, mode: 'current_experiment', phase: 'chat' },
+    timeout: 15000
+  });
+  if (blocked.capability !== 'sprint_boundary'
+      || blocked.scope?.allowed !== false
+      || blocked.externalResearch?.requested !== true
+      || blocked.externalResearch?.allowed !== false
+      || blocked.externalResearch?.performed !== false
+      || (blocked.groundedWebSources || []).length !== 0) {
+    throw new Error('Unrelated external research was not blocked before AI/web execution.');
+  }
+
+  const relevantQuestion = `Check current market information only if it directly helps this Day ${dayNumber} Sprint decision. Use outside sources only for the active customer, offer, competitor, channel, or market question, and keep outside context separate from my recorded Sprint evidence.`;
+  const relevant = await apiJson(request, copilotUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { question: relevantQuestion, dayNumber, mode: 'current_experiment', phase: 'chat' },
+    timeout: 90000
+  });
+  if (relevant.scope?.allowed !== true
+      || relevant.externalResearch?.requested !== true
+      || relevant.externalResearch?.allowed !== true
+      || relevant.externalResearch?.performed !== true
+      || relevant.capability !== 'grounded_research') {
+    throw new Error('Sprint-relevant external research did not pass the deterministic relevance gate.');
+  }
+  const nativeGrounded = relevant.receipts?.primary?.task === 'grounded_research'
+    && relevant.degraded?.active !== true;
+
+  return {
+    blocked: {
+      scopeAllowed: blocked.scope?.allowed,
+      capability: blocked.capability,
+      researchRequested: blocked.externalResearch?.requested,
+      researchAllowed: blocked.externalResearch?.allowed,
+      researchPerformed: blocked.externalResearch?.performed,
+      sourceCount: (blocked.groundedWebSources || []).length
+    },
+    relevant: {
+      scopeAllowed: relevant.scope?.allowed,
+      capability: relevant.capability,
+      researchRequested: relevant.externalResearch?.requested,
+      researchAllowed: relevant.externalResearch?.allowed,
+      researchPerformed: relevant.externalResearch?.performed,
+      sourceCount: (relevant.groundedWebSources || []).length,
+      nativeGrounded,
+      receiptTask: relevant.receipts?.primary?.task || null,
+      degraded: relevant.degraded || null
+    }
+  };
 }
 
 async function assertServerRejectsSkippedDay(request, baseline) {
@@ -354,6 +403,16 @@ try {
   await verifyWebsiteEvidence(page, undefined, undefined);
   await returnFromWorkspace(page);
   proof.surfaceAudit.push({ surface: 'structured-workspace', control: 'Return to execution home', result: 'passed' });
+
+  const copilotOpen = page.getByRole('button', { name: /^Ask GhostTown · Day \d+$/ });
+  await copilotOpen.click();
+  await page.getByRole('button', { name: 'Check current market information for this decision', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+  proof.agentic.researchGate.uiControlVisible = true;
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  proof.agentic.researchGate = {
+    ...proof.agentic.researchGate,
+    ...(await verifySprintResearchGate(page.request, 1))
+  };
 
   const savedNotes = new Map();
   for (const day of blueprint.dailyCalendar) {
