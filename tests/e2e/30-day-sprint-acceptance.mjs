@@ -82,9 +82,12 @@ async function agenticCoach(request, dayNumber, phase = 'review') {
   const groundedDailySample = phase === 'review' && groundedDailyDays.has(dayNumber);
   const question = checkpoint
     ? `Assess the Day ${dayNumber} checkpoint using the recorded Sprint evidence and current web research where useful. This is a QA acceptance run: synthetic records are not real customer proof. Do not invent customers, quotes, commitments, revenue, or market evidence. Explain the evidence strength, primary constraint, and safest next action.`
-    : groundedDailySample
-      ? `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, what should happen next, and what generalized lesson—if any—is worth remembering. Separately use current web research only where useful as a representative freshness check. This is synthetic QA evidence, not real customer or market proof.`
-      : `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, what should happen next, and what generalized lesson—if any—is worth remembering. This is a QA acceptance run: synthetic records are not real customer proof. Do not invent customers, quotes, commitments, revenue, or market evidence.`;
+    : [
+        `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, the smallest next action, and what lesson—if any—is worth remembering.`,
+        groundedDailySample
+          ? 'Separately use current web research only where useful as a freshness check. Keep external facts separate from the founder’s recorded customer evidence.'
+          : ''
+      ].filter(Boolean).join(' ');
   return apiJson(request, copilotUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -373,38 +376,7 @@ try {
       await openDay(page, day.dayNumber);
     }
 
-    const guidance = await agenticCoach(page.request, day.dayNumber, 'review');
-    if (guidance.phase !== 'review' || guidance.memory?.saved !== true || !guidance.cache?.responseId) {
-      throw new Error(`Day ${day.dayNumber} learning coach review was not durably saved.`);
-    }
-    proof.agentic.daily.push({
-      dayNumber: day.dayNumber,
-      phase: guidance.phase,
-      capability: guidance.capability,
-      answer: String(guidance.answer || '').slice(0, 1600),
-      evidenceAssessment: String(guidance.evidenceAssessment || '').slice(0, 800),
-      recommendedAction: String(guidance.recommendedAction || '').slice(0, 800),
-      learningCandidates: guidance.learningCandidates || [],
-      groundedWebSources: guidance.groundedWebSources || [],
-      degraded: guidance.degraded || null,
-      cache: guidance.cache || null,
-      memory: guidance.memory || null,
-      receipt: guidance.receipts?.primary || null
-    });
-    if (day.dayNumber === 1) {
-      const cachedReview = await agenticCoach(page.request, day.dayNumber, 'review');
-      if (cachedReview.cache?.hit !== true || cachedReview.cache?.responseId !== guidance.cache.responseId) {
-        throw new Error('Day 1 repeated learning review did not reuse the exact-context coach cache.');
-      }
-      proof.agentic.cache = {
-        dayNumber: 1,
-        hit: true,
-        responseId: cachedReview.cache.responseId,
-        hitCount: cachedReview.cache.hitCount || 1
-      };
-    }
-
-    const note = `AGENTIC QA DAY ${day.dayNumber}: ${String(guidance.evidenceAssessment || guidance.answer || guidance.recommendedAction || day.title).replace(/\s+/g, " ").slice(0, 900)} — QA simulation only; not real customer or market evidence.`;
+    const note = `AGENTIC QA DAY ${day.dayNumber}: Recorded synthetic acceptance outcome for the canonical Day ${day.dayNumber} task. QA simulation only; not real customer or market evidence.`;
     savedNotes.set(day.dayNumber, note);
     const noteField = page.getByLabel('Execution note');
     await noteField.fill(note);
@@ -470,7 +442,41 @@ try {
     }
     await complete.click();
     await page.getByRole('button', { name: /Completed ✓ — reopen/ }).waitFor({ state: 'visible', timeout: 15000 });
-    proof.days.push({ dayNumber: day.dayNumber, title: day.title, evidenceEntries: evidenceRequired(day), noteSaved: true, completedViaVisibleButton: true });
+    const autoReview = page.getByRole('region', { name: 'GhostTown daily review' });
+    await autoReview.waitFor({ state: 'visible', timeout: 90000 });
+    const coachMemoryAfterDay = await apiJson(page.request, coachMemoryUrl);
+    const persistedReview = (coachMemoryAfterDay.dailyReviews || []).find(review => review.dayNumber === day.dayNumber);
+    if (!persistedReview?.responseId || persistedReview.phase !== 'review') {
+      throw new Error(`Day ${day.dayNumber} automatic UI learning review was not durably persisted.`);
+    }
+    proof.agentic.daily.push({
+      dayNumber: day.dayNumber,
+      trigger: 'ui_completion',
+      phase: persistedReview.phase,
+      capability: persistedReview.capability,
+      answer: String(persistedReview.answer || '').slice(0, 1600),
+      evidenceAssessment: String(persistedReview.evidenceAssessment || '').slice(0, 800),
+      recommendedAction: String(persistedReview.recommendedAction || '').slice(0, 800),
+      learningCandidates: persistedReview.learningCandidates || [],
+      groundedWebSources: persistedReview.groundedWebSources || [],
+      degraded: persistedReview.degradation || persistedReview.degraded || null,
+      cache: { hit: false, responseId: persistedReview.responseId, hitCount: persistedReview.hitCount || 0 },
+      memory: { saved: true },
+      receipt: persistedReview.receipts?.primary || null
+    });
+    if (day.dayNumber === 1) {
+      const cachedReview = await agenticCoach(page.request, day.dayNumber, 'review');
+      if (cachedReview.cache?.hit !== true || cachedReview.cache?.responseId !== persistedReview.responseId) {
+        throw new Error('Day 1 repeated learning review did not reuse the exact-context UI-created coach cache.');
+      }
+      proof.agentic.cache = {
+        dayNumber: 1,
+        hit: true,
+        responseId: cachedReview.cache.responseId,
+        hitCount: cachedReview.cache.hitCount || 1
+      };
+    }
+    proof.days.push({ dayNumber: day.dayNumber, title: day.title, evidenceEntries: evidenceRequired(day), noteSaved: true, completedViaVisibleButton: true, automaticCoachReviewVisible: true });
 
     if (day.dayNumber === 20) {
       await verifyDayNote(page, 5, savedNotes.get(5));
