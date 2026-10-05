@@ -134,7 +134,7 @@ describe('GhostTown execution intelligence', () => {
     expect(unrelated.externalResearchAllowed).toBe(false);
     expect(unrelated.externalResearchReason).toBe('out_of_scope');
 
-    const untetheredResearch = evaluateExecutionInteraction('Research general startup trends on the web.', context);
+    const untetheredResearch = evaluateExecutionInteraction('Research dinosaur fossils on the web.', context);
     expect(untetheredResearch.externalResearchAllowed).toBe(false);
 
     expect(generativeTaskForExecutionCapability('fast_assistant')).toBe('candidate_selection');
