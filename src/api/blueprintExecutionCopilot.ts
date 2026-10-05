@@ -251,7 +251,8 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
         saved: true,
         learningCandidateCount: stored.learningCandidateCount,
         priorDailyAssessmentCount: context.coachMemory?.priorDailyAssessments.length || 0,
-        reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0
+        reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0,
+        productLearningReviewCount: stored.productLearningReviewCount || 0
       }
     });
   } catch (error) {
@@ -340,7 +341,8 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
           saved: true,
           learningCandidateCount: 0,
           priorDailyAssessmentCount: context.coachMemory?.priorDailyAssessments.length || 0,
-          reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0
+          reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0,
+          productLearningReviewCount: stored.productLearningReviewCount || 0
         }
       });
     }
