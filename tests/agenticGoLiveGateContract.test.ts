@@ -22,17 +22,20 @@ describe('agentic go-live gate contract', () => {
     }
   });
 
-  it('runs the Learning Coach after recorded results, samples grounded freshness, and never turns generated text into market evidence', () => {
+  it('runs the Learning Coach after recorded results, keeps automatic guidance inside the Sprint, and gates outside research by Sprint relevance', () => {
     expect(sprint).toContain("const agentic = process.env.GHOSTTOWN_E2E_AGENTIC === '1';");
-    expect(sprint).toContain("const groundedDailyDays = new Set([1, 15, 30]);");
     expect(sprint).toContain("phase = 'review'");
     expect(sprint).toContain('Review the recorded results for Day');
-    expect(sprint).toContain('synthetic records are not real customer proof');
+    expect(sprint).toContain('Use only this Sprint’s Blueprint, recorded evidence, saved Sprint research, and prior Sprint learning');
     expect(sprint).toContain('QA simulation only; not real customer or market evidence.');
     expect(sprint).toContain('coachMemory.reviewCount !== 30');
     expect(sprint).toContain("cachedReview.cache?.hit !== true");
-    expect(report).toContain("groundedDailyRequired = [1, 15, 30]");
-    expect(report).toContain("groundedCheckpointRequired = [7, 14, 21, 30]");
+    expect(sprint).toContain('verifySprintResearchGate');
+    expect(sprint).toContain('Unrelated external research was not blocked before AI/web execution.');
+    expect(sprint).toContain('Sprint-relevant external research did not pass the deterministic relevance gate.');
+    expect(report).toContain("'sprint.agentic.no_automatic_research'");
+    expect(report).toContain("'sprint.agentic.research_boundary'");
+    expect(report).toContain("'sprint.agentic.relevant_research'");
     expect(report).toContain("'sprint.agentic.memory'");
     expect(report).toContain("'sprint.agentic.cache'");
   });
