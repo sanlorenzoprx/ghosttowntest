@@ -334,7 +334,12 @@ export async function saveExecutionCoachResponse(
     learningCandidates?: unknown;
     allowGlobalLearning?: boolean;
   }
-): Promise<{ responseId: string; expiresAt?: string; learningCandidateCount: number }> {
+): Promise<{
+  responseId: string;
+  expiresAt?: string;
+  learningCandidateCount: number;
+  productLearningReviewCount: number;
+}> {
   if (!env.DB) throw new Error('Launch Blueprint D1 binding is not configured');
   const now = new Date().toISOString();
   const owner = normalizedAccountId(input.accountId);
