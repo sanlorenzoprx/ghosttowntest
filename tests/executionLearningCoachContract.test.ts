@@ -69,6 +69,13 @@ describe('30-Day Sprint Learning Coach contract', () => {
     expect(executionHome).toContain('void reviewCompletedDay(latestCompletedDay)');
   });
 
+  it('puts checkpoint Coach assessment on the real checkpoint surface without mutating the deterministic review', () => {
+    expect(executionHome).toContain('Ask GhostTown to assess checkpoint');
+    expect(executionHome).toContain("phase: 'checkpoint'");
+    expect(executionHome).toContain('GhostTown checkpoint review');
+    expect(executionHome).toContain('Advisory only. Your saved checkpoint evidence and deterministic branch rules remain authoritative.');
+  });
+
   it('requires governed human approval before reusable product learning becomes active', () => {
     expect(productLearningReview).toContain('At least three distinct customer accounts');
     expect(productLearningReview).toContain('distinctAccountSupport');
