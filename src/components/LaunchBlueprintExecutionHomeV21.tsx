@@ -146,12 +146,7 @@ export default function LaunchBlueprintExecutionHomeV21({
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          question: [
-            `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, the smallest next action, and what lesson—if any—is worth remembering.`,
-            [1, 15, 30].includes(dayNumber)
-              ? 'Separately use current web research only where useful as a freshness check. Keep external facts separate from the founder’s recorded customer evidence.'
-              : ''
-          ].filter(Boolean).join(' '),
+          question: `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, the smallest next action, and what lesson—if any—is worth remembering. Use only this Sprint’s Blueprint, recorded evidence, saved Sprint research, and prior Sprint learning unless I explicitly ask for current outside research.`,
           dayNumber,
           mode: 'current_experiment',
           phase: 'review',
@@ -192,7 +187,7 @@ export default function LaunchBlueprintExecutionHomeV21({
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          question: `Assess the Day ${dayNumber} checkpoint using the recorded Sprint evidence and current web research where useful. Explain the evidence strength, primary constraint, and safest next action. Keep external facts separate from the founder’s recorded customer evidence. Do not change the live experiment; the saved checkpoint review remains authoritative.`,
+          question: `Assess the Day ${dayNumber} checkpoint using only the recorded Sprint evidence, saved Blueprint research, and prior Sprint learning. Explain the evidence strength, primary constraint, and safest next action. Do not use outside research unless I explicitly ask through the Sprint research control. Do not change the live experiment; the saved checkpoint review remains authoritative.`,
           dayNumber,
           mode: 'current_experiment',
           phase: 'checkpoint',
