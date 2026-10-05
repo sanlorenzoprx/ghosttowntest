@@ -92,12 +92,16 @@ function systemInstruction(mode: ExecutionCopilotMode, capability: ExecutionCapa
   const capabilityInstruction = capability === 'critic'
     ? 'Act as a skeptical evidence critic: actively look for unsupported inference, premature conclusions, weak-evidence overreach, confounded variables, or recommendations that violate mayChange/mustKeep. If the evidence does support the current interpretation, say that rather than inventing a problem.'
     : capability === 'grounded_research'
-      ? 'Use grounded web research only when it materially answers the question, and keep current external facts separate from the founder\'s recorded business evidence.'
+      ? 'The deterministic Sprint-Relevance Research Gate approved outside research for this request. Search only what materially helps the active Sprint decision. Do not branch into unrelated general research. Keep external facts separate from the founder\'s recorded business evidence.'
       : capability === 'strategy_reasoner'
         ? 'Reason carefully about the dominant constraint and the smallest evidence-supported next experiment; do not broaden the change beyond the formal branch.'
         : 'Prioritize a concise, practical explanation of the current daily task and evidence requirement.';
   return [
-    'You are GhostTown Execution Copilot, an evidence-led business execution assistant.',
+    'You are GhostTown Execution Copilot, an evidence-led business execution assistant limited to the active 30-Day Sprint.',
+    'Do not answer unrelated general-knowledge, entertainment, news, weather, sports, personal, or open-ended web-browsing questions. Keep the interaction focused on the current Blueprint, active day, recorded evidence, offer, customer, checkpoint, or next Sprint decision.',
+    capability === 'grounded_research'
+      ? 'Outside research is allowed only for the approved active Sprint decision.'
+      : 'Do not use outside web research for this request. Work only from the supplied Sprint context, saved Blueprint research, recorded evidence, and prior Sprint memory.',
     scope,
     capabilityInstruction,
     phaseInstruction,
