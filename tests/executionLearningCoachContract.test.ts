@@ -6,6 +6,8 @@ const handler = readFileSync(new URL('../src/api/blueprintExecutionCopilot.ts', 
 const migration = readFileSync(new URL('../migrations/0011_execution_learning_coach.sql', import.meta.url), 'utf8');
 const recency = readFileSync(new URL('../src/api/evidenceRecency.ts', import.meta.url), 'utf8');
 const executionHome = readFileSync(new URL('../src/components/LaunchBlueprintExecutionHomeV21.tsx', import.meta.url), 'utf8');
+const productLearningReview = readFileSync(new URL('../scripts/execution-product-learning-review.mjs', import.meta.url), 'utf8');
+const productLearningWorkflow = readFileSync(new URL('../.github/workflows/execution-product-learning-review.yml', import.meta.url), 'utf8');
 
 describe('30-Day Sprint Learning Coach contract', () => {
   it('separates private evidence, cached coach responses, candidates, and promoted product knowledge', () => {
@@ -65,5 +67,18 @@ describe('30-Day Sprint Learning Coach contract', () => {
     expect(executionHome).toContain('latestCompletedDay');
     expect(executionHome).toContain('!reviews.some(review => review.dayNumber === latestCompletedDay)');
     expect(executionHome).toContain('void reviewCompletedDay(latestCompletedDay)');
+  });
+
+  it('requires governed human approval before reusable product learning becomes active', () => {
+    expect(productLearningReview).toContain('At least three distinct customer accounts');
+    expect(productLearningReview).toContain('distinctAccountSupport');
+    expect(productLearningReview).toContain("row.scope !== 'universal' && row.scope !== 'lane'");
+    expect(productLearningReview).toContain('Market-scoped learning remains review-only');
+    expect(productLearningReview).toContain("status = 'active'");
+    expect(productLearningWorkflow).toContain('environment:');
+    expect(productLearningWorkflow).toContain('name: production');
+    expect(productLearningWorkflow).toContain('EXPECTED_MAIN_SHA');
+    expect(productLearningWorkflow).toContain('ACTIVATE PRODUCT LEARNING');
+    expect(productLearningWorkflow).toContain('refs/heads/main');
   });
 });
