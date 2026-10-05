@@ -118,8 +118,14 @@ add('sprint.notes_evidence', 'Daily notes and structured evidence persist throug
 add('sprint.sequence', 'Days cannot be skipped through the API', sprint.sequencing?.serverRejectedSkippedDay === true,
   { proof: sprint.sequencing || null });
 for (const day of [7, 14, 21, 30]) {
-  add(`sprint.checkpoint.${day}`, `Day ${day} agentic reassessment persists`, checkpointDays.has(day),
-    { proof: '30-day-sprint-ui-proof.json', checkpoint: (sprint.agentic?.checkpoints || []).find(item => item.dayNumber === day) || null });
+  const checkpointProof = (sprint.agentic?.checkpoints || []).find(item => item.dayNumber === day) || null;
+  add(`sprint.checkpoint.${day}`, `Day ${day} visible checkpoint Coach assessment persists`,
+    checkpointDays.has(day)
+      && checkpointProof?.trigger === 'ui_checkpoint'
+      && checkpointProof?.phase === 'checkpoint'
+      && checkpointProof?.cache?.hit === true
+      && Boolean(checkpointProof?.cache?.responseId),
+    { proof: '30-day-sprint-ui-proof.json', checkpoint: checkpointProof });
 }
 add('sprint.reminders', 'Checkpoint reminders persist and navigate to the referenced review', sprint.reminders?.scheduled === 4 && sprint.reminders?.navigation === true,
   { proof: sprint.reminders || null });
