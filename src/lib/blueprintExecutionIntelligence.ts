@@ -329,7 +329,7 @@ function relevanceWords(value: string): Set<string> {
   return new Set([...words(value)].filter(word => !RELEVANCE_STOP_WORDS.has(word)));
 }
 
-const SPRINT_REFERENCE_PATTERN = /\b(?:30[- ]day|sprint|blueprint|today(?:'s)?\s+(?:task|work|result|evidence)|day\s*\d{1,2}|task|evidence|recorded results?|checkpoint|experiment|target customer|customer|buyer|offer|competitors?|market|channel|message|audience|outreach|reply|response|commitment|revenue|lead|conversion|interview|fulfillment|next action|next step|success threshold|failure threshold|prepared asset|get me live)\b/i;
+const SPRINT_REFERENCE_PATTERN = /\b(?:30[- ]day|sprint|blueprint|today(?:'s)?\s+(?:task|work|result|evidence)|day\s*\d{1,2}|recorded results?|checkpoint|experiment|next action|next step|success threshold|failure threshold|prepared asset|get me live|(?:my|our|this|the)\s+(?:task|evidence|customer|buyer|offer|competitors?|market|channel|message|audience|outreach|replies?|responses?|commitment|revenue|leads?|conversion|interview|fulfillment))\b/i;
 const BOUNDED_FOLLOW_UP_PATTERN = /^(?:why|how|what does that mean|what should i do|what exactly do i do today|what next|is that good|is that bad|should i continue|should i change it)[?.!\s]*$/i;
 const EXTERNAL_RESEARCH_REQUEST_PATTERN = /\b(?:current market|latest|benchmark|industry average|external source|external research|research|look up|lookup|search the web|web search|current trend|market trend|market information|outside source|outside research)\b/i;
 const EXPLICIT_RESEARCH_SPRINT_ANCHOR_PATTERN = /\b(?:sprint|blueprint|today(?:'s)?\s+(?:task|decision|work)|day\s*\d{1,2}|this\s+(?:task|experiment|offer|customer|market|competitor|channel|decision|checkpoint)|my\s+(?:offer|customer|market|competitor|channel|experiment)|active\s+(?:task|experiment|checkpoint)|next action)\b/i;
@@ -364,12 +364,14 @@ export function evaluateExecutionInteraction(
   let contextOverlap = 0;
   for (const word of query) if (activeWords.has(word)) contextOverlap += 1;
 
+  const minimumContextOverlap = 2;
   const explicitSprintReference = SPRINT_REFERENCE_PATTERN.test(question);
   const boundedFollowUp = BOUNDED_FOLLOW_UP_PATTERN.test(question.trim());
-  const allowed = explicitSprintReference || contextOverlap > 0 || boundedFollowUp;
+  const meaningfulContextOverlap = contextOverlap >= minimumContextOverlap;
+  const allowed = explicitSprintReference || meaningfulContextOverlap || boundedFollowUp;
   const reason: ExecutionInteractionScopeReason = explicitSprintReference
     ? 'explicit_sprint_reference'
-    : contextOverlap > 0
+    : meaningfulContextOverlap
       ? 'active_context_overlap'
       : boundedFollowUp
         ? 'bounded_follow_up'
@@ -377,7 +379,7 @@ export function evaluateExecutionInteraction(
 
   const externalResearchRequested = EXTERNAL_RESEARCH_REQUEST_PATTERN.test(question);
   const researchTiedToSprint = allowed && (
-    contextOverlap > 0
+    meaningfulContextOverlap
     || EXPLICIT_RESEARCH_SPRINT_ANCHOR_PATTERN.test(question)
   );
   const externalResearchAllowed = externalResearchRequested && researchTiedToSprint;
