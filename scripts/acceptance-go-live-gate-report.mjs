@@ -61,13 +61,23 @@ const groundedAttempts = [...dailyGrounded, ...checkpointGrounded];
 const nativeGrounded = groundedAttempts.filter(item =>
   item.receipt?.task === 'grounded_research' && item.degraded?.active !== true
 );
-add('sprint.agentic.daily', 'Learning Coach assesses and saves every Sprint day',
+add('sprint.agentic.daily', 'Learning Coach automatically assesses and saves every completed Sprint day through the customer UI',
   dailyAgentDays.size === 30
-    && dailyAgentic.every(item => item.phase === 'review' && item.memory?.saved === true && Boolean(item.cache?.responseId)),
+    && dailyAgentic.every(item =>
+      item.trigger === 'ui_completion'
+      && item.phase === 'review'
+      && item.memory?.saved === true
+      && Boolean(item.cache?.responseId)
+    ),
   {
     count: dailyAgentDays.size,
     days: [...dailyAgentDays].sort((a,b) => a-b),
-    savedReviewCount: dailyAgentic.filter(item => item.phase === 'review' && item.memory?.saved === true && Boolean(item.cache?.responseId)).length,
+    uiCompletionReviewCount: dailyAgentic.filter(item =>
+      item.trigger === 'ui_completion'
+      && item.phase === 'review'
+      && item.memory?.saved === true
+      && Boolean(item.cache?.responseId)
+    ).length,
     receiptTasks: [...new Set(dailyAgentic.map(item => item.receipt?.task).filter(Boolean))]
   });
 add('sprint.agentic.memory', 'All 30 daily Learning Coach assessments persist in owner-scoped memory',
