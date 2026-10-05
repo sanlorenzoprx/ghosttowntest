@@ -10,6 +10,7 @@ on:
         options:
           - preflight
           - migrate-0010
+          - migrate-0011
           - stage-version
           - promote-version
       expected_main_sha:
@@ -68,6 +69,7 @@ jobs:
           case "$OPERATION" in
             preflight) expected="PREFLIGHT PRODUCTION" ;;
             migrate-0010) expected="APPLY 0010 TO PRODUCTION" ;;
+            migrate-0011) expected="APPLY 0011 TO PRODUCTION" ;;
             stage-version) expected="STAGE VERSION FOR PRODUCTION" ;;
             promote-version) expected="PROMOTE VERSION TO PRODUCTION" ;;
             *) echo "::error::Unknown operation $OPERATION"; exit 1 ;;
@@ -164,6 +166,78 @@ jobs:
           NODE
           curl -fsS --connect-timeout 10 --max-time 20 "$HEALTH_URL" > github-production-release/health-after-migration.json
           node -e "const h=require('./github-production-release/health-after-migration.json'); if(h.status!=='ok'||h.service!=='ghosttowntest') process.exit(1)"
+
+      - name: Verify only migration 0011 is pending
+        if: ${{ inputs.operation == 'migrate-0011' }}
+        shell: bash
+        run: |
+          mapfile -t pending < <(grep -oE '[0-9]{4}_[A-Za-z0-9_-]+\.sql' github-production-release/migrations-before.txt | sort -u)
+          test "${#pending[@]}" -eq 1 || { echo "::error::Expected exactly one pending migration."; printf '%s\n' "${pending[@]}"; exit 1; }
+          test "${pending[0]}" = "0011_execution_learning_coach.sql" || { echo "::error::Unexpected pending migration ${pending[0]}."; exit 1; }
+
+      - name: Capture production schema before 0011
+        if: ${{ inputs.operation == 'migrate-0011' }}
+        run: npx wrangler d1 export DB --env production --remote --no-data --output github-production-release/schema-before.sql --skip-confirmation
+
+      - name: Apply production migration 0011
+        if: ${{ inputs.operation == 'migrate-0011' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 migrations apply DB --env production --remote | tee github-production-release/migration-apply.txt
+          npx wrangler d1 migrations list DB --env production --remote | tee github-production-release/migrations-after.txt
+          if grep -Fq '0011_execution_learning_coach.sql' github-production-release/migrations-after.txt; then
+            echo "::error::Migration 0011 is still pending after apply."
+            exit 1
+          fi
+
+      - name: Verify production schema after 0011
+        if: ${{ inputs.operation == 'migrate-0011' }}
+        shell: bash
+        run: |
+          SCHEMA_SQL="SELECT
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='execution_coach_responses') AS coach_table,
+            (SELECT COUNT(*) FROM pragma_table_info('execution_coach_responses') WHERE name='context_sha256') AS coach_context_sha256,
+            (SELECT COUNT(*) FROM pragma_table_info('execution_coach_responses') WHERE name='response_json') AS coach_response_json,
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='execution_learning_candidates') AS candidates_table,
+            (SELECT COUNT(*) FROM pragma_table_info('execution_learning_candidates') WHERE name='privacy_safe') AS candidates_privacy_safe,
+            (SELECT COUNT(*) FROM pragma_table_info('execution_learning_candidates') WHERE name='global_eligible') AS candidates_global_eligible,
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='execution_product_knowledge') AS knowledge_table,
+            (SELECT COUNT(*) FROM pragma_table_info('execution_product_knowledge') WHERE name='knowledge_fingerprint') AS knowledge_fingerprint,
+            (SELECT COUNT(*) FROM pragma_table_info('execution_product_knowledge') WHERE name='support_count') AS knowledge_support_count,
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_execution_coach_responses_order_day') AS coach_order_day_index,
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_execution_coach_responses_cache') AS coach_cache_index,
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_execution_learning_candidates_class') AS candidates_class_index,
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_execution_learning_candidates_account') AS candidates_account_index,
+            (SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_execution_product_knowledge_retrieval') AS knowledge_retrieval_index;"
+          npx wrangler d1 execute DB --env production --remote --command "$SCHEMA_SQL" --json > github-production-release/schema-verification-0011.json
+          node <<'NODE'
+          const fs = require('fs');
+          const parsed = JSON.parse(fs.readFileSync('github-production-release/schema-verification-0011.json', 'utf8'));
+          const result = Array.isArray(parsed) ? parsed[0] : parsed;
+          const row = (result.results || result.result || [])[0] || {};
+          const expected = [
+            'coach_table',
+            'coach_context_sha256',
+            'coach_response_json',
+            'candidates_table',
+            'candidates_privacy_safe',
+            'candidates_global_eligible',
+            'knowledge_table',
+            'knowledge_fingerprint',
+            'knowledge_support_count',
+            'coach_order_day_index',
+            'coach_cache_index',
+            'candidates_class_index',
+            'candidates_account_index',
+            'knowledge_retrieval_index'
+          ];
+          const missing = expected.filter(key => Number(row[key]) !== 1);
+          if (missing.length) throw new Error('Production schema verification failed for 0011: ' + missing.join(', '));
+          console.log('MIGRATION_0011_SCHEMA_OK=' + JSON.stringify(row));
+          NODE
+          curl -fsS --connect-timeout 10 --max-time 20 "$HEALTH_URL" > github-production-release/health-after-migration-0011.json
+          node -e "const h=require('./github-production-release/health-after-migration-0011.json'); if(h.status!=='ok'||h.service!=='ghosttowntest') process.exit(1)"
 
       - name: Resolve current 100 percent production version
         if: ${{ inputs.operation == 'stage-version' }}
