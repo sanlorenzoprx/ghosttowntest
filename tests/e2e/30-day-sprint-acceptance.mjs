@@ -81,7 +81,7 @@ async function agenticCoach(request, dayNumber, phase = 'review') {
   const checkpoint = phase === 'checkpoint';
   const groundedDailySample = phase === 'review' && groundedDailyDays.has(dayNumber);
   const question = checkpoint
-    ? `Assess the Day ${dayNumber} checkpoint using the recorded Sprint evidence and current web research where useful. This is a QA acceptance run: synthetic records are not real customer proof. Do not invent customers, quotes, commitments, revenue, or market evidence. Explain the evidence strength, primary constraint, and safest next action.`
+    ? `Assess the Day ${dayNumber} checkpoint using the recorded Sprint evidence and current web research where useful. Explain the evidence strength, primary constraint, and safest next action. Keep external facts separate from the founder’s recorded customer evidence. Do not change the live experiment; the saved checkpoint review remains authoritative.`
     : [
         `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, the smallest next action, and what lesson—if any—is worth remembering.`,
         groundedDailySample
@@ -395,9 +395,16 @@ try {
       .catch(() => undefined);
 
     if (checkpoints.has(day.dayNumber)) {
+      const checkpointButton = page.getByRole('button', { name: 'Ask GhostTown to assess checkpoint', exact: true });
+      await checkpointButton.click();
+      await page.getByRole('region', { name: 'GhostTown checkpoint review' }).waitFor({ state: 'visible', timeout: 90000 });
       const checkpointGuidance = await agenticCoach(page.request, day.dayNumber, 'checkpoint');
+      if (checkpointGuidance.cache?.hit !== true || !checkpointGuidance.cache?.responseId) {
+        throw new Error(`Day ${day.dayNumber} visible checkpoint assessment did not persist an exact-context Coach cache.`);
+      }
       proof.agentic.checkpoints.push({
         dayNumber: day.dayNumber,
+        trigger: 'ui_checkpoint',
         phase: checkpointGuidance.phase,
         capability: checkpointGuidance.capability,
         answer: String(checkpointGuidance.answer || '').slice(0, 1800),
