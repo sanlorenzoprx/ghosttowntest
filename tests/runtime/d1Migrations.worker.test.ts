@@ -22,6 +22,9 @@ describe("GhostTown real local D1 migration contract", () => {
     expect(names).toContain("get_me_live_activity_counts");
     expect(names).toContain("get_me_live_releases");
     expect(names).toContain("get_me_live_publish_attempts");
+    expect(names).toContain("execution_coach_responses");
+    expect(names).toContain("execution_learning_candidates");
+    expect(names).toContain("execution_product_knowledge");
 
     expect(await columns("launch_blueprints")).toEqual(expect.arrayContaining([
       "order_id", "owner_id", "source_verdict_id", "schema_version",
@@ -46,6 +49,19 @@ describe("GhostTown real local D1 migration contract", () => {
     expect(await columns("get_me_live_publish_attempts")).toEqual(expect.arrayContaining([
       "get_me_live_order_id", "attempt_id", "kind", "build_id", "custom_domain", "phase",
       "deployment_id", "deployment_url", "claimed_at", "deployed_at", "expires_at"
+    ]));
+    expect(await columns("execution_coach_responses")).toEqual(expect.arrayContaining([
+      "response_id", "account_id", "order_id", "blueprint_id", "blueprint_version",
+      "day_number", "phase", "capability", "context_sha256", "question_sha256",
+      "response_json", "receipt_json", "degradation_json", "cache_expires_at", "hit_count"
+    ]));
+    expect(await columns("execution_learning_candidates")).toEqual(expect.arrayContaining([
+      "candidate_id", "source_response_id", "knowledge_class", "scope", "lesson_text",
+      "privacy_safe", "global_eligible", "valid_until", "status"
+    ]));
+    expect(await columns("execution_product_knowledge")).toEqual(expect.arrayContaining([
+      "knowledge_id", "knowledge_fingerprint", "knowledge_class", "scope", "lesson_text",
+      "support_count", "contradiction_count", "status", "valid_until", "next_review_at"
     ]));
   });
 

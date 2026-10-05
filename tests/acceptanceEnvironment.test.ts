@@ -16,6 +16,17 @@ function section(config: string, start: string, next: RegExp) {
 }
 
 describe('acceptance Cloudflare environment', () => {
+  it('hard-routes the acceptance Pages host to the acceptance Worker', async () => {
+    const api = await readText('src/lib/api.ts');
+    expect(api).toContain("hostname === 'main.ghosttown-acceptance.pages.dev'");
+    expect(api).toContain("hostname.endsWith('.ghosttown-acceptance.pages.dev')");
+    expect(api).toContain("return 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev'");
+    const acceptanceRoute = api.indexOf("hostname === 'main.ghosttown-acceptance.pages.dev'");
+    const genericPagesFallback = api.indexOf("hostname.endsWith('.pages.dev')");
+    expect(acceptanceRoute).toBeGreaterThanOrEqual(0);
+    expect(genericPagesFallback).toBeGreaterThan(acceptanceRoute);
+  });
+
   it('uses isolated acceptance-only storage and Workflow bindings', async () => {
     const config = await readText('wrangler.toml');
     const acceptance = section(config, '[env.acceptance]', /\n\[env\.(production|development)\]/);

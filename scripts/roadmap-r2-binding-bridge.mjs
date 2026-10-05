@@ -165,6 +165,14 @@ export async function withAcceptanceDataBindings(callback) {
         if (!response.ok) throw new Error(`Acceptance E2E Sprint fixture cleanup failed HTTP ${response.status}: ${text}`);
         return body;
       },
+      async removeE2eGetMeLiveFixture(payload) {
+        const response = await request('/e2e-get-me-live-fixture', {
+          method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload)
+        }, 'Acceptance E2E Get Me Live removal transport failed');
+        const text = await response.text(); let body = null; try { body = JSON.parse(text); } catch {}
+        if (!response.ok) throw new Error(`Acceptance E2E Get Me Live removal failed HTTP ${response.status}: ${text}`);
+        return body;
+      },
       async rematerialize(payload) {
         const response = await request('/rematerialize', {
           method: 'POST',

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 import { executionLaneProfile, type ExecutionCopilotMode } from '../lib/blueprintExecutionIntelligence';
 import type { BusinessModelExecutionLane } from '../types/launchBlueprintV21';
+import type { ExecutionCoachPhase, ExecutionLearningCandidate } from '../types/executionLearning';
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string };
 
@@ -25,6 +26,9 @@ interface CopilotResponse {
     strategyRoomDoesNotMutateLiveExperiment?: boolean;
   };
   groundedWebSources?: Array<{ title: string; url: string }>;
+  learningCandidates?: ExecutionLearningCandidate[];
+  cache?: { hit?: boolean; responseId?: string; expiresAt?: string | null; hitCount?: number };
+  memory?: { saved?: boolean; learningCandidateCount?: number; priorDailyAssessmentCount?: number; reusableKnowledgeCount?: number };
 }
 
 const QUICK_PROMPTS = [
@@ -51,7 +55,7 @@ export default function LaunchBlueprintCopilotV21({
   const [loading, setLoading] = useState(false);
   const profile = useMemo(() => executionLaneProfile(lane), [lane]);
 
-  const ask = async (value = question) => {
+  const ask = async (value = question, phase: ExecutionCoachPhase = 'chat') => {
     const prompt = value.trim();
     if (!prompt || loading) return;
     const prior = messages.slice(-6);
@@ -63,7 +67,7 @@ export default function LaunchBlueprintCopilotV21({
       const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/copilot`), {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: prompt, dayNumber, mode, history: prior })
+        body: JSON.stringify({ question: prompt, dayNumber, mode, phase, history: prior })
       });
       const body = await response.json<CopilotResponse>();
       if (!response.ok || !body.answer) throw new Error(body.error || `Execution Copilot failed (${response.status})`);
@@ -99,7 +103,11 @@ export default function LaunchBlueprintCopilotV21({
         </div>
         <p className="mt-2 text-xs leading-5 text-gray-500">{mode === 'current_experiment' ? 'Advice must respect the live experiment, checkpoint branch, and frozen variables.' : 'Explore broader strategy without changing the live experiment.'}</p>
 
-        {messages.length === 0 && <div className="mt-4 space-y-2"><p className="text-sm font-black">Ask from the work you are doing now:</p>{QUICK_PROMPTS.map(item => <button key={item} type="button" onClick={() => void ask(item)} className="block w-full rounded-xl border border-black/10 bg-white p-3 text-left text-sm font-bold hover:border-ghost-rust">{item}</button>)}</div>}
+        {messages.length === 0 && <div className="mt-4 space-y-2">
+          <button type="button" onClick={() => void ask(`Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, what I should do next, and what lesson—if any—is worth remembering.`, 'review')} className="block w-full rounded-xl border border-ghost-rust/30 bg-[#fff7f2] p-3 text-left text-sm font-black text-ghost-rust hover:border-ghost-rust">Review today’s recorded results</button>
+          <p className="pt-2 text-sm font-black">Or ask from the work you are doing now:</p>
+          {QUICK_PROMPTS.map(item => <button key={item} type="button" onClick={() => void ask(item)} className="block w-full rounded-xl border border-black/10 bg-white p-3 text-left text-sm font-bold hover:border-ghost-rust">{item}</button>)}
+        </div>}
 
         <div className="mt-4 space-y-3">
           {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`rounded-xl p-3 text-sm leading-6 ${message.role === 'user' ? 'ml-8 bg-[#fff7f2]' : 'mr-4 border border-black/10 bg-white'}`}><p className="mb-1 text-[11px] font-black uppercase tracking-[0.1em] text-gray-500">{message.role === 'user' ? 'You' : 'GhostTown'}</p><p className="whitespace-pre-wrap">{message.content}</p></div>)}
@@ -110,6 +118,8 @@ export default function LaunchBlueprintCopilotV21({
         {latest?.guardrails && mode === 'current_experiment' && <section className="mt-3 rounded-xl border border-black/10 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">Experiment guardrails</p><p className="mt-2 text-sm"><strong>Route:</strong> {(latest.guardrails.route || 'continue').replace(/_/g, ' ')}</p>{latest.guardrails.mayChange?.length ? <p className="mt-1 text-sm"><strong>May change:</strong> {latest.guardrails.mayChange.join(', ')}</p> : <p className="mt-1 text-sm"><strong>May change:</strong> nothing yet</p>}<p className="mt-1 text-sm"><strong>Keep fixed:</strong> {latest.guardrails.mustKeep?.join(', ') || 'n/a'}</p></section>}
         {latest?.critic && <section className={`mt-3 rounded-xl border p-4 ${latest.critic.overreachDetected ? 'border-amber-300 bg-amber-50' : 'border-black/10 bg-white'}`}><p className="text-xs font-black uppercase tracking-[0.12em]">Evidence critic</p><p className="mt-2 text-sm">{latest.critic.challenge}</p>{latest.critic.saferRecommendation && <p className="mt-2 text-sm font-bold">{latest.critic.saferRecommendation}</p>}</section>}
         {latest?.evidenceToRecord?.length ? <section className="mt-3 rounded-xl border border-black/10 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">Record next</p><ul className="mt-2 space-y-1 text-sm">{latest.evidenceToRecord.map(item => <li key={item}>• {item}</li>)}</ul></section> : null}
+        {latest?.learningCandidates?.length ? <section className="mt-3 rounded-xl border border-black/10 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">What GhostTown learned</p><ul className="mt-2 space-y-2 text-sm">{latest.learningCandidates.map((item, index) => <li key={`${item.knowledgeClass}-${index}`}><strong>{item.knowledgeClass.replace(/_/g, ' ')}:</strong> {item.lesson}</li>)}</ul></section> : null}
+        {latest?.memory?.saved ? <section className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm"><strong>Saved to your Sprint learning history.</strong>{latest.cache?.hit ? ' This answer came from the saved cache for the same evidence.' : ''}</section> : null}
         {latest?.groundedWebSources?.length ? <section className="mt-3 rounded-xl border border-black/10 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">Grounded web sources</p><ul className="mt-2 space-y-2 text-sm">{latest.groundedWebSources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer" className="font-bold text-ghost-rust underline">{source.title}</a></li>)}</ul></section> : null}
       </div>
 

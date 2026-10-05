@@ -1,0 +1,95 @@
+name: Stripe Payment Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test/agentic-go-live-gate
+    paths:
+      - .github/workflows/stripe-payment-proof.yml
+      - scripts/acceptance-stripe-payment-proof.mjs
+      - scripts/roadmap-r2-binding-worker.ts
+      - scripts/acceptance-cloudflare-oauth-fixture.mjs
+      - src/lib/api.ts
+      - tests/acceptanceEnvironment.test.ts
+      - tests/agenticGoLiveGateContract.test.ts
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghosttown-stripe-payment-proof
+  cancel-in-progress: false
+
+jobs:
+  stripe-payment-proof:
+    name: stripe-payment-proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: acceptance
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify acceptance Cloudflare credentials
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing acceptance CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing acceptance CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+
+      - name: Syntax-check Stripe payment verifier
+        run: node --check scripts/acceptance-stripe-payment-proof.mjs
+
+      - name: Build acceptance frontend against acceptance Worker
+        env:
+          VITE_API_URL: https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev
+        run: |
+          rm -rf dist
+          npm run build
+          grep -R -F "https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev" dist/assets >/dev/null
+          printf '%s\n' "$GITHUB_SHA" > dist/acceptance-build.txt
+
+      - name: Deploy hardened acceptance frontend
+        run: npx wrangler pages deploy dist --project-name ghosttown-acceptance --branch main
+
+      - name: Verify hardened acceptance frontend
+        shell: bash
+        run: |
+          expected="$GITHUB_SHA"
+          url="https://main.ghosttown-acceptance.pages.dev/acceptance-build.txt"
+          for attempt in $(seq 1 24); do
+            served="$(curl -fsS -H 'Cache-Control: no-cache' "$url?sha=$expected&attempt=$attempt" 2>/dev/null || true)"
+            if [ "$served" = "$expected" ]; then
+              echo "Acceptance frontend serves current SHA $expected"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Acceptance frontend did not serve current SHA $expected"
+          exit 1
+
+      - name: Prove real Stripe payment webhook entitlement
+        run: node scripts/acceptance-stripe-payment-proof.mjs
+
+      - name: Upload Stripe payment proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-stripe-payment-proof-${{ github.run_id }}
+          path: github-acceptance/stripe-payment-webhook-proof.json
+          if-no-files-found: error
+          retention-days: 14

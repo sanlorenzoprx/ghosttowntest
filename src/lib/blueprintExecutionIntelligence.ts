@@ -1,4 +1,5 @@
 import type { BusinessModelExecutionLane, GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
+import type { ExecutionCoachMemoryContext } from '../types/executionLearning';
 
 export type ExecutionVariable = 'customer' | 'problem' | 'access' | 'message' | 'offer' | 'price' | 'fulfillment';
 export type ExecutionBranchRoute =
@@ -144,6 +145,7 @@ export interface ExecutionRagContext {
     latestCheckpointReview: ExecutionCheckpointReviewLike | null;
   };
   research: ExecutionRetrievedSource[];
+  coachMemory?: ExecutionCoachMemoryContext;
   immutableRules: string[];
 }
 

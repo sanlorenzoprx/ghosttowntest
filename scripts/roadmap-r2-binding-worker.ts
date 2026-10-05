@@ -307,6 +307,69 @@ async function rematerialize(env: Env, request: Request): Promise<Response> {
   }
 }
 
+async function reconcileHumanPaidOrderSummaries(env: Env, ownerId: string): Promise<void> {
+  const normalizedOwner = ownerId.trim().toLowerCase();
+  if (!normalizedOwner || normalizedOwner.endsWith('@example.invalid')) return;
+
+  const summaryKey = 'paid_test_orders_' + normalizedOwner;
+  const existingRaw = await env.KV.get(summaryKey);
+  let existing: any[] = [];
+  try {
+    const parsed = existingRaw ? JSON.parse(existingRaw) : [];
+    existing = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    existing = [];
+  }
+
+  const canonical: any[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await env.KV.list({ prefix: 'paid_test_order_', cursor, limit: 1000 });
+    for (const key of page.keys) {
+      const raw = await env.KV.get(key.name);
+      if (!raw) continue;
+      let order: any = null;
+      try { order = JSON.parse(raw); } catch { continue; }
+      const email = String(order?.email || '').trim().toLowerCase();
+      const orderId = String(order?.orderId || '');
+      if (email !== normalizedOwner || !orderId || orderId.startsWith('gtt_e2e_')) continue;
+
+      let ideaName = '';
+      const verdictId = String(order?.verdictId || '');
+      if (verdictId) {
+        const verdictRaw = await env.KV.get('user_result_' + normalizedOwner + '_' + verdictId);
+        try { ideaName = verdictRaw ? String(JSON.parse(verdictRaw)?.idea?.ideaName || '') : ''; } catch {}
+      }
+      if (!ideaName) {
+        ideaName = String(existing.find(item => item?.orderId === orderId)?.ideaName || 'GhostTown paid order');
+      }
+      canonical.push({
+        orderId,
+        ideaName,
+        status: order.status,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        artifactType: order.artifactType,
+        offerName: order.artifactType === 'launch_blueprint_v2' ? 'GhostTown Launch Blueprint' : '30-Day Evidence Sprint',
+        sourceVerdictId: order.verdictId,
+        planVersion: order.planVersion,
+        fulfillmentWorkflowId: order.fulfillmentWorkflowId
+      });
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  const canonicalIds = new Set(canonical.map(item => item.orderId));
+  const preserved = existing.filter(item => {
+    const id = String(item?.orderId || '');
+    return id && !id.startsWith('gtt_e2e_') && !canonicalIds.has(id);
+  });
+  const merged = [...canonical, ...preserved]
+    .sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || '')))
+    .slice(0, 50);
+  await env.KV.put(summaryKey, JSON.stringify(merged));
+}
+
 async function createE2eSprintFixture(env: Env, request: Request): Promise<Response> {
   let body: any; try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
   const ownerId = String(body?.ownerId || '').trim().toLowerCase();
@@ -314,6 +377,53 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
   const gmlOrderId = String(body?.gmlOrderId || '');
   if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_') || !/^gml_e2e_[A-Za-z0-9_-]+$/.test(gmlOrderId)) {
     return json({ error: 'Invalid E2E fixture identity' }, 400);
+  }
+
+  const cloudflareMode = body?.cloudflareMode === 'oauth' ? 'oauth' : 'injected';
+
+  if (cloudflareMode === 'oauth') {
+    const pointerRaw = await env.KV.get('acceptance_cloudflare_oauth_fixture_v1');
+    let pointer: any = null;
+    try { pointer = pointerRaw ? JSON.parse(pointerRaw) : null; } catch { pointer = null; }
+    if (pointer?.ownerId === ownerId && pointer?.orderId && pointer?.gmlOrderId) {
+      const reusable = await env.DB.prepare(`
+        SELECT order_id, owner_id, source_sprint_order_id, provider_state_json, paid_at
+        FROM get_me_live_orders WHERE order_id = ?
+      `).bind(pointer.gmlOrderId).first<any>();
+      if (reusable
+          && reusable.owner_id === ownerId
+          && reusable.source_sprint_order_id === pointer.orderId
+          && reusable.paid_at) {
+        await reconcileHumanPaidOrderSummaries(env, ownerId);
+        return json({
+          ok: true,
+          orderId: pointer.orderId,
+          gmlOrderId: pointer.gmlOrderId,
+          ownerId,
+          reused: true,
+          cloudflareMode: 'oauth',
+          expiresInSeconds: 86400,
+          stripeChargeCreated: false,
+          productionMutated: false
+        });
+      }
+    }
+  }
+
+  const existing = await env.DB.prepare(`
+    SELECT order_id, owner_id, source_sprint_order_id, provider_state_json
+    FROM get_me_live_orders WHERE order_id = ?
+  `).bind(gmlOrderId).first<any>();
+  if (existing) {
+    if (existing.owner_id !== ownerId || existing.source_sprint_order_id !== orderId) {
+      return json({ error: 'Existing E2E Get Me Live fixture identity does not match' }, 409);
+    }
+    if (cloudflareMode === 'oauth') await reconcileHumanPaidOrderSummaries(env, ownerId);
+    return json({
+      ok: true, orderId, gmlOrderId, ownerId, reused: true,
+      cloudflareMode,
+      expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false
+    });
   }
 
   const sprintRows = await env.DB.prepare(`
@@ -447,13 +557,17 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
       ctaLabel: 'I am interested'
     },
     contact: { contactEmail: ownerId, leadDestinationEmail: ownerId, businessEmailLocalPart: 'hello' },
-    domain: { cloudflareAccountId: String(body?.cloudflareAccountId || '') },
+    domain: { cloudflareAccountId: cloudflareMode === 'oauth' ? '' : String(body?.cloudflareAccountId || '') },
     payments: { enabled: false }
   };
-  if (!config.domain.cloudflareAccountId) return json({ error: 'Acceptance Cloudflare account ID is required for the disposable Get Me Live site' }, 400);
-  const provider = { cloudflareConnected: true, stripeConnected: false, businessEmailVerified: false };
-  const acceptanceCloudflareToken = String(env.ACCEPTANCE_CLOUDFLARE_API_TOKEN || '').trim();
-  if (!acceptanceCloudflareToken) return json({ error: 'Acceptance Cloudflare API token is not bound to the disposable fixture bridge' }, 500);
+  if (cloudflareMode !== 'oauth' && !config.domain.cloudflareAccountId) {
+    return json({ error: 'Acceptance Cloudflare account ID is required for the disposable Get Me Live site' }, 400);
+  }
+  const provider = { cloudflareConnected: cloudflareMode !== 'oauth', stripeConnected: false, businessEmailVerified: false };
+  const acceptanceCloudflareToken = cloudflareMode === 'oauth' ? '' : String(env.ACCEPTANCE_CLOUDFLARE_API_TOKEN || '').trim();
+  if (cloudflareMode !== 'oauth' && !acceptanceCloudflareToken) {
+    return json({ error: 'Acceptance Cloudflare API token is not bound to the disposable fixture bridge' }, 500);
+  }
   await env.DB.prepare(`
     INSERT INTO get_me_live_orders (
       order_id, owner_id, source_sprint_order_id, source_blueprint_id, offer_id, offer_version,
@@ -467,18 +581,87 @@ async function createE2eSprintFixture(env: Env, request: Request): Promise<Respo
     now, now, now
   ).run();
 
-  await env.KV.put('get_me_live_cf_token_' + gmlOrderId, JSON.stringify({
-    accessToken: acceptanceCloudflareToken,
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-    scope: 'acceptance-workflow-token'
-  }), { expirationTtl: 3600 });
+  if (cloudflareMode === 'oauth') {
+    await env.KV.delete('get_me_live_cf_token_' + gmlOrderId);
+  } else {
+    await env.KV.put('get_me_live_cf_token_' + gmlOrderId, JSON.stringify({
+      accessToken: acceptanceCloudflareToken,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      scope: 'acceptance-workflow-token'
+    }), { expirationTtl: 3600 });
+  }
 
   await env.KV.put('paid_test_order_' + orderId, JSON.stringify(order), { expirationTtl: 86400 });
-  await env.KV.put('paid_test_orders_' + ownerId, JSON.stringify([{
-    orderId, ideaName: 'Synthetic Acceptance Sprint', status: 'ready', createdAt: now, updatedAt: now,
-    artifactType: order.artifactType, offerName: '30-Day Evidence Sprint', sourceVerdictId, planVersion: order.planVersion || '1.0'
-  }]), { expirationTtl: 86400 });
-  return json({ ok: true, orderId, gmlOrderId, ownerId, sourceOrderId: source.order_id, expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false });
+  if (cloudflareMode === 'oauth') {
+    await reconcileHumanPaidOrderSummaries(env, ownerId);
+  } else {
+    const summaryKey = 'paid_test_orders_' + ownerId;
+    const existingSummaryRaw = await env.KV.get(summaryKey);
+    let existingSummaries: any[] = [];
+    try {
+      const parsed = existingSummaryRaw ? JSON.parse(existingSummaryRaw) : [];
+      existingSummaries = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      existingSummaries = [];
+    }
+    const syntheticSummary = {
+      orderId, ideaName: 'Synthetic Acceptance Sprint', status: 'ready', createdAt: now, updatedAt: now,
+      artifactType: order.artifactType, offerName: '30-Day Evidence Sprint', sourceVerdictId, planVersion: order.planVersion || '1.0'
+    };
+    const mergedSummaries = [
+      syntheticSummary,
+      ...existingSummaries.filter(item => item?.orderId !== orderId)
+    ].slice(0, 50);
+    await env.KV.put(summaryKey, JSON.stringify(mergedSummaries), { expirationTtl: 86400 });
+  }
+  if (cloudflareMode === 'oauth') {
+    await env.KV.put('acceptance_cloudflare_oauth_fixture_v1', JSON.stringify({
+      orderId, gmlOrderId, ownerId, createdAt: now
+    }), { expirationTtl: 86400 * 7 });
+  }
+  return json({
+    ok: true, orderId, gmlOrderId, ownerId, sourceOrderId: source.order_id,
+    cloudflareMode, expiresInSeconds: 86400, stripeChargeCreated: false, productionMutated: false
+  });
+}
+
+async function removeE2eGetMeLiveFixture(env: Env, request: Request): Promise<Response> {
+  let body: any; try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400); }
+  const ownerId = String(body?.ownerId || '').trim().toLowerCase();
+  const orderId = String(body?.orderId || '');
+  const gmlOrderId = String(body?.gmlOrderId || '');
+  if (!ownerId.includes('@') || !allowedOrderId(orderId) || !orderId.startsWith('gtt_e2e_') || !/^gml_e2e_[A-Za-z0-9_-]+$/.test(gmlOrderId)) {
+    return json({ error: 'Invalid E2E Get Me Live fixture identity' }, 400);
+  }
+  const row = await env.DB.prepare(`
+    SELECT source_sprint_order_id, owner_id
+    FROM get_me_live_orders
+    WHERE order_id = ?
+  `).bind(gmlOrderId).first<{ source_sprint_order_id: string; owner_id: string }>();
+  if (!row || row.owner_id !== ownerId || row.source_sprint_order_id !== orderId) {
+    return json({ error: 'Disposable Get Me Live fixture does not match the requested Sprint owner/link' }, 409);
+  }
+
+  await env.DB.prepare('DELETE FROM get_me_live_publish_attempts WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_releases WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_leads WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_share_drafts WHERE get_me_live_order_id = ?').bind(gmlOrderId).run().catch(() => undefined);
+  await env.DB.prepare('DELETE FROM get_me_live_orders WHERE order_id = ? AND owner_id = ? AND source_sprint_order_id = ?')
+    .bind(gmlOrderId, ownerId, orderId).run();
+  await env.KV.delete('get_me_live_cf_token_' + gmlOrderId);
+
+  const sprintStillExists = await env.DB.prepare('SELECT order_id FROM launch_blueprints WHERE order_id = ? AND owner_id = ?')
+    .bind(orderId, ownerId).first<{ order_id: string }>();
+  if (!sprintStillExists) return json({ error: 'Sprint disappeared while removing Get Me Live fixture' }, 500);
+
+  return json({
+    ok: true,
+    removed: true,
+    orderId,
+    gmlOrderId,
+    sprintPreserved: true,
+    productionMutated: false
+  });
 }
 
 async function deleteE2eSprintFixture(env: Env, request: Request): Promise<Response> {
@@ -543,6 +726,7 @@ export default {
     if (url.pathname === '/rematerialize' && request.method === 'POST') return rematerialize(env, request);
     if (url.pathname === '/e2e-sprint-fixture' && request.method === 'POST') return createE2eSprintFixture(env, request);
     if (url.pathname === '/e2e-sprint-fixture' && request.method === 'DELETE') return deleteE2eSprintFixture(env, request);
+    if (url.pathname === '/e2e-get-me-live-fixture' && request.method === 'DELETE') return removeE2eGetMeLiveFixture(env, request);
 
     if (url.pathname !== '/object') return json({ error: 'Not found' }, 404);
     const key = url.searchParams.get('key') || '';

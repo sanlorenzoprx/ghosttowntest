@@ -6,6 +6,9 @@ function inferProductionApiBaseUrl(): string {
   const { hostname, protocol } = window.location;
   if (hostname === 'localhost' || hostname === '127.0.0.1') return '';
   if (hostname === 'api.ghosttowntest.com' || hostname === 'api.lit-ghosttown.app') return '';
+  if (hostname === 'main.ghosttown-acceptance.pages.dev' || hostname.endsWith('.ghosttown-acceptance.pages.dev')) {
+    return 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev';
+  }
   if (
     hostname === 'ghosttowntest.com'
     || hostname === 'www.ghosttowntest.com'

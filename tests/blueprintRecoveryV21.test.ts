@@ -127,7 +127,7 @@ describe('Blueprint v2.1.1 account recovery', () => {
       method: 'POST',
       headers: { Authorization: `Bearer ${firstToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        completedDays: [1, 7],
+        completedDays: [],
         evidenceLedger: [{
           entryId: 'recovery-evidence-1', contactOrChannel: 'Buyer A', date: '2026-08-07', action: 'Asked for paid pilot',
           response: 'Requested scope', customerLanguage: 'Send me the price.', alternativeMentioned: 'Spreadsheet', objection: '',
@@ -170,7 +170,7 @@ describe('Blueprint v2.1.1 account recovery', () => {
       executionLog?: { schemaVersion: string };
     };
     expect(restored.executionLog?.schemaVersion).toBe('ghosttown-daily-execution-log-v1');
-    expect(restored.progress.completedDays).toEqual([1, 7]);
+    expect(restored.progress.completedDays).toEqual([]);
     expect(restored.progress.evidenceLedger[0]).toMatchObject({ entryId: 'recovery-evidence-1', blueprintVersion: '2.1' });
     expect(restored.progress.checkpointReviews[0]).toMatchObject({ dayNumber: 7, evidenceSummary: 'One qualified proposal request.' });
     expect(restored.progress.metrics).toMatchObject({ commitments: 1, founderMinutes: 20, variableCostCents: 125 });
