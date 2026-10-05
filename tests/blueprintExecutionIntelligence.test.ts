@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { checkoutAccessibilityBlueprintFixture } from './fixtures/checkoutAccessibilityBlueprint';
 import {
   buildExecutionRagContext,
+  evaluateExecutionInteraction,
   executionLaneProfile,
   formalCheckpointBranch,
   routeExecutionCapability,
@@ -102,13 +103,40 @@ describe('GhostTown execution intelligence', () => {
     expect(context.immutableRules.join(' ')).toContain('Recorded customer behavior outranks model opinion');
   });
 
-  it('routes cheap, strategic, critical, and current-research questions to stable capability slots', () => {
+  it('keeps Copilot questions inside the Sprint and permits web grounding only for an active Sprint decision', () => {
     const blueprint = checkoutAccessibilityBlueprintFixture();
     const context = buildExecutionRagContext(blueprint, progress(), 1, '');
-    expect(routeExecutionCapability('What exactly do I do today?', 'current_experiment', context)).toBe('fast_assistant');
-    expect(routeExecutionCapability('Should I change the offer?', 'current_experiment', context)).toBe('strategy_reasoner');
-    expect(routeExecutionCapability('Challenge this evidence; are you sure?', 'current_experiment', context)).toBe('critic');
-    expect(routeExecutionCapability('Research the latest competitor information on the web', 'current_experiment', context)).toBe('grounded_research');
+
+    const today = evaluateExecutionInteraction('What exactly do I do today?', context);
+    expect(today.allowed).toBe(true);
+    expect(today.externalResearchRequested).toBe(false);
+    expect(routeExecutionCapability('What exactly do I do today?', 'current_experiment', context, today)).toBe('fast_assistant');
+
+    const strategy = evaluateExecutionInteraction('Should I change the offer?', context);
+    expect(strategy.allowed).toBe(true);
+    expect(routeExecutionCapability('Should I change the offer?', 'current_experiment', context, strategy)).toBe('strategy_reasoner');
+
+    const critic = evaluateExecutionInteraction('Challenge this evidence; are you sure?', context);
+    expect(critic.allowed).toBe(true);
+    expect(routeExecutionCapability('Challenge this evidence; are you sure?', 'current_experiment', context, critic)).toBe('critic');
+
+    const relevantResearchQuestion = 'Search the web for current competitor information only if it directly helps this Day 1 Sprint decision.';
+    const relevantResearch = evaluateExecutionInteraction(relevantResearchQuestion, context);
+    expect(relevantResearch.allowed).toBe(true);
+    expect(relevantResearch.externalResearchRequested).toBe(true);
+    expect(relevantResearch.externalResearchAllowed).toBe(true);
+    expect(relevantResearch.externalResearchReason).toBe('sprint_relevant');
+    expect(routeExecutionCapability(relevantResearchQuestion, 'current_experiment', context, relevantResearch)).toBe('grounded_research');
+
+    const unrelated = evaluateExecutionInteraction('Search the web for the latest football scores and weather in Tokyo.', context);
+    expect(unrelated.allowed).toBe(false);
+    expect(unrelated.externalResearchRequested).toBe(true);
+    expect(unrelated.externalResearchAllowed).toBe(false);
+    expect(unrelated.externalResearchReason).toBe('out_of_scope');
+
+    const untetheredResearch = evaluateExecutionInteraction('Research general startup trends on the web.', context);
+    expect(untetheredResearch.externalResearchAllowed).toBe(false);
+
     expect(generativeTaskForExecutionCapability('fast_assistant')).toBe('candidate_selection');
     expect(generativeTaskForExecutionCapability('strategy_reasoner')).toBe('blueprint');
     expect(generativeTaskForExecutionCapability('grounded_research')).toBe('grounded_research');
