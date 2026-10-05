@@ -120,6 +120,11 @@ describe('GhostTown execution intelligence', () => {
     expect(critic.allowed).toBe(true);
     expect(routeExecutionCapability('Challenge this evidence; are you sure?', 'current_experiment', context, critic)).toBe('critic');
 
+    const competitorFromSprint = evaluateExecutionInteraction('Who are my competitors?', context);
+    expect(competitorFromSprint.allowed).toBe(true);
+    expect(competitorFromSprint.externalResearchRequested).toBe(false);
+    expect(routeExecutionCapability('Who are my competitors?', 'current_experiment', context, competitorFromSprint)).toBe('fast_assistant');
+
     const relevantResearchQuestion = 'Search the web for current competitor information only if it directly helps this Day 1 Sprint decision.';
     const relevantResearch = evaluateExecutionInteraction(relevantResearchQuestion, context);
     expect(relevantResearch.allowed).toBe(true);
