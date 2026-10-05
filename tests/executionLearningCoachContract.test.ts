@@ -5,6 +5,7 @@ const memory = readFileSync(new URL('../src/api/executionCoachMemory.ts', import
 const handler = readFileSync(new URL('../src/api/blueprintExecutionCopilot.ts', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('../migrations/0011_execution_learning_coach.sql', import.meta.url), 'utf8');
 const recency = readFileSync(new URL('../src/api/evidenceRecency.ts', import.meta.url), 'utf8');
+const executionHome = readFileSync(new URL('../src/components/LaunchBlueprintExecutionHomeV21.tsx', import.meta.url), 'utf8');
 
 describe('30-Day Sprint Learning Coach contract', () => {
   it('separates private evidence, cached coach responses, candidates, and promoted product knowledge', () => {
@@ -21,12 +22,16 @@ describe('30-Day Sprint Learning Coach contract', () => {
     expect(memory).toContain('CURRENT_EVIDENCE_MAX_DAYS * 86_400_000');
   });
 
-  it('never auto-promotes one customer result into shared product knowledge', () => {
+  it('stages reusable lessons for governed review but never makes one customer result active product knowledge', () => {
     expect(memory).toContain("candidate.scope !== 'customer_specific'");
     expect(memory).toContain("input.phase === 'review'");
+    expect(memory).toContain("requiresHumanApproval: true");
+    expect(memory).toContain("'review_required'");
+    expect(memory).toContain('supportingAccountHashes');
+    expect(memory).toContain('distinctAccountSupport');
     expect(memory).toContain("WHERE status = 'active'");
-    expect(memory).not.toContain('INSERT INTO execution_product_knowledge');
-    expect(memory).not.toContain('INSERT OR IGNORE INTO execution_product_knowledge');
+    expect(memory).not.toContain("status = 'active' WHERE knowledge_fingerprint");
+    expect(memory).not.toContain("SET status = 'active'");
   });
 
   it('keeps identifying customer material out of globally eligible learning candidates', () => {
@@ -43,5 +48,22 @@ describe('30-Day Sprint Learning Coach contract', () => {
     expect(memory).toContain('ORDER BY day_number DESC');
     expect(handler).toContain('context.coachMemory = await loadExecutionCoachMemory');
     expect(handler.indexOf('const cached = await loadCachedExecutionCoachResponse')).toBeLessThan(handler.indexOf('const budget = await consumeHourlyRateLimit'));
+  });
+
+  it('makes learning review part of the real customer completion flow without giving AI completion authority', () => {
+    expect(executionHome).toContain("void reviewCompletedDay(dayNumber)");
+    expect(executionHome).toContain("phase: 'review'");
+    expect(executionHome).toContain('Your day is saved.');
+    expect(executionHome).toContain('Retry Coach review');
+    expect(executionHome).toContain('Saved to your Sprint learning history and available to the next day’s Coach.');
+    expect(executionHome).toContain('[1, 15, 30].includes(dayNumber)');
+    expect(executionHome).toContain('Keep external facts separate from the founder’s recorded customer evidence.');
+  });
+
+  it('backfills a missing latest-day review from persisted Sprint memory after reload', () => {
+    expect(executionHome).toContain('/blueprint/coach-memory');
+    expect(executionHome).toContain('latestCompletedDay');
+    expect(executionHome).toContain('!reviews.some(review => review.dayNumber === latestCompletedDay)');
+    expect(executionHome).toContain('void reviewCompletedDay(latestCompletedDay)');
   });
 });
