@@ -134,7 +134,12 @@ export default function LaunchBlueprintExecutionHomeV21({
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          question: `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, the smallest next action, and what lesson—if any—is worth remembering.`,
+          question: [
+            `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, the smallest next action, and what lesson—if any—is worth remembering.`,
+            [1, 15, 30].includes(dayNumber)
+              ? 'Separately use current web research only where useful as a freshness check. Keep external facts separate from the founder’s recorded customer evidence.'
+              : ''
+          ].filter(Boolean).join(' '),
           dayNumber,
           mode: 'current_experiment',
           phase: 'review',
