@@ -53,14 +53,7 @@ add('sprint.blueprint', 'Canonical Blueprint renders all 30 days', sprint.passed
   { proof: '30-day-sprint-ui-proof.json', completedDays });
 const dailyAgentic = sprint.agentic?.daily || [];
 const checkpointAgentic = sprint.agentic?.checkpoints || [];
-const groundedDailyRequired = [1, 15, 30];
-const groundedCheckpointRequired = [7, 14, 21, 30];
-const dailyGrounded = dailyAgentic.filter(item => item.capability === 'grounded_research');
-const checkpointGrounded = checkpointAgentic.filter(item => item.capability === 'grounded_research');
-const groundedAttempts = [...dailyGrounded, ...checkpointGrounded];
-const nativeGrounded = groundedAttempts.filter(item =>
-  item.receipt?.task === 'grounded_research' && item.degraded?.active !== true
-);
+const researchGate = sprint.agentic?.researchGate || {};
 add('sprint.agentic.daily', 'Learning Coach automatically assesses and saves every completed Sprint day through the customer UI',
   dailyAgentDays.size === 30
     && dailyAgentic.every(item =>
@@ -89,22 +82,31 @@ add('sprint.agentic.memory', 'All 30 daily Learning Coach assessments persist in
 add('sprint.agentic.cache', 'Repeated Day 1 assessment reuses the exact-context cache',
   sprint.agentic?.cache?.hit === true && Boolean(sprint.agentic?.cache?.responseId),
   { proof: sprint.agentic?.cache || null });
-add('sprint.agentic.grounded_samples', 'Grounded web research is exercised on representative days and all checkpoints',
-  groundedDailyRequired.every(day => dailyGrounded.some(item => item.dayNumber === day))
-    && groundedCheckpointRequired.every(day => checkpointGrounded.some(item => item.dayNumber === day)),
+add('sprint.agentic.no_automatic_research', 'Automatic daily and checkpoint Coach reviews stay inside the Sprint without live web research',
+  dailyAgentic.every(item => item.capability !== 'grounded_research')
+    && checkpointAgentic.every(item => item.capability !== 'grounded_research'),
   {
-    dailyRequired: groundedDailyRequired,
-    dailyObserved: dailyGrounded.map(item => item.dayNumber),
-    checkpointRequired: groundedCheckpointRequired,
-    checkpointObserved: checkpointGrounded.map(item => item.dayNumber)
+    dailyGroundedDays: dailyAgentic.filter(item => item.capability === 'grounded_research').map(item => item.dayNumber),
+    checkpointGroundedDays: checkpointAgentic.filter(item => item.capability === 'grounded_research').map(item => item.dayNumber)
   });
-add('sprint.agentic.grounded_native', 'At least one sampled grounded request returns a native provider result',
-  nativeGrounded.length > 0,
-  {
-    nativeGroundedCount: nativeGrounded.length,
-    nativeDays: nativeGrounded.map(item => item.dayNumber),
-    degradedGroundedCount: groundedAttempts.filter(item => item.degraded?.active === true).length
-  });
+add('sprint.agentic.research_boundary', 'Unrelated web research is blocked before AI or outside search',
+  researchGate.uiControlVisible === true
+    && researchGate.blocked?.scopeAllowed === false
+    && researchGate.blocked?.capability === 'sprint_boundary'
+    && researchGate.blocked?.researchRequested === true
+    && researchGate.blocked?.researchAllowed === false
+    && researchGate.blocked?.researchPerformed === false
+    && Number(researchGate.blocked?.sourceCount || 0) === 0,
+  { proof: researchGate.blocked || null, uiControlVisible: researchGate.uiControlVisible === true });
+add('sprint.agentic.relevant_research', 'Sprint-relevant outside research passes the relevance gate and uses the grounded provider',
+  researchGate.relevant?.scopeAllowed === true
+    && researchGate.relevant?.capability === 'grounded_research'
+    && researchGate.relevant?.researchRequested === true
+    && researchGate.relevant?.researchAllowed === true
+    && researchGate.relevant?.researchPerformed === true
+    && researchGate.relevant?.nativeGrounded === true
+    && researchGate.relevant?.receiptTask === 'grounded_research',
+  { proof: researchGate.relevant || null });
 const degradedAgentic = [
   ...dailyAgentic,
   ...checkpointAgentic
