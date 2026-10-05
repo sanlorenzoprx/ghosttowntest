@@ -402,6 +402,7 @@ export async function saveExecutionCoachResponse(
     const privacySafe = privacySafeLesson(candidate);
     const globalEligible = input.allowGlobalLearning === true
       && privacySafe
+      && candidate.confidence !== 'low'
       && candidate.scope !== 'customer_specific'
       && input.phase === 'review';
     const candidateId = `learn_${await sha256Hex(JSON.stringify({
@@ -455,6 +456,7 @@ export async function saveExecutionCoachResponse(
     productLearningReviewCount: candidates.filter(candidate =>
       input.allowGlobalLearning === true
       && privacySafeLesson(candidate)
+      && candidate.confidence !== 'low'
       && candidate.scope !== 'customer_specific'
       && input.phase === 'review'
     ).length
