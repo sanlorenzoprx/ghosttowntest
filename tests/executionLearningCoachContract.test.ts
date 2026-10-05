@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const memory = readFileSync(new URL('../src/api/executionCoachMemory.ts', import.meta.url), 'utf8');
@@ -8,8 +10,14 @@ const recency = readFileSync(new URL('../src/api/evidenceRecency.ts', import.met
 const executionHome = readFileSync(new URL('../src/components/LaunchBlueprintExecutionHomeV21.tsx', import.meta.url), 'utf8');
 const productLearningReview = readFileSync(new URL('../scripts/execution-product-learning-review.mjs', import.meta.url), 'utf8');
 const productLearningWorkflow = readFileSync(new URL('../.github/workflows/execution-product-learning-review.yml', import.meta.url), 'utf8');
+const productLearningReviewPath = fileURLToPath(new URL('../scripts/execution-product-learning-review.mjs', import.meta.url));
 
 describe('30-Day Sprint Learning Coach contract', () => {
+  it('keeps the governed product-learning operations script syntactically valid', () => {
+    const checked = spawnSync(process.execPath, ['--check', productLearningReviewPath], { encoding: 'utf8' });
+    expect(checked.status, checked.stderr).toBe(0);
+  });
+
   it('separates private evidence, cached coach responses, candidates, and promoted product knowledge', () => {
     expect(migration).toContain('CREATE TABLE IF NOT EXISTS execution_coach_responses');
     expect(migration).toContain('CREATE TABLE IF NOT EXISTS execution_learning_candidates');
