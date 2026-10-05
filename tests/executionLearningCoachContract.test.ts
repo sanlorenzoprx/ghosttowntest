@@ -11,11 +11,39 @@ const executionHome = readFileSync(new URL('../src/components/LaunchBlueprintExe
 const copilotUi = readFileSync(new URL('../src/components/LaunchBlueprintCopilotV21.tsx', import.meta.url), 'utf8');
 const intelligence = readFileSync(new URL('../src/lib/blueprintExecutionIntelligence.ts', import.meta.url), 'utf8');
 const aiService = readFileSync(new URL('../src/api/executionAIService.ts', import.meta.url), 'utf8');
+const dailyAnalysisDoc = readFileSync(new URL('../docs/DAILY_ANALYSIS_CONTRACT_V1_0.md', import.meta.url), 'utf8');
+const dailyAnalysisRuntime = readFileSync(new URL('../src/api/dailyAnalysisContract.ts', import.meta.url), 'utf8');
 const productLearningReview = readFileSync(new URL('../scripts/execution-product-learning-review.mjs', import.meta.url), 'utf8');
 const productLearningWorkflow = readFileSync(new URL('../.github/workflows/execution-product-learning-review.yml', import.meta.url), 'utf8');
 const productLearningReviewPath = fileURLToPath(new URL('../scripts/execution-product-learning-review.mjs', import.meta.url));
 
 describe('30-Day Sprint Learning Coach contract', () => {
+  it('uses Daily Analysis Contract v1.0 as the canonical everyday review reference', () => {
+    expect(dailyAnalysisDoc).toContain('GhostTown 30-Day Sprint — Daily Analysis Contract v1.0');
+    expect(dailyAnalysisDoc).toContain('ghosttown-daily-analysis-v1.0');
+    expect(dailyAnalysisDoc).toContain('Daily Analysis is the brain of the Sprint.');
+    expect(dailyAnalysisDoc).toContain('One question at a time. No fixed maximum.');
+    expect(dailyAnalysisDoc).toContain('KEEP');
+    expect(dailyAnalysisDoc).toContain('MODIFY');
+    expect(dailyAnalysisDoc).toContain('REPLACE');
+    expect(dailyAnalysisDoc).toContain('ASK');
+    expect(dailyAnalysisDoc).toContain('The adaptive task becomes the real task');
+    expect(dailyAnalysisDoc).toContain('The canonical Blueprint remains unchanged.');
+    expect(dailyAnalysisDoc).toContain('8th-grade reading level or simpler');
+    expect(dailyAnalysisDoc).toContain('GhostTown applies what it knows now');
+
+    expect(dailyAnalysisRuntime).toContain("DAILY_ANALYSIS_CONTRACT_ID = 'ghosttown-daily-analysis-v1.0'");
+    expect(dailyAnalysisRuntime).toContain('what the founder may be missing');
+    expect(dailyAnalysisRuntime).toContain('ask exactly one focused question and stop');
+    expect(dailyAnalysisRuntime).toContain('KEEP, MODIFY, REPLACE, or ASK');
+    expect(dailyAnalysisRuntime).toContain('effective-task overlay');
+    expect(dailyAnalysisRuntime).toContain('eighth-grade reading level or simpler');
+
+    expect(aiService).toContain('DAILY_ANALYSIS_RUNTIME_CONTRACT');
+    expect(aiService).toContain("phase === 'review'");
+    expect(aiService).toContain('DAILY_ANALYSIS_CONTRACT_ID');
+  });
+
   it('keeps the governed product-learning operations script syntactically valid', () => {
     const checked = spawnSync(process.execPath, ['--check', productLearningReviewPath], { encoding: 'utf8' });
     expect(checked.status, checked.stderr).toBe(0);
