@@ -26,6 +26,7 @@ describe('30-Day Sprint Learning Coach contract', () => {
 
   it('stages reusable lessons for governed review but never makes one customer result active product knowledge', () => {
     expect(memory).toContain("candidate.scope !== 'customer_specific'");
+    expect(memory).toContain("candidate.confidence !== 'low'");
     expect(memory).toContain("input.phase === 'review'");
     expect(memory).toContain("requiresHumanApproval: true");
     expect(memory).toContain("'review_required'");
