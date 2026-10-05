@@ -20,6 +20,7 @@ import {
 } from '../lib/blueprintExecutionIntelligence';
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import type { ExecutionCoachPhase } from '../types/executionLearning';
+import { DAILY_ANALYSIS_CONTRACT_ID } from './dailyAnalysisContract';
 
 interface CopilotRequestBody {
   question?: string;
@@ -234,6 +235,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
       mode,
       phase,
       capability,
+      dailyAnalysisContract: phase === 'review' ? DAILY_ANALYSIS_CONTRACT_ID : null,
       answer: primary.output.answer,
       evidenceAssessment: primary.output.evidenceAssessment,
       contradictionDetected: primary.output.contradictionDetected,
@@ -332,6 +334,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
         mode,
         phase,
         capability,
+        dailyAnalysisContract: phase === 'review' ? DAILY_ANALYSIS_CONTRACT_ID : null,
         answer: grounded
           ? `Live web research did not finish in time. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint task instead of waiting or guessing.`
           : `AI guidance did not finish in time. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint task instead of waiting or guessing.`,
