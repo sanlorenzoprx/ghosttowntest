@@ -24,10 +24,9 @@ const copilotUrl = `${apiBase}/api/paid-test/orders/${encodeURIComponent(orderId
 const coachMemoryUrl = `${apiBase}/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/coach-memory`;
 const today = new Date().toISOString().slice(0, 10);
 const checkpoints = new Set([7, 14, 21, 30]);
-const groundedDailyDays = new Set([1, 15, 30]);
 const externalKinds = new Set(['verified_channel', 'qualified_buyer_batch', 'existing_contact', 'fulfillment_run']);
 const preparationOnly = new Set([9, 15]);
-const proof = { schemaVersion: 'ghosttown-agentic-go-live-sprint-v1', orderId, days: [], recovery: [], websiteEvidence: [], surfaceAudit: [], contentReview: {}, agentic: { daily: [], checkpoints: [] }, sequencing: {}, reminders: {}, viewports: [], recordedAt: new Date().toISOString() };
+const proof = { schemaVersion: 'ghosttown-agentic-go-live-sprint-v1', orderId, days: [], recovery: [], websiteEvidence: [], surfaceAudit: [], contentReview: {}, agentic: { daily: [], checkpoints: [], researchGate: {} }, sequencing: {}, reminders: {}, viewports: [], recordedAt: new Date().toISOString() };
 
 function quantity(value) {
   const match = String(value || '').match(/\b([1-9]\d?)\b/);
@@ -78,19 +77,72 @@ async function apiJson(request, url, options = {}) {
   return body;
 }
 async function agenticCoach(request, dayNumber, phase = 'review') {
-  const checkpoint = phase === 'checkpoint';
-  const groundedDailySample = phase === 'review' && groundedDailyDays.has(dayNumber);
-  const question = checkpoint
-    ? `Assess the Day ${dayNumber} checkpoint using the recorded Sprint evidence and current web research where useful. This is a QA acceptance run: synthetic records are not real customer proof. Do not invent customers, quotes, commitments, revenue, or market evidence. Explain the evidence strength, primary constraint, and safest next action.`
-    : groundedDailySample
-      ? `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, what should happen next, and what generalized lesson—if any—is worth remembering. Separately use current web research only where useful as a representative freshness check. This is synthetic QA evidence, not real customer or market proof.`
-      : `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, what should happen next, and what generalized lesson—if any—is worth remembering. This is a QA acceptance run: synthetic records are not real customer proof. Do not invent customers, quotes, commitments, revenue, or market evidence.`;
+  const question = phase === 'checkpoint'
+    ? `Assess the Day ${dayNumber} checkpoint using only the recorded Sprint evidence, saved Blueprint research, and prior Sprint learning. Explain the evidence strength, primary constraint, and safest next action. Do not use outside research unless I explicitly ask through the Sprint research control. Do not change the live experiment; the saved checkpoint review remains authoritative.`
+    : `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, the smallest next action, and what lesson—if any—is worth remembering. Use only this Sprint’s Blueprint, recorded evidence, saved Sprint research, and prior Sprint learning unless I explicitly ask for current outside research.`;
   return apiJson(request, copilotUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     data: { question, dayNumber, mode: 'current_experiment', phase },
     timeout: 60_000
   });
+}
+
+async function verifySprintResearchGate(request, dayNumber) {
+  const blockedQuestion = 'Search the web for the latest football scores and weather in Tokyo.';
+  const blocked = await apiJson(request, copilotUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { question: blockedQuestion, dayNumber, mode: 'current_experiment', phase: 'chat' },
+    timeout: 15000
+  });
+  if (blocked.capability !== 'sprint_boundary'
+      || blocked.scope?.allowed !== false
+      || blocked.externalResearch?.requested !== true
+      || blocked.externalResearch?.allowed !== false
+      || blocked.externalResearch?.performed !== false
+      || (blocked.groundedWebSources || []).length !== 0) {
+    throw new Error('Unrelated external research was not blocked before AI/web execution.');
+  }
+
+  const relevantQuestion = `Check current market information only if it directly helps this Day ${dayNumber} Sprint decision. Use outside sources only for the active customer, offer, competitor, channel, or market question, and keep outside context separate from my recorded Sprint evidence.`;
+  const relevant = await apiJson(request, copilotUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { question: relevantQuestion, dayNumber, mode: 'current_experiment', phase: 'chat' },
+    timeout: 90000
+  });
+  if (relevant.scope?.allowed !== true
+      || relevant.externalResearch?.requested !== true
+      || relevant.externalResearch?.allowed !== true
+      || relevant.externalResearch?.performed !== true
+      || relevant.capability !== 'grounded_research') {
+    throw new Error('Sprint-relevant external research did not pass the deterministic relevance gate.');
+  }
+  const nativeGrounded = relevant.receipts?.primary?.task === 'grounded_research'
+    && relevant.degraded?.active !== true;
+
+  return {
+    blocked: {
+      scopeAllowed: blocked.scope?.allowed,
+      capability: blocked.capability,
+      researchRequested: blocked.externalResearch?.requested,
+      researchAllowed: blocked.externalResearch?.allowed,
+      researchPerformed: blocked.externalResearch?.performed,
+      sourceCount: (blocked.groundedWebSources || []).length
+    },
+    relevant: {
+      scopeAllowed: relevant.scope?.allowed,
+      capability: relevant.capability,
+      researchRequested: relevant.externalResearch?.requested,
+      researchAllowed: relevant.externalResearch?.allowed,
+      researchPerformed: relevant.externalResearch?.performed,
+      sourceCount: (relevant.groundedWebSources || []).length,
+      nativeGrounded,
+      receiptTask: relevant.receipts?.primary?.task || null,
+      degraded: relevant.degraded || null
+    }
+  };
 }
 
 async function assertServerRejectsSkippedDay(request, baseline) {
@@ -352,6 +404,16 @@ try {
   await returnFromWorkspace(page);
   proof.surfaceAudit.push({ surface: 'structured-workspace', control: 'Return to execution home', result: 'passed' });
 
+  const copilotOpen = page.getByRole('button', { name: /^Ask GhostTown · Day \d+$/ });
+  await copilotOpen.click();
+  await page.getByRole('button', { name: 'Check current market information for this decision', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+  proof.agentic.researchGate.uiControlVisible = true;
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  proof.agentic.researchGate = {
+    ...proof.agentic.researchGate,
+    ...(await verifySprintResearchGate(page.request, 1))
+  };
+
   const savedNotes = new Map();
   for (const day of blueprint.dailyCalendar) {
     await openDay(page, day.dayNumber);
@@ -373,38 +435,7 @@ try {
       await openDay(page, day.dayNumber);
     }
 
-    const guidance = await agenticCoach(page.request, day.dayNumber, 'review');
-    if (guidance.phase !== 'review' || guidance.memory?.saved !== true || !guidance.cache?.responseId) {
-      throw new Error(`Day ${day.dayNumber} learning coach review was not durably saved.`);
-    }
-    proof.agentic.daily.push({
-      dayNumber: day.dayNumber,
-      phase: guidance.phase,
-      capability: guidance.capability,
-      answer: String(guidance.answer || '').slice(0, 1600),
-      evidenceAssessment: String(guidance.evidenceAssessment || '').slice(0, 800),
-      recommendedAction: String(guidance.recommendedAction || '').slice(0, 800),
-      learningCandidates: guidance.learningCandidates || [],
-      groundedWebSources: guidance.groundedWebSources || [],
-      degraded: guidance.degraded || null,
-      cache: guidance.cache || null,
-      memory: guidance.memory || null,
-      receipt: guidance.receipts?.primary || null
-    });
-    if (day.dayNumber === 1) {
-      const cachedReview = await agenticCoach(page.request, day.dayNumber, 'review');
-      if (cachedReview.cache?.hit !== true || cachedReview.cache?.responseId !== guidance.cache.responseId) {
-        throw new Error('Day 1 repeated learning review did not reuse the exact-context coach cache.');
-      }
-      proof.agentic.cache = {
-        dayNumber: 1,
-        hit: true,
-        responseId: cachedReview.cache.responseId,
-        hitCount: cachedReview.cache.hitCount || 1
-      };
-    }
-
-    const note = `AGENTIC QA DAY ${day.dayNumber}: ${String(guidance.evidenceAssessment || guidance.answer || guidance.recommendedAction || day.title).replace(/\s+/g, " ").slice(0, 900)} — QA simulation only; not real customer or market evidence.`;
+    const note = `AGENTIC QA DAY ${day.dayNumber}: Recorded synthetic acceptance outcome for the canonical Day ${day.dayNumber} task. QA simulation only; not real customer or market evidence.`;
     savedNotes.set(day.dayNumber, note);
     const noteField = page.getByLabel('Execution note');
     await noteField.fill(note);
@@ -423,9 +454,16 @@ try {
       .catch(() => undefined);
 
     if (checkpoints.has(day.dayNumber)) {
+      const checkpointButton = page.getByRole('button', { name: 'Ask GhostTown to assess checkpoint', exact: true });
+      await checkpointButton.click();
+      await page.getByRole('region', { name: 'GhostTown checkpoint review' }).waitFor({ state: 'visible', timeout: 90000 });
       const checkpointGuidance = await agenticCoach(page.request, day.dayNumber, 'checkpoint');
+      if (checkpointGuidance.cache?.hit !== true || !checkpointGuidance.cache?.responseId) {
+        throw new Error(`Day ${day.dayNumber} visible checkpoint assessment did not persist an exact-context Coach cache.`);
+      }
       proof.agentic.checkpoints.push({
         dayNumber: day.dayNumber,
+        trigger: 'ui_checkpoint',
         phase: checkpointGuidance.phase,
         capability: checkpointGuidance.capability,
         answer: String(checkpointGuidance.answer || '').slice(0, 1800),
@@ -470,7 +508,41 @@ try {
     }
     await complete.click();
     await page.getByRole('button', { name: /Completed ✓ — reopen/ }).waitFor({ state: 'visible', timeout: 15000 });
-    proof.days.push({ dayNumber: day.dayNumber, title: day.title, evidenceEntries: evidenceRequired(day), noteSaved: true, completedViaVisibleButton: true });
+    const autoReview = page.getByRole('region', { name: 'GhostTown daily review' });
+    await autoReview.waitFor({ state: 'visible', timeout: 90000 });
+    const coachMemoryAfterDay = await apiJson(page.request, coachMemoryUrl);
+    const persistedReview = (coachMemoryAfterDay.dailyReviews || []).find(review => review.dayNumber === day.dayNumber);
+    if (!persistedReview?.responseId || persistedReview.phase !== 'review') {
+      throw new Error(`Day ${day.dayNumber} automatic UI learning review was not durably persisted.`);
+    }
+    proof.agentic.daily.push({
+      dayNumber: day.dayNumber,
+      trigger: 'ui_completion',
+      phase: persistedReview.phase,
+      capability: persistedReview.capability,
+      answer: String(persistedReview.answer || '').slice(0, 1600),
+      evidenceAssessment: String(persistedReview.evidenceAssessment || '').slice(0, 800),
+      recommendedAction: String(persistedReview.recommendedAction || '').slice(0, 800),
+      learningCandidates: persistedReview.learningCandidates || [],
+      groundedWebSources: persistedReview.groundedWebSources || [],
+      degraded: persistedReview.degradation || persistedReview.degraded || null,
+      cache: { hit: false, responseId: persistedReview.responseId, hitCount: persistedReview.hitCount || 0 },
+      memory: { saved: true },
+      receipt: persistedReview.receipts?.primary || null
+    });
+    if (day.dayNumber === 1) {
+      const cachedReview = await agenticCoach(page.request, day.dayNumber, 'review');
+      if (cachedReview.cache?.hit !== true || cachedReview.cache?.responseId !== persistedReview.responseId) {
+        throw new Error('Day 1 repeated learning review did not reuse the exact-context UI-created coach cache.');
+      }
+      proof.agentic.cache = {
+        dayNumber: 1,
+        hit: true,
+        responseId: cachedReview.cache.responseId,
+        hitCount: cachedReview.cache.hitCount || 1
+      };
+    }
+    proof.days.push({ dayNumber: day.dayNumber, title: day.title, evidenceEntries: evidenceRequired(day), noteSaved: true, completedViaVisibleButton: true, automaticCoachReviewVisible: true });
 
     if (day.dayNumber === 20) {
       await verifyDayNote(page, 5, savedNotes.get(5));

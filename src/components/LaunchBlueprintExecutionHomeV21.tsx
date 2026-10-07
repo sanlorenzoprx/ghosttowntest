@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 import { recordCommercialEvent } from '../lib/commercialAttribution';
 import { dayCompletionReadiness } from '../lib/blueprintExecutionCompletion';
@@ -12,6 +12,31 @@ import SprintWebsiteEvidence from './SprintWebsiteEvidence';
 type ExecutionMode = 'calendar' | 'assets' | 'workspace';
 type DailyAction = BlueprintV21Payload['blueprint']['dailyCalendar'][number];
 type DailyAsset = NonNullable<DailyAction['executionPacket']>['assets'][number];
+
+type CoachReviewState = 'idle' | 'reviewing' | 'saved' | 'error';
+
+interface CoachReviewSummary {
+  dayNumber: number;
+  answer: string;
+  evidenceAssessment: string;
+  recommendedAction: string;
+  degraded?: { active?: boolean; reason?: string } | null;
+  memory?: {
+    saved?: boolean;
+    learningCandidateCount?: number;
+    reusableKnowledgeCount?: number;
+    productLearningReviewCount?: number;
+  };
+}
+
+interface CheckpointCoachSummary {
+  dayNumber: number;
+  answer: string;
+  evidenceAssessment: string;
+  recommendedAction: string;
+  critic?: { challenge?: string; overreachDetected?: boolean; saferRecommendation?: string } | null;
+  degraded?: { active?: boolean; reason?: string } | null;
+}
 
 function assetFilename(title: string, contentType: string): string {
   const suffix = contentType === 'text/csv' ? 'csv' : contentType === 'text/plain' ? 'txt' : 'md';
@@ -83,6 +108,13 @@ export default function LaunchBlueprintExecutionHomeV21({
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error'>('saved');
   const [saveError, setSaveError] = useState('');
   const [completionError, setCompletionError] = useState('');
+  const [coachReviewState, setCoachReviewState] = useState<CoachReviewState>('idle');
+  const [coachReview, setCoachReview] = useState<CoachReviewSummary | null>(null);
+  const [coachReviewDay, setCoachReviewDay] = useState<number | null>(null);
+  const [coachReviewError, setCoachReviewError] = useState('');
+  const [checkpointCoachState, setCheckpointCoachState] = useState<CoachReviewState>('idle');
+  const [checkpointCoach, setCheckpointCoach] = useState<CheckpointCoachSummary | null>(null);
+  const [checkpointCoachError, setCheckpointCoachError] = useState('');
   const [executionNoteDrafts, setExecutionNoteDrafts] = useState<Record<string, string>>({});
   const [workspaceDay, setWorkspaceDay] = useState<number | undefined>(undefined);
   const saveQueue = useRef<ProgressSaveQueue<BlueprintProgressV21> | null>(null);
@@ -104,6 +136,136 @@ export default function LaunchBlueprintExecutionHomeV21({
   const latestCheckpointReview = useMemo(() => [...(progress.checkpointReviews || [])]
     .filter(review => Boolean(review.completedAt && review.nextAction?.trim()))
     .sort((left, right) => right.dayNumber - left.dayNumber)[0], [progress.checkpointReviews]);
+
+  const reviewCompletedDay = useCallback(async (dayNumber: number): Promise<boolean> => {
+    setCoachReviewDay(dayNumber);
+    setCoachReviewState('reviewing');
+    setCoachReviewError('');
+    try {
+      const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/copilot`), {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: `Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, the smallest next action, and what lesson—if any—is worth remembering. Use only this Sprint’s Blueprint, recorded evidence, saved Sprint research, and prior Sprint learning unless I explicitly ask for current outside research.`,
+          dayNumber,
+          mode: 'current_experiment',
+          phase: 'review',
+          history: [],
+        }),
+      });
+      const body = await response.json<{
+        answer?: string;
+        error?: string;
+        evidenceAssessment?: string;
+        recommendedAction?: string;
+        degraded?: { active?: boolean; reason?: string } | null;
+        memory?: CoachReviewSummary['memory'];
+      }>();
+      if (!response.ok || !body.answer) throw new Error(body.error || 'GhostTown could not review this day');
+      setCoachReview({
+        dayNumber,
+        answer: body.answer,
+        evidenceAssessment: body.evidenceAssessment || '',
+        recommendedAction: body.recommendedAction || '',
+        degraded: body.degraded || null,
+        memory: body.memory,
+      });
+      setCoachReviewState('saved');
+      return true;
+    } catch (error) {
+      setCoachReviewState('error');
+      setCoachReviewError(error instanceof Error ? error.message : 'GhostTown could not review this day');
+      return false;
+    }
+  }, [orderId]);
+
+  const reviewCheckpoint = useCallback(async (dayNumber: number): Promise<boolean> => {
+    setCheckpointCoachState('reviewing');
+    setCheckpointCoachError('');
+    try {
+      const response = await fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/copilot`), {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: `Assess the Day ${dayNumber} checkpoint using only the recorded Sprint evidence, saved Blueprint research, and prior Sprint learning. Explain the evidence strength, primary constraint, and safest next action. Do not use outside research unless I explicitly ask through the Sprint research control. Do not change the live experiment; the saved checkpoint review remains authoritative.`,
+          dayNumber,
+          mode: 'current_experiment',
+          phase: 'checkpoint',
+          history: [],
+        }),
+      });
+      const body = await response.json<{
+        answer?: string;
+        error?: string;
+        evidenceAssessment?: string;
+        recommendedAction?: string;
+        critic?: CheckpointCoachSummary['critic'];
+        degraded?: CheckpointCoachSummary['degraded'];
+      }>();
+      if (!response.ok || !body.answer) throw new Error(body.error || 'GhostTown could not assess this checkpoint');
+      setCheckpointCoach({
+        dayNumber,
+        answer: body.answer,
+        evidenceAssessment: body.evidenceAssessment || '',
+        recommendedAction: body.recommendedAction || '',
+        critic: body.critic || null,
+        degraded: body.degraded || null,
+      });
+      setCheckpointCoachState('saved');
+      return true;
+    } catch (error) {
+      setCheckpointCoachState('error');
+      setCheckpointCoachError(error instanceof Error ? error.message : 'GhostTown could not assess this checkpoint');
+      return false;
+    }
+  }, [orderId]);
+
+
+  useEffect(() => {
+    let active = true;
+    fetch(apiUrl(`/api/paid-test/orders/${encodeURIComponent(orderId)}/blueprint/coach-memory`), {
+      headers: authHeaders(),
+    })
+      .then(async response => {
+        const body = await response.json<{
+          dailyReviews?: Array<{
+            dayNumber?: number;
+            answer?: string;
+            evidenceAssessment?: string;
+            recommendedAction?: string;
+            degraded?: { active?: boolean; reason?: string } | null;
+          }>;
+          error?: string;
+        }>();
+        if (!response.ok) throw new Error(body.error || 'Sprint learning history could not be loaded');
+        return body.dailyReviews || [];
+      })
+      .then(reviews => {
+        if (!active) return;
+        const latest = [...reviews]
+          .filter(review => Number.isInteger(review.dayNumber))
+          .sort((left, right) => Number(right.dayNumber) - Number(left.dayNumber))[0];
+        if (latest?.dayNumber) {
+          setCoachReview({
+            dayNumber: Number(latest.dayNumber),
+            answer: latest.answer || '',
+            evidenceAssessment: latest.evidenceAssessment || '',
+            recommendedAction: latest.recommendedAction || '',
+            degraded: latest.degraded || null,
+          });
+          setCoachReviewDay(Number(latest.dayNumber));
+          setCoachReviewState('saved');
+        }
+        const latestCompletedDay = Math.max(0, ...(initialPayload.progress.completedDays || []));
+        if (latestCompletedDay > 0 && !reviews.some(review => review.dayNumber === latestCompletedDay)) {
+          void reviewCompletedDay(latestCompletedDay);
+        }
+      })
+      .catch(() => {
+        // Coach memory is advisory. Failure to load it must never block the Sprint.
+      });
+    return () => { active = false; };
+  }, [initialPayload.progress.completedDays, orderId, reviewCompletedDay]);
 
   useEffect(() => {
     const pending = localStorage.getItem(pendingKey);
@@ -229,6 +391,7 @@ export default function LaunchBlueprintExecutionHomeV21({
         content: `day:${dayNumber}`,
         dedupeKey: `day_completed:${orderId}:${dayNumber}`,
       });
+      void reviewCompletedDay(dayNumber);
     }
   };
 
@@ -360,7 +523,7 @@ export default function LaunchBlueprintExecutionHomeV21({
               <article className="rounded-2xl border border-black/10 bg-white p-6"><p className="text-xs font-black uppercase tracking-[0.12em] text-ghost-rust">Decision context</p><p className="mt-3 text-sm"><strong>Success:</strong> {activeDay.executionPacket?.successThreshold || activeDay.successMeasurement}</p>{activeDay.executionPacket && <p className="mt-3 text-sm"><strong>Failure threshold:</strong> {activeDay.executionPacket.failureThreshold}</p>}<p className="mt-3 text-sm"><strong>Expected outcome:</strong> {activeDay.executionPacket?.expectedOutcome || activeDay.expectedDeliverable}</p>{activeDay.executionPacket && <p className="mt-3 text-sm"><strong>Complete when:</strong> {activeDay.executionPacket.completionDefinition}</p>}<div className="mt-5 rounded-xl bg-[#fff7f2] p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-ghost-rust">If / then routing</p>{(activeDay.executionPacket?.branchRules || activeDay.ifThenBranches).map((branch, index) => <p key={index} className="mt-2 text-sm"><strong>IF</strong> {'condition' in branch ? branch.condition : ''} <strong>THEN</strong> {'action' in branch ? branch.action : ''}</p>)}</div></article>
             </div>
 
-            {activeCheckpoint && <article className="rounded-2xl border border-amber-300 bg-amber-50 p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.12em] text-amber-900">Day {activeCheckpoint.dayNumber} evidence checkpoint</p><h3 className="mt-2 text-2xl font-black">{activeCheckpoint.title}</h3></div><span className={`rounded-full px-3 py-1 text-xs font-black ${activeCompletion.checkpointComplete ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-200 text-amber-950'}`}>{activeCompletion.checkpointComplete ? 'Review saved' : 'Review required'}</span></div><div className="mt-5 grid gap-5 lg:grid-cols-2"><FieldList title="Questions to answer" items={activeCheckpoint.questions} /><FieldList title="Evidence required" items={activeCheckpoint.evidenceRequired} /></div><div className="mt-5"><FieldList title="Decision branches" items={activeCheckpoint.branches.map(branch => `IF ${branch.condition} THEN ${branch.action}`)} /></div>{activeCheckpointReview?.nextAction && <p className="mt-5 rounded-xl bg-white p-4 text-sm"><strong>Saved evidence route:</strong> {activeCheckpointReview.nextAction}</p>}<button type="button" onClick={() => { setWorkspaceDay(activeDay.dayNumber); setMode('workspace'); }} className="mt-5 rounded-lg bg-amber-900 px-4 py-3 text-sm font-black text-white">{activeCompletion.checkpointComplete ? 'Review checkpoint evidence' : 'Complete checkpoint review'}</button></article>}
+            {activeCheckpoint && <article className="rounded-2xl border border-amber-300 bg-amber-50 p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.12em] text-amber-900">Day {activeCheckpoint.dayNumber} evidence checkpoint</p><h3 className="mt-2 text-2xl font-black">{activeCheckpoint.title}</h3></div><span className={`rounded-full px-3 py-1 text-xs font-black ${activeCompletion.checkpointComplete ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-200 text-amber-950'}`}>{activeCompletion.checkpointComplete ? 'Review saved' : 'Review required'}</span></div><div className="mt-5 grid gap-5 lg:grid-cols-2"><FieldList title="Questions to answer" items={activeCheckpoint.questions} /><FieldList title="Evidence required" items={activeCheckpoint.evidenceRequired} /></div><div className="mt-5"><FieldList title="Decision branches" items={activeCheckpoint.branches.map(branch => `IF ${branch.condition} THEN ${branch.action}`)} /></div>{activeCheckpointReview?.nextAction && <p className="mt-5 rounded-xl bg-white p-4 text-sm"><strong>Saved evidence route:</strong> {activeCheckpointReview.nextAction}</p>}<div className="mt-5 flex flex-wrap gap-3"><button type="button" disabled={checkpointCoachState === 'reviewing'} onClick={() => void reviewCheckpoint(activeCheckpoint.dayNumber)} className="rounded-lg border border-amber-900 px-4 py-3 text-sm font-black text-amber-950 disabled:opacity-50">{checkpointCoachState === 'reviewing' ? 'GhostTown is assessing…' : 'Ask GhostTown to assess checkpoint'}</button><button type="button" onClick={() => { setWorkspaceDay(activeDay.dayNumber); setMode('workspace'); }} className="rounded-lg bg-amber-900 px-4 py-3 text-sm font-black text-white">{activeCompletion.checkpointComplete ? 'Review checkpoint evidence' : 'Complete checkpoint review'}</button></div>{checkpointCoachState === 'error' && <div role="alert" className="mt-4 rounded-xl border border-amber-400 bg-white p-4 text-sm"><strong>Checkpoint assessment did not finish.</strong> {checkpointCoachError} Your saved evidence and checkpoint form are unchanged.</div>}{checkpointCoach && checkpointCoach.dayNumber === activeCheckpoint.dayNumber && checkpointCoachState === 'saved' && <section aria-label="GhostTown checkpoint review" className="mt-4 rounded-xl border border-amber-300 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-amber-900">GhostTown checkpoint assessment</p>{checkpointCoach.evidenceAssessment && <p className="mt-2 text-sm leading-6">{checkpointCoach.evidenceAssessment}</p>}{checkpointCoach.recommendedAction && <p className="mt-3 text-sm font-black">Safest next action: {checkpointCoach.recommendedAction}</p>}{checkpointCoach.critic?.challenge && <p className="mt-3 text-sm"><strong>Evidence critic:</strong> {checkpointCoach.critic.challenge}</p>}<p className="mt-3 text-xs text-gray-500">Advisory only. Your saved checkpoint evidence and deterministic branch rules remain authoritative.</p></section>}</article>}
 
             <SprintWebsiteEvidence orderId={orderId} dayNumber={activeDay.dayNumber} checkpointDay={activeCheckpoint?.dayNumber} />
 
@@ -369,7 +532,12 @@ export default function LaunchBlueprintExecutionHomeV21({
             <article className="rounded-2xl border border-black/10 bg-white p-6"><div className="grid gap-5 lg:grid-cols-2"><div><FieldList title="Evidence to record" items={activeDay.executionPacket?.evidenceToCapture || activeDay.evidenceToRecord} /></div><label className="text-sm font-black">Execution note<textarea value={executionNoteDrafts[activeDay.completionKey] ?? progress.evidenceNotes?.[activeDay.completionKey] ?? ''} onChange={event => setExecutionNoteDrafts(current => ({ ...current, [activeDay.completionKey]: event.target.value }))} onBlur={event => void saveExecutionNote(activeDay, event.target.value)} className="mt-2 min-h-32 w-full rounded-xl border border-gray-300 p-3 font-normal" placeholder="What happened? Capture customer language, objections, commitments, numbers, or what changed." /></label></div>
               {!completed.has(activeDay.dayNumber) && !activeCompletion.ready && <div role="status" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-black">Before Day {activeDay.dayNumber} can be completed:</p><ul className="mt-2 space-y-1">{activeCompletion.reasons.map(reason => <li key={reason}>• {reason}</li>)}</ul></div>}
               {completionError && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800">{completionError}</p>}
-              <div className="mt-5 flex flex-wrap gap-3"><button type="button" disabled={!completed.has(activeDay.dayNumber) && !activeCompletion.ready} onClick={() => void markDay(activeDay.dayNumber)} className={`rounded-xl px-5 py-3 font-black disabled:cursor-not-allowed disabled:opacity-50 ${completed.has(activeDay.dayNumber) ? 'bg-emerald-100 text-emerald-900' : 'bg-ghost-rust text-white'}`}>{completed.has(activeDay.dayNumber) ? 'Completed ✓ — reopen' : `Complete Day ${activeDay.dayNumber}`}</button><button type="button" onClick={() => { setWorkspaceDay(activeDay.dayNumber); setMode('workspace'); }} className="rounded-xl border border-ghost-rust px-5 py-3 font-black text-ghost-rust">{activeCompletion.requiresStructuredEvidence && !activeCompletion.hasStructuredEvidence ? 'Record structured evidence' : 'Open structured evidence log / review'}</button></div></article>
+              <div className="mt-5 flex flex-wrap gap-3"><button type="button" disabled={!completed.has(activeDay.dayNumber) && !activeCompletion.ready} onClick={() => void markDay(activeDay.dayNumber)} className={`rounded-xl px-5 py-3 font-black disabled:cursor-not-allowed disabled:opacity-50 ${completed.has(activeDay.dayNumber) ? 'bg-emerald-100 text-emerald-900' : 'bg-ghost-rust text-white'}`}>{completed.has(activeDay.dayNumber) ? 'Completed ✓ — reopen' : `Complete Day ${activeDay.dayNumber}`}</button><button type="button" onClick={() => { setWorkspaceDay(activeDay.dayNumber); setMode('workspace'); }} className="rounded-xl border border-ghost-rust px-5 py-3 font-black text-ghost-rust">{activeCompletion.requiresStructuredEvidence && !activeCompletion.hasStructuredEvidence ? 'Record structured evidence' : 'Open structured evidence log / review'}</button></div>
+              {coachReviewState === 'reviewing' && coachReviewDay === activeDay.dayNumber && <div role="status" className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950"><strong>Day saved.</strong> GhostTown is reviewing what happened and preparing your next step.</div>}
+              {coachReviewState === 'error' && coachReviewDay === activeDay.dayNumber && <div role="alert" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><p><strong>Your day is saved.</strong> The Coach review did not finish. Your progress is safe.</p><p className="mt-1">{coachReviewError}</p><button type="button" onClick={() => void reviewCompletedDay(activeDay.dayNumber)} className="mt-3 rounded-lg border border-amber-700 px-3 py-2 font-black">Retry Coach review</button></div>}
+              {coachReview && coachReview.dayNumber === activeDay.dayNumber && coachReviewState === 'saved' && <section aria-label="GhostTown daily review" className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-800">GhostTown reviewed Day {coachReview.dayNumber}</p>{coachReview.evidenceAssessment && <p className="mt-2 text-sm leading-6 text-gray-800">{coachReview.evidenceAssessment}</p>}{coachReview.recommendedAction && <div className="mt-3 rounded-lg bg-white p-3"><p className="text-xs font-black uppercase tracking-[0.1em] text-ghost-rust">Smallest next action</p><p className="mt-1 text-sm font-bold">{coachReview.recommendedAction}</p></div>}<p className="mt-3 text-xs text-gray-600">{coachReview.degraded?.active ? 'Saved with deterministic fallback guidance; your recorded evidence remains authoritative.' : 'Saved to your Sprint learning history and available to the next day’s Coach.'}</p></section>}
+              {coachReview && coachReview.dayNumber !== activeDay.dayNumber && <section aria-label="Previous GhostTown daily review" className="mt-5 rounded-xl border border-black/10 bg-[#F6F3ED] p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">From Day {coachReview.dayNumber}</p>{coachReview.recommendedAction && <p className="mt-2 text-sm font-bold">{coachReview.recommendedAction}</p>}<p className="mt-2 text-xs text-gray-500">GhostTown carries this saved review into today’s guidance.</p></section>}
+            </article>
           </section>
         </>}
 

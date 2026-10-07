@@ -13,12 +13,14 @@ import {
 } from './executionCoachMemory';
 import {
   buildExecutionRagContext,
+  evaluateExecutionInteraction,
   routeExecutionCapability,
   type ExecutionCopilotMode,
   type ExecutionProgressLike
 } from '../lib/blueprintExecutionIntelligence';
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import type { ExecutionCoachPhase } from '../types/executionLearning';
+import { DAILY_ANALYSIS_CONTRACT_ID } from './dailyAnalysisContract';
 
 interface CopilotRequestBody {
   question?: string;
@@ -101,6 +103,55 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
     ? Number(body.dayNumber)
     : nextIncomplete;
   const context = buildExecutionRagContext(record.blueprint, progress as unknown as ExecutionProgressLike, dayNumber, question);
+  const interaction = evaluateExecutionInteraction(question, context);
+  if (!interaction.allowed) {
+    return json({
+      mode,
+      phase,
+      capability: 'sprint_boundary',
+      answer: 'I’m here to help with your 30-Day Sprint. Ask me about today’s task, your evidence, your customer, your offer, your checkpoint, or your next move.',
+      evidenceAssessment: 'No Sprint evidence was changed and no outside research was performed.',
+      recommendedAction: `Return to Day ${context.experiment.dayNumber}: ${context.experiment.title}.`,
+      evidenceToRecord: [],
+      learningCandidates: [],
+      groundedWebSources: [],
+      scope: {
+        allowed: false,
+        reason: interaction.reason,
+        boundary: '30_day_sprint_only'
+      },
+      externalResearch: {
+        requested: interaction.externalResearchRequested,
+        allowed: false,
+        performed: false,
+        reason: interaction.externalResearchReason
+      }
+    });
+  }
+  if (interaction.externalResearchRequested && !interaction.externalResearchAllowed) {
+    return json({
+      mode,
+      phase,
+      capability: 'sprint_boundary',
+      answer: 'I can use outside research only when it directly helps the active Sprint decision. Tie the request to today’s task, this Sprint, your current offer, customer, checkpoint, or next action.',
+      evidenceAssessment: 'No outside research was performed. Your recorded Sprint evidence remains authoritative.',
+      recommendedAction: `Ask what current outside information would materially help Day ${context.experiment.dayNumber}: ${context.experiment.title}.`,
+      evidenceToRecord: [],
+      learningCandidates: [],
+      groundedWebSources: [],
+      scope: {
+        allowed: true,
+        reason: interaction.reason,
+        boundary: '30_day_sprint_only'
+      },
+      externalResearch: {
+        requested: true,
+        allowed: false,
+        performed: false,
+        reason: interaction.externalResearchReason
+      }
+    });
+  }
   context.coachMemory = await loadExecutionCoachMemory(
     env,
     owned.email,
@@ -108,7 +159,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
     record.blueprint.businessModelLane.lane,
     dayNumber
   );
-  const capability = routeExecutionCapability(question, mode, context);
+  const capability = routeExecutionCapability(question, mode, context, interaction);
   const allowGlobalLearning = phase === 'review'
     && context.progress.relevantEvidence.length > 0
     && !containsSyntheticAcceptanceEvidence(context);
@@ -184,6 +235,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
       mode,
       phase,
       capability,
+      dailyAnalysisContract: phase === 'review' ? DAILY_ANALYSIS_CONTRACT_ID : null,
       answer: primary.output.answer,
       evidenceAssessment: primary.output.evidenceAssessment,
       contradictionDetected: primary.output.contradictionDetected,
@@ -211,6 +263,17 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
         assets: context.experiment.assets.map(asset => ({ assetId: asset.assetId, title: asset.title }))
       },
       refs: internalRefs,
+      scope: {
+        allowed: true,
+        reason: interaction.reason,
+        boundary: '30_day_sprint_only'
+      },
+      externalResearch: {
+        requested: interaction.externalResearchRequested,
+        allowed: interaction.externalResearchAllowed,
+        performed: capability === 'grounded_research',
+        reason: interaction.externalResearchReason
+      },
       groundedWebSources: groundingSources(primary.groundingMetadata),
       degraded: primary.degraded || criticDegraded || null,
       usage: {
@@ -251,7 +314,8 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
         saved: true,
         learningCandidateCount: stored.learningCandidateCount,
         priorDailyAssessmentCount: context.coachMemory?.priorDailyAssessments.length || 0,
-        reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0
+        reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0,
+        productLearningReviewCount: stored.productLearningReviewCount || 0
       }
     });
   } catch (error) {
@@ -270,6 +334,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
         mode,
         phase,
         capability,
+        dailyAnalysisContract: phase === 'review' ? DAILY_ANALYSIS_CONTRACT_ID : null,
         answer: grounded
           ? `Live web research did not finish in time. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint task instead of waiting or guessing.`
           : `AI guidance did not finish in time. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint task instead of waiting or guessing.`,
@@ -303,6 +368,17 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
           assets: context.experiment.assets.map(asset => ({ assetId: asset.assetId, title: asset.title }))
         },
         refs: internalRefs,
+        scope: {
+          allowed: true,
+          reason: interaction.reason,
+          boundary: '30_day_sprint_only'
+        },
+        externalResearch: {
+          requested: interaction.externalResearchRequested,
+          allowed: interaction.externalResearchAllowed,
+          performed: capability === 'grounded_research',
+          reason: interaction.externalResearchReason
+        },
         groundedWebSources: [],
         degraded: { active: true, reason: grounded ? 'grounded_timeout' : 'provider_timeout' },
         usage: {
@@ -340,7 +416,8 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
           saved: true,
           learningCandidateCount: 0,
           priorDailyAssessmentCount: context.coachMemory?.priorDailyAssessments.length || 0,
-          reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0
+          reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0,
+          productLearningReviewCount: stored.productLearningReviewCount || 0
         }
       });
     }

@@ -53,21 +53,24 @@ add('sprint.blueprint', 'Canonical Blueprint renders all 30 days', sprint.passed
   { proof: '30-day-sprint-ui-proof.json', completedDays });
 const dailyAgentic = sprint.agentic?.daily || [];
 const checkpointAgentic = sprint.agentic?.checkpoints || [];
-const groundedDailyRequired = [1, 15, 30];
-const groundedCheckpointRequired = [7, 14, 21, 30];
-const dailyGrounded = dailyAgentic.filter(item => item.capability === 'grounded_research');
-const checkpointGrounded = checkpointAgentic.filter(item => item.capability === 'grounded_research');
-const groundedAttempts = [...dailyGrounded, ...checkpointGrounded];
-const nativeGrounded = groundedAttempts.filter(item =>
-  item.receipt?.task === 'grounded_research' && item.degraded?.active !== true
-);
-add('sprint.agentic.daily', 'Learning Coach assesses and saves every Sprint day',
+const researchGate = sprint.agentic?.researchGate || {};
+add('sprint.agentic.daily', 'Learning Coach automatically assesses and saves every completed Sprint day through the customer UI',
   dailyAgentDays.size === 30
-    && dailyAgentic.every(item => item.phase === 'review' && item.memory?.saved === true && Boolean(item.cache?.responseId)),
+    && dailyAgentic.every(item =>
+      item.trigger === 'ui_completion'
+      && item.phase === 'review'
+      && item.memory?.saved === true
+      && Boolean(item.cache?.responseId)
+    ),
   {
     count: dailyAgentDays.size,
     days: [...dailyAgentDays].sort((a,b) => a-b),
-    savedReviewCount: dailyAgentic.filter(item => item.phase === 'review' && item.memory?.saved === true && Boolean(item.cache?.responseId)).length,
+    uiCompletionReviewCount: dailyAgentic.filter(item =>
+      item.trigger === 'ui_completion'
+      && item.phase === 'review'
+      && item.memory?.saved === true
+      && Boolean(item.cache?.responseId)
+    ).length,
     receiptTasks: [...new Set(dailyAgentic.map(item => item.receipt?.task).filter(Boolean))]
   });
 add('sprint.agentic.memory', 'All 30 daily Learning Coach assessments persist in owner-scoped memory',
@@ -79,22 +82,31 @@ add('sprint.agentic.memory', 'All 30 daily Learning Coach assessments persist in
 add('sprint.agentic.cache', 'Repeated Day 1 assessment reuses the exact-context cache',
   sprint.agentic?.cache?.hit === true && Boolean(sprint.agentic?.cache?.responseId),
   { proof: sprint.agentic?.cache || null });
-add('sprint.agentic.grounded_samples', 'Grounded web research is exercised on representative days and all checkpoints',
-  groundedDailyRequired.every(day => dailyGrounded.some(item => item.dayNumber === day))
-    && groundedCheckpointRequired.every(day => checkpointGrounded.some(item => item.dayNumber === day)),
+add('sprint.agentic.no_automatic_research', 'Automatic daily and checkpoint Coach reviews stay inside the Sprint without live web research',
+  dailyAgentic.every(item => item.capability !== 'grounded_research')
+    && checkpointAgentic.every(item => item.capability !== 'grounded_research'),
   {
-    dailyRequired: groundedDailyRequired,
-    dailyObserved: dailyGrounded.map(item => item.dayNumber),
-    checkpointRequired: groundedCheckpointRequired,
-    checkpointObserved: checkpointGrounded.map(item => item.dayNumber)
+    dailyGroundedDays: dailyAgentic.filter(item => item.capability === 'grounded_research').map(item => item.dayNumber),
+    checkpointGroundedDays: checkpointAgentic.filter(item => item.capability === 'grounded_research').map(item => item.dayNumber)
   });
-add('sprint.agentic.grounded_native', 'At least one sampled grounded request returns a native provider result',
-  nativeGrounded.length > 0,
-  {
-    nativeGroundedCount: nativeGrounded.length,
-    nativeDays: nativeGrounded.map(item => item.dayNumber),
-    degradedGroundedCount: groundedAttempts.filter(item => item.degraded?.active === true).length
-  });
+add('sprint.agentic.research_boundary', 'Unrelated web research is blocked before AI or outside search',
+  researchGate.uiControlVisible === true
+    && researchGate.blocked?.scopeAllowed === false
+    && researchGate.blocked?.capability === 'sprint_boundary'
+    && researchGate.blocked?.researchRequested === true
+    && researchGate.blocked?.researchAllowed === false
+    && researchGate.blocked?.researchPerformed === false
+    && Number(researchGate.blocked?.sourceCount || 0) === 0,
+  { proof: researchGate.blocked || null, uiControlVisible: researchGate.uiControlVisible === true });
+add('sprint.agentic.relevant_research', 'Sprint-relevant outside research passes the relevance gate and uses the grounded provider',
+  researchGate.relevant?.scopeAllowed === true
+    && researchGate.relevant?.capability === 'grounded_research'
+    && researchGate.relevant?.researchRequested === true
+    && researchGate.relevant?.researchAllowed === true
+    && researchGate.relevant?.researchPerformed === true
+    && researchGate.relevant?.nativeGrounded === true
+    && researchGate.relevant?.receiptTask === 'grounded_research',
+  { proof: researchGate.relevant || null });
 const degradedAgentic = [
   ...dailyAgentic,
   ...checkpointAgentic
@@ -108,8 +120,14 @@ add('sprint.notes_evidence', 'Daily notes and structured evidence persist throug
 add('sprint.sequence', 'Days cannot be skipped through the API', sprint.sequencing?.serverRejectedSkippedDay === true,
   { proof: sprint.sequencing || null });
 for (const day of [7, 14, 21, 30]) {
-  add(`sprint.checkpoint.${day}`, `Day ${day} agentic reassessment persists`, checkpointDays.has(day),
-    { proof: '30-day-sprint-ui-proof.json', checkpoint: (sprint.agentic?.checkpoints || []).find(item => item.dayNumber === day) || null });
+  const checkpointProof = (sprint.agentic?.checkpoints || []).find(item => item.dayNumber === day) || null;
+  add(`sprint.checkpoint.${day}`, `Day ${day} visible checkpoint Coach assessment persists`,
+    checkpointDays.has(day)
+      && checkpointProof?.trigger === 'ui_checkpoint'
+      && checkpointProof?.phase === 'checkpoint'
+      && checkpointProof?.cache?.hit === true
+      && Boolean(checkpointProof?.cache?.responseId),
+    { proof: '30-day-sprint-ui-proof.json', checkpoint: checkpointProof });
 }
 add('sprint.reminders', 'Checkpoint reminders persist and navigate to the referenced review', sprint.reminders?.scheduled === 4 && sprint.reminders?.navigation === true,
   { proof: sprint.reminders || null });

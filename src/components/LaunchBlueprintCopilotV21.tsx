@@ -26,6 +26,8 @@ interface CopilotResponse {
     strategyRoomDoesNotMutateLiveExperiment?: boolean;
   };
   groundedWebSources?: Array<{ title: string; url: string }>;
+  scope?: { allowed?: boolean; reason?: string; boundary?: string };
+  externalResearch?: { requested?: boolean; allowed?: boolean; performed?: boolean; reason?: string };
   learningCandidates?: ExecutionLearningCandidate[];
   cache?: { hit?: boolean; responseId?: string; expiresAt?: string | null; hitCount?: number };
   memory?: { saved?: boolean; learningCandidateCount?: number; priorDailyAssessmentCount?: number; reusableKnowledgeCount?: number };
@@ -94,6 +96,7 @@ export default function LaunchBlueprintCopilotV21({
           <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-white/20 px-3 py-2 text-sm font-black">Close</button>
         </div>
         <p className="mt-2 text-xs leading-5 text-white/70">Commercial proof: {profile.firstCommercialProof}</p>
+        <p className="mt-2 text-xs leading-5 text-white/60">GhostTown stays inside your 30-Day Sprint. Outside research runs only when it directly helps the active Sprint decision.</p>
       </div>
 
       <div className="max-h-[62vh] overflow-y-auto p-4">
@@ -107,11 +110,12 @@ export default function LaunchBlueprintCopilotV21({
           <button type="button" onClick={() => void ask(`Review the recorded results for Day ${dayNumber}. Tell me what happened, what the evidence means, what I should do next, and what lesson—if any—is worth remembering.`, 'review')} className="block w-full rounded-xl border border-ghost-rust/30 bg-[#fff7f2] p-3 text-left text-sm font-black text-ghost-rust hover:border-ghost-rust">Review today’s recorded results</button>
           <p className="pt-2 text-sm font-black">Or ask from the work you are doing now:</p>
           {QUICK_PROMPTS.map(item => <button key={item} type="button" onClick={() => void ask(item)} className="block w-full rounded-xl border border-black/10 bg-white p-3 text-left text-sm font-bold hover:border-ghost-rust">{item}</button>)}
+          <button type="button" onClick={() => void ask(`Check current market information only if it directly helps this Day ${dayNumber} Sprint decision. Use outside sources only for the active customer, offer, competitor, channel, or market question, and keep outside context separate from my recorded Sprint evidence.`)} className="block w-full rounded-xl border border-blue-200 bg-blue-50 p-3 text-left text-sm font-black text-blue-900 hover:border-blue-400">Check current market information for this decision</button>
         </div>}
 
         <div className="mt-4 space-y-3">
           {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`rounded-xl p-3 text-sm leading-6 ${message.role === 'user' ? 'ml-8 bg-[#fff7f2]' : 'mr-4 border border-black/10 bg-white'}`}><p className="mb-1 text-[11px] font-black uppercase tracking-[0.1em] text-gray-500">{message.role === 'user' ? 'You' : 'GhostTown'}</p><p className="whitespace-pre-wrap">{message.content}</p></div>)}
-          {loading && <div aria-live="polite" className="mr-4 rounded-xl border border-black/10 bg-white p-3 text-sm text-gray-500">Reading the Blueprint, today’s packet, evidence, checkpoint state, and relevant research…</div>}
+          {loading && <div aria-live="polite" className="mr-4 rounded-xl border border-black/10 bg-white p-3 text-sm text-gray-500">Reading the Blueprint, today’s packet, recorded evidence, checkpoint state, and saved Sprint learning…</div>}
         </div>
 
         {latest?.recommendedAction && <section className="mt-4 rounded-xl border border-ghost-rust/30 bg-[#fff7f2] p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-ghost-rust">Recommended bounded action</p><p className="mt-2 text-sm font-bold">{latest.recommendedAction}</p></section>}
@@ -120,12 +124,14 @@ export default function LaunchBlueprintCopilotV21({
         {latest?.evidenceToRecord?.length ? <section className="mt-3 rounded-xl border border-black/10 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">Record next</p><ul className="mt-2 space-y-1 text-sm">{latest.evidenceToRecord.map(item => <li key={item}>• {item}</li>)}</ul></section> : null}
         {latest?.learningCandidates?.length ? <section className="mt-3 rounded-xl border border-black/10 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">What GhostTown learned</p><ul className="mt-2 space-y-2 text-sm">{latest.learningCandidates.map((item, index) => <li key={`${item.knowledgeClass}-${index}`}><strong>{item.knowledgeClass.replace(/_/g, ' ')}:</strong> {item.lesson}</li>)}</ul></section> : null}
         {latest?.memory?.saved ? <section className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm"><strong>Saved to your Sprint learning history.</strong>{latest.cache?.hit ? ' This answer came from the saved cache for the same evidence.' : ''}</section> : null}
-        {latest?.groundedWebSources?.length ? <section className="mt-3 rounded-xl border border-black/10 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">Grounded web sources</p><ul className="mt-2 space-y-2 text-sm">{latest.groundedWebSources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer" className="font-bold text-ghost-rust underline">{source.title}</a></li>)}</ul></section> : null}
+        {latest?.scope?.allowed === false && <section className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-black">Sprint boundary</p><p className="mt-1">GhostTown did not use AI or outside research for this request. Keep questions tied to the active 30-Day Sprint.</p></section>}
+        {latest?.externalResearch?.requested && <section className={`mt-3 rounded-xl border p-4 text-sm ${latest.externalResearch.allowed ? 'border-blue-200 bg-blue-50 text-blue-950' : 'border-amber-300 bg-amber-50 text-amber-950'}`}><p className="font-black">{latest.externalResearch.allowed ? 'Outside research approved for this Sprint decision' : 'Outside research blocked'}</p><p className="mt-1">{latest.externalResearch.allowed ? 'External context is kept separate from your recorded customer evidence.' : 'Tie outside research directly to today’s task, this Sprint, your current offer, customer, checkpoint, or next action.'}</p></section>}
+        {latest?.groundedWebSources?.length ? <section className="mt-3 rounded-xl border border-black/10 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">Outside context for this Sprint decision</p><ul className="mt-2 space-y-2 text-sm">{latest.groundedWebSources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer" className="font-bold text-ghost-rust underline">{source.title}</a></li>)}</ul></section> : null}
       </div>
 
       <div className="border-t border-black/10 bg-white p-3">
         <label className="sr-only" htmlFor="execution-copilot-question">Ask GhostTown</label>
-        <textarea id="execution-copilot-question" value={question} onChange={event => setQuestion(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void ask(); } }} className="min-h-20 w-full rounded-xl border border-gray-300 p-3 text-sm" placeholder="Paste a customer response, ask what to do, or explore strategy…" />
+        <textarea id="execution-copilot-question" value={question} onChange={event => setQuestion(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void ask(); } }} className="min-h-20 w-full rounded-xl border border-gray-300 p-3 text-sm" placeholder="Ask about today’s task, your evidence, customer, offer, checkpoint, or next Sprint move…" />
         <div className="mt-2 flex items-center justify-between gap-3"><p className="text-[11px] leading-4 text-gray-500">AI advises. Evidence, completion and branch permissions remain deterministic.</p><button type="button" disabled={loading || !question.trim()} onClick={() => void ask()} className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-black text-white disabled:opacity-50">Ask</button></div>
       </div>
     </aside>

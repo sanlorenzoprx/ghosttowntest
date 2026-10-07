@@ -72,6 +72,99 @@ function privacySafeLesson(candidate: ExecutionLearningCandidate): boolean {
   return true;
 }
 
+function normalizedKnowledgeLesson(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function stageProductKnowledgeReview(
+  env: Env,
+  input: {
+    candidateId: string;
+    owner: string;
+    lane: string;
+    candidate: ExecutionLearningCandidate;
+    lesson: string;
+    validUntil?: string;
+  }
+): Promise<boolean> {
+  if (!env.DB) return false;
+  const scopeLane = input.candidate.scope === 'lane' ? input.lane : null;
+  const fingerprint = await sha256Hex(JSON.stringify({
+    knowledgeClass: input.candidate.knowledgeClass,
+    scope: input.candidate.scope,
+    lane: scopeLane,
+    lesson: normalizedKnowledgeLesson(input.lesson)
+  }));
+  const knowledgeId = `knowledge_${fingerprint}`;
+  const accountHash = await sha256Hex(input.owner);
+  const existing = await env.DB.prepare(`
+    SELECT evidence_summary_json, support_count, status, valid_until
+    FROM execution_product_knowledge
+    WHERE knowledge_fingerprint = ?
+    LIMIT 1
+  `).bind(fingerprint).first<{
+    evidence_summary_json: string;
+    support_count: number;
+    status: 'review_required' | 'active' | 'superseded' | 'rejected';
+    valid_until: string | null;
+  }>();
+
+  const summary = existing?.evidence_summary_json
+    ? parseJsonObject(existing.evidence_summary_json) || {}
+    : {};
+  const candidateIds = Array.isArray(summary.sourceCandidateIds)
+    ? summary.sourceCandidateIds.filter(value => typeof value === 'string').slice(-49) as string[]
+    : [];
+  const accountHashes = Array.isArray(summary.supportingAccountHashes)
+    ? summary.supportingAccountHashes.filter(value => typeof value === 'string').slice(-49) as string[]
+    : [];
+  if (!candidateIds.includes(input.candidateId)) candidateIds.push(input.candidateId);
+  if (!accountHashes.includes(accountHash)) accountHashes.push(accountHash);
+  const evidenceSummary = {
+    sourceCandidateIds: candidateIds,
+    supportingAccountHashes: accountHashes,
+    distinctAccountSupport: accountHashes.length,
+    privacySafe: true,
+    requiresHumanApproval: true
+  };
+  const now = new Date().toISOString();
+  const effectiveValidUntil = input.candidate.knowledgeClass === 'market_research'
+    ? input.validUntil || existing?.valid_until || null
+    : null;
+
+  await env.DB.prepare(`
+    INSERT INTO execution_product_knowledge (
+      knowledge_id, knowledge_fingerprint, knowledge_class, scope, lane,
+      lesson_text, evidence_summary_json, support_count, contradiction_count,
+      status, valid_until, last_supported_at, next_review_at, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'review_required', ?, ?, NULL, ?, ?)
+    ON CONFLICT(knowledge_fingerprint) DO UPDATE SET
+      evidence_summary_json = excluded.evidence_summary_json,
+      support_count = excluded.support_count,
+      valid_until = excluded.valid_until,
+      last_supported_at = excluded.last_supported_at,
+      updated_at = excluded.updated_at
+  `).bind(
+    knowledgeId,
+    fingerprint,
+    input.candidate.knowledgeClass,
+    input.candidate.scope,
+    scopeLane,
+    input.lesson,
+    JSON.stringify(evidenceSummary),
+    accountHashes.length,
+    effectiveValidUntil,
+    now,
+    now,
+    now
+  ).run();
+  return true;
+}
+
 function validCandidate(value: unknown): value is ExecutionLearningCandidate {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<ExecutionLearningCandidate>;
@@ -241,7 +334,12 @@ export async function saveExecutionCoachResponse(
     learningCandidates?: unknown;
     allowGlobalLearning?: boolean;
   }
-): Promise<{ responseId: string; expiresAt?: string; learningCandidateCount: number }> {
+): Promise<{
+  responseId: string;
+  expiresAt?: string;
+  learningCandidateCount: number;
+  productLearningReviewCount: number;
+}> {
   if (!env.DB) throw new Error('Launch Blueprint D1 binding is not configured');
   const now = new Date().toISOString();
   const owner = normalizedAccountId(input.accountId);
@@ -304,6 +402,7 @@ export async function saveExecutionCoachResponse(
     const privacySafe = privacySafeLesson(candidate);
     const globalEligible = input.allowGlobalLearning === true
       && privacySafe
+      && candidate.confidence !== 'low'
       && candidate.scope !== 'customer_specific'
       && input.phase === 'review';
     const candidateId = `learn_${await sha256Hex(JSON.stringify({
@@ -312,6 +411,7 @@ export async function saveExecutionCoachResponse(
       scope: candidate.scope,
       lesson
     }))}`;
+    const validUntil = marketValidUntil(candidate);
     await env.DB.prepare(`
       INSERT OR IGNORE INTO execution_learning_candidates (
         candidate_id, source_response_id, account_id, blueprint_id,
@@ -334,15 +434,32 @@ export async function saveExecutionCoachResponse(
       evidenceBasis,
       privacySafe ? 1 : 0,
       globalEligible ? 1 : 0,
-      marketValidUntil(candidate) || null,
+      validUntil || null,
       now
     ).run();
+    if (globalEligible) {
+      await stageProductKnowledgeReview(env, {
+        candidateId,
+        owner,
+        lane: input.lane,
+        candidate,
+        lesson,
+        validUntil
+      });
+    }
   }
 
   return {
     responseId: canonicalResponseId,
     expiresAt,
-    learningCandidateCount: candidates.length
+    learningCandidateCount: candidates.length,
+    productLearningReviewCount: candidates.filter(candidate =>
+      input.allowGlobalLearning === true
+      && privacySafeLesson(candidate)
+      && candidate.confidence !== 'low'
+      && candidate.scope !== 'customer_specific'
+      && input.phase === 'review'
+    ).length
   };
 }
 

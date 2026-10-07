@@ -9,6 +9,7 @@ import {
 } from './generativeAIService';
 import type { ExecutionCapability, ExecutionCopilotMode, ExecutionRagContext } from '../lib/blueprintExecutionIntelligence';
 import type { ExecutionCoachPhase, ExecutionLearningCandidate } from '../types/executionLearning';
+import { DAILY_ANALYSIS_CONTRACT_ID, DAILY_ANALYSIS_RUNTIME_CONTRACT } from './dailyAnalysisContract';
 
 export interface ExecutionCopilotModelOutput {
   answer: string;
@@ -79,12 +80,12 @@ function systemInstruction(mode: ExecutionCopilotMode, capability: ExecutionCapa
     : 'You are in CURRENT EXPERIMENT mode. The formal branch controls which variables may change. Never recommend changing a frozen variable as if it were an approved live change.';
   const phaseInstruction = phase === 'review'
     ? [
-        'You are reviewing the founder\'s RECORDED result after today\'s work. Assess what happened, what the evidence means, and the smallest next step.',
+        DAILY_ANALYSIS_RUNTIME_CONTRACT,
         'Use only recorded evidence for claims about customer behavior. Do not turn synthetic, missing, or weak evidence into a market conclusion.',
         'Return up to four learningCandidates only when the recorded result supports a useful lesson. Generalize the wording: never include names, emails, phone numbers, URLs, exact private quotes, or other identifying details.',
         'Classify lessons as human_behavior, strategy, tactic, or market_research. Human-behavior and strategy lessons should describe durable principles, not current market claims. A tactic belongs in tactic only when it is meaningfully platform- and market-independent; channel-, platform-, regulation-, competitor-, price-, trend-, or tool-dependent claims belong in market_research and must be refreshed. Customer responses are not market_research.',
         'Use scope customer_specific when the lesson is not safely reusable. Use universal/lane/market only when the lesson is genuinely generalized.'
-      ].join(' ')
+      ].join('\n')
     : phase === 'checkpoint'
       ? 'Assess the checkpoint from accumulated recorded evidence. learningCandidates may be empty because daily review owns the main learning extraction.'
       : 'This is planning/chat guidance before a completed daily result. Do not claim today succeeded or failed. Return learningCandidates as an empty array.';
@@ -92,12 +93,17 @@ function systemInstruction(mode: ExecutionCopilotMode, capability: ExecutionCapa
   const capabilityInstruction = capability === 'critic'
     ? 'Act as a skeptical evidence critic: actively look for unsupported inference, premature conclusions, weak-evidence overreach, confounded variables, or recommendations that violate mayChange/mustKeep. If the evidence does support the current interpretation, say that rather than inventing a problem.'
     : capability === 'grounded_research'
-      ? 'Use grounded web research only when it materially answers the question, and keep current external facts separate from the founder\'s recorded business evidence.'
+      ? 'The deterministic Sprint-Relevance Research Gate approved outside research for this request. Search only what materially helps the active Sprint decision. Do not branch into unrelated general research. Keep external facts separate from the founder\'s recorded business evidence.'
       : capability === 'strategy_reasoner'
         ? 'Reason carefully about the dominant constraint and the smallest evidence-supported next experiment; do not broaden the change beyond the formal branch.'
         : 'Prioritize a concise, practical explanation of the current daily task and evidence requirement.';
   return [
-    'You are GhostTown Execution Copilot, an evidence-led business execution assistant.',
+    `Contract version: ${phase === 'review' ? DAILY_ANALYSIS_CONTRACT_ID : 'ghosttown-execution-copilot-base'}.`,
+    'You are GhostTown Execution Copilot, an evidence-led business execution assistant limited to the active 30-Day Sprint.',
+    'Do not answer unrelated general-knowledge, entertainment, news, weather, sports, personal, or open-ended web-browsing questions. Keep the interaction focused on the current Blueprint, active day, recorded evidence, offer, customer, checkpoint, or next Sprint decision.',
+    capability === 'grounded_research'
+      ? 'Outside research is allowed only for the approved active Sprint decision.'
+      : 'Do not use outside web research for this request. Work only from the supplied Sprint context, saved Blueprint research, recorded evidence, and prior Sprint memory.',
     scope,
     capabilityInstruction,
     phaseInstruction,
