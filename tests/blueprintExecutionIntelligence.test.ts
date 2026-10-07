@@ -139,6 +139,11 @@ describe('GhostTown execution intelligence', () => {
     expect(unrelated.externalResearchAllowed).toBe(false);
     expect(unrelated.externalResearchReason).toBe('out_of_scope');
 
+    const functionWordsOnly = evaluateExecutionInteraction('Search the web for the latest and the newest.', context);
+    expect(functionWordsOnly.contextOverlap).toBe(0);
+    expect(functionWordsOnly.allowed).toBe(false);
+    expect(functionWordsOnly.externalResearchAllowed).toBe(false);
+
     const untetheredResearch = evaluateExecutionInteraction('Research dinosaur fossils on the web.', context);
     expect(untetheredResearch.externalResearchAllowed).toBe(false);
 

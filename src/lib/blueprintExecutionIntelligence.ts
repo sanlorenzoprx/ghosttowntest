@@ -319,6 +319,7 @@ function words(value: string): Set<string> {
 }
 
 const RELEVANCE_STOP_WORDS = new Set([
+  'and', 'are', 'but', 'can', 'for', 'has', 'not', 'the', 'was', 'were', 'will',
   'about', 'after', 'again', 'also', 'because', 'before', 'could', 'current', 'does', 'from',
   'have', 'into', 'latest', 'more', 'please', 'search', 'should', 'that', 'their', 'there',
   'these', 'they', 'this', 'today', 'using', 'want', 'what', 'when', 'where', 'which', 'with',

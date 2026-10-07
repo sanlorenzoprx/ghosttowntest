@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 const worker = readFileSync(new URL('../src/api/worker.ts', import.meta.url), 'utf8');
 const handler = readFileSync(new URL('../src/api/blueprintExecutionCopilot.ts', import.meta.url), 'utf8');
 const service = readFileSync(new URL('../src/api/executionAIService.ts', import.meta.url), 'utf8');
+const dailyAnalysisContract = readFileSync(new URL('../src/api/dailyAnalysisContract.ts', import.meta.url), 'utf8');
 const controls = readFileSync(new URL('../src/api/runtimeControls.ts', import.meta.url), 'utf8');
 const router = readFileSync(new URL('../src/components/LaunchBlueprintRouter.tsx', import.meta.url), 'utf8');
 const copilot = readFileSync(new URL('../src/components/LaunchBlueprintCopilotV21.tsx', import.meta.url), 'utf8');
@@ -74,7 +75,8 @@ describe('Blueprint Execution Copilot contract', () => {
     expect(handler).toContain('handleBlueprintCoachMemory');
     expect(handler.indexOf('const cached = await loadCachedExecutionCoachResponse')).toBeLessThan(handler.indexOf('const budget = await consumeHourlyRateLimit'));
     expect(service).toContain("phase === 'review'");
-    expect(service).toContain("RECORDED result");
+    expect(service).toContain('DAILY_ANALYSIS_RUNTIME_CONTRACT,');
+    expect(dailyAnalysisContract).toContain('Recorded behavior is authoritative for claims about this business.');
     expect(service).toContain('learningCandidates');
     expect(service).toContain('never include names, emails, phone numbers, URLs, exact private quotes');
     expect(worker).toContain('/blueprint\\/coach-memory');
