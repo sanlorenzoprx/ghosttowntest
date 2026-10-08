@@ -1,0 +1,82 @@
+{
+  "contract_id": "ghosttown-commercial-attribution-v1",
+  "version": "1.0.0",
+  "objective": "Attribute commercial outcomes from Story Studio publications through GhostTown usage and paid Launch Blueprint revenue without double counting.",
+  "funnel": [
+    "qualified_click",
+    "test_started",
+    "verdict_completed",
+    "blueprint_checkout_started",
+    "blueprint_purchased",
+    "blueprint_fulfilled"
+  ],
+  "identity": {
+    "attribution_id": "stable journey identifier created before or at landing",
+    "creative_id": "Story Studio creative identity when traffic originated from a creative",
+    "publication_id": "platform publication identity when known",
+    "campaign_id": "Story Studio campaign identity when known",
+    "source_id": "canonical Story Studio/GhostTown source identity when known",
+    "verdict_id": "canonical GhostTown verdict/result identity",
+    "order_id": "GhostTown paid order identity",
+    "stripe_checkout_session_id": "Stripe Checkout Session identity",
+    "stripe_event_id": "Stripe webhook event identity"
+  },
+  "event_required_fields": [
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "attribution_id"
+  ],
+  "optional_lineage_fields": [
+    "creative_id",
+    "publication_id",
+    "campaign_id",
+    "source_id",
+    "verdict_id",
+    "order_id",
+    "stripe_checkout_session_id",
+    "stripe_event_id"
+  ],
+  "revenue_event": {
+    "event_type": "blueprint_purchased",
+    "required_fields": [
+      "order_id",
+      "stripe_checkout_session_id",
+      "amount_cents",
+      "currency",
+      "offer_id",
+      "offer_version"
+    ],
+    "idempotency_key": "stripe_event_id",
+    "counting_rule": "Count recognized purchase revenue once per successfully processed Stripe event/order pair. Duplicate webhook delivery must not increment revenue.",
+    "attribution_rule": "Use persisted attribution lineage captured before checkout. Never infer a creative or publication after payment when no lineage exists."
+  },
+  "qualified_click_definition": "A non-bot landing/session arrival carrying or receiving an attribution_id and intentionally entering the GhostTown product path. Raw impressions are not qualified clicks.",
+  "conversion_definitions": {
+    "click_to_test_start": "test_started / qualified_click",
+    "test_to_verdict": "verdict_completed / test_started",
+    "verdict_to_checkout": "blueprint_checkout_started / verdict_completed",
+    "checkout_to_purchase": "blueprint_purchased / blueprint_checkout_started",
+    "verdict_to_purchase": "blueprint_purchased / verdict_completed",
+    "click_to_purchase": "blueprint_purchased / qualified_click"
+  },
+  "primary_business_metric": "attributed_blueprint_revenue_cents",
+  "secondary_metrics": [
+    "qualified_clicks",
+    "tests_started",
+    "verdicts_completed",
+    "blueprint_checkouts_started",
+    "blueprints_purchased",
+    "blueprints_fulfilled",
+    "click_to_purchase_rate",
+    "verdict_to_purchase_rate",
+    "revenue_per_qualified_click"
+  ],
+  "privacy_and_integrity": [
+    "Do not store Stripe secret keys or webhook secrets in attribution events.",
+    "Do not fabricate missing lineage.",
+    "Duplicate events must be idempotent.",
+    "Revenue and fulfillment receipts must retain order and Stripe event identity.",
+    "Publication observations do not become new creative identities."
+  ]
+}
