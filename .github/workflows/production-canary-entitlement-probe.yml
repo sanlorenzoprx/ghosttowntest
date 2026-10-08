@@ -1,0 +1,59 @@
+name: Production Canary Entitlement Probe
+
+on:
+  push:
+    branches:
+      - test/autonomous-production-customer-journey
+    paths:
+      - .github/workflows/production-canary-entitlement-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: production-canary-entitlement-probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: production-customer-journey
+    env:
+      PCJ_CANARY_EMAIL: ${{ secrets.PCJ_CANARY_EMAIL }}
+      PCJ_CANARY_PASSWORD: ${{ secrets.PCJ_CANARY_PASSWORD }}
+
+    steps:
+      - name: Probe canary entitlement
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const base = 'https://api.ghosttowntest.com';
+          const email = String(process.env.PCJ_CANARY_EMAIL || '').trim().toLowerCase();
+          const password = String(process.env.PCJ_CANARY_PASSWORD || '');
+          if (!email || !password) throw new Error('Missing canary credentials');
+
+          const login = await fetch(base + '/api/auth/login', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+          const loginBody = await login.json().catch(() => ({}));
+          if (!login.ok || !loginBody.token) throw new Error('Canary login failed');
+
+          const verify = await fetch(base + '/api/auth/verify', {
+            method: 'POST',
+            headers: { authorization: 'Bearer ' + loginBody.token }
+          });
+          const body = await verify.json().catch(() => ({}));
+          if (!verify.ok || !body.user) throw new Error('Canary verify failed');
+
+          const u = body.user;
+          const available = Math.max(0, 1 + Number(u.testsPurchased || 0) + Math.min(Number(u.shareCredits || 0), 1) - Number(u.testsUsed || 0));
+          console.log(JSON.stringify({
+            ok: true,
+            testsUsed: Number(u.testsUsed || 0),
+            testsPurchased: Number(u.testsPurchased || 0),
+            shareCredits: Number(u.shareCredits || 0),
+            testsAvailable: available
+          }, null, 2));
+          NODE

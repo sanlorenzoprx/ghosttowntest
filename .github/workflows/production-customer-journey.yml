@@ -1,0 +1,107 @@
+name: Production Customer Journey
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: "Exact full SHA currently on protected main"
+        required: true
+        type: string
+      expected_worker_version:
+        description: "Exact Worker UUID currently serving 100% production traffic"
+        required: true
+        type: string
+      scope:
+        description: "surface = no canary credentials; full = canary paid-state continuity"
+        required: true
+        default: surface
+        type: choice
+        options:
+          - surface
+          - full
+      confirm:
+        description: "Type RUN PRODUCTION CUSTOMER JOURNEY"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghosttown-production-customer-journey
+  cancel-in-progress: false
+
+jobs:
+  journey:
+    name: production-customer-journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production-customer-journey
+    env:
+      PCJ_BASE_URL: https://ghosttowntest.com
+      PCJ_API_URL: https://api.ghosttowntest.com
+      PCJ_EXPECTED_WORKER_VERSION: ${{ inputs.expected_worker_version }}
+      PCJ_SCOPE: ${{ inputs.scope }}
+      PCJ_CONFIRM: ${{ inputs.confirm }}
+      PCJ_CANARY_EMAIL: ${{ secrets.PCJ_CANARY_EMAIL }}
+      PCJ_CANARY_PASSWORD: ${{ secrets.PCJ_CANARY_PASSWORD }}
+      PCJ_SPRINT_ORDER_ID: ${{ secrets.PCJ_SPRINT_ORDER_ID }}
+      PCJ_GML_ORDER_ID: ${{ secrets.PCJ_GML_ORDER_ID }}
+      PCJ_LIVE_URL: ${{ secrets.PCJ_LIVE_URL }}
+      PCJ_ARTIFACT_DIR: production-customer-journey-artifacts
+
+    steps:
+      - name: Check out protected main
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Guard protected main and explicit confirmation
+        shell: bash
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main" || { echo "::error::Production journey must run from main."; exit 1; }
+          head_sha="$(git rev-parse HEAD)"
+          git fetch origin main --no-tags
+          main_sha="$(git rev-parse origin/main)"
+          test "$head_sha" = "$EXPECTED_MAIN_SHA" || { echo "::error::Checked-out SHA does not match expected_main_sha."; exit 1; }
+          test "$main_sha" = "$EXPECTED_MAIN_SHA" || { echo "::error::origin/main moved after the production journey was prepared."; exit 1; }
+          test "$PCJ_CONFIRM" = "RUN PRODUCTION CUSTOMER JOURNEY" || { echo "::error::Confirmation phrase mismatch."; exit 1; }
+          [[ "$PCJ_EXPECTED_WORKER_VERSION" =~ ^[0-9a-fA-F-]{36}$ ]] || { echo "::error::Expected Worker version must be a UUID."; exit 1; }
+
+      - name: Verify full-scope canary inputs
+        if: ${{ inputs.scope == 'full' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PCJ_CANARY_EMAIL" || { echo "::error::Missing production-customer-journey secret PCJ_CANARY_EMAIL"; exit 1; }
+          test -n "$PCJ_CANARY_PASSWORD" || { echo "::error::Missing production-customer-journey secret PCJ_CANARY_PASSWORD"; exit 1; }
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install standalone harness
+        run: npm --prefix production-customer-journey install --no-audit --no-fund
+
+      - name: Install Chromium
+        run: cd production-customer-journey && npx playwright install --with-deps chromium
+
+      - name: Syntax check harness
+        run: node --check production-customer-journey/run.mjs
+
+      - name: Run autonomous production customer journey
+        run: node production-customer-journey/run.mjs
+
+      - name: Upload production journey receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-production-customer-journey-${{ github.run_id }}
+          path: production-customer-journey-artifacts
+          if-no-files-found: error
+          retention-days: 30
