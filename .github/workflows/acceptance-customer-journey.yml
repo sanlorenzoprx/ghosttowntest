@@ -1,0 +1,147 @@
+name: Acceptance Customer Journey
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/acceptance-customer-journey.yml"
+      - "scripts/acceptance-customer-journey.cjs"
+      - "scripts/acceptance-paid-customer-journey.cjs"
+      - "src/**"
+  workflow_dispatch:
+  schedule:
+    - cron: "17 10 * * 1-5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: acceptance-customer-journey-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-acceptance:
+    name: Deploy exact SHA to acceptance
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      sha: ${{ steps.version.outputs.sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Record exact SHA
+        id: version
+        shell: bash
+        run: |
+          echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Deploying acceptance SHA ${GITHUB_SHA}"
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build exact SHA
+        run: npm run build
+        env:
+          VITE_API_URL: "https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev"
+          VITE_30_DAY_PLAN_DISPLAY_PRICE: "$97.00"
+          VITE_BUILD_SHA: "${{ github.sha }}"
+      - name: Deploy frontend to Cloudflare acceptance only
+        run: npx wrangler pages deploy dist --project-name ghosttown-acceptance --branch main --commit-hash "${{ github.sha }}"
+        env:
+          CLOUDFLARE_API_TOKEN: "${{ secrets.CLOUDFLARE_API_TOKEN }}"
+          CLOUDFLARE_ACCOUNT_ID: "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+
+  customer-journey:
+    name: ${{ matrix.label }}
+    needs: deploy-acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: iPhone Safari
+            device: iPhone 13
+            engine: webkit
+            slug: iphone-safari
+          - label: Large iPhone Safari
+            device: iPhone 13 Pro Max
+            engine: webkit
+            slug: iphone-large-safari
+          - label: Android Chrome
+            device: Pixel 5
+            engine: chromium
+            slug: android-chrome
+          - label: iPad Safari
+            device: iPad Mini
+            engine: webkit
+            slug: ipad-safari
+          - label: Desktop Chrome
+            device: Desktop 1366
+            engine: chromium
+            slug: desktop-chrome
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Run clean acceptance customer journey
+        run: node scripts/acceptance-customer-journey.cjs
+        env:
+          CI: "true"
+          GHOSTTOWN_ACCEPTANCE_URL: "https://ghosttown-acceptance.pages.dev/"
+          DEVICE_PROFILE: "${{ matrix.device }}"
+          BROWSER_ENGINE: "${{ matrix.engine }}"
+          ARTIFACT_SLUG: "${{ matrix.slug }}"
+      - name: Upload customer journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-${{ matrix.slug }}
+          path: artifacts/customer-journey/${{ matrix.slug }}
+          if-no-files-found: warn
+          retention-days: 7
+
+  paid-customer-journey:
+    name: Desktop Chrome paid journey
+    needs: customer-journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run paid acceptance customer journey
+        run: node scripts/acceptance-paid-customer-journey.cjs
+        env:
+          CI: "true"
+          GHOSTTOWN_ACCEPTANCE_URL: "https://ghosttown-acceptance.pages.dev/"
+      - name: Upload paid journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-paid-desktop
+          path: artifacts/paid-customer-journey
+          if-no-files-found: warn
+          retention-days: 7
