@@ -133,7 +133,7 @@ describe('Worker verdict flow', () => {
     expect(workersAiRuns).toBe(0);
   });
 
-  it('requires public acknowledgement and exposes an idempotent public video job', async () => {
+  it('requires public acknowledgement without enqueueing legacy video on fresh or cached verdicts', async () => {
     const kv = new MemoryKv();
     const env = createEnv(kv, 'factory-secret');
     const rejected = await worker.fetch(verdictRequest({ ...payload, public_content_acknowledged: false }), env);
@@ -141,17 +141,30 @@ describe('Worker verdict flow', () => {
     expect(await rejected.json()).toEqual({ error: 'public_content_acknowledgement_required' });
 
     const verdictResponse = await worker.fetch(verdictRequest(), env);
-    const verdict = await verdictResponse.json<{ video: { job_id: string; status: string; public: boolean; reused: boolean } }>();
-    expect(verdict.video).toMatchObject({ status: 'queued', public: true, reused: false });
+    expect(verdictResponse.status).toBe(200);
+    const verdict = await verdictResponse.json<EvaluationResult>();
+    expect(verdict.cacheHit).toBe(false);
+    expect(verdict.video).toBeUndefined();
+    expect((await kv.list({ prefix: 'video-job:' })).keys).toEqual([]);
+
+    // A historical cache entry must not carry its old job into a new result.
+    const cachedKeys = (await kv.list({ prefix: 'verdict:v3:' })).keys;
+    expect(cachedKeys).toHaveLength(1);
+    const cached = await kv.get<EvaluationResult>(cachedKeys[0].name, 'json');
+    await kv.put(cachedKeys[0].name, JSON.stringify({
+      ...cached, video: { job_id: 'old-job', status: 'processing', public: true }
+    }));
+    const replayResponse = await worker.fetch(verdictRequest(), env);
+    const replay = await replayResponse.json<EvaluationResult>();
+    expect(replay.cacheHit).toBe(true);
+    expect(replay.resultId).not.toBe(verdict.resultId);
+    expect(replay.video).toBeUndefined();
+    expect((await kv.list({ prefix: 'video-job:' })).keys).toEqual([]);
 
     const claimResponse = await worker.fetch(new Request('http://localhost/api/integrations/shorts-factory/video-jobs/next', {
       headers: { Authorization: 'Bearer factory-secret' }
     }), env);
-    expect(claimResponse.status).toBe(200);
-    expect(await claimResponse.json<{ job_id: string }>()).toMatchObject({ job_id: verdict.video.job_id });
-
-    const statusResponse = await worker.fetch(new Request(`http://localhost/api/videos/${verdict.video.job_id}/status`), env);
-    expect(await statusResponse.json()).toMatchObject({ job_id: verdict.video.job_id, status: 'processing', public: true });
+    expect(claimResponse.status).toBe(410);
   });
 
   it('unlocks one share credit per result and caps free assessments at five total', async () => {
