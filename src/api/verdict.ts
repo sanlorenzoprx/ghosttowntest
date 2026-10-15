@@ -28,7 +28,6 @@ import { authenticateRequest } from './auth';
 import type { UserData } from '../types/auth';
 import { handleShortsFactoryVerdict, isShortsFactoryVerdictRequest } from './shortsFactoryVerdict';
 import { saveUserResult } from './resultHistory';
-import { queuePublicVideo } from './publicVideoJobs';
 import { issueResultClaimToken } from './resultClaim';
 import { generateAI } from './generativeAIService';
 import { buildVerdictDecisionV2, hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
@@ -154,11 +153,8 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
           scores: restoredResult.deterministicScores,
           evidenceScan: restoredResult.evidenceScan
         });
-        restoredResult.video = await queuePublicVideo(
-          restoredResult,
-          typeof payload.locale === 'string' ? payload.locale : 'en-US',
-          env
-        );
+        // Cached verdicts must not enqueue a fresh legacy render or retain a stale job link.
+        delete restoredResult.video;
         await env.KV.put(
           `verdict_${restoredResult.resultId}`,
           JSON.stringify(restoredResult),
@@ -223,12 +219,6 @@ async function handleVerdict(request: Request, env: Env): Promise<Response> {
       scores: deterministicResult,
       evidenceScan
     });
-
-    result.video = await queuePublicVideo(
-      result,
-      typeof payload.locale === 'string' ? payload.locale : 'en-US',
-      env
-    );
 
     let authoritativeStored = false;
     try {
