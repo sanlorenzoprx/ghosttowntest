@@ -87,6 +87,8 @@ export interface Env {
   VERDICT_ACCOUNT_HOURLY_LIMIT?: string;
   VERDICT_DAILY_COST_ALARM_USD?: string;
   VERDICT_COST_ALARM_WEBHOOK_URL?: string;
+  // Signs First 30 unsubscribe links. Falls back to JWT_SECRET when unset.
+  FIRST30_UNSUBSCRIBE_SECRET?: string;
   STRIPE_GET_ME_LIVE_PRICE_ID?: string;
   CLOUDFLARE_OAUTH_CLIENT_ID?: string;
   CLOUDFLARE_OAUTH_CLIENT_SECRET?: string;
