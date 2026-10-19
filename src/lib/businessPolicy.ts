@@ -1,7 +1,7 @@
 export const BUSINESS_POLICY = {
   businessName: 'Zayas House LLC',
   jurisdiction: 'Commonwealth of Puerto Rico, USA',
-  supportEmail: 'support@ghosttowntest.com',
+  supportEmail: 'support@ghosttownverdict.com',
   productName: 'Personalized 30-Day Idea-to-Evidence Implementation Plan',
   productPrice: '$97.00',
   refundPosition: 'Conditional 100% Money-Back Guarantee',
@@ -12,7 +12,11 @@ export const BUSINESS_POLICY = {
 export const LEGAL_POLICY = {
   operator: 'Zayas House LLC',
   jurisdiction: 'Commonwealth of Puerto Rico, USA',
-  website: 'ghosttowntest.com',
-  supportEmail: 'support@ghosttowntest.com',
-  lastUpdated: 'October 19, 2026'
+  website: 'ghosttownverdict.com',
+  formerWebsite: 'ghosttowntest.com',
+  supportEmail: 'support@ghosttownverdict.com',
+  lastUpdated: 'October 19, 2026',
+  // Postal address required in the footer of every First 30 list email
+  // (CAN-SPAM). Kept off the website itself; written as the founder gave it.
+  mailingAddress: ['BO QUEBRADA ONDA', 'CARR 181R 913 KM10', 'SAN LORENZO PR 00754']
 } as const;

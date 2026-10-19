@@ -76,3 +76,18 @@ paths. A script cannot do either.
   GhostTown OAuth client.
 
 Then run `Acceptance` within 24 hours of the payment.
+
+## First 30 list emails
+
+The First 30 email list holds people who ticked the consent box on their verdict page or on the landing
+page. They asked to hear when First 30 opens, and the privacy policy promises we email them only about
+First 30. Nothing sends these emails yet: export the list from `GET /api/internal/first30-waitlist` and send
+through an email service when First 30 opens.
+
+Every list email must, under CAN-SPAM:
+
+- say who it is from (GhostTown) and have an honest subject line;
+- include an unsubscribe link, and stop emailing anyone who unsubscribes within 10 business days;
+- include the postal address in `LEGAL_POLICY.mailingAddress` (`src/lib/businessPolicy.ts`).
+
+Name the email service in the privacy policy's provider table before the first send.

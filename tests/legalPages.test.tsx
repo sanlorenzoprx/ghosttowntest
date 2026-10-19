@@ -42,6 +42,10 @@ describe('public policy pages', () => {
     expect(refund).toContain('Days 1–7 after your first year payment');
     expect(refund).toContain('Days 8–21');
     expect(refund).toContain('After day 21');
+    // Tuition style: half of the plan price after the First 30 credit.
+    expect(refund).toContain('we keep $1,100 and refund $1,100');
+    expect(refund).toContain('On the payment plan you owe $1,350: you have paid $702, so we charge $648 more and cancel the remaining payments');
+    expect(refund).toContain('the remaining payments stay due');
     expect(refund).toContain('5–10 business days');
   });
 
@@ -66,6 +70,13 @@ describe('public policy pages', () => {
     }
   });
 
+  it('warn before collections or credit reporting', () => {
+    const terms = render('terms');
+    expect(terms).toContain('collection agency');
+    expect(terms).toContain('consumer or business credit bureaus');
+    expect(terms).toContain('We will email you before we take either step.');
+  });
+
   it('never promise income or results', () => {
     expect(text('disclaimer')).toContain('does not promise income');
     expect(text('terms')).toContain('not a business opportunity');
@@ -88,6 +99,6 @@ describe('public policy pages', () => {
     const html = renderToStaticMarkup(<AboutPage />);
     expect(html).toContain('Zayas House LLC');
     expect(html).toContain('Commonwealth of Puerto Rico, USA');
-    expect(html).toContain('support@ghosttowntest.com');
+    expect(html).toContain('support@ghosttownverdict.com');
   });
 });

@@ -37,13 +37,19 @@ const first30 = GHOSTTOWN_FIRST_30_V1;
 const year = GHOSTTOWN_YEAR_SQUARED_V1;
 const yearPrepayAfterCredit = year.prepayUsd - year.first30CreditUsd;
 const yearFirstPaymentAfterCredit = year.installments.eachUsd - year.first30CreditUsd;
+const yearPlanAfterCredit = year.installments.count * year.installments.eachUsd - year.first30CreditUsd;
+// Tuition-style refunds: inside days 8-21 you owe half of the price of the plan
+// you chose, after the First 30 credit, whatever you have paid so far.
+const yearHalfPrepay = yearPrepayAfterCredit / 2;
+const yearHalfPlan = yearPlanAfterCredit / 2;
+const yearPlanTopUp = yearHalfPlan - yearFirstPaymentAfterCredit;
 const support = `[${LEGAL_POLICY.supportEmail}](mailto:${LEGAL_POLICY.supportEmail})`;
 const operator = `${LEGAL_POLICY.operator}, a company organized in the ${LEGAL_POLICY.jurisdiction.replace(', USA', '')}`;
 
 const terms: LegalPageContent = {
   eyebrow: 'Terms of service',
   title: 'Terms of service',
-  summary: `These terms are the agreement between you and ${operator}, which runs GhostTown ("GhostTown", "we", "us"). They cover ${LEGAL_POLICY.website} and everything we offer there. By using GhostTown or buying from us, you agree to them. If you don't agree, please don't use GhostTown.`,
+  summary: `These terms are the agreement between you and ${operator}, which runs GhostTown ("GhostTown", "we", "us"). They cover ${LEGAL_POLICY.website} (formerly ${LEGAL_POLICY.formerWebsite}) and everything we offer there. By using GhostTown or buying from us, you agree to them. If you don't agree, please don't use GhostTown.`,
   sections: [
     {
       id: 'what-we-offer',
@@ -85,14 +91,15 @@ const terms: LegalPageContent = {
       blocks: [
         p('Stripe processes every payment on its secure checkout. GhostTown never sees or stores your full card number.'),
         p(`You are charged when you buy. On the ${year.name} payment plan, the remaining payments are charged to the same card one month and two months after the first. If a payment fails, we will email you. We may pause the year until the payment goes through.`),
-        p(`${year.name} is a 12-month commitment. There is no monthly plan.`)
+        p(`${year.name} is a 12-month commitment. There is no monthly plan.`),
+        p('**If a balance stays unpaid.** If you owe us money and it stays unpaid after we have emailed you about it, we may send the balance to a collection agency and report it to consumer or business credit bureaus. Collections and negative credit reports can lower your credit score and make loans, credit cards, leases, and insurance harder to get or more expensive. We will email you before we take either step.')
       ]
     },
     {
       id: 'refunds',
       title: 'Refunds',
       blocks: [
-        p(`${first30.name}: ${first30.refundRule.charAt(0).toLowerCase()}${first30.refundRule.slice(1)} ${year.name}: a full refund within ${year.refund.fullRefundDays} days of your first year payment, half through day ${year.refund.halfRefundThroughDay}, and none after that. The [refund policy](/refunds) has the details and how to ask.`)
+        p(`${first30.name}: ${first30.refundRule.charAt(0).toLowerCase()}${first30.refundRule.slice(1)} ${year.name}: a full refund within ${year.refund.fullRefundDays} days of your first year payment; through day ${year.refund.halfRefundThroughDay} you pay half of your plan's price; after that, no refund and any remaining payments stay due. The [refund policy](/refunds) has the details and how to ask.`)
       ]
     },
     {
@@ -204,9 +211,9 @@ const refund: LegalPageContent = {
           ['Free verdict', '—', 'Nothing to refund'],
           [`${ASSESSMENT_PACK_CREDITS} extra verdicts (${ASSESSMENT_PACK_DISPLAY_PRICE})`, 'Any time, if something went wrong', 'Missing credits added, or a duplicate charge refunded'],
           [`${first30.name} (${first30.displayPrice})`, 'Until your website build starts', 'A full refund'],
-          [year.name, `Days 1–${year.refund.fullRefundDays} after your first year payment`, 'A full refund of your year payments'],
-          [year.name, `Days ${year.refund.fullRefundDays + 1}–${year.refund.halfRefundThroughDay}`, 'Half of your year payments'],
-          [year.name, `After day ${year.refund.halfRefundThroughDay}`, 'No refund']
+          [year.name, `Days 1–${year.refund.fullRefundDays} after your first year payment`, 'A full refund of your year payments; remaining payments cancelled'],
+          [year.name, `Days ${year.refund.fullRefundDays + 1}–${year.refund.halfRefundThroughDay}`, 'You pay half of your plan\'s price; we refund or charge the difference'],
+          [year.name, `After day ${year.refund.halfRefundThroughDay}`, 'No refund; remaining payments stay due']
         ])
       ]
     },
@@ -222,12 +229,12 @@ const refund: LegalPageContent = {
       id: 'year',
       title: year.name,
       blocks: [
+        p(`Like school tuition, what you owe when you leave depends on when you leave and on the price of the plan you chose, after your ${usd(year.first30CreditUsd)} ${first30.name} credit: ${usd(yearPrepayAfterCredit)} if you paid at once, or ${usd(yearPlanAfterCredit)} on the payment plan. Days are counted from your first year payment.`),
         list(
-          `**Days 1–${year.refund.fullRefundDays}** after your first year payment: a full refund of the payments you made for the year.`,
-          `**Days ${year.refund.fullRefundDays + 1}–${year.refund.halfRefundThroughDay}:** half of the payments you made for the year.`,
-          `**After day ${year.refund.halfRefundThroughDay}:** no refund.`
+          `**Days 1–${year.refund.fullRefundDays}:** you owe nothing for the year. We refund every year payment you made and cancel the rest.`,
+          `**Days ${year.refund.fullRefundDays + 1}–${year.refund.halfRefundThroughDay}:** you owe half of your plan's price. If you paid at once, we keep ${usd(yearHalfPrepay)} and refund ${usd(yearPrepayAfterCredit - yearHalfPrepay)}. On the payment plan you owe ${usd(yearHalfPlan)}: you have paid ${usd(yearFirstPaymentAfterCredit)}, so we charge ${usd(yearPlanTopUp)} more and cancel the remaining payments.`,
+          `**After day ${year.refund.halfRefundThroughDay}:** you owe the full price. There is no refund, and on the payment plan the remaining payments stay due.`
         ),
-        p(`If you leave within these ${year.refund.halfRefundThroughDay} days on the payment plan, we cancel the payments you have not made yet. After day ${year.refund.halfRefundThroughDay}, the year is a 12-month commitment and the remaining payments stay due.`),
         p(`The ${usd(year.first30CreditUsd)} ${first30.name} credit is part of your ${first30.name} purchase. It is not paid out in cash.`)
       ]
     },
@@ -253,7 +260,7 @@ const refund: LegalPageContent = {
 const privacy: LegalPageContent = {
   eyebrow: 'Privacy policy',
   title: 'Privacy policy',
-  summary: `This policy explains what ${LEGAL_POLICY.operator} ("GhostTown", "we") collects when you use ${LEGAL_POLICY.website}, why, who helps us process it, how long we keep it, and the choices you have. We do not sell your personal information, and we do not share it for advertising.`,
+  summary: `This policy explains what ${LEGAL_POLICY.operator} ("GhostTown", "we") collects when you use ${LEGAL_POLICY.website} (formerly ${LEGAL_POLICY.formerWebsite}), why, who helps us process it, how long we keep it, and the choices you have. We do not sell your personal information, and we do not share it for advertising.`,
   sections: [
     {
       id: 'what-we-collect',

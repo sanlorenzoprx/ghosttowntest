@@ -20,8 +20,8 @@ export default function Contact({ onStart }: Props) {
             <p className="mt-2 text-sm leading-relaxed text-gray-600">
               Checkout, account, plan access, or a verdict that did not save.
             </p>
-            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:support@ghosttowntest.com">
-              support@ghosttowntest.com
+            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:support@ghosttownverdict.com">
+              support@ghosttownverdict.com
             </a>
           </article>
 
