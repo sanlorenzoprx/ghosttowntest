@@ -33,14 +33,14 @@ The response is:
   "fastest_test": "...",
   "next_actions": [],
   "handoff_id": "...",
-  "result_url": "https://ghosttowntest.com/agent/handoff/...",
+  "result_url": "https://ghosttownverdict.com/agent/handoff/...",
   "offer": {
     "offer_id": "ghosttown_first_30_waitlist_v1",
     "name": "First 30",
     "status": "opens_soon",
     "price_usd": null,
     "currency": "usd",
-    "url": "https://ghosttowntest.com",
+    "url": "https://ghosttownverdict.com",
     "requires_user_action": true
   }
 }

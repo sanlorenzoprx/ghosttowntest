@@ -4,6 +4,8 @@ compatibility_date = "2026-03-24"
 
 [env.production]
 routes = [
+  { pattern = "api.ghosttownverdict.com", custom_domain = true },
+  # Legacy API host kept while ghosttowntest.com redirects to ghosttownverdict.com.
   { pattern = "api.ghosttowntest.com", custom_domain = true }
 ]
 
@@ -21,7 +23,7 @@ VERTEX_WEBSITE_MODEL = "gemini-3.5-flash"
 DISTRIBUTION_FOOTPRINT_ENABLED = "false"
 PAID_BLUEPRINT_RESEARCH_ENABLED = "true"
 DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
-FRONTEND_URL = "https://ghosttowntest.com"
+FRONTEND_URL = "https://ghosttownverdict.com"
 # Rollout phase 1: the free verdict is live and the $97 Sprint stays dormant.
 SPRINT_CHECKOUT_ENABLED = "false"
 VERDICT_IP_HOURLY_LIMIT = "10"

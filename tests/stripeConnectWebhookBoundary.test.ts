@@ -177,7 +177,7 @@ describe('Legacy assessment-pack checkout', () => {
   }
 
   function checkoutEnv() {
-    return { ...env, FRONTEND_URL: 'https://ghosttowntest.com/', STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PRICE_ID: 'price_pack' };
+    return { ...env, FRONTEND_URL: 'https://ghosttownverdict.com/', STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PRICE_ID: 'price_pack' };
   }
 
   it('returns the customer to the frontend, not the API host', async () => {
@@ -187,20 +187,20 @@ describe('Legacy assessment-pack checkout', () => {
       sent = String(init.body);
       return new Response(JSON.stringify({ id: 'cs_pack', url: 'https://checkout.stripe.com/x' }), { status: 200 });
     }));
-    const response = await handleCheckout(new Request('https://api.ghosttowntest.com/api/checkout', {
+    const response = await handleCheckout(new Request('https://api.ghosttownverdict.com/api/checkout', {
       method: 'POST', body: JSON.stringify({ token: await token(1) })
     }), checkoutEnv() as never);
     expect(response.status).toBe(200);
     const fields = new URLSearchParams(sent);
-    expect(fields.get('success_url')).toBe('https://ghosttowntest.com/?purchase=assessments_success');
-    expect(fields.get('cancel_url')).toBe('https://ghosttowntest.com/?purchase=assessments_cancelled');
+    expect(fields.get('success_url')).toBe('https://ghosttownverdict.com/?purchase=assessments_success');
+    expect(fields.get('cancel_url')).toBe('https://ghosttownverdict.com/?purchase=assessments_cancelled');
   });
 
   it('rejects a token whose sessions were revoked', async () => {
     kv.store.set(`user_${EMAIL}`, JSON.stringify({ email: EMAIL, authVersion: 2 }));
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
-    const response = await handleCheckout(new Request('https://api.ghosttowntest.com/api/checkout', {
+    const response = await handleCheckout(new Request('https://api.ghosttownverdict.com/api/checkout', {
       method: 'POST', body: JSON.stringify({ token: await token(1) })
     }), checkoutEnv() as never);
     expect(response.status).toBe(401);

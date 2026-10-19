@@ -37,7 +37,7 @@ function ttlSeconds(env: Env): number {
 }
 
 function frontendOrigin(env: Env): string {
-  return (env.FRONTEND_URL?.trim() || 'https://ghosttowntest.com').replace(/\/$/, '');
+  return (env.FRONTEND_URL?.trim() || 'https://ghosttownverdict.com').replace(/\/$/, '');
 }
 
 export async function createAgentHandoff(

@@ -103,7 +103,7 @@ async function verifyWebsite(raw: unknown): Promise<{ website: string; domain: s
   try {
     response = await fetchWithTimeout(candidate.toString(), {
       method: 'HEAD',
-      headers: { 'User-Agent': 'GhostTownSeedVerifier/1.0 (+https://ghosttowntest.com)' }
+      headers: { 'User-Agent': 'GhostTownSeedVerifier/1.0 (+https://ghosttownverdict.com)' }
     });
     if (response.status === 405 || response.status === 501) {
       await response.body?.cancel();
@@ -111,7 +111,7 @@ async function verifyWebsite(raw: unknown): Promise<{ website: string; domain: s
         method: 'GET',
         headers: {
           Accept: 'text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.2',
-          'User-Agent': 'GhostTownSeedVerifier/1.0 (+https://ghosttowntest.com)'
+          'User-Agent': 'GhostTownSeedVerifier/1.0 (+https://ghosttownverdict.com)'
         }
       });
     }

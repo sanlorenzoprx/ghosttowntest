@@ -6,7 +6,7 @@ import { resolve, join } from 'node:path';
 const ROOT = resolve(process.cwd());
 const WORKER_URL = 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev';
 const PAGES_URL = 'https://ghosttown-acceptance.pages.dev';
-const PRODUCTION_HOSTS = ['ghosttowntest.com', 'lit-ghosttown.app'];
+const PRODUCTION_HOSTS = ['ghosttownverdict.com', 'ghosttowntest.com', 'lit-ghosttown.app'];
 
 async function fetchWithTimeout(url, init = {}, timeoutMs = 60000) {
   const controller = new AbortController();
