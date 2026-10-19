@@ -60,3 +60,19 @@ Exit: 50 real verdicts, verdict error rate under 2%, measured cost per verdict r
 - Fallbacks: `verdict_cost` lines with `"usedAI":false` were answered by the deterministic fallback
   instead of Vertex. They are not errors, but a high share means the AI path needs attention.
 - Real cost: sum the token and search fields from `verdict_cost` lines and price them from the invoices.
+
+## Acceptance proofs that need a person
+
+The Acceptance workflow's go-live gate also requires two proofs of the dormant Sprint and Get Me Live
+paths. A script cannot do either.
+
+- **Stripe payment proof** (a $97 test-mode payment from the last 24 hours). Run the `Stripe Payment Proof`
+  workflow once. It deploys the acceptance site with the Sprint shown (`VITE_POST_VERDICT_OFFER=sprint`)
+  and fails with `INPUT_REQUIRED`. On `https://main.ghosttown-acceptance.pages.dev`, log in, run a
+  verdict, buy the Sprint with Stripe test card `4242 4242 4242 4242`, then run `Stripe Payment Proof`
+  again. The next `Acceptance` run puts the phase 1 site back and finds the payment.
+- **Cloudflare OAuth proof.** Run the `Cloudflare OAuth Proof` workflow. Its "Show human authorization
+  step" prints a setup URL and a test owner. Open the URL, log in as that owner, and authorize the
+  GhostTown OAuth client.
+
+Then run `Acceptance` within 24 hours of the payment.
