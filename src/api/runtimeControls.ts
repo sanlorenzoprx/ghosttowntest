@@ -49,6 +49,43 @@ export async function consumeHourlyRateLimit(
   };
 }
 
+export function sprintCheckoutEnabled(env: Env): boolean {
+  return env.SPRINT_CHECKOUT_ENABLED?.trim().toLowerCase() === 'true';
+}
+
+export interface DailyCounterResult {
+  before: number;
+  after: number;
+}
+
+// Adds a non-negative amount to a per-UTC-day counter in the existing
+// runtime_rate_limits table (migration 0005), so no new migration is needed.
+export async function addToDailyCounter(
+  env: Env,
+  scope: string,
+  amount: number,
+  now = new Date()
+): Promise<DailyCounterResult> {
+  if (!env.DB) throw new Error('Launch Blueprint D1 binding is not configured');
+  if (!scope.trim() || !Number.isInteger(amount) || amount < 0) {
+    throw new Error('Invalid daily counter configuration');
+  }
+
+  const windowKey = now.toISOString().slice(0, 10);
+  const expiresAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  const row = await env.DB.prepare(`
+    INSERT INTO runtime_rate_limits (scope, window_key, used, expires_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(scope, window_key) DO UPDATE SET
+      used = runtime_rate_limits.used + excluded.used,
+      expires_at = excluded.expires_at
+    RETURNING used
+  `).bind(scope, windowKey, amount, expiresAt).first<{ used: number }>();
+
+  const after = Math.max(0, Number(row?.used) || 0);
+  return { before: Math.max(0, after - amount), after };
+}
+
 type ProductionBindingName = 'DB' | 'BLUEPRINTS' | 'LAUNCH_BLUEPRINT_WORKFLOW';
 
 function requiredProductionBindings(request: Request): ProductionBindingName[] {

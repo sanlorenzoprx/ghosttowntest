@@ -29,6 +29,7 @@ function memoryEnv() {
     STRIPE_SECRET_KEY: 'sk_test_slice_b',
     STRIPE_PRICE_ID: 'price_test',
     STRIPE_30_DAY_PLAN_PRICE_ID: 'price_test_plan',
+    SPRINT_CHECKOUT_ENABLED: 'true',
     STRIPE_WEBHOOK_SECRET: 'whsec_test'
   } as unknown as Env;
   return { env, KV, values };

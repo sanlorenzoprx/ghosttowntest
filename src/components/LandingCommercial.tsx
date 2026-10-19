@@ -4,6 +4,8 @@ import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../
 import ExampleIdeaGallery from './ExampleIdeaGallery';
 import FounderJourneyHero from './FounderJourneyHero';
 import ProofStandard from './ProofStandard';
+import First30Waitlist from './First30Waitlist';
+import { SPRINT_OFFER_ACTIVE } from '../lib/postVerdictOffer';
 
 interface Props {
   onStart: () => void;
@@ -54,17 +56,21 @@ export default function LandingCommercial({
   const faq = es
     ? [
         ['¿Qué recibo gratis?', 'Un veredicto claro sobre tu idea, el mayor riesgo que vemos y qué hacer después. No necesitas tarjeta.'],
-        ['¿Qué recibo por $97?', 'Un Sprint de 30 días hecho para tu idea, con oferta, precio, clientes, mensajes, tareas diarias, investigación, reglas de evidencia y decisiones claras sobre qué hacer después. El sitio web en vivo no está incluido; Get Me Live es un producto separado de $297, pago único.'],
+        SPRINT_OFFER_ACTIVE
+          ? ['¿Qué recibo por $97?', 'Un Sprint de 30 días hecho para tu idea, con oferta, precio, clientes, mensajes, tareas diarias, investigación, reglas de evidencia y decisiones claras sobre qué hacer después. El sitio web en vivo no está incluido; Get Me Live es un producto separado de $297, pago único.']
+          : ['¿Qué viene después del veredicto?', 'First 30 abre pronto: treinta días de ayuda guiada para probar tu idea. Todavía no está a la venta. Únete a la lista y te escribiremos cuando abra.'],
         ['¿GhostTown garantiza que mi negocio funcionará?', 'No. Nadie puede prometer eso. GhostTown te ayuda a aprender antes de gastar meses y dinero.'],
         ['¿Tengo que construir algo primero?', 'No. La meta es probar primero las partes que pueden matar la idea.'],
-        ['¿Puedo volver a descargar mi plan?', 'Sí. Tu plan y tus archivos terminados se guardan en tu cuenta.']
+        ...(SPRINT_OFFER_ACTIVE ? [['¿Puedo volver a descargar mi plan?', 'Sí. Tu plan y tus archivos terminados se guardan en tu cuenta.']] : [['¿Se guarda mi veredicto?', 'Sí, si creas una cuenta. Tu veredicto queda guardado en tu panel.']])
       ]
     : [
         ['What do I get free?', 'A clear verdict on your idea, the biggest risk we see, and what to do next. No credit card needed.'],
-        ['What do I get for $97?', 'A 30-day Sprint made for your idea, with your offer, price, customer, messages, daily steps, research, evidence rules, and clear decisions about what to do next. A live website is not included; Get Me Live is a separate $297 one-time product.'],
+        SPRINT_OFFER_ACTIVE
+          ? ['What do I get for $97?', 'A 30-day Sprint made for your idea, with your offer, price, customer, messages, daily steps, research, evidence rules, and clear decisions about what to do next. A live website is not included; Get Me Live is a separate $297 one-time product.']
+          : ['What comes after the verdict?', 'First 30 opens soon: thirty days of guided help to test your idea. It is not on sale yet. Join the list and we will email you when it opens.'],
         ['Does GhostTown promise my business will work?', 'No. Nobody can promise that. GhostTown helps you learn before you lose months and money.'],
         ['Do I have to build something first?', 'No. The goal is to test the parts that could kill the idea before you build.'],
-        ['Can I download my plan again?', 'Yes. Your plan and finished files stay in your account.']
+        ...(SPRINT_OFFER_ACTIVE ? [['Can I download my plan again?', 'Yes. Your plan and finished files stay in your account.']] : [['Is my verdict saved?', 'Yes, if you create an account. Your verdict stays in your dashboard.']])
       ];
 
   return (
@@ -208,7 +214,17 @@ export default function LandingCommercial({
       <ExampleIdeaGallery onSelect={onSelectExample} locale={locale} />
       <ProofStandard locale={locale} />
 
-      <section className="bg-[#F8F4ED]">
+      {!SPRINT_OFFER_ACTIVE && <section className="bg-[#F8F4ED]">
+        <div className="mx-auto grid max-w-[78rem] gap-12 px-4 py-24 sm:px-6 sm:py-32 lg:grid-cols-[1fr_0.95fr] lg:items-center lg:gap-20 lg:px-8">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Si la idea merece una prueba' : 'If the idea is worth testing'}</p>
+            <h2 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">{es ? 'First 30 abre pronto.' : 'First 30 opens soon.'}</h2>
+            <p className="mt-7 text-xl leading-9 text-[#3F4944]">{es ? 'Tu veredicto es gratis hoy. Después viene First 30: treinta días de ayuda guiada para probar tu idea con clientes reales. Únete a la lista y te escribiremos cuando abra.' : 'Your verdict is free today. Next comes First 30: thirty days of guided help to test your idea with real customers. Join the list and we will email you when it opens.'}</p>
+          </div>
+          <First30Waitlist source="landing" locale={locale} />
+        </div>
+      </section>}
+      {SPRINT_OFFER_ACTIVE && <section className="bg-[#F8F4ED]">
         <div className="mx-auto max-w-[82rem] px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Si la idea merece una prueba' : 'If the idea is worth testing'}</p>
@@ -241,9 +257,9 @@ export default function LandingCommercial({
             {deliverables.map((item, index) => <div key={item} className="flex gap-4"><span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#D96F3D] text-sm font-bold text-white">{index + 1}</span><p className="text-lg font-semibold leading-7">{item}</p></div>)}
           </div>
         </div>
-      </section>
+      </section>}
 
-      <section className="bg-white">
+      {SPRINT_OFFER_ACTIVE && <section className="bg-white">
         <div className="mx-auto grid max-w-[82rem] gap-14 px-4 py-24 sm:px-6 sm:py-32 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-20 lg:px-8">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Siguiente paso opcional' : 'Optional next step'}</p>
@@ -257,9 +273,9 @@ export default function LandingCommercial({
             <div className="bg-[#14201C] px-7 py-12 text-white sm:px-10 sm:py-16"><p className="text-sm font-bold uppercase tracking-[0.13em] text-[#F0B28F]">YOUR IDEA</p><h3 className="mt-4 max-w-xl font-display text-4xl font-semibold leading-[0.98] tracking-[-0.04em] sm:text-5xl">{es ? 'Una página creada para que tu cliente entienda por qué esto importa.' : 'A page built so your customer understands why this matters.'}</h3><p className="mt-5 max-w-lg text-lg leading-8 text-white/88">{es ? 'Problema claro. Oferta clara. Próximo paso claro.' : 'Clear problem. Clear offer. Clear next step.'}</p><div className="mt-8 inline-flex rounded-full bg-[#D96F3D] px-6 py-3 text-base font-bold">{es ? 'Quiero saber más' : 'I Want to Learn More'}</div></div>
           </div>
         </div>
-      </section>
+      </section>}
 
-      <section className="bg-[#F3EEE5]">
+      {SPRINT_OFFER_ACTIVE && <section className="bg-[#F3EEE5]">
         <div className="mx-auto max-w-[76rem] px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
           <div className="mx-auto max-w-3xl text-center"><p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Dudas normales' : 'Fair questions'}</p><h2 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">{es ? 'Antes de pagar, debes entender esto.' : 'Before you pay, you should know this.'}</h2></div>
           <div className="mx-auto mt-14 max-w-4xl divide-y divide-[#C8BFB2] border-y border-[#C8BFB2]">
@@ -276,14 +292,14 @@ export default function LandingCommercial({
             ]).map(([question, answer]) => <div key={question} className="grid gap-3 py-7 md:grid-cols-[0.8fr_1.2fr] md:gap-10"><h3 className="text-xl font-bold">{question}</h3><p className="text-lg leading-8 text-[#414A45]">{answer}</p></div>)}
           </div>
         </div>
-      </section>
+      </section>}
 
-      <section className="bg-[#101A17] text-white">
+      {SPRINT_OFFER_ACTIVE && <section className="bg-[#101A17] text-white">
         <div className="mx-auto grid max-w-[78rem] gap-12 px-4 py-24 sm:px-6 sm:py-32 lg:grid-cols-[1fr_0.8fr] lg:items-end lg:px-8">
           <div><p className="text-sm font-bold uppercase tracking-[0.18em] text-[#E7A178]">GHOSTTOWN LAUNCH BLUEPRINT</p><h2 className="mt-4 max-w-4xl font-display text-5xl font-semibold leading-[0.98] tracking-[-0.045em] sm:text-7xl">{es ? 'De idea a prueba real en 30 días.' : 'From idea to real proof in 30 days.'}</h2><p className="mt-7 max-w-2xl text-xl leading-9 text-white/86">{es ? 'Primero haces la prueba gratis. Si vale la pena seguir, el Blueprint te da el camino.' : 'Take the free test first. If the idea is worth moving forward with, the Blueprint gives you the path.'}</p></div>
           <div className="rounded-[2rem] border border-white/20 bg-white/10 p-7 sm:p-8"><p className="text-base font-bold uppercase tracking-[0.13em] text-white/82">{es ? 'Pago único' : 'One-time price'}</p><div className="mt-2 flex items-end gap-2"><span className="font-score text-6xl font-bold tracking-[-0.08em]">{displayPrice.replace('.00', '')}</span><span className="pb-2 text-base text-white/82">USD</span></div><p className="mt-5 text-base leading-7 text-white/88">{es ? 'No necesitas comprar para obtener tu primer veredicto.' : 'You do not need to buy anything to get your first verdict.'}</p><div className="mt-6 rounded-xl border border-white/20 bg-black/20 p-4 text-base leading-7 text-white/85"><strong className="text-white">{BUSINESS_POLICY.refundPosition}.</strong> {es ? 'Consulta la política para los requisitos.' : 'See the refund policy for the requirements.'}</div><button type="button" onClick={onStart} className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-full bg-[#D96F3D] px-7 py-3 text-lg font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#E57B48] focus:outline-none focus:ring-4 focus:ring-white/25">{isReturningVerdictCustomer ? (es ? 'Empezar otro veredicto' : 'Start Another Verdict') : (es ? 'Empezar con la prueba gratis' : 'Start With the Free Test')}</button></div>
         </div>
-      </section>
+      </section>}
 
       <section className="bg-white">
         <div className="mx-auto max-w-[74rem] px-4 py-24 sm:px-6 sm:py-32 lg:px-8">
@@ -293,7 +309,7 @@ export default function LandingCommercial({
       </section>
 
       <section className="bg-[#D96F3D] text-white">
-        <div className="mx-auto max-w-[78rem] px-4 py-20 text-center sm:px-6 sm:py-28 lg:px-8"><p className="text-base font-bold uppercase tracking-[0.15em] text-white/90">{es ? 'Antes de construir' : 'Before you build'}</p><h2 className="mx-auto mt-4 max-w-5xl font-display text-5xl font-semibold leading-[0.98] tracking-[-0.045em] sm:text-7xl">{es ? 'Descubre si vale la pena.' : 'Find out if it’s worth building.'}</h2><p className="mx-auto mt-6 max-w-2xl text-xl leading-9 text-white/95">{es ? 'Una prueba. Un veredicto. Un siguiente paso claro.' : 'One test. One verdict. One clear next step.'}</p><button type="button" onClick={onStart} className="mt-9 inline-flex min-h-14 items-center justify-center rounded-full bg-white px-8 py-3 text-lg font-bold text-[#17201C] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#FFF9F4] focus:outline-none focus:ring-4 focus:ring-white/35">{primaryVerdictCta}</button><p className="mt-4 text-base font-semibold text-white/90">{es ? 'Sin tarjeta. El plan de $97 viene después, solo si lo quieres.' : 'No credit card. The $97 plan comes later, only if you want it.'}</p></div>
+        <div className="mx-auto max-w-[78rem] px-4 py-20 text-center sm:px-6 sm:py-28 lg:px-8"><p className="text-base font-bold uppercase tracking-[0.15em] text-white/90">{es ? 'Antes de construir' : 'Before you build'}</p><h2 className="mx-auto mt-4 max-w-5xl font-display text-5xl font-semibold leading-[0.98] tracking-[-0.045em] sm:text-7xl">{es ? 'Descubre si vale la pena.' : 'Find out if it’s worth building.'}</h2><p className="mx-auto mt-6 max-w-2xl text-xl leading-9 text-white/95">{es ? 'Una prueba. Un veredicto. Un siguiente paso claro.' : 'One test. One verdict. One clear next step.'}</p><button type="button" onClick={onStart} className="mt-9 inline-flex min-h-14 items-center justify-center rounded-full bg-white px-8 py-3 text-lg font-bold text-[#17201C] shadow-xl transition hover:-translate-y-0.5 hover:bg-[#FFF9F4] focus:outline-none focus:ring-4 focus:ring-white/35">{primaryVerdictCta}</button><p className="mt-4 text-base font-semibold text-white/90">{SPRINT_OFFER_ACTIVE ? (es ? 'Sin tarjeta. El plan de $97 viene después, solo si lo quieres.' : 'No credit card. The $97 plan comes later, only if you want it.') : (es ? 'Sin tarjeta. No tienes que comprar nada.' : 'No credit card. Nothing to buy.')}</p></div>
       </section>
 
       <div id="ghosttown-commercial-sticky" className="fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-white/97 p-3 shadow-[0_-12px_35px_rgba(17,24,39,0.12)] backdrop-blur sm:hidden"><button type="button" onClick={onStart} className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#17201C] px-5 py-3 text-base font-bold text-white">{primaryVerdictCta}</button></div>

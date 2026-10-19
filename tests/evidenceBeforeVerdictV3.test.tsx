@@ -149,6 +149,8 @@ describe('Evidence Scan seven-layer free verdict', () => {
     expect(html).toContain('Direct offer purchase');
     expect(html).toContain('Not collected');
     expect(html).toMatch(/does not automatically recommend the lowest, average, median, highest, or premium price/i);
-    expect(html).toContain('30-Day Evidence Sprint');
+    // Rollout phase 1: the dormant Sprint is replaced by the First 30 email list.
+    expect(html).toContain('First 30 opens soon');
+    expect(html).not.toContain('30-Day Evidence Sprint');
   });
 });

@@ -90,7 +90,7 @@ Before deployment:
 1. Confirm the environment-specific KV, D1, private R2, Workflow, AI, and Browser bindings in `wrangler.toml`.
 2. Set Worker secrets for authentication, Stripe, provider research, Vertex service-account credentials, `AI_GATEWAY_TOKEN`, and any enabled integration keys using Wrangler secrets or the Cloudflare dashboard. Never commit secret values.
 3. Keep production `FRONTEND_URL=https://ghosttowntest.com` and the Worker custom domain `api.ghosttowntest.com` aligned with the current production domain pair.
-4. Set the frontend `VITE_API_URL=https://api.ghosttowntest.com` and `VITE_30_DAY_PLAN_DISPLAY_PRICE=$97.00` for production.
+4. Set the frontend `VITE_API_URL=https://api.ghosttowntest.com` for production. During rollout phase 1 do not set `VITE_POST_VERDICT_OFFER` or `VITE_30_DAY_PLAN_DISPLAY_PRICE`: the verdict page then offers the First 30 email list and the $97 Sprint stays dormant. See `docs/ROLLOUT_PHASE_1.md`.
 5. Configure Stripe to send the required production events to `/api/webhook/stripe`; webhook signature verification remains the payment authority.
 6. Apply pending D1 migrations before deploying code that depends on them. Evidence-before-Verdict requires `0007_observed_evidence_events.sql`.
 Build and deploy:

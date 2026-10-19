@@ -15,6 +15,7 @@ import {
   sanitizeCommercialAttribution
 } from './commercialAttribution';
 import { recordCommercialFunnelEvent } from './analytics';
+import { sprintCheckoutEnabled } from './runtimeControls';
 
 const PLAN_VERSION = '1.0' as const;
 const LEGACY_REPORT_VERSION = '1.0' as const;
@@ -134,6 +135,10 @@ async function savePaidOrderSummary(env: Env, order: PaidTestOrder, ideaName: st
 }
 
 export async function handlePaidTestCheckout(request: Request, env: Env): Promise<Response> {
+  if (!sprintCheckoutEnabled(env)) {
+    return json({ error: 'The 30-Day Sprint is not on sale right now. First 30 opens soon.', code: 'SPRINT_CHECKOUT_CLOSED' }, 410);
+  }
+
   const auth = await authenticateRequest(request, env);
   if (!auth) {
     console.warn('Paid checkout rejected: authentication required');

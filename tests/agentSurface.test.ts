@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { handleAgentFreeVerdict, ghostTownProductMetadata } from '../src/api/agentVerdict';
 import { handleMcp } from '../src/api/mcp';
 import type { Env } from '../src/api/env';
-import { GHOSTTOWN_30_DAY_PLAN_V1 } from '../src/lib/ghosttownOffer';
+import { GHOSTTOWN_30_DAY_PLAN_V1, GHOSTTOWN_FIRST_30_WAITLIST_V1 } from '../src/lib/ghosttownOffer';
 
 describe('ASC-01 GhostTown agent surface', () => {
   it('returns needs_input instead of fabricating missing canonical verdict data', async () => {
@@ -38,11 +38,23 @@ describe('ASC-01 GhostTown agent surface', () => {
     expect(body.missing).toContain('public_content_acknowledged');
   });
 
-  it('reuses the canonical GhostTown $97 offer metadata', () => {
-    const metadata = ghostTownProductMetadata({ FRONTEND_URL: 'https://ghosttowntest.com' } as Env);
+  it('reuses the canonical GhostTown $97 offer metadata when the Sprint is on sale', () => {
+    const metadata = ghostTownProductMetadata({ FRONTEND_URL: 'https://ghosttowntest.com', SPRINT_CHECKOUT_ENABLED: 'true' } as Env);
     expect(metadata.paid_offer.name).toBe(GHOSTTOWN_30_DAY_PLAN_V1.name);
+    expect(metadata.paid_offer.status).toBe('available');
     expect(metadata.paid_offer.price_usd).toBe(97);
     expect(metadata.paid_offer.requires_user_action).toBe(true);
+  });
+
+  it('tells agents First 30 opens soon while the Sprint is dormant', () => {
+    const metadata = ghostTownProductMetadata({ FRONTEND_URL: 'https://ghosttowntest.com' } as Env);
+    expect(metadata.paid_offer).toMatchObject({
+      offer_id: GHOSTTOWN_FIRST_30_WAITLIST_V1.offerId,
+      name: 'First 30',
+      status: 'opens_soon',
+      price_usd: null,
+      requires_user_action: true
+    });
   });
 
   it('publishes the stateless MCP tool catalog for the current protocol revision', async () => {

@@ -13,6 +13,8 @@ import type { PrePurchaseResearchSignals as ResearchSignals } from '../types/res
 import { buildVerdictDecisionV2 } from '../verdict/verdictDecisionV2';
 import { buildVerdictDecisionV3 } from '../verdict/verdictDecisionV3';
 import EvidenceScanPanel from './EvidenceScanPanel';
+import First30Waitlist from './First30Waitlist';
+import { SPRINT_OFFER_ACTIVE } from '../lib/postVerdictOffer';
 
 interface Props {
   result: EvaluationResult;
@@ -23,7 +25,7 @@ interface Props {
   locale: 'en' | 'es';
 }
 
-export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick, onRewardClaimed }: Props) {
+export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick, onRewardClaimed, locale }: Props) {
   const [paidLoading, setPaidLoading] = useState(false);
   const [paidError, setPaidError] = useState('');
   const [showActionPlanForm, setShowActionPlanForm] = useState(false);
@@ -265,7 +267,9 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         onRewardClaimed={onRewardClaimed}
       />
 
-      <section id="thirty-day-plan" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
+      {!SPRINT_OFFER_ACTIVE && <First30Waitlist source="verdict" verdictId={result.resultId} locale={locale} />}
+
+      {SPRINT_OFFER_ACTIVE && <section id="thirty-day-plan" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">30-Day Evidence Sprint</p>
         <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Know what to do with your idea 30 days from now.</h2>
         <p className="mt-3 text-sm leading-6 text-gray-700">{GHOSTTOWN_30_DAY_PLAN_V1.subtitle}</p>
@@ -281,7 +285,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         <button type="button" aria-label="Start 30-Day Evidence Sprint checkout" onClick={openActionPlanForm} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
           {paidLoading ? 'Opening checkout...' : `Run the 30-Day Evidence Sprint - ${displayPrice}`}
         </button>
-      </section>
+      </section>}
 
       <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
         <button
@@ -293,9 +297,15 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ghost-rust/20 bg-[#fff7f2]/95 p-3 backdrop-blur sm:hidden">
-        <button type="button" aria-label="Start 30-Day Evidence Sprint checkout" onClick={openActionPlanForm} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
-          {paidLoading ? 'Opening checkout...' : `Run the Evidence Sprint - ${displayPrice}`}
-        </button>
+        {SPRINT_OFFER_ACTIVE ? (
+          <button type="button" aria-label="Start 30-Day Evidence Sprint checkout" onClick={openActionPlanForm} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
+            {paidLoading ? 'Opening checkout...' : `Run the Evidence Sprint - ${displayPrice}`}
+          </button>
+        ) : (
+          <a href="#first-30" className="flex min-h-14 w-full items-center justify-center rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern">
+            First 30 opens soon: join the list
+          </a>
+        )}
       </div>
 
       {showActionPlanForm && (
