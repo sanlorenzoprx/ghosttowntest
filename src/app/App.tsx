@@ -12,6 +12,7 @@ import PaywallModal from '../components/PaywallModal';
 import VerdictUnlockPage from '../components/VerdictUnlockPage';
 import Contact from '../components/Contact';
 import LegalPage, { type LegalPageKind } from '../components/LegalPage';
+import AboutPage from '../components/AboutPage';
 import ActionPlanSuccess from '../components/ActionPlanSuccess';
 import InternalGoogleSearchConsole from '../components/InternalGoogleSearchConsole';
 import CommercialMetricsConsole from '../components/CommercialMetricsConsole';
@@ -31,10 +32,11 @@ import { getFeaturedExampleBySlug, toIdeaIntake } from '../lib/exampleIdeas';
 import { captureCommercialAttribution, recordCommercialEvent } from '../lib/commercialAttribution';
 import { litQuestions } from '../lib/litQuestions';
 
-type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'get-me-live' | 'unlock-verdict' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | LegalPageKind;
+type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'get-me-live' | 'unlock-verdict' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | 'about' | LegalPageKind;
 
 function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/contact') return 'contact';
+  if (pathname === '/about') return 'about';
   if (pathname === '/privacy') return 'privacy';
   if (pathname === '/terms') return 'terms';
   if (pathname === '/refunds' || pathname === '/refund-policy') return 'refund';
@@ -403,6 +405,7 @@ export default function App() {
         {screen === 'get-me-live' && getMeLiveSetup && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Log in to open your Get Me Live page</h1><p className="mt-3 text-gray-700">Use the email from checkout. Your work is saved.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
         {screen === 'contact' && <Contact onStart={handleStartTest} />}
         {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && <LegalPage kind={screen} />}
+        {screen === 'about' && <AboutPage />}
         {screen === 'action-plan-success' && <ActionPlanSuccess orderId={new URLSearchParams(window.location.search).get('order_id') || ''} onDone={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
         {screen === 'internal-research' && isLoggedIn && <InternalGoogleSearchConsole onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
         {screen === 'internal-research' && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Owner login required</h1><p className="mt-3 text-gray-700">This standalone research console is not part of the customer product.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
@@ -414,9 +417,10 @@ export default function App() {
         <div className="mx-auto flex max-w-6xl flex-col gap-4 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
           <p>Zayas House LLC · Commonwealth of Puerto Rico, USA</p>
           <nav aria-label="Legal policies" className="flex flex-wrap gap-x-4 gap-y-2">
+            <a className="font-bold text-blue-700 hover:underline" href="/about">About</a>
             <a className="font-bold text-blue-700 hover:underline" href="/privacy">Privacy</a>
             <a className="font-bold text-blue-700 hover:underline" href="/terms">Terms</a>
-            <a className="font-bold text-blue-700 hover:underline" href="/refunds">Refunds &amp; fulfillment</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/refunds">Refunds</a>
             <a className="font-bold text-blue-700 hover:underline" href="/disclaimer">Disclaimer</a>
           </nav>
         </div>

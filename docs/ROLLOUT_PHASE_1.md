@@ -13,14 +13,14 @@ Founder decision for step 1 (19 October 2026): after the verdict, replace the $9
 | Agent surface | `/api/v1/product`, the free-verdict response and the MCP `ghosttown.get_offer` tool report First 30 with `status: "opens_soon"` and `price_usd: null`. |
 | Sprint checkout | `POST /api/paid-test/checkout` returns `410 SPRINT_CHECKOUT_CLOSED` unless the Worker var `SPRINT_CHECKOUT_ENABLED` is `"true"`. Production sets `"false"`; acceptance and development set `"true"` so the dormant Sprint stays proven. Fulfillment, dashboards and Get Me Live for existing orders are unchanged. |
 | Email list | `POST /api/first30/waitlist` stores one KV entry per email (`waitlist:first30:<sha256>`), with the server's consent text, source, locale and verdict id. Five signups per connection per hour. Owners listed in `INTERNAL_RESEARCH_OWNER_EMAILS` can export it from `GET /api/internal/first30-waitlist`. No new D1 migration. |
-| Legal pages | `/terms`, `/refunds`, `/privacy` and `/disclaimer` show phase 1 text: free verdict, public-content consent, providers that process the idea, fair-use limits, the optional 10-verdict pack, and the email list. The Sprint text returns when the Sprint does. |
+| Legal pages | `/terms`, `/refunds`, `/privacy` and `/disclaimer` describe the current offer: free verdict, the 10-verdict pack, First 30 ($297, opens soon) and Year Squared, with the refund schedule from growth-engine `harness/config/offer.yaml`. Content lives in `src/lib/legalPages.ts`; prices come from `src/lib/ghosttownOffer.ts`. Business identity moved to `/about`. The old $97 Sprint legal text is gone. |
 | `POST /api/verdict` limits | 10 verdicts per connection per hour and 10 per account per hour (`VERDICT_IP_HOURLY_LIMIT`, `VERDICT_ACCOUNT_HOURLY_LIMIT`), stored in the existing `runtime_rate_limits` table. Over the limit returns `429 VERDICT_RATE_LIMITED` with `Retry-After`. The agent free-verdict route keeps its own limit and is not counted twice. Limits fail open if D1 is unavailable, with a warning in the logs. |
 | Cost tracking | Every delivered verdict logs one `verdict_cost` JSON line: AI calls, prompt, output and thinking tokens, searches per provider, and an estimated cost in USD. Failures log `verdict_error`. |
 | Daily cost alarm | Estimated spend and verdict count add up per UTC day in `runtime_rate_limits` (scopes `verdict_cost_micro_usd` and `verdict_count`). The first verdict that crosses `VERDICT_DAILY_COST_ALARM_USD` (production: $5) logs `verdict_daily_cost_alarm` and, if the secret `VERDICT_COST_ALARM_WEBHOOK_URL` is set, posts to it once that day. |
 
 ### The setting
 
-- Frontend (build time): `VITE_POST_VERDICT_OFFER`. Unset means the First 30 list. `sprint` brings back the Sprint panel, landing sections and Sprint legal text.
+- Frontend (build time): `VITE_POST_VERDICT_OFFER`. Unset means the First 30 list. `sprint` brings back the Sprint panel and landing sections.
 - Worker: `SPRINT_CHECKOUT_ENABLED`. Only `"true"` opens new Sprint checkouts.
 
 Turning the Sprint back on needs both.

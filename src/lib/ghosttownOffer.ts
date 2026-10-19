@@ -70,3 +70,39 @@ export const GHOSTTOWN_FIRST_30_WAITLIST_V1 = {
   },
   active: true
 } as const;
+
+// Founder decisions of 19 October 2026 (growth-engine harness/config/offer.yaml):
+// free verdict, then First 30, then the year offered on day 26. Legal pages and
+// offer copy read prices and refund rules from here so they cannot drift apart.
+export const GHOSTTOWN_FIRST_30_V1 = {
+  offerId: 'ghosttown_first_30_v1',
+  name: 'First 30',
+  status: 'opens_soon',
+  priceUsd: 297,
+  displayPrice: '$297',
+  durationDays: 30,
+  includes: [
+    'A daily plan for 30 days that adapts to what you learn',
+    'A customer-acquisition website branded for your business, on a free web address',
+    'The materials you need to reach your first customers, such as an offer, outreach messages, an interview guide, and an evidence tracker'
+  ],
+  refundRule: 'Full refund until your website build starts; no refund after it starts.'
+} as const;
+
+export const GHOSTTOWN_YEAR_SQUARED_V1 = {
+  offerId: 'ghosttown_year_squared_v1',
+  name: 'Year Squared',
+  offeredOnDay: 26,
+  listPriceUsd: 2997,
+  prepayUsd: 2497,
+  installments: { count: 3, eachUsd: 999 },
+  first30CreditUsd: 297,
+  includes: [
+    'A kickoff deep dive',
+    'A map for your year',
+    'Ongoing execution with GhostTown’s AI operating partner (your COO)',
+    'A stress test and a report at each stage gate',
+    'An operating playbook'
+  ],
+  refund: { fullRefundDays: 7, halfRefundThroughDay: 21 }
+} as const;
