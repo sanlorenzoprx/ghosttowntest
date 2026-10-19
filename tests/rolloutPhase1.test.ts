@@ -1,0 +1,91 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import type { Env } from '../src/api/env';
+import { handlePaidTestCheckout } from '../src/api/paidTestCheckout';
+import { sprintCheckoutEnabled } from '../src/api/runtimeControls';
+import {
+  addModelUsage,
+  addSearchUsage,
+  emptyVerdictUsage,
+  estimateVerdictCostUsd,
+  VERDICT_COST_RATES_USD
+} from '../src/api/verdictBudget';
+import { GHOSTTOWN_FIRST_30_WAITLIST_V1, resolvePostVerdictOffer } from '../src/lib/ghosttownOffer';
+import type { GenerateResult } from '../src/api/generativeAIService';
+
+const read = (path: string) => readFileSync(path, 'utf8');
+
+describe('rollout phase 1: free verdict with First 30 email list', () => {
+  it('defaults the post-verdict offer to the First 30 list and only shows the Sprint on an explicit opt-in', () => {
+    expect(resolvePostVerdictOffer(undefined)).toBe('first30_waitlist');
+    expect(resolvePostVerdictOffer('')).toBe('first30_waitlist');
+    expect(resolvePostVerdictOffer('$97.00')).toBe('first30_waitlist');
+    expect(resolvePostVerdictOffer(' Sprint ')).toBe('sprint');
+  });
+
+  it('keeps First 30 copy honest about not being on sale', () => {
+    expect(GHOSTTOWN_FIRST_30_WAITLIST_V1.headline).toBe('First 30 opens soon');
+    expect(GHOSTTOWN_FIRST_30_WAITLIST_V1.truthBoundary).toMatch(/not on sale yet/);
+    expect(GHOSTTOWN_FIRST_30_WAITLIST_V1.es.truthBoundary).toMatch(/no está a la venta/);
+    const copy = JSON.stringify(GHOSTTOWN_FIRST_30_WAITLIST_V1);
+    expect(copy).not.toMatch(/\$\d/);
+  });
+
+  it('closes new Sprint checkouts unless the Worker opts in', async () => {
+    expect(sprintCheckoutEnabled({} as Env)).toBe(false);
+    expect(sprintCheckoutEnabled({ SPRINT_CHECKOUT_ENABLED: 'false' } as Env)).toBe(false);
+    expect(sprintCheckoutEnabled({ SPRINT_CHECKOUT_ENABLED: 'true' } as Env)).toBe(true);
+
+    const response = await handlePaidTestCheckout(new Request('https://api.ghosttowntest.com/api/paid-test/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    }), {} as Env);
+    expect(response.status).toBe(410);
+    expect(await response.json()).toMatchObject({ code: 'SPRINT_CHECKOUT_CLOSED' });
+  });
+
+  it('turns the Sprint off in production and keeps it proven in acceptance', () => {
+    const wrangler = read('wrangler.toml');
+    const production = wrangler.slice(wrangler.indexOf('[env.production.vars]'), wrangler.indexOf('[[env.production.kv_namespaces]]'));
+    const acceptance = wrangler.slice(wrangler.indexOf('[env.acceptance.vars]'), wrangler.indexOf('[[env.acceptance.kv_namespaces]]'));
+    expect(production).toContain('SPRINT_CHECKOUT_ENABLED = "false"');
+    expect(production).toContain('VERDICT_IP_HOURLY_LIMIT');
+    expect(production).toContain('VERDICT_DAILY_COST_ALARM_USD');
+    expect(acceptance).toContain('SPRINT_CHECKOUT_ENABLED = "true"');
+  });
+
+  it('keeps the Sprint code dormant rather than deleted', () => {
+    const report = read('src/components/ResultReport.tsx');
+    const landing = read('src/components/LandingCommercial.tsx');
+    expect(report).toContain('SPRINT_OFFER_ACTIVE && <section id="thirty-day-plan"');
+    expect(report).toContain('Start 30-Day Evidence Sprint checkout');
+    expect(report).toContain('<First30Waitlist source="verdict"');
+    expect(landing).toContain('<First30Waitlist source="landing"');
+    expect(landing).toContain('A live website is not included; Get Me Live is a separate $297 one-time product.');
+  });
+
+  it('routes the agent verdict around the web limiter because it has its own', () => {
+    expect(read('src/api/agentVerdict.ts')).toContain('verdictHandler(canonicalRequest, env, { callerRateLimited: true })');
+  });
+
+  it('estimates verdict cost from tokens and searches', () => {
+    const usage = emptyVerdictUsage();
+    const receipt = { promptTokenCount: 2000, candidatesTokenCount: 500, thoughtsTokenCount: 100 } as GenerateResult['receipt'];
+    addModelUsage(usage, receipt);
+    addModelUsage(usage, receipt);
+    addSearchUsage(usage, [
+      { provider: 'dataforseo', status: 'complete', queryCount: 2, resultCount: 10 },
+      { provider: 'youtube_api', status: 'complete', queryCount: 1, resultCount: 5 },
+      { provider: 'podcast_index', status: 'failed', queryCount: 1, resultCount: 0 }
+    ]);
+    expect(usage).toMatchObject({ aiCalls: 2, promptTokens: 4000, outputTokens: 1000, thoughtsTokens: 200 });
+    expect(usage.searches).toEqual({ dataforseo: 2, youtube_api: 1, podcast_index: 1 });
+
+    const rates = VERDICT_COST_RATES_USD;
+    const expected = (4000 * rates.inputPerMillionTokens + 1200 * rates.outputPerMillionTokens) / 1_000_000
+      + 2 * rates.perSearch.dataforseo;
+    expect(estimateVerdictCostUsd(usage)).toBeCloseTo(expected, 6);
+    expect(estimateVerdictCostUsd(emptyVerdictUsage())).toBe(0);
+  });
+});

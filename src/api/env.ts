@@ -81,6 +81,12 @@ export interface Env {
   STRIPE_PRICE_ID: string;
   STRIPE_PAID_TEST_PRICE_ID?: string;
   STRIPE_30_DAY_PLAN_PRICE_ID?: string;
+  // Rollout phase 1 keeps the $97 Sprint dormant. Only "true" opens new Sprint checkouts.
+  SPRINT_CHECKOUT_ENABLED?: string;
+  VERDICT_IP_HOURLY_LIMIT?: string;
+  VERDICT_ACCOUNT_HOURLY_LIMIT?: string;
+  VERDICT_DAILY_COST_ALARM_USD?: string;
+  VERDICT_COST_ALARM_WEBHOOK_URL?: string;
   STRIPE_GET_ME_LIVE_PRICE_ID?: string;
   CLOUDFLARE_OAUTH_CLIENT_ID?: string;
   CLOUDFLARE_OAUTH_CLIENT_SECRET?: string;

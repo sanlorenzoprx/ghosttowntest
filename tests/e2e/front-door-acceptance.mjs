@@ -1,4 +1,5 @@
-// Pre-live front-door acceptance: real Login UI -> free verdict -> Sprint checkout handoff.
+// Pre-live front-door acceptance: real Login UI -> free verdict -> First 30 email list,
+// plus an API proof that the dormant Sprint checkout still reaches Stripe test mode.
 // Uses the disposable self-provisioned acceptance owner and never completes payment.
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -23,6 +24,8 @@ const proof = {
   intake: false,
   questionsAnswered: 0,
   verdictRendered: false,
+  first30Waitlist: false,
+  sprintCtaHidden: false,
   checkoutModal: false,
   stripeTestCheckout: false,
   controls: [],
@@ -36,9 +39,13 @@ const page = await context.newPage();
 const pageErrors = [];
 const serverErrors = [];
 page.on('pageerror', error => pageErrors.push(String(error)));
+let verdictBody = null;
 page.on('response', response => {
   if (response.status() >= 500 && response.url().startsWith(apiUrl)) {
     serverErrors.push({ status: response.status(), url: response.url() });
+  }
+  if (response.url() === `${apiUrl}/api/verdict` && response.request().method() === 'POST' && response.ok()) {
+    response.json().then(body => { verdictBody = body; }).catch(() => undefined);
   }
 });
 
@@ -94,41 +101,56 @@ try {
   await page.getByTestId('next-step').waitFor({ state: 'visible' });
   proof.verdictRendered = true;
 
-  // Open the real paid Sprint intake and create a real Stripe TEST checkout session.
-  await page.getByRole('button', { name: 'Start 30-Day Evidence Sprint checkout', exact: true }).first().click();
-  const checkoutDialog = page.getByRole('dialog');
-  await checkoutDialog.getByRole('heading', { name: /You tested your idea/i }).waitFor({ state: 'visible' });
-  await checkoutDialog.getByText('The PDF shows the full plan. GhostTown shows your next step.', { exact: true }).waitFor({ state: 'visible' });
-  proof.checkoutModal = true;
-  proof.controls.push({ surface: 'verdict', control: 'Start 30-Day Evidence Sprint checkout', result: 'passed' });
-
-  // The required fields should be prefilled from the verdict. Fill defensively if not.
-  const buyer = checkoutDialog.getByLabel('Who do you want to help first?');
-  const problem = checkoutDialog.getByLabel('What problem do they have?');
-  const workaround = checkoutDialog.getByLabel('What do they do now?');
-  if (!(await buyer.inputValue()).trim()) await buyer.fill('Independent local service businesses');
-  if (!(await problem.inputValue()).trim()) await problem.fill('Qualified inquiries are not followed up consistently.');
-  if (!(await workaround.inputValue()).trim()) await workaround.fill('Spreadsheets and inbox reminders.');
-
-  const checkoutResponsePromise = page.waitForResponse(
-    response => response.url() === `${apiUrl}/api/paid-test/checkout` && response.request().method() === 'POST',
+  // Rollout phase 1: the verdict page offers the First 30 email list, not the Sprint.
+  const waitlist = page.getByTestId('first-30-waitlist');
+  await waitlist.waitFor({ state: 'visible', timeout: 20000 });
+  if (await page.getByRole('button', { name: 'Start 30-Day Evidence Sprint checkout', exact: true }).count()) {
+    throw new Error('Verdict page still shows the dormant Sprint checkout.');
+  }
+  proof.sprintCtaHidden = true;
+  const waitlistEmail = `first30-acceptance-${Date.now()}@example.test`;
+  await waitlist.getByLabel('Email address').fill(waitlistEmail);
+  await waitlist.getByRole('checkbox').check();
+  const joinResponsePromise = page.waitForResponse(
+    response => response.url() === `${apiUrl}/api/first30/waitlist` && response.request().method() === 'POST',
     { timeout: 30000 },
   );
-  await checkoutDialog.getByRole('button', { name: /Start My 30-Day Evidence Sprint/i }).click();
-  const checkoutResponse = await checkoutResponsePromise;
-  if (!checkoutResponse.ok()) {
-    const checkoutError = await checkoutResponse.text().catch(() => '');
-    throw new Error(`Sprint checkout creation failed HTTP ${checkoutResponse.status()}: ${checkoutError.slice(0, 500)}`);
+  await waitlist.getByRole('button', { name: 'Join the First 30 list', exact: true }).click();
+  const joinResponse = await joinResponsePromise;
+  if (![200, 201].includes(joinResponse.status())) {
+    throw new Error(`First 30 signup failed HTTP ${joinResponse.status()}: ${(await joinResponse.text().catch(() => '')).slice(0, 300)}`);
+  }
+  await page.getByTestId('first-30-joined').waitFor({ state: 'visible', timeout: 10000 });
+  proof.first30Waitlist = true;
+  proof.controls.push({ surface: 'verdict', control: 'Join the First 30 list', result: 'passed' });
+
+  // The Sprint stays dormant, not deleted: acceptance keeps proving that its
+  // checkout still creates a Stripe TEST session for this owner's verdict.
+  for (let attempt = 0; attempt < 20 && !verdictBody?.resultId; attempt += 1) await page.waitForTimeout(250);
+  if (!verdictBody?.resultId) throw new Error('Free verdict response was not captured.');
+  const authHeaders = { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' };
+  const claimResponse = await fetch(`${apiUrl}/api/results`, { method: 'POST', headers: authHeaders, body: JSON.stringify({ result: verdictBody }) });
+  if (!claimResponse.ok) throw new Error(`Saving the verdict before Sprint checkout failed HTTP ${claimResponse.status}`);
+  const checkoutResponse = await fetch(`${apiUrl}/api/paid-test/checkout`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      verdictId: verdictBody.resultId,
+      targetBuyer: 'Independent local service businesses',
+      problem: 'Qualified inquiries are not followed up consistently.',
+      currentWorkaround: 'Spreadsheets and inbox reminders.',
+    }),
+  });
+  const checkoutBody = await checkoutResponse.json().catch(() => ({}));
+  if (!checkoutResponse.ok || !checkoutBody?.sessionUrl) {
+    throw new Error(`Dormant Sprint checkout creation failed HTTP ${checkoutResponse.status}: ${JSON.stringify(checkoutBody).slice(0, 500)}`);
+  }
+  const stripeUrl = String(checkoutBody.sessionUrl);
+  if (!/^https:\/\/checkout\.stripe\.com\//.test(stripeUrl) || !/cs_test_/i.test(stripeUrl)) {
+    throw new Error(`Checkout did not return a Stripe test session: ${stripeUrl}`);
   }
 
-  await page.waitForURL(url => url.hostname === 'checkout.stripe.com', { timeout: 30000 });
-  const stripeUrl = page.url();
-  if (!/checkout\.stripe\.com/.test(stripeUrl) || !/cs_test_/i.test(stripeUrl)) {
-    throw new Error(`Checkout did not reach a Stripe test session: ${stripeUrl}`);
-  }
-
-  // Navigation to Stripe can discard Chrome's buffered fetch body. Prove the
-  // checkout side effect independently from the authenticated order projection.
+  // Prove the checkout side effect independently from the authenticated order projection.
   const ordersResponse = await fetch(`${apiUrl}/api/paid-test/orders`, {
     headers: { Authorization: `Bearer ${authToken}` },
   });
@@ -142,7 +164,7 @@ try {
   await appendFile(envFile, `GHOSTTOWN_E2E_CHECKOUT_ORDER_ID=${checkoutOrder.orderId}\n`);
   proof.checkoutOrderId = checkoutOrder.orderId;
   proof.stripeTestCheckout = true;
-  proof.controls.push({ surface: 'sprint-checkout', control: 'Start My 30-Day Evidence Sprint', result: 'passed_test_mode' });
+  proof.controls.push({ surface: 'sprint-checkout-api', control: 'POST /api/paid-test/checkout (dormant Sprint)', result: 'passed_test_mode' });
 
   if (pageErrors.length || serverErrors.length) {
     throw new Error(`Front-door browser errors: page=${JSON.stringify(pageErrors)} server=${JSON.stringify(serverErrors)}`);
@@ -161,4 +183,4 @@ try {
   await browser.close();
 }
 
-console.log('[ghosttown-front-door-e2e] PASS: login, free verdict, complete questionnaire and Stripe test checkout handoff.');
+console.log('[ghosttown-front-door-e2e] PASS: login, free verdict, complete questionnaire, First 30 signup and dormant Sprint Stripe test checkout.');

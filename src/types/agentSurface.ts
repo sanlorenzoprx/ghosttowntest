@@ -41,7 +41,8 @@ export interface AgentPublicVerdictProjection {
 export interface AgentOfferProjection {
   offer_id: string;
   name: string;
-  price_usd: number;
+  status: 'available' | 'opens_soon';
+  price_usd: number | null;
   currency: string;
   url: string;
   requires_user_action: true;

@@ -39,7 +39,7 @@ function normalizeEmail(value: string): string { return value.trim().toLowerCase
 function configuredOwners(env: Env): Set<string> {
   return new Set((env.INTERNAL_RESEARCH_OWNER_EMAILS || '').split(',').map(normalizeEmail).filter(Boolean));
 }
-async function requireOwner(request: Request, env: Env): Promise<{ email: string } | Response> {
+export async function requireOwner(request: Request, env: Env): Promise<{ email: string } | Response> {
   const auth = await authenticateRequest(request, env).catch(() => null);
   if (!auth) return json({ error: 'Authentication required' }, 401);
   const owners = configuredOwners(env);

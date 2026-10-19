@@ -6,6 +6,7 @@ import { handleStripeWebhook } from './webhook';
 import { handleReferralClaim, handleReferralCreate } from './referral';
 import { handleShareReward } from './shareReward';
 import verdictHandler from './verdict';
+import { handleFirst30WaitlistExport, handleFirst30WaitlistJoin } from './first30Waitlist';
 import { handlePaidTestOrders, handlePaidTestPdf, handlePaidTestPlan, handlePaidTestPlanPdf, handlePaidTestReport } from './paidTest';
 import { handlePaidTestCheckout } from './paidTestCheckout';
 import {
@@ -141,6 +142,16 @@ export default {
 
       if ((path === '/api/verdict' || path === '/api/lit-verdict') && method === 'POST') {
         const response = await verdictHandler(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/first30/waitlist' && method === 'POST') {
+        const response = await handleFirst30WaitlistJoin(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/internal/first30-waitlist' && method === 'GET') {
+        const response = await handleFirst30WaitlistExport(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
