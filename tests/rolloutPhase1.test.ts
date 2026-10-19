@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Env } from '../src/api/env';
 import { handlePaidTestCheckout } from '../src/api/paidTestCheckout';
+import { currentAgentOffer } from '../src/api/agentVerdict';
 import { sprintCheckoutEnabled } from '../src/api/runtimeControls';
 import {
   addModelUsage,
@@ -67,6 +68,19 @@ describe('rollout phase 1: free verdict with First 30 email list', () => {
 
   it('routes the agent verdict around the web limiter because it has its own', () => {
     expect(read('src/api/agentVerdict.ts')).toContain('verdictHandler(canonicalRequest, env, { callerRateLimited: true })');
+  });
+
+  it('keeps agent-facing files in step with the offer the API returns', () => {
+    for (const file of ['public/llms.txt', 'public/llms-full.txt', 'public/agent/capabilities.md', 'public/agent/evidence.md', 'public/agent/examples.md', 'public/agent/privacy.md', 'public/distribution-channels.json']) {
+      const text = read(file);
+      expect(text, file).not.toContain('$97');
+      expect(text, file).not.toContain('Evidence Sprint');
+    }
+    const offer = currentAgentOffer({ FRONTEND_URL: 'https://ghosttowntest.com' } as Env);
+    const schema = JSON.parse(read('public/openapi.json')).components.schemas.Offer;
+    expect([...schema.required].sort()).toEqual(Object.keys(offer).sort());
+    expect(schema.properties.status.enum).toContain(offer.status);
+    expect(schema.properties.price_usd.type).toContain('null');
   });
 
   it('estimates verdict cost from tokens and searches', () => {

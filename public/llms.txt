@@ -21,8 +21,10 @@ The free verdict adapter returns `needs_input` until the same canonical idea fie
 
 Agent-created verdict handoffs are private-by-capability URLs with an expiration. A result ID is not an authorization token.
 
-## Paid offer
+## After the free verdict
 
-GhostTown 30-Day Evidence Sprint — $97 USD one time.
+First 30 is planned at $297 USD, paid once. It is not on sale yet: it opens soon. It is thirty days of guided help to test the idea with real customers, a customer-acquisition website on a free web address, and outreach materials. People can join the First 30 email list from their verdict page.
 
-The paid Sprint requires explicit human account and checkout action. Agents cannot autonomously purchase it.
+Until First 30 is on sale, the `offer` returned by the API and by `ghosttown.get_offer` has `status: "opens_soon"` and `price_usd: null`.
+
+Buying anything or joining the email list requires explicit human action. Agents cannot buy, check out, or sign anyone up.
