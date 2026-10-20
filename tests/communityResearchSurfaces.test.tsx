@@ -122,6 +122,14 @@ describe('customer problems reach the founder', () => {
     expect(html).toContain('do not show that anyone will buy');
   });
 
+  it('shows the card in Spanish', () => {
+    const html = renderToStaticMarkup(<CommunityResearchCards blueprint={blueprintWithResearch()} onCopy={() => {}} locale="es" />);
+    for (const label of ['Con qué batalla la gente', 'Qué preguntar ahora', 'Lo que preparamos', 'Guía de entrevistas', 'Qué cambiaría el plan', 'Vacíos de investigación', 'Sin promoción', 'Copiar']) {
+      expect(html, label).toContain(label);
+    }
+    expect(html).not.toContain('What to ask next');
+  });
+
   it('renders nothing for a Blueprint made before community research', () => {
     const blueprint = upgradeGhostTownLaunchBlueprintToV21(launchBlueprintFixture(), order, verdict);
     expect(renderToStaticMarkup(<CommunityResearchCards blueprint={blueprint} onCopy={() => {}} />)).toBe('');

@@ -23,7 +23,7 @@ Agent-created verdict handoffs are private-by-capability URLs with an expiration
 
 ## After the free verdict
 
-First 30 is planned at $297 USD, paid once. It is not on sale yet: it opens soon. It is thirty days of guided help to test the idea with real customers, a customer-acquisition website on a free web address, and outreach materials. GhostTown finds places where likely customers are already talking, researches the problems they describe, and uses what they say to shape the website, messages and content. People can join the First 30 email list from their verdict page.
+First 30 is planned at $297 USD, paid once. It is not on sale yet: it opens soon. It is thirty days of guided help to test the idea with real customers, a customer-acquisition website on a free web address, and outreach materials. GhostTown finds places where likely customers are already talking, researches the problems they describe, and uses what they say to shape the website, messages and content, so the founder starts from the words customers already use instead of guessing. People can join the First 30 email list from their verdict page.
 
 Until First 30 is on sale, the `offer` returned by the API and by `ghosttown.get_offer` has `status: "opens_soon"` and `price_usd: null`.
 

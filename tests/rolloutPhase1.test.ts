@@ -36,6 +36,9 @@ describe('rollout phase 1: free verdict with First 30 email list', () => {
     const landing = read('src/components/LandingCommercial.tsx');
     expect(landing).toContain('GhostTown finds places where your likely customers are already talking, researches the problems they describe, and uses what they say to shape your website and the messages and content you test during those 30 days.');
     expect(landing).toContain('GhostTown encuentra lugares donde tus posibles clientes ya conversan, investiga los problemas que describen y usa lo que dicen para dar forma a tu sitio web y a los mensajes y contenido que pruebas durante esos 30 días.');
+    // Why it matters, in the customer's terms.
+    expect(landing).toContain('That way you are not guessing what to say or where to say it: your website and first messages use the words your customers already use, in the places where they already talk.');
+    expect(landing).toContain('Así no adivinas qué decir ni dónde decirlo: tu sitio web y tus primeros mensajes usan las palabras que tus clientes ya usan, en los lugares donde ya conversan.');
     // The primary offer leads; research shapes the website and the materials.
     const { promise, es } = GHOSTTOWN_FIRST_30_WAITLIST_V1;
     expect(promise).toHaveLength(es.promise.length);
