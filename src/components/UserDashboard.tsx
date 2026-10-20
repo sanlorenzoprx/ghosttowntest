@@ -5,6 +5,8 @@ import type { EvaluationResult } from "../types/lit";
 import LaunchBlueprintRouter from "./LaunchBlueprintRouter";
 import CompetitorSeedStep from "./CompetitorSeedStep";
 import GetMeLiveUpsell from "./GetMeLiveUpsell";
+import First30WebsiteIncluded from "./First30WebsiteIncluded";
+import { isFirst30OrderId } from "../lib/first30Order";
 import StrategicUncertaintySprintPanel from "./StrategicUncertaintySprintPanel";
 import type { Locale } from "../lib/locale";
 
@@ -788,7 +790,7 @@ export default function UserDashboard({
                       )}
                     </div>
                   </div>
-                  {isBlueprint && plan.status === "ready" && <div className="mt-4"><GetMeLiveUpsell sourceSprintOrderId={plan.orderId} compact /></div>}
+                  {isBlueprint && plan.status === "ready" && <div className="mt-4">{isFirst30OrderId(plan.orderId) ? <First30WebsiteIncluded locale={locale} /> : <GetMeLiveUpsell sourceSprintOrderId={plan.orderId} compact />}</div>}
                 </article>
               );
             })}

@@ -53,6 +53,10 @@ export function sprintCheckoutEnabled(env: Env): boolean {
   return env.SPRINT_CHECKOUT_ENABLED?.trim().toLowerCase() === 'true';
 }
 
+export function first30CheckoutEnabled(env: Env): boolean {
+  return env.FIRST30_CHECKOUT_ENABLED?.trim().toLowerCase() === 'true';
+}
+
 export interface DailyCounterResult {
   before: number;
   after: number;
@@ -101,10 +105,14 @@ function requiredProductionBindings(request: Request): ProductionBindingName[] {
   // The $97 paid checkout must fail before a Stripe session can be created if
   // the production fulfillment plane is unavailable. This prevents a customer
   // charge from outrunning the DB/R2/Workflow capabilities needed to fulfill it.
-  if (request.method === 'POST' && path === '/api/paid-test/checkout') {
+  if (request.method === 'POST' && (path === '/api/paid-test/checkout' || path === '/api/first30/checkout')) {
     required.add('DB');
     required.add('BLUEPRINTS');
     required.add('LAUNCH_BLUEPRINT_WORKFLOW');
+  }
+
+  if (request.method === 'POST' && path === '/api/internal/first30/refund') {
+    required.add('DB');
   }
 
   if (/^\/api\/paid-test\/orders\/[^/]+\/blueprint(?:\/|$)/.test(path)) {

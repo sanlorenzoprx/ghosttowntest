@@ -26,6 +26,7 @@ DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
 FRONTEND_URL = "https://ghosttownverdict.app"
 # Rollout phase 1: the free verdict is live and the $97 Sprint stays dormant.
 SPRINT_CHECKOUT_ENABLED = "false"
+FIRST30_CHECKOUT_ENABLED = "false"
 VERDICT_IP_HOURLY_LIMIT = "10"
 VERDICT_ACCOUNT_HOURLY_LIMIT = "10"
 VERDICT_DAILY_COST_ALARM_USD = "5"
@@ -101,6 +102,7 @@ VERTEX_BLUEPRINT_MODEL = "gemini-3.5-flash"
 FRONTEND_URL = "https://main.ghosttown-acceptance.pages.dev"
 # Acceptance keeps proving the dormant Sprint checkout and fulfillment.
 SPRINT_CHECKOUT_ENABLED = "true"
+FIRST30_CHECKOUT_ENABLED = "true"
 
 [[env.acceptance.kv_namespaces]]
 binding = "KV"
@@ -145,9 +147,11 @@ DISTRIBUTION_FOOTPRINT_BATCH_SIZE = "3"
 INTERNAL_RESEARCH_OWNER_EMAILS = "owner@example.com"
 FRONTEND_URL = "http://127.0.0.1:5300"
 SPRINT_CHECKOUT_ENABLED = "true"
+FIRST30_CHECKOUT_ENABLED = "true"
 STRIPE_PRICE_ID = "price_..."
 STRIPE_PAID_TEST_PRICE_ID = "price_..."
 STRIPE_30_DAY_PLAN_PRICE_ID = "price_..."
+STRIPE_FIRST_30_PRICE_ID = "price_..."
 
 [[env.development.kv_namespaces]]
 binding = "KV"

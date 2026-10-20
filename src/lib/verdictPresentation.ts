@@ -4,6 +4,7 @@ import type { VerdictDecision, VerdictDecisionV2 } from '../verdict/verdictDecis
 import { intakeSpecificity, missingIntakeFields } from '../verdict/verdictDecisionV2';
 import type { VerdictDecisionV3 } from '../verdict/verdictDecisionV3';
 import type { Locale } from './locale';
+import { GHOSTTOWN_FIRST_30_V1 } from './ghosttownOffer';
 
 // Everything the free verdict page says, in plain words, in English and
 // Spanish. The stored decision stays the canonical record that the paid
@@ -56,7 +57,7 @@ const COPY = {
       detailed: 'Detailed analysis', detailedSub: 'Scores and notes on your type of business', detailedIntro: 'These scores help explain the decision. They do not predict whether the business will succeed.',
       businessType: 'Business type', trap: 'The trap', win: 'How to win', video: 'Your public short', videoPreparing: 'Shorts Factory is preparing the video.',
       videoReady: 'Your report is ready now. This panel updates on its own.', videoPublic: 'Public content. It may be reused and shared after a media check.',
-      videoUnsupported: 'Your browser cannot play this video.', testAnother: 'Test another idea', stickyFirst30: 'First 30 opens soon: join the list'
+      videoUnsupported: 'Your browser cannot play this video.', testAnother: 'Test another idea', stickyFirst30: 'First 30 opens soon: join the list', stickyFirst30Buy: `Start First 30 — ${GHOSTTOWN_FIRST_30_V1.displayPrice}`
     },
     decisions: {
       WORTH_TESTING: 'Worth testing', REVISE_BEFORE_TESTING: 'Fix one thing, then test', WEAK_EVIDENCE: 'Weak signs so far',
@@ -163,7 +164,7 @@ const COPY = {
       detailed: 'Análisis detallado', detailedSub: 'Puntuaciones y notas sobre tu tipo de negocio', detailedIntro: 'Estas puntuaciones ayudan a explicar la decisión. No predicen si el negocio tendrá éxito.',
       businessType: 'Tipo de negocio', trap: 'La trampa', win: 'Cómo ganar', video: 'Tu video corto público', videoPreparing: 'Shorts Factory está preparando el video.',
       videoReady: 'Tu informe ya está listo. Este panel se actualiza solo.', videoPublic: 'Contenido público. Puede reutilizarse y compartirse después de una revisión.',
-      videoUnsupported: 'Tu navegador no puede reproducir este video.', testAnother: 'Probar otra idea', stickyFirst30: 'First 30 abre pronto: únete a la lista'
+      videoUnsupported: 'Tu navegador no puede reproducir este video.', testAnother: 'Probar otra idea', stickyFirst30: 'First 30 abre pronto: únete a la lista', stickyFirst30Buy: `Empezar First 30 — ${GHOSTTOWN_FIRST_30_V1.displayPrice}`
     },
     decisions: {
       WORTH_TESTING: 'Vale la pena probarla', REVISE_BEFORE_TESTING: 'Ajusta una cosa y luego prueba', WEAK_EVIDENCE: 'Pocas señales por ahora',

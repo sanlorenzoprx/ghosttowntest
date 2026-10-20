@@ -24,6 +24,11 @@ describe('rollout phase 1: free verdict with First 30 email list', () => {
     expect(resolvePostVerdictOffer(' Sprint ')).toBe('sprint');
   });
 
+  it('can switch the post-verdict offer to buying First 30', () => {
+    expect(resolvePostVerdictOffer('first30')).toBe('first30');
+    expect(resolvePostVerdictOffer(' FIRST30 ')).toBe('first30');
+  });
+
   it('keeps First 30 copy honest about not being on sale', () => {
     expect(GHOSTTOWN_FIRST_30_WAITLIST_V1.headline).toBe('First 30 opens soon');
     expect(GHOSTTOWN_FIRST_30_WAITLIST_V1.truthBoundary).toMatch(/not on sale yet/);
@@ -69,6 +74,8 @@ describe('rollout phase 1: free verdict with First 30 email list', () => {
     const production = wrangler.slice(wrangler.indexOf('[env.production.vars]'), wrangler.indexOf('[[env.production.kv_namespaces]]'));
     const acceptance = wrangler.slice(wrangler.indexOf('[env.acceptance.vars]'), wrangler.indexOf('[[env.acceptance.kv_namespaces]]'));
     expect(production).toContain('SPRINT_CHECKOUT_ENABLED = "false"');
+    // First 30 sales stay closed in production until the founder turns them on.
+    expect(production).toContain('FIRST30_CHECKOUT_ENABLED = "false"');
     expect(production).toContain('VERDICT_IP_HOURLY_LIMIT');
     expect(production).toContain('VERDICT_DAILY_COST_ALARM_USD');
     expect(acceptance).toContain('SPRINT_CHECKOUT_ENABLED = "true"');

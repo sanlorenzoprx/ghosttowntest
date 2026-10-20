@@ -38,10 +38,13 @@ export const LEGACY_7_DAY_PLAN_LABEL = '7-Day Validation Plan';
 // Phase 1 of the rollout replaces the post-verdict Sprint offer with a First 30
 // email list. The Sprint offer, checkout, and fulfillment stay in the codebase,
 // dormant, and return only when a deployment opts back in with "sprint".
-export type PostVerdictOffer = 'first30_waitlist' | 'sprint';
+export type PostVerdictOffer = 'first30_waitlist' | 'first30' | 'sprint';
 
 export function resolvePostVerdictOffer(value: string | undefined | null): PostVerdictOffer {
-  return value?.trim().toLowerCase() === 'sprint' ? 'sprint' : 'first30_waitlist';
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === 'sprint') return 'sprint';
+  if (normalized === 'first30') return 'first30';
+  return 'first30_waitlist';
 }
 
 export const GHOSTTOWN_FIRST_30_WAITLIST_V1 = {
@@ -78,9 +81,14 @@ export const GHOSTTOWN_FIRST_30_WAITLIST_V1 = {
 // offer copy read prices and refund rules from here so they cannot drift apart.
 export const GHOSTTOWN_FIRST_30_V1 = {
   offerId: 'ghosttown_first_30_v1',
+  version: '1.0',
   name: 'First 30',
+  // Static default. The Worker reports 'on_sale' only when FIRST30_CHECKOUT_ENABLED is "true".
   status: 'opens_soon',
   priceUsd: 297,
+  amountCents: 29700,
+  currency: 'usd',
+  stripePriceEnv: 'STRIPE_FIRST_30_PRICE_ID',
   displayPrice: '$297',
   durationDays: 30,
   includes: [
@@ -93,7 +101,11 @@ export const GHOSTTOWN_FIRST_30_V1 = {
     'Un sitio web para conseguir clientes, con la marca de tu negocio, en una dirección web gratis',
     'Los materiales para llegar a tus primeros clientes, como una oferta, mensajes de contacto, una guía de entrevistas y un registro de evidencia'
   ],
-  refundRule: 'Full refund until your website build starts; no refund after it starts.'
+  refundRule: 'Full refund until your website build starts; no refund after it starts.',
+  refundRuleEs: 'Reembolso completo hasta que empiece la construcción de tu sitio web; sin reembolso después.',
+  // The website build starts the first time the founder asks GhostTown to build their website preview.
+  buildStartsWhen: 'the first time you ask GhostTown to build your website preview',
+  buildStartsWhenEs: 'la primera vez que le pides a GhostTown que construya la vista previa de tu sitio web'
 } as const;
 
 export const GHOSTTOWN_YEAR_SQUARED_V1 = {

@@ -3,7 +3,7 @@ import type { EvaluationResult } from '../types/lit';
 import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
 import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
 import type { PaidTestOrder } from '../types/paidTest';
-import { GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
+import { GHOSTTOWN_30_DAY_PLAN_V1, GHOSTTOWN_FIRST_30_V1 } from '../lib/ghosttownOffer';
 import type { CustomerAccessResearchResult } from './customerAccessResearch';
 import { createGhostTownLaunchBlueprint } from './launchBlueprintGenerator';
 import { renderLaunchBlueprintPdf } from './blueprintPdf';
@@ -77,6 +77,16 @@ async function savedVerdict(env: Env, verdictId: string, email: string): Promise
   return raw ? hydrateEvaluationResultDecisionV2(JSON.parse(raw) as EvaluationResult) : null;
 }
 
+/** First 30 runs the same Blueprint fulfillment and also includes the website. */
+export function isFirst30Checkout(session: Record<string, unknown>): boolean {
+  const metadata = metadataOf(session);
+  return metadata.offer_id === GHOSTTOWN_FIRST_30_V1.offerId && metadata.fulfillment_type === 'first30_v1';
+}
+
+function planOfferFor(order: PaidTestOrder) {
+  return order.offerId === GHOSTTOWN_FIRST_30_V1.offerId ? GHOSTTOWN_FIRST_30_V1 : GHOSTTOWN_30_DAY_PLAN_V1;
+}
+
 export function isLaunchBlueprintCheckout(session: Record<string, unknown>): boolean {
   const metadata = metadataOf(session);
   return metadata.offer_id === GHOSTTOWN_30_DAY_PLAN_V1.offerId
@@ -94,7 +104,7 @@ async function saveOrderSummary(env: Env, order: PaidTestOrder, ideaName: string
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     artifactType: order.artifactType,
-    offerName: 'GhostTown Launch Blueprint',
+    offerName: order.offerId === GHOSTTOWN_FIRST_30_V1.offerId ? GHOSTTOWN_FIRST_30_V1.name : 'GhostTown Launch Blueprint',
     sourceVerdictId: order.verdictId,
     planVersion: order.planVersion,
     fulfillmentWorkflowId: order.fulfillmentWorkflowId
@@ -125,10 +135,12 @@ function verifySession(order: PaidTestOrder, session: Record<string, unknown>): 
   const metadata = metadataOf(session);
   assertMetadata(metadata, 'paid_test_order_id', order.orderId);
   assertMetadata(metadata, 'owner_id', order.email);
-  assertMetadata(metadata, 'offer_id', GHOSTTOWN_30_DAY_PLAN_V1.offerId);
-  assertMetadata(metadata, 'offer_version', GHOSTTOWN_30_DAY_PLAN_V1.version);
-  assertMetadata(metadata, 'offer_amount_cents', String(GHOSTTOWN_30_DAY_PLAN_V1.amountCents));
-  assertMetadata(metadata, 'offer_currency', GHOSTTOWN_30_DAY_PLAN_V1.currency);
+  // The expected offer comes from the stored order, never from the event.
+  const offer = planOfferFor(order);
+  assertMetadata(metadata, 'offer_id', offer.offerId);
+  assertMetadata(metadata, 'offer_version', offer.version);
+  assertMetadata(metadata, 'offer_amount_cents', String(offer.amountCents));
+  assertMetadata(metadata, 'offer_currency', offer.currency);
   if (order.stripePriceId) assertMetadata(metadata, 'stripe_price_id', order.stripePriceId);
   const sessionMode = typeof session.livemode === 'boolean' && session.livemode ? 'live' : 'test';
   if (order.stripeMode && sessionMode !== order.stripeMode) throw new Error('Stripe mode mismatch');
@@ -148,6 +160,8 @@ export async function markLaunchBlueprintAwaitingSeeds(
   verifySession(order, session);
 
   if (order.status === 'ready' && order.artifactType === 'launch_blueprint_v2') return order;
+  // A replayed payment event must never move an order that is already being fulfilled or was refunded.
+  if (['researching', 'generating', 'uncertainty', 'refunded'].includes(order.status)) return order;
   const verdict = await savedVerdict(env, order.verdictId, order.email);
   if (!verdict) throw new Error('Source verdict not found');
 

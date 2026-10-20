@@ -1,5 +1,5 @@
 import type { EvaluationResult } from './lit';
-import type { GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
+import type { GHOSTTOWN_30_DAY_PLAN_V1, GHOSTTOWN_FIRST_30_V1 } from '../lib/ghosttownOffer';
 import type { PrePurchaseResearchSignals } from './researchSignals';
 import type { CommercialAttributionEnvelope } from './commercialAttribution';
 
@@ -7,7 +7,7 @@ export type TruthLabel = 'Verified' | 'Inferred' | 'Test';
 export type PaidTestOrderStatus = 'pending' | 'checkout_created' | 'paid' | 'awaiting_seeds' | 'researching' | 'generating' | 'uncertainty' | 'ready' | 'failed' | 'refunded';
 export type StripeMode = 'test' | 'live';
 export type PaidArtifactType = 'legacy_report_v1' | 'execution_plan_30day_v1' | 'launch_blueprint_v2';
-export type PaidPlanOfferId = typeof GHOSTTOWN_30_DAY_PLAN_V1.offerId;
+export type PaidPlanOfferId = typeof GHOSTTOWN_30_DAY_PLAN_V1.offerId | typeof GHOSTTOWN_FIRST_30_V1.offerId;
 export type CompetitorSeedRelationship = 'direct_competitor' | 'adjacent_product' | 'current_alternative';
 export type CompetitorSeedOrigin = 'customer_confirmed' | 'ghosttown_suggestion' | 'checkout_intake';
 
@@ -153,6 +153,10 @@ export interface PaidTestOrder {
   fulfillmentWorkflowId?: string;
   fulfillmentAttemptCount?: number;
   uncertaintySprint?: StrategicUncertaintySprint;
+  /** First 30: the Get Me Live order that holds the included website. */
+  websiteOrderId?: string;
+  /** First 30: set when the purchase was refunded. */
+  refundedAt?: string;
 }
 
 export interface ReportClaim {

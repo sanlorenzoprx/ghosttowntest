@@ -16,7 +16,8 @@ import { explainVerdict } from '../lib/verdictWhy';
 import { presentVerdict } from '../lib/verdictPresentation';
 import EvidenceScanPanel from './EvidenceScanPanel';
 import First30Waitlist from './First30Waitlist';
-import { SPRINT_OFFER_ACTIVE } from '../lib/postVerdictOffer';
+import { FIRST30_OFFER_ACTIVE, SPRINT_OFFER_ACTIVE } from '../lib/postVerdictOffer';
+import First30PurchasePanel from './First30PurchasePanel';
 
 interface Props {
   result: EvaluationResult;
@@ -112,7 +113,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       if (!claimResponse.ok) {
         throw new Error('Save this verdict to your account before checkout. Please log in again and retry.');
       }
-      const response = await fetch(apiUrl('/api/paid-test/checkout'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(intake) });
+      const response = await fetch(apiUrl(FIRST30_OFFER_ACTIVE ? '/api/first30/checkout' : '/api/paid-test/checkout'), { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(intake) });
       const data = await response.json<{ sessionUrl?: string; error?: string }>();
       if (!response.ok || !data.sessionUrl) throw new Error(data.error || 'Checkout is not available right now');
       window.location.assign(data.sessionUrl);
@@ -251,7 +252,8 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         locale={locale}
       />
 
-      {!SPRINT_OFFER_ACTIVE && <First30Waitlist source="verdict" verdictId={result.resultId} locale={locale} />}
+      {!SPRINT_OFFER_ACTIVE && !FIRST30_OFFER_ACTIVE && <First30Waitlist source="verdict" verdictId={result.resultId} locale={locale} />}
+      {FIRST30_OFFER_ACTIVE && <First30PurchasePanel locale={locale} loading={paidLoading} error={paidError} onStart={openActionPlanForm} />}
 
       {SPRINT_OFFER_ACTIVE && <section id="thirty-day-plan" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">30-Day Evidence Sprint</p>
@@ -287,7 +289,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           </button>
         ) : (
           <a href="#first-30" className="flex min-h-14 w-full items-center justify-center rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern">
-            {view.labels.stickyFirst30}
+            {FIRST30_OFFER_ACTIVE ? view.labels.stickyFirst30Buy : view.labels.stickyFirst30}
           </a>
         )}
       </div>
@@ -300,11 +302,12 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           error={paidError}
           onClose={() => {
             setShowActionPlanForm(false);
-            setShowDeclinedPlanOffer(true);
+            if (SPRINT_OFFER_ACTIVE) setShowDeclinedPlanOffer(true);
           }}
           onSubmit={intake => void startPaidTest(intake)}
           researchSignals={researchSignals}
           locale={locale}
+          offer={FIRST30_OFFER_ACTIVE ? 'first30' : 'sprint'}
         />
       )}
 
