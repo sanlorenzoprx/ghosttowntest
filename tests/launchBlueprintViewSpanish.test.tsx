@@ -140,9 +140,4 @@ describe('Sprint Blueprint workspace in Spanish', () => {
     expect(describeReminderReference(reminder)).toBe('Day 14 checkpoint review');
     expect(describeReminderReference(reminder, 'es')).toBe('Repaso del día 14');
   });
-
-  it.skipIf(!process.env.DUMP_BLUEPRINT_VIEW)('dumps English markup for comparison', async () => {
-    const { writeFileSync } = await import('node:fs');
-    for (const tab of TABS) writeFileSync(`${process.env.DUMP_BLUEPRINT_VIEW}/${tab}.html`, render(tab));
-  });
 });

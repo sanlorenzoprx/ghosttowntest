@@ -6,6 +6,7 @@ import LaunchBlueprintRouter from "./LaunchBlueprintRouter";
 import CompetitorSeedStep from "./CompetitorSeedStep";
 import GetMeLiveUpsell from "./GetMeLiveUpsell";
 import StrategicUncertaintySprintPanel from "./StrategicUncertaintySprintPanel";
+import type { Locale } from "../lib/locale";
 
 interface ResultSummary {
   resultId: string;
@@ -58,6 +59,229 @@ interface GetMeLiveSummary {
   cloudflareConnected: boolean; createdAt: string; updatedAt: string;
 }
 
+
+type PlanStatus = PaidOrderSummary["status"];
+
+const COPY: Record<Locale, {
+  notLoggedIn: string;
+  loadUserFailed: string;
+  networkError: string;
+  openFailed: string;
+  notReady: string;
+  downloadFailed: string;
+  fileLabel: { blueprint: string; report: string; plan: string };
+  retryFailed: string;
+  loading: string;
+  returnHome: string;
+  title: string;
+  resume: string;
+  logOut: string;
+  heroKicker: string;
+  heroHeading: string;
+  available: (n: number) => string;
+  startAnother: string;
+  account: string;
+  memberSince: (date: string) => string;
+  verdictsAvailable: string;
+  previous: string;
+  noResults: string;
+  opening: string;
+  viewReport: string;
+  purchasedKicker: string;
+  purchasedHeading: string;
+  privateNote: string;
+  noPurchases: string;
+  badgeAction: string;
+  badgeAnswers: string;
+  badgeBuilding: string;
+  status: (status: PlanStatus) => string;
+  blueprintName: string;
+  planName: string;
+  purchased: (date: string) => string;
+  version: (v: string) => string;
+  seedsNote: string;
+  workingNote: string;
+  uncertaintyNote: string;
+  chooseSeeds: string;
+  answerQuestions: string;
+  openBlueprint: string;
+  preparing: string;
+  pdf: string;
+  checking: string;
+  retry: string;
+  checkRetry: string;
+  liveHeading: string;
+  savedNote: string;
+  noLive: string;
+  yourBusiness: string;
+  live: string;
+  inProgress: string;
+  interested: string;
+  pageReady: string;
+  keepChoosing: string;
+  makeChanges: string;
+  keepGoing: string;
+  myBusiness: string;
+  sharePage: string;
+  peopleInterested: string;
+  sales: string;
+  salesValue: string;
+  shareRewards: string;
+  shareLinks: string;
+  credits: string;
+  formatDate: (value: string) => string;
+}> = {
+  en: {
+    notLoggedIn: "Not logged in",
+    loadUserFailed: "Failed to load user data",
+    networkError: "Network error",
+    openFailed: "Assessment could not be opened",
+    notReady: "The purchased artifact is not ready yet",
+    downloadFailed: "Download failed",
+    fileLabel: { blueprint: "Blueprint", report: "Report", plan: "Plan" },
+    retryFailed: "Blueprint retry failed",
+    loading: "Loading dashboard...",
+    returnHome: "Return to home",
+    title: "Your Dashboard",
+    resume: "Resume Saved Verdict",
+    logOut: "Log Out",
+    heroKicker: "Test before you build",
+    heroHeading: "Ready to test another idea?",
+    available: n => `${n} verdict${n === 1 ? "" : "s"} available.`,
+    startAnother: "Start Another Verdict",
+    account: "Account",
+    memberSince: date => `Member since ${date}`,
+    verdictsAvailable: "Verdicts Available",
+    previous: "Previous Assessments",
+    noResults: "Your completed assessments will appear here.",
+    opening: "Opening…",
+    viewReport: "View Report",
+    purchasedKicker: "Purchased products",
+    purchasedHeading: "Launch Blueprints and Media Networks",
+    privateNote: "Private and saved to this account",
+    noPurchases: "Purchased products will appear here.",
+    badgeAction: "Action required",
+    badgeAnswers: "Needs answers",
+    badgeBuilding: "Building",
+    status: status => status,
+    blueprintName: "GhostTown Launch Blueprint",
+    planName: "30-Day Implementation Plan",
+    purchased: date => `Purchased ${date}`,
+    version: v => ` · Version ${v}`,
+    seedsNote: "Confirm 2–3 competitor or adjacent-product seeds to start the Media & Distribution Network.",
+    workingNote: "GhostTown is mapping podcasts, creators, publications, events, reviewers, associations, and partners.",
+    uncertaintyNote: "GhostTown stopped before building 30 days because the business chain needs a few concrete answers first.",
+    chooseSeeds: "Choose research seeds",
+    answerQuestions: "Answer questions",
+    openBlueprint: "Open Blueprint",
+    preparing: "Preparing…",
+    pdf: "PDF",
+    checking: "Checking…",
+    retry: "Retry Blueprint",
+    checkRetry: "Check / Retry Blueprint",
+    liveHeading: "Your live businesses",
+    savedNote: "Saved to your account",
+    noLive: "Your customer page and activity will appear here after you start Get Me Live.",
+    yourBusiness: "Your business",
+    live: "Live",
+    inProgress: "In progress",
+    interested: "Someone is interested",
+    pageReady: "Your page is ready for customers",
+    keepChoosing: "Keep making your choices",
+    makeChanges: "Make Changes",
+    keepGoing: "Keep Going",
+    myBusiness: "My business",
+    sharePage: "Share Page",
+    peopleInterested: "People interested",
+    sales: "Sales",
+    salesValue: "Sales value",
+    shareRewards: "Share Rewards",
+    shareLinks: "Share Links",
+    credits: "Credits",
+    formatDate: value => new Date(value).toLocaleDateString(),
+  },
+  es: {
+    notLoggedIn: "No has iniciado sesión",
+    loadUserFailed: "No pudimos cargar tu cuenta",
+    networkError: "Problema de conexión",
+    openFailed: "No pudimos abrir esta evaluación",
+    notReady: "Lo que compraste todavía no está listo",
+    downloadFailed: "No se pudo descargar",
+    fileLabel: { blueprint: "Blueprint", report: "Informe", plan: "Plan" },
+    retryFailed: "No pudimos volver a intentar el Blueprint",
+    loading: "Cargando tu panel...",
+    returnHome: "Volver al inicio",
+    title: "Tu panel",
+    resume: "Seguir con tu veredicto guardado",
+    logOut: "Cerrar sesión",
+    heroKicker: "Prueba antes de construir",
+    heroHeading: "¿Listo para probar otra idea?",
+    available: n => n === 1 ? "Tienes 1 veredicto disponible." : `Tienes ${n} veredictos disponibles.`,
+    startAnother: "Empezar otro veredicto",
+    account: "Cuenta",
+    memberSince: date => `Miembro desde ${date}`,
+    verdictsAvailable: "Veredictos disponibles",
+    previous: "Evaluaciones anteriores",
+    noResults: "Tus evaluaciones terminadas van a salir aquí.",
+    opening: "Abriendo…",
+    viewReport: "Ver informe",
+    purchasedKicker: "Lo que compraste",
+    purchasedHeading: "Launch Blueprints y redes de medios",
+    privateNote: "Privado y guardado en esta cuenta",
+    noPurchases: "Lo que compres va a salir aquí.",
+    badgeAction: "Te toca a ti",
+    badgeAnswers: "Faltan respuestas",
+    badgeBuilding: "Preparándose",
+    status: status => ({
+      pending: "pendiente",
+      checkout_created: "pago pendiente",
+      paid: "pagado",
+      awaiting_seeds: "te toca a ti",
+      researching: "investigando",
+      generating: "preparándose",
+      uncertainty: "faltan respuestas",
+      ready: "listo",
+      failed: "falló",
+      refunded: "reembolsado",
+    } satisfies Record<PlanStatus, string>)[status] ?? status,
+    blueprintName: "GhostTown Launch Blueprint",
+    planName: "Plan de 30 días",
+    purchased: date => `Comprado el ${date}`,
+    version: v => ` · Versión ${v}`,
+    seedsNote: "Confirma 2 o 3 competidores o productos parecidos para empezar tu red de medios y distribución.",
+    workingNote: "GhostTown está buscando podcasts, creadores, publicaciones, eventos, reseñadores, asociaciones y aliados.",
+    uncertaintyNote: "GhostTown se detuvo antes de armar los 30 días porque necesita unas respuestas concretas sobre tu negocio primero.",
+    chooseSeeds: "Escoger competidores para investigar",
+    answerQuestions: "Contestar preguntas",
+    openBlueprint: "Abrir el Blueprint",
+    preparing: "Preparando…",
+    pdf: "PDF",
+    checking: "Revisando…",
+    retry: "Intentar el Blueprint otra vez",
+    checkRetry: "Revisar / intentar el Blueprint otra vez",
+    liveHeading: "Tus negocios en vivo",
+    savedNote: "Guardado en tu cuenta",
+    noLive: "Tu página para clientes y su actividad van a salir aquí cuando empieces Get Me Live.",
+    yourBusiness: "Tu negocio",
+    live: "En vivo",
+    inProgress: "En proceso",
+    interested: "Alguien está interesado",
+    pageReady: "Tu página está lista para clientes",
+    keepChoosing: "Sigue tomando tus decisiones",
+    makeChanges: "Hacer cambios",
+    keepGoing: "Seguir",
+    myBusiness: "Mi negocio",
+    sharePage: "Compartir página",
+    peopleInterested: "Personas interesadas",
+    sales: "Ventas",
+    salesValue: "Valor de ventas",
+    shareRewards: "Premios por compartir",
+    shareLinks: "Enlaces compartidos",
+    credits: "Créditos",
+    formatDate: value => new Date(value).toLocaleDateString("es-PR"),
+  },
+};
+
 interface Props {
   purchaseRefresh?: boolean;
   hasDraft: boolean;
@@ -65,6 +289,7 @@ interface Props {
   onResume: () => void;
   onStart: () => void;
   onOpenResult: (result: EvaluationResult) => void;
+  locale?: Locale;
 }
 
 export default function UserDashboard({
@@ -74,7 +299,9 @@ export default function UserDashboard({
   onResume,
   onStart,
   onOpenResult,
+  locale = "en",
 }: Props) {
+  const copy = COPY[locale];
   const [user, setUser] = useState<PublicUserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -122,7 +349,7 @@ export default function UserDashboard({
   useEffect(() => {
     const token = localStorage.getItem("lit_user_token_v1");
     if (!token) {
-      setError("Not logged in");
+      setError(copy.notLoggedIn);
       setLoading(false);
       return;
     }
@@ -132,9 +359,9 @@ export default function UserDashboard({
     })
       .then((response) => response.json<{ user?: PublicUserData }>())
       .then((data) =>
-        data.user ? setUser(data.user) : setError("Failed to load user data"),
+        data.user ? setUser(data.user) : setError(copy.loadUserFailed),
       )
-      .catch(() => setError("Network error"))
+      .catch(() => setError(copy.networkError))
       .finally(() => setLoading(false));
     fetch(apiUrl("/api/results"), { headers: authHeaders() })
       .then((response) =>
@@ -181,13 +408,13 @@ export default function UserDashboard({
         error?: string;
       }>();
       if (!response.ok || !data.result)
-        throw new Error(data.error || "Assessment could not be opened");
+        throw new Error(data.error || copy.openFailed);
       onOpenResult(data.result);
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Assessment could not be opened",
+          : copy.openFailed,
       );
     } finally {
       setOpeningResultId("");
@@ -220,18 +447,18 @@ export default function UserDashboard({
           : `/api/paid-test/orders/${encodeURIComponent(plan.orderId)}/${base}.pdf`;
       const response = await fetch(apiUrl(path), { headers: authHeaders() });
       if (!response.ok)
-        throw new Error("The purchased artifact is not ready yet");
+        throw new Error(copy.notReady);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      const label = base === "blueprint" ? "Blueprint" : base === "report" ? "Report" : "Plan";
+      const label = copy.fileLabel[base];
       anchor.download = `${label} - ${safeDownloadName(plan.ideaName)}.pdf`;
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (caught) {
       setPlanError(
-        caught instanceof Error ? caught.message : "Download failed",
+        caught instanceof Error ? caught.message : copy.downloadFailed,
       );
     } finally {
       setDownloadingPlan("");
@@ -249,11 +476,11 @@ export default function UserDashboard({
         { method: "POST", headers: authHeaders() },
       );
       const body = await response.json<{ error?: string }>();
-      if (!response.ok) throw new Error(body.error || "Blueprint retry failed");
+      if (!response.ok) throw new Error(body.error || copy.retryFailed);
       await loadPaidPlans();
     } catch (caught) {
       setPlanError(
-        caught instanceof Error ? caught.message : "Blueprint retry failed",
+        caught instanceof Error ? caught.message : copy.retryFailed,
       );
     } finally {
       setRetryingOrderId("");
@@ -265,6 +492,7 @@ export default function UserDashboard({
       orderId={uncertaintyOrderId}
       onBack={() => { setUncertaintyOrderId(""); void loadPaidPlans(); }}
       onSubmitted={() => { setUncertaintyOrderId(""); void loadPaidPlans(); }}
+      locale={locale}
     />;
   }
 
@@ -295,6 +523,7 @@ export default function UserDashboard({
           setOpenBlueprintOrderId("");
           void loadPaidPlans();
         }}
+        locale={locale}
       />
     );
 
@@ -302,15 +531,15 @@ export default function UserDashboard({
     return (
       <div className="mx-auto max-w-2xl p-8 text-center">
         <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-b-blue-600" />
-        <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        <p className="mt-4 text-gray-600">{copy.loading}</p>
       </div>
     );
   if (error || !user)
     return (
       <div className="mx-auto max-w-2xl p-8 text-center">
-        <p className="text-red-600">{error || "Not logged in"}</p>
+        <p className="text-red-600">{error || copy.notLoggedIn}</p>
         <button onClick={onLogout} className="mt-4 font-bold text-blue-600">
-          Return to home
+          {copy.returnHome}
         </button>
       </div>
     );
@@ -327,7 +556,7 @@ export default function UserDashboard({
   return (
     <div className="mx-auto max-w-4xl p-4 py-8">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-3xl font-bold">Your Dashboard</h1>
+        <h1 className="text-3xl font-bold">{copy.title}</h1>
         <div className="flex flex-wrap items-center gap-3">
           {hasDraft && (
             <button
@@ -335,11 +564,11 @@ export default function UserDashboard({
               onClick={onResume}
               className="rounded-lg bg-ghost-rust px-5 py-3 font-black text-white shadow-lantern transition hover:bg-[#96360d]"
             >
-              Resume Saved Verdict
+              {copy.resume}
             </button>
           )}
           <button onClick={onLogout} className="font-medium text-red-600">
-            Log Out
+            {copy.logOut}
           </button>
         </div>
       </div>
@@ -347,14 +576,14 @@ export default function UserDashboard({
       <section className="mb-8 flex flex-col gap-5 rounded-xl bg-ghost-ink p-6 text-white shadow-lantern sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-gold">
-            Test before you build
+            {copy.heroKicker}
           </p>
           <h2 className="mt-2 text-2xl font-bold">
-            Ready to test another idea?
+            {copy.heroHeading}
           </h2>
           {availableTests > 0 && (
             <p className="mt-1 text-sm text-white/75">
-              {availableTests} verdict{availableTests === 1 ? "" : "s"} available.
+              {copy.available(availableTests)}
             </p>
           )}
         </div>
@@ -363,23 +592,23 @@ export default function UserDashboard({
           onClick={onStart}
           className="min-h-14 rounded-lg bg-ghost-rust px-7 py-4 font-black text-white"
         >
-          Start Another Verdict
+          {copy.startAnother}
         </button>
       </section>
 
       <div className="mb-8 grid gap-6 md:grid-cols-2">
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-6">
-          <h2 className="font-bold">Account</h2>
+          <h2 className="font-bold">{copy.account}</h2>
           <p className="mt-2 text-gray-700">{user.email}</p>
           <p className="mt-2 text-sm text-gray-500">
-            Member since {new Date(user.createdAt).toLocaleDateString()}
+            {copy.memberSince(copy.formatDate(user.createdAt))}
           </p>
         </div>
         <div
           className={`rounded-lg border-l-4 p-6 ${needsToPurchase ? "border-red-400 bg-red-50" : "border-green-400 bg-green-50"}`}
         >
           <div className="text-sm font-bold uppercase text-gray-600">
-            Verdicts Available
+            {copy.verdictsAvailable}
           </div>
           <div
             className={`mt-2 text-5xl font-bold ${needsToPurchase ? "text-red-600" : "text-green-600"}`}
@@ -390,10 +619,10 @@ export default function UserDashboard({
       </div>
 
       <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="text-xl font-bold">Previous Assessments</h2>
+        <h2 className="text-xl font-bold">{copy.previous}</h2>
         {results.length === 0 ? (
           <p className="mt-3 text-sm text-gray-600">
-            Your completed assessments will appear here.
+            {copy.noResults}
           </p>
         ) : (
           <div className="mt-4 space-y-3">
@@ -409,7 +638,7 @@ export default function UserDashboard({
                   </p>
                   <p className="mt-1 text-xs text-gray-500">
                     LIT {item.litScore}/5 ·{" "}
-                    {new Date(item.generatedAt).toLocaleDateString()}
+                    {copy.formatDate(item.generatedAt)}
                   </p>
                 </div>
                 <button
@@ -418,8 +647,8 @@ export default function UserDashboard({
                   className="rounded-lg border border-blue-300 px-4 py-2 font-bold text-blue-700 disabled:opacity-50"
                 >
                   {openingResultId === item.resultId
-                    ? "Opening…"
-                    : "View Report"}
+                    ? copy.opening
+                    : copy.viewReport}
                 </button>
               </article>
             ))}
@@ -431,14 +660,14 @@ export default function UserDashboard({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-rust">
-              Purchased products
+              {copy.purchasedKicker}
             </p>
             <h2 className="mt-1 text-2xl font-black">
-              Launch Blueprints and Media Networks
+              {copy.purchasedHeading}
             </h2>
           </div>
           <p className="text-xs text-gray-600">
-            Private and saved to this account
+            {copy.privateNote}
           </p>
         </div>
         {planError && (
@@ -448,7 +677,7 @@ export default function UserDashboard({
         )}
         {paidPlans.length === 0 ? (
           <p className="mt-4 text-sm text-gray-600">
-            Purchased products will appear here.
+            {copy.noPurchases}
           </p>
         ) : (
           <div className="mt-5 space-y-3">
@@ -459,12 +688,12 @@ export default function UserDashboard({
               const working =
                 plan.status === "researching" || plan.status === "generating";
               const badge = awaitingSeeds
-                ? "Action required"
+                ? copy.badgeAction
                 : plan.status === "uncertainty"
-                  ? "Needs answers"
+                  ? copy.badgeAnswers
                   : working
-                    ? "Building"
-                    : plan.status;
+                    ? copy.badgeBuilding
+                    : copy.status(plan.status);
               return (
                 <article
                   key={plan.orderId}
@@ -483,31 +712,28 @@ export default function UserDashboard({
                       <p className="mt-1 text-sm font-medium text-gray-700">
                         {plan.offerName ||
                           (isBlueprint
-                            ? "GhostTown Launch Blueprint"
-                            : "30-Day Implementation Plan")}
+                            ? copy.blueprintName
+                            : copy.planName)}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">
-                        Purchased{" "}
-                        {new Date(plan.createdAt).toLocaleDateString()}
+                        {copy.purchased(copy.formatDate(plan.createdAt))}
                         {plan.planVersion
-                          ? ` · Version ${plan.planVersion}`
+                          ? copy.version(plan.planVersion)
                           : ""}
                       </p>
                       {awaitingSeeds && (
                         <p className="mt-2 text-sm font-bold text-blue-800">
-                          Confirm 2–3 competitor or adjacent-product seeds to
-                          start the Media & Distribution Network.
+                          {copy.seedsNote}
                         </p>
                       )}
                       {working && (
                         <p className="mt-2 text-sm text-amber-700">
-                          GhostTown is mapping podcasts, creators, publications,
-                          events, reviewers, associations, and partners.
+                          {copy.workingNote}
                         </p>
                       )}
                       {plan.status === "uncertainty" && (
                         <p className="mt-2 text-sm font-bold text-amber-800">
-                          GhostTown stopped before building 30 days because the business chain needs a few concrete answers first.
+                          {copy.uncertaintyNote}
                         </p>
                       )}
                     </div>
@@ -517,7 +743,7 @@ export default function UserDashboard({
                           onClick={() => setSeedOrderId(plan.orderId)}
                           className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-black text-white"
                         >
-                          Choose research seeds
+                          {copy.chooseSeeds}
                         </button>
                       )}
                       {isBlueprint && plan.status === "uncertainty" && (
@@ -525,7 +751,7 @@ export default function UserDashboard({
                           onClick={() => setUncertaintyOrderId(plan.orderId)}
                           className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-black text-white"
                         >
-                          Answer questions
+                          {copy.answerQuestions}
                         </button>
                       )}
                       {isBlueprint && plan.status === "ready" && (
@@ -533,7 +759,7 @@ export default function UserDashboard({
                           onClick={() => setOpenBlueprintOrderId(plan.orderId)}
                           className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-black text-white"
                         >
-                          Open Blueprint
+                          {copy.openBlueprint}
                         </button>
                       )}
                       {plan.status === "ready" && (
@@ -543,8 +769,8 @@ export default function UserDashboard({
                           className="rounded-lg border border-ghost-rust px-4 py-2 text-sm font-black text-ghost-rust disabled:opacity-50"
                         >
                           {downloadingPlan === `${plan.orderId}:pdf`
-                            ? "Preparing…"
-                            : "PDF"}
+                            ? copy.preparing
+                            : copy.pdf}
                         </button>
                       )}
                       {isBlueprint && (plan.status === "failed" || working) && (
@@ -554,10 +780,10 @@ export default function UserDashboard({
                           className="rounded-lg bg-ghost-rust px-4 py-2 text-sm font-black text-white disabled:opacity-50"
                         >
                           {retryingOrderId === plan.orderId
-                            ? "Checking…"
+                            ? copy.checking
                             : plan.status === "failed"
-                              ? "Retry Blueprint"
-                              : "Check / Retry Blueprint"}
+                              ? copy.retry
+                              : copy.checkRetry}
                         </button>
                       )}
                     </div>
@@ -571,21 +797,21 @@ export default function UserDashboard({
       </section>
 
       <section className="mb-8 rounded-xl border border-emerald-200 bg-emerald-50/60 p-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Get Me Live</p><h2 className="mt-1 text-2xl font-black">Your live businesses</h2></div><p className="text-xs text-gray-600">Saved to your account</p></div>
-        {getMeLiveOrders.length === 0 ? <p className="mt-4 text-sm text-gray-600">Your customer page and activity will appear here after you start Get Me Live.</p> : <div className="mt-5 space-y-3">{getMeLiveOrders.map(item => { const liveUrl = item.customDomain ? `https://${item.customDomain}` : item.publicUrl; const live = item.status === "live"; return <article key={item.orderId} className="rounded-xl border border-emerald-200 bg-white p-5"><div className="flex flex-col gap-4"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-black">{item.businessName || "Your business"}</h3><span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black uppercase text-emerald-900">{live ? "Live" : "In progress"}</span></div>{liveUrl && <a href={liveUrl} target="_blank" rel="noreferrer" className="mt-2 block break-all text-sm font-bold text-ghost-rust underline">{liveUrl}</a>}<p className="mt-3 text-sm font-bold text-gray-800">{item.recentActivity || (item.leadCount > 0 ? "Someone is interested" : live ? "Your page is ready for customers" : "Keep making your choices")}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => window.location.assign(`/get-me-live/setup?order_id=${encodeURIComponent(item.orderId)}${live ? "&step=review" : ""}`)} className="rounded-lg bg-ghost-rust px-4 py-3 text-sm font-black text-white">{live ? "Make Changes" : "Keep Going"}</button>{liveUrl && <button type="button" onClick={() => void (navigator.share ? navigator.share({ title: item.businessName || "My business", url: liveUrl }) : navigator.clipboard.writeText(liveUrl))} className="rounded-lg border-2 border-ghost-ink px-4 py-3 text-sm font-black">Share Page</button>}</div></div><div className="grid gap-2 text-sm sm:grid-cols-3"><div className="rounded-xl bg-gray-50 p-3"><strong className="text-xl">{item.leadCount}</strong><span className="block text-gray-600">People interested</span></div>{item.paymentStatus !== "not_requested" && <div className="rounded-xl bg-gray-50 p-3"><strong className="text-xl">{item.salesCount || 0}</strong><span className="block text-gray-600">Sales</span></div>}{Boolean(item.salesValueCents) && <div className="rounded-xl bg-gray-50 p-3"><strong className="text-xl">${((item.salesValueCents || 0) / 100).toFixed(2)}</strong><span className="block text-gray-600">Sales value</span></div>}</div></div></article>; })}</div>}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-800">Get Me Live</p><h2 className="mt-1 text-2xl font-black">{copy.liveHeading}</h2></div><p className="text-xs text-gray-600">{copy.savedNote}</p></div>
+        {getMeLiveOrders.length === 0 ? <p className="mt-4 text-sm text-gray-600">{copy.noLive}</p> : <div className="mt-5 space-y-3">{getMeLiveOrders.map(item => { const liveUrl = item.customDomain ? `https://${item.customDomain}` : item.publicUrl; const live = item.status === "live"; return <article key={item.orderId} className="rounded-xl border border-emerald-200 bg-white p-5"><div className="flex flex-col gap-4"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-lg font-black">{item.businessName || copy.yourBusiness}</h3><span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-black uppercase text-emerald-900">{live ? copy.live : copy.inProgress}</span></div>{liveUrl && <a href={liveUrl} target="_blank" rel="noreferrer" className="mt-2 block break-all text-sm font-bold text-ghost-rust underline">{liveUrl}</a>}<p className="mt-3 text-sm font-bold text-gray-800">{item.recentActivity || (item.leadCount > 0 ? copy.interested : live ? copy.pageReady : copy.keepChoosing)}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => window.location.assign(`/get-me-live/setup?order_id=${encodeURIComponent(item.orderId)}${live ? "&step=review" : ""}`)} className="rounded-lg bg-ghost-rust px-4 py-3 text-sm font-black text-white">{live ? copy.makeChanges : copy.keepGoing}</button>{liveUrl && <button type="button" onClick={() => void (navigator.share ? navigator.share({ title: item.businessName || copy.myBusiness, url: liveUrl }) : navigator.clipboard.writeText(liveUrl))} className="rounded-lg border-2 border-ghost-ink px-4 py-3 text-sm font-black">{copy.sharePage}</button>}</div></div><div className="grid gap-2 text-sm sm:grid-cols-3"><div className="rounded-xl bg-gray-50 p-3"><strong className="text-xl">{item.leadCount}</strong><span className="block text-gray-600">{copy.peopleInterested}</span></div>{item.paymentStatus !== "not_requested" && <div className="rounded-xl bg-gray-50 p-3"><strong className="text-xl">{item.salesCount || 0}</strong><span className="block text-gray-600">{copy.sales}</span></div>}{Boolean(item.salesValueCents) && <div className="rounded-xl bg-gray-50 p-3"><strong className="text-xl">${((item.salesValueCents || 0) / 100).toFixed(2)}</strong><span className="block text-gray-600">{copy.salesValue}</span></div>}</div></div></article>; })}</div>}
       </section>
 
       <div className="mb-8 rounded-lg border border-blue-200 bg-blue-50 p-6">
-        <h3 className="font-bold text-blue-900">Share Rewards</h3>
+        <h3 className="font-bold text-blue-900">{copy.shareRewards}</h3>
         <div className="mt-4 grid max-w-md grid-cols-2 gap-6 text-center text-sm">
           <div>
-            <span className="text-blue-700">Share Links</span>
+            <span className="text-blue-700">{copy.shareLinks}</span>
             <div className="text-2xl font-bold text-blue-900">
               {user.sharesGiven}
             </div>
           </div>
           <div>
-            <span className="text-blue-700">Credits</span>
+            <span className="text-blue-700">{copy.credits}</span>
             <div className="text-2xl font-bold text-blue-900">
               {Math.min(user.shareCredits || 0, 1)}/1
             </div>
