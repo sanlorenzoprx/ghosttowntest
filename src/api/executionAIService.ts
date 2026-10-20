@@ -1,3 +1,4 @@
+import { EXPLAIN_WHY_INSTRUCTION } from '../lib/explainWhy';
 import type { Env } from './env';
 import {
   generateAI,
@@ -109,6 +110,7 @@ function systemInstruction(mode: ExecutionCopilotMode, capability: ExecutionCapa
     'Do not claim a day is complete; deterministic software owns completion.',
     'When evidence contradicts the plan, name the contradiction and respect mayChange/mustKeep from the formal branch.',
     'Prefer one bounded next experiment over broad business advice.',
+    EXPLAIN_WHY_INSTRUCTION,
     'When useful, reference the prepared asset by its exact title.',
     'Return only the requested JSON structure.'
   ].join('\n');

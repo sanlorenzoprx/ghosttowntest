@@ -58,7 +58,7 @@ export default function LandingCommercial({
         ['¿Qué recibo gratis?', 'Un veredicto claro sobre tu idea, el mayor riesgo que vemos y qué hacer después. No necesitas tarjeta.'],
         SPRINT_OFFER_ACTIVE
           ? ['¿Qué recibo por $97?', 'Un Sprint de 30 días hecho para tu idea, con oferta, precio, clientes, mensajes, tareas diarias, investigación, reglas de evidencia y decisiones claras sobre qué hacer después. El sitio web en vivo no está incluido; Get Me Live es un producto separado de $297, pago único.']
-          : ['¿Qué viene después del veredicto?', 'First 30 abre pronto: treinta días de ayuda guiada para probar tu idea. Todavía no está a la venta. Únete a la lista y te escribiremos cuando abra.'],
+          : ['¿Qué viene después del veredicto?', 'First 30 abre pronto: treinta días de ayuda guiada para probar tu idea, con un sitio web para conseguir clientes y materiales de contacto basados en lo que investigamos: dónde ya conversan tus posibles clientes y qué problemas describen. Todavía no está a la venta. Únete a la lista y te escribiremos cuando abra.'],
         ['¿GhostTown garantiza que mi negocio funcionará?', 'No. Nadie puede prometer eso. GhostTown te ayuda a aprender antes de gastar meses y dinero.'],
         ['¿Tengo que construir algo primero?', 'No. La meta es probar primero las partes que pueden matar la idea.'],
         ...(SPRINT_OFFER_ACTIVE ? [['¿Puedo volver a descargar mi plan?', 'Sí. Tu plan y tus archivos terminados se guardan en tu cuenta.']] : [['¿Se guarda mi veredicto?', 'Sí, si creas una cuenta. Tu veredicto queda guardado en tu panel.']])
@@ -67,7 +67,7 @@ export default function LandingCommercial({
         ['What do I get free?', 'A clear verdict on your idea, the biggest risk we see, and what to do next. No credit card needed.'],
         SPRINT_OFFER_ACTIVE
           ? ['What do I get for $97?', 'A 30-day Sprint made for your idea, with your offer, price, customer, messages, daily steps, research, evidence rules, and clear decisions about what to do next. A live website is not included; Get Me Live is a separate $297 one-time product.']
-          : ['What comes after the verdict?', 'First 30 opens soon: thirty days of guided help to test your idea. It is not on sale yet. Join the list and we will email you when it opens.'],
+          : ['What comes after the verdict?', 'First 30 opens soon: thirty days of guided help to test your idea, with a customer-acquisition website and outreach materials shaped by our research into where your likely customers already talk and the problems they describe. It is not on sale yet. Join the list and we will email you when it opens.'],
         ['Does GhostTown promise my business will work?', 'No. Nobody can promise that. GhostTown helps you learn before you lose months and money.'],
         ['Do I have to build something first?', 'No. The goal is to test the parts that could kill the idea before you build.'],
         ...(SPRINT_OFFER_ACTIVE ? [['Can I download my plan again?', 'Yes. Your plan and finished files stay in your account.']] : [['Is my verdict saved?', 'Yes, if you create an account. Your verdict stays in your dashboard.']])
@@ -219,7 +219,7 @@ export default function LandingCommercial({
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Si la idea merece una prueba' : 'If the idea is worth testing'}</p>
             <h2 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">{es ? 'First 30 abre pronto.' : 'First 30 opens soon.'}</h2>
-            <p className="mt-7 text-xl leading-9 text-[#3F4944]">{es ? 'Tu veredicto es gratis hoy. Después viene First 30: treinta días de ayuda guiada para probar tu idea con clientes reales. Únete a la lista y te escribiremos cuando abra.' : 'Your verdict is free today. Next comes First 30: thirty days of guided help to test your idea with real customers. Join the list and we will email you when it opens.'}</p>
+            <p className="mt-7 text-xl leading-9 text-[#3F4944]">{es ? 'Tu veredicto es gratis hoy. Después viene First 30: treinta días de ayuda guiada para probar tu idea con clientes reales. GhostTown encuentra lugares donde tus posibles clientes ya conversan, investiga los problemas que describen y usa lo que dicen para dar forma a tu sitio web y a los mensajes y contenido que pruebas durante esos 30 días. Así no adivinas qué decir ni dónde decirlo: tu sitio web y tus primeros mensajes usan las palabras que tus clientes ya usan, en los lugares donde ya conversan. Únete a la lista y te escribiremos cuando abra.' : 'Your verdict is free today. Next comes First 30: thirty days of guided help to test your idea with real customers. GhostTown finds places where your likely customers are already talking, researches the problems they describe, and uses what they say to shape your website and the messages and content you test during those 30 days. That way you are not guessing what to say or where to say it: your website and first messages use the words your customers already use, in the places where they already talk. Join the list and we will email you when it opens.'}</p>
           </div>
           <First30Waitlist source="landing" locale={locale} />
         </div>

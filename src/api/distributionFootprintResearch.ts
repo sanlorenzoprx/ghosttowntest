@@ -206,7 +206,7 @@ interface SelectionPayload {
   }>;
 }
 
-interface VerifiedPage {
+export interface VerifiedPage {
   finalUrl: string;
   title: string;
   publisher: string;
@@ -402,7 +402,7 @@ function pageSupportsClaim(page: VerifiedPage, claim: string): boolean {
   return tokens.filter(token => haystack.includes(token)).length >= required;
 }
 
-async function verifyOriginalPage(rawUrl: string): Promise<VerifiedPage> {
+export async function verifyOriginalPage(rawUrl: string): Promise<VerifiedPage> {
   const safe = safePublicUrl(rawUrl);
   if (!safe) throw new Error('URL is not a public HTTPS address');
   const response = await fetchWithTimeout(safe.toString(), {

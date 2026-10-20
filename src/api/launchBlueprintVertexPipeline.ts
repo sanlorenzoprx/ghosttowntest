@@ -1,4 +1,5 @@
 import type { Env } from './env';
+import { communityContextForAssets } from './communityProblemResearch';
 import type { EvaluationResult } from '../types/lit';
 import { hydrateEvaluationResultDecisionV2, projectVerdictDecisionV2ToVertexInput } from '../verdict/verdictDecisionV2';
 import type { PaidTestOrder } from '../types/paidTest';
@@ -1008,10 +1009,12 @@ export async function runVertexAssetGenerationStage(
       'Use only the supplied post IDs, script IDs, channel context, and Day 1 through Day 30 skeleton.',
       'No fabricated testimonials, guarantees, fake scarcity, unsupported proof, or invented source claims.',
       'Every daily action must have one measurable outcome and evidence to record.',
+      'When customerResearch is supplied, build the posts, scripts and landing-page copy from those problems and the customers\' own words, written the way each community talks, and follow each community\'s promotion rule.',
       'Return only schema-controlled JSON.'
     ].join(' '),
     prompt: JSON.stringify({
       strategy,
+      customerResearch: communityContextForAssets(context.draft.communityResearch),
       businessModelLane: context.draft.businessModelLane,
       channelContext: context.draft.customerAccessPack.channels.slice(0, 10).map(channel => ({
         channelId: channel.channelId,

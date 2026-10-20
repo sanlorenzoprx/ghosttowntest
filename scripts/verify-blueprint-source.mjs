@@ -57,20 +57,20 @@ try {
 
 // Keep the v2.1.4 compatibility fields for roadmap scripts that were built
 // before the calendar/Copilot amendments, but require the actual source-chain
-// tip to advance through the approved v2.1.5 through v2.1.10 decisions.
+// tip to advance through the approved v2.1.5 through v2.1.11 decisions.
 if (manifest?.changeId !== 'GT-BP-2026-08-15-V2.1.4') {
   fail('Evidence manifest no longer preserves the v2.1.4 compatibility change ID.');
 }
 if (manifest?.previousChangeId !== 'GT-BP-2026-08-15-V2.1.3') {
   fail('Evidence manifest no longer preserves the v2.1.3 compatibility predecessor.');
 }
-if (manifest?.chainTip?.changeId !== 'GT-BP-2026-09-26-V2.1.10') {
-  fail('Evidence chain tip is not the approved v2.1.10 Customer Copy Integrity change ID.');
+if (manifest?.chainTip?.changeId !== 'GT-BP-2026-10-20-V2.1.11') {
+  fail('Evidence chain tip is not the approved v2.1.11 Community Problem Research change ID.');
 }
-if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-09-26-V2.1.9') {
-  fail('Evidence chain tip does not preserve the v2.1.9 Evidence Recency and Current-Activity predecessor.');
+if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-09-26-V2.1.10') {
+  fail('Evidence chain tip does not preserve the v2.1.10 Customer Copy Integrity predecessor.');
 }
-if (manifest?.chainTip?.version !== '2.1.10') fail('Evidence chain tip version must be 2.1.10.');
+if (manifest?.chainTip?.version !== '2.1.11') fail('Evidence chain tip version must be 2.1.11.');
 
 const canonical = verifyTrackedSource(manifest.canonical, 'Canonical Blueprint');
 const platformAmendment = verifyTrackedSource(manifest.platformAmendment, 'v2.1.2 Vertex AI platform amendment');
@@ -95,6 +95,9 @@ const recencyEvidence = verifyTrackedSource(manifest.evidenceRecencyCurrentActiv
 const copyIntegrityAmendment = verifyTrackedSource(manifest.customerCopyIntegrityAmendment, 'v2.1.10 Customer Copy Integrity amendment');
 const copyIntegrityChangeRecord = verifyTrackedSource(manifest.customerCopyIntegrityChangeRecord, 'v2.1.10 change record');
 const copyIntegrityEvidence = verifyTrackedSource(manifest.customerCopyIntegrityEvidence, 'v2.1.10 implementation evidence');
+const communityAmendment = verifyTrackedSource(manifest.communityProblemResearchAmendment, 'v2.1.11 Community Problem Research amendment');
+const communityChangeRecord = verifyTrackedSource(manifest.communityProblemResearchChangeRecord, 'v2.1.11 change record');
+const communityEvidence = verifyTrackedSource(manifest.communityProblemResearchEvidence, 'v2.1.11 implementation evidence');
 
 const authorityClause =
   'The canonical Blueprint is the authoritative product and implementation guide. Every Factory slice must revalidate its exact hash before execution.';
@@ -314,7 +317,7 @@ if (manifest?.customerCopyIntegrityEvidence?.path !== 'docs/blueprint-evidence/g
 }
 try {
   const evidence = JSON.parse(copyIntegrityEvidence.source);
-  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.10 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.changeId !== manifest.customerCopyIntegrityAmendment.changeId) fail('v2.1.10 implementation evidence change ID does not match the v2.1.10 amendment.');
   if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1) fail('v2.1.10 implementation evidence does not preserve the canonical Blueprint hash.');
   if (evidence?.canonical?.sourceModified !== false) fail('v2.1.10 implementation evidence must state that the canonical source was not modified.');
   if (evidence?.pipeline?.version !== 'vertex-blueprint-staged-v3') fail('v2.1.10 must require pipeline v3.');
@@ -335,6 +338,48 @@ try {
   fail(`Unable to verify v2.1.10 implementation evidence: ${error.message}`);
 }
 
+const communityDecision = "GhostTown reads the communities it found and keeps customer problems only in the customers' own words, linked to the page they came from.";
+requireText(communityAmendment.source, communityDecision, 'v2.1.11 Community Problem Research product decision');
+for (const required of [
+  '**Quotes are copied word for word.**',
+  '**A repeated quote counts once.**',
+  '**Evidence against a problem is kept.**',
+  '`evidenceLevel = problem_evidence`',
+  '`currentActivityStatus = verified_current`',
+  '**Unread pages are visible.**',
+  '**Quotes are never testimonials.**',
+  '**Every problem explains why it matters.**',
+  '**"What we prepared" opens the work.**',
+  'The 16-file package manifest is unchanged.',
+  'No commercial, evidence, safety, ownership, fulfillment, artifact-integrity, or release requirement is waived by this amendment.',
+  'Weakening approved outcomes remains prohibited.'
+]) requireText(communityAmendment.source, required, 'v2.1.11 Community Problem Research amendment');
+requireText(communityChangeRecord.source, communityDecision, 'v2.1.11 change record decision');
+requireText(communityChangeRecord.source, 'Weakening approved outcomes remains prohibited.', 'v2.1.11 change record outcome protection');
+
+if (manifest?.communityProblemResearchEvidence?.path !== 'docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.11-community-problem-research-evidence.json') {
+  fail('Evidence chain does not reference the v2.1.11 Community Problem Research implementation evidence.');
+}
+try {
+  const evidence = JSON.parse(communityEvidence.source);
+  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.11 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1) fail('v2.1.11 implementation evidence does not preserve the canonical Blueprint hash.');
+  if (evidence?.canonical?.sourceModified !== false) fail('v2.1.11 implementation evidence must state that the canonical source was not modified.');
+  const research = evidence?.research;
+  if (research?.quoteMustAppearWordForWordOnLinkedPage !== true || research?.duplicateQuotesCountOnce !== true || research?.contradictingEvidenceKept !== true) fail('v2.1.11 quote integrity policy changed without a versioned decision.');
+  if (research?.evidenceLevel !== 'problem_evidence' || research?.quotesMayBecomeTestimonials !== false) fail('v2.1.11 must keep community quotes at problem evidence and never testimonials.');
+  if (research?.readsOnly !== 'customer_access + verified_current' || research?.maxCommunitiesRead !== 6) fail('v2.1.11 community selection changed without a versioned decision.');
+  if (research?.unreadPagesShownAsGaps !== true || research?.assetStageReceivesCustomerResearch !== true) fail('v2.1.11 gap visibility or asset grounding is missing.');
+  if (research?.everyProblemExplainsWhyItMatters !== true) fail('v2.1.11 must explain why each problem matters.');
+  if (evidence?.surfaces?.zipFileCount !== 16) fail('v2.1.11 must preserve the 16-file ZIP manifest.');
+  if (evidence?.validation?.focusedTests?.failed !== 0 || evidence?.validation?.focusedTests?.passed < 47) fail('v2.1.11 focused regression evidence is incomplete.');
+  if (evidence?.validation?.typecheck?.passed !== true) fail('v2.1.11 typecheck evidence did not pass.');
+  if (evidence?.validation?.blueprintVerification?.passed !== true || evidence?.validation?.blueprintVerification?.chainTip !== '2.1.11') fail('v2.1.11 Blueprint verification evidence is incomplete.');
+  if (evidence?.validation?.productionDeploymentPerformed !== false) fail('v2.1.11 evidence must not claim a production deployment.');
+} catch (error) {
+  fail(`Unable to verify v2.1.11 implementation evidence: ${error.message}`);
+}
+
 if (manifest?.outcomeProtection?.weakeningAllowed !== false) {
   fail('Evidence manifest must explicitly prohibit weakening the approved customer outcome.');
 }
@@ -350,9 +395,9 @@ for (const required of [
 }
 
 console.log(
-  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${copyIntegrityAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
+  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${communityAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
   `base ${manifest.canonical.version} ${canonical.actualHash}; platform ${manifest.platformAmendment.version} ${platformAmendment.actualHash}; ` +
   `website ${manifest.previousAmendment.version} ${websiteAmendment.actualHash}; spa ${manifest.amendment.version} ${spaAmendment.actualHash}; ` +
   `calendar ${manifest.calendarAmendment.version} ${calendarAmendment.actualHash}; execution ${manifest.executionIntelligenceAmendment.version} ${executionAmendment.actualHash}; ` +
-  `coherence ${coherenceAmendment.actualHash}; research-role ${researchRoleAmendment.actualHash}; recency ${recencyAmendment.actualHash}; copy-integrity-change-record ${copyIntegrityChangeRecord.actualHash}`
+  `coherence ${coherenceAmendment.actualHash}; research-role ${researchRoleAmendment.actualHash}; recency ${recencyAmendment.actualHash}; copy-integrity ${copyIntegrityAmendment.actualHash}; copy-integrity-change-record ${copyIntegrityChangeRecord.actualHash}`
 );

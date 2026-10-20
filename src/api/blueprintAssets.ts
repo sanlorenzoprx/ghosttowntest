@@ -33,6 +33,32 @@ const csv = (rows: unknown[][]) =>
   rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
 const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
 
+function communityResearchMarkdown(
+  blueprint: GhostTownLaunchBlueprintV21 | null,
+): string {
+  const research = blueprint?.communityResearch;
+  if (!research) return "";
+  const quotes = new Map(
+    research.observations.map((item) => [item.observationId, item]),
+  );
+  const quoteLines = (ids: string[]) =>
+    ids
+      .map((id) => quotes.get(id))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .map((item) => `> "${item.quote}"\n> ${item.community}: ${item.url}`)
+      .join("\n\n");
+  const problems = research.problems
+    .map(
+      (problem) =>
+        `## ${problem.title}\n\n**Why this matters:** ${problem.whyItMatters}\n\n**Who:** ${problem.who}\n\n**When:** ${problem.when}\n\n**How they handle it now:** ${problem.currentWorkaround}\n\n${quoteLines(problem.observationIds)}${problem.contradictingObservationIds.length ? `\n\n**What argues against it**\n\n${quoteLines(problem.contradictingObservationIds)}` : ""}\n\n**What to ask next:** ${problem.whatToAskNext}\n\n**What would change the plan:** ${problem.whatWouldChangePlan}`,
+    )
+    .join("\n\n");
+  const gaps = research.gaps.length
+    ? `\n\n## Research gaps\n\n${list(research.gaps.map((gap) => `${gap.community} (${gap.url}): ${gap.reason}`))}`
+    : "";
+  return `# What your likely customers are struggling with\n\n${research.boundary}\n\n${problems || "No quote could be checked word for word yet. Start with the interview guide in outreach-scripts.md."}${gaps}\n\n# Helpful posts\n\n`;
+}
+
 function asV21(
   blueprint: GhostTownLaunchBlueprint,
 ): GhostTownLaunchBlueprintV21 | null {
@@ -285,6 +311,7 @@ export function buildBlueprintAssetFiles(
             : ""),
       ),
       "helpful-posts.md": encoded(
+        communityResearchMarkdown(v21) +
         blueprint.customerAccessPack.helpfulPosts
           .map(
             (post) =>

@@ -11,6 +11,8 @@ const copilot = readFileSync(new URL('../src/components/LaunchBlueprintCopilotV2
 describe('Blueprint Execution Copilot contract', () => {
   it('exposes an authenticated owner-scoped paid Blueprint endpoint', () => {
     expect(worker).toContain('/blueprint\\/copilot');
+    // Every Coach answer explains why it matters, briefly, for a founder new to the subject.
+    expect(service).toContain('EXPLAIN_WHY_INSTRUCTION,');
     expect(worker).toContain('handleBlueprintExecutionCopilot');
     expect(handler).toContain('ownedLaunchBlueprintOrder');
     expect(handler).toContain('loadBlueprintProgress');

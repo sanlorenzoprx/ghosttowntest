@@ -216,6 +216,7 @@ export function composeBlueprintDocumentModel(blueprint: GhostTownLaunchBlueprin
     { sectionId: 'starting_state_audit', title: 'Starting-State and Evidence Audit', content: [blueprint.startingStateAudit.currentStage.statement, ...blueprint.startingStateAudit.verifiedFacts.map(item => `${item.truthLabel}: ${item.statement}`)], sourceRefs: sources },
     { sectionId: 'fulfillment_economics', title: 'Manual Fulfillment and Economics', content: [blueprint.firstRevenuePath.firstOfferFormat, blueprint.manualFulfillmentPlan.successfulDeliveryDefinition, blueprint.manualFulfillmentPlan.grossMarginGuardrail], sourceRefs: [] },
     { sectionId: 'first_revenue_legacy_reference', title: 'First-Revenue Path', content: [blueprint.firstRevenuePath.firstAsk, blueprint.firstRevenuePath.successThreshold], sourceRefs: [] },
+    ...customerProblemsSection(blueprint),
     { sectionId: 'prepared_content', title: 'Prepared Content and Conversations', content: [...blueprint.customerAccessPack.helpfulPosts.map(post => post.body), blueprint.customerInterviewGuide.opening, blueprint.offerConversationGuide.opening], sourceRefs: [] },
     { sectionId: 'get_me_live_handoff', title: 'Optional Next Step: Get Me Live', content: [`The $97 30-Day Sprint does not include a live website, domain, publishing, or payment setup. Get Me Live is a separate ${DEFAULT_GET_ME_LIVE_DISPLAY_PRICE.replace('.00', '')} one-time product.`, `Customer: ${blueprint.offer.targetCustomer}`, `Offer: ${blueprint.offer.offerName}`, `First commitment: ${blueprint.firstRevenuePath.firstAsk}`], sourceRefs: [] },
     { sectionId: 'full_30_day_plan', title: 'Full 30-Day Plan', content: blueprint.dailyCalendar.map(day => `Day ${day.dayNumber}: ${day.executionPacket?.completionDefinition || day.expectedDeliverable}`), sourceRefs: unique(blueprint.dailyCalendar.flatMap(day => day.executionPacket?.targets.flatMap(target => target.sourceIds) || [])) },
@@ -232,6 +233,31 @@ export function composeBlueprintDocumentModel(blueprint: GhostTownLaunchBlueprin
     customerActions: ['open_blueprint', 'download_pdf'], prioritySections, supportingSections,
     manifest: { sectionIds: [...BLUEPRINT_DOCUMENT_PRIORITY_IDS, ...supportingSections.map(value => value.sectionId)], assetIds: unique(allAssets.map(value => value.assetId)), targetIds: unique(allTargets), sourceIds: unique(sources), lineage: [`${blueprint.sourceVerdictId}->${blueprint.blueprintId}`, ...allAssets.map(value => `${blueprint.blueprintId}->${value.assetId}`)] }
   };
+}
+
+function customerProblemsSection(blueprint: GhostTownLaunchBlueprintV21): BlueprintSupportingDocumentSection[] {
+  const research = blueprint.communityResearch;
+  if (!research) return [];
+  const quotes = new Map(research.observations.map(item => [item.observationId, item]));
+  const quoted = (ids: string[]) => ids.map(id => quotes.get(id)).filter(Boolean).map(item => `"${item!.quote}" (${item!.community}: ${item!.url})`);
+  return [{
+    sectionId: 'customer_problems',
+    title: 'What Your Likely Customers Are Struggling With',
+    content: [
+      research.boundary,
+      ...(research.problems.length ? [] : ['No quote could be checked word for word yet. Start with the interview guide and record what people tell you.']),
+      ...research.problems.flatMap(problem => [
+        `${problem.title}. Who: ${problem.who}. When: ${problem.when}. How they handle it now: ${problem.currentWorkaround}.`,
+        `Why this matters: ${problem.whyItMatters}`,
+        ...quoted(problem.observationIds),
+        ...quoted(problem.contradictingObservationIds).map(value => `Against: ${value}`),
+        `What to ask next: ${problem.whatToAskNext}`,
+        `What would change the plan: ${problem.whatWouldChangePlan}`
+      ]),
+      ...research.gaps.map(gap => `Research gap: ${gap.community} (${gap.url}): ${gap.reason}`)
+    ],
+    sourceRefs: []
+  }];
 }
 
 export function validateBlueprintDocumentModel(model: BlueprintDocumentModel): string[] {
