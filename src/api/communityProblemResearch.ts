@@ -17,7 +17,8 @@ import {
 import { generateAI, type GenerativeAIResponseSchema } from './generativeAIService';
 import { verifyOriginalPage, type VerifiedPage } from './distributionFootprintResearch';
 import { currentCustomerAccessChannels } from './researchEvidenceRole';
-import { EXPLAIN_WHY_INSTRUCTION } from '../lib/explainWhy';
+import { EXPLAIN_WHY_FOR_DOCUMENTS } from '../lib/explainWhy';
+import { blueprintLanguages } from '../lib/blueprintLanguage';
 
 // Reads the public communities that customer-access research verified, and
 // keeps only problems backed by quotes copied exactly from those pages. The
@@ -176,7 +177,8 @@ function prompt(order: PaidTestOrder, verdict: EvaluationResult, pages: Communit
       'Include quotes that contradict a problem, such as people saying it is easy to solve or not worth paying for, with stance "contradicts".',
       'A problem the pages do not mention must not appear. If no page is relevant, return empty lists.',
       'Do not claim demand, willingness to pay, or market size. Do not describe any quote as a testimonial.',
-      EXPLAIN_WHY_INSTRUCTION,
+      EXPLAIN_WHY_FOR_DOCUMENTS,
+      `Write titles, who, when, workarounds, whyItMatters, whatToAskNext and whatWouldChangePlan in ${blueprintLanguages(order.intake).founder === 'es' ? 'Spanish (informal tú)' : 'English'}. Quotes stay exactly as written on the page.`,
       'For each page, describe how people talk there, the post format that fits, and whether promotion is allowed, limited, not allowed, or unclear, based only on the page.'
     ],
     pages: pages.map(({ channel, page }) => ({

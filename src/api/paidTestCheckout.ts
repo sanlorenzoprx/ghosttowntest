@@ -188,6 +188,8 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
       expectedPrice: intake.expectedPrice?.trim(),
       competitorLinks: intake.competitorLinks?.map(item => item.trim()).filter(Boolean),
       researchSignals: normalizedResearchSignals(intake.researchSignals),
+      founderLanguage: intake.founderLanguage === 'es' ? 'es' : 'en',
+      buyerLanguage: intake.buyerLanguage === 'es' ? 'es' : 'en',
       attribution: undefined
     },
     createdAt: now,

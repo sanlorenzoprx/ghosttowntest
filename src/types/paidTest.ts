@@ -97,6 +97,10 @@ export interface PaidTestIntake {
   competitorSeeds?: CompetitorSeed[];
   landingPageLink?: string;
   customerNotes?: string;
+  /** Language the founder reads the plan in. */
+  founderLanguage?: 'en' | 'es';
+  /** Language the founder's buyers read: posts, messages, pages. */
+  buyerLanguage?: 'en' | 'es';
   strategicClarifications?: StrategicClarificationResponse[];
   researchSignals?: PrePurchaseResearchSignals;
   uncertaintyResolution?: StrategicUncertaintyResolution;

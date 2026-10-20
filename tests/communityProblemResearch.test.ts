@@ -164,6 +164,14 @@ describe('community problem research', () => {
     expect(result.gaps[0].reason).toMatch(/word for word/);
   });
 
+  it('writes findings in the founder\'s language and keeps quotes as written', async () => {
+    const read = async (url: string) => ({ finalUrl: url, visibleText: PAGE_A });
+    const spanishFounder = { intake: { ...order.intake, founderLanguage: 'es' } } as PaidTestOrder;
+    await researchCommunityProblems({} as Env, spanishFounder, verdict, [channel('a')], read);
+    expect(ai.prompts[0]).toContain('whatWouldChangePlan in Spanish (informal tú). Quotes stay exactly as written on the page.');
+    expect(ai.prompts[0]).not.toContain('Want me to walk you through');
+  });
+
   it('does not call the model when no community page can be read', async () => {
     const read = async () => { throw new Error('timeout'); };
     const result = await researchCommunityProblems({} as Env, order, verdict, [channel('a')], read);

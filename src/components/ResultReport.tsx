@@ -304,6 +304,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           }}
           onSubmit={intake => void startPaidTest(intake)}
           researchSignals={researchSignals}
+          locale={locale}
         />
       )}
 

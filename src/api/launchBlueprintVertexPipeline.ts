@@ -1,5 +1,7 @@
 import type { Env } from './env';
 import { communityContextForAssets } from './communityProblemResearch';
+import { blueprintLanguageInstruction, blueprintLanguages } from '../lib/blueprintLanguage';
+import { EXPLAIN_WHY_FOR_DOCUMENTS } from '../lib/explainWhy';
 import type { EvaluationResult } from '../types/lit';
 import { hydrateEvaluationResultDecisionV2, projectVerdictDecisionV2ToVertexInput } from '../verdict/verdictDecisionV2';
 import type { PaidTestOrder } from '../types/paidTest';
@@ -766,6 +768,8 @@ export async function runVertexStrategySynthesisStage(
       'Use only supplied channel IDs. Preserve explicit stop criteria and manual fulfillment constraints.',
       'Respect each channel evidenceRole and recency metadata. Only customer_access channels with currentActivityStatus=verified_current may drive first-revenue outreach or direct buyer acquisition; media_pr, market_evidence, partnership, stale evidence, and unverified current activity are supporting evidence/opportunities only.',
       'Do not promise outcomes, fabricate proof, or recommend broad building before commitment evidence.',
+      blueprintLanguageInstruction(blueprintLanguages(context.order.intake)),
+      EXPLAIN_WHY_FOR_DOCUMENTS,
       'Return only schema-controlled JSON.'
     ].join(' '),
     prompt: JSON.stringify({
@@ -1010,6 +1014,8 @@ export async function runVertexAssetGenerationStage(
       'No fabricated testimonials, guarantees, fake scarcity, unsupported proof, or invented source claims.',
       'Every daily action must have one measurable outcome and evidence to record.',
       'When customerResearch is supplied, build the posts, scripts and landing-page copy from those problems and the customers\' own words, written the way each community talks, and follow each community\'s promotion rule.',
+      blueprintLanguageInstruction(blueprintLanguages(context.order.intake)),
+      EXPLAIN_WHY_FOR_DOCUMENTS,
       'Return only schema-controlled JSON.'
     ].join(' '),
     prompt: JSON.stringify({
@@ -1187,8 +1193,10 @@ export function validateCustomerCopyEdit(
     }
   }
 
-  const language = context.draft.startingStateAudit.founderConstraints.language.statement || '';
-  if (!/spanish|español/i.test(language)) {
+  // The grade estimate is English-only; run it when both the founder and buyer copy are English.
+  const languages = blueprintLanguages(context.order.intake);
+  const statedLanguage = context.draft.startingStateAudit.founderConstraints.language.statement || '';
+  if (languages.founder === 'en' && languages.buyer === 'en' && !/spanish|español/i.test(statedLanguage)) {
     const grade = estimateCustomerCopyGrade(normalized);
     if (grade > 10) {
       throw new Error(`Customer Copy Editor readability is too difficult: estimated grade ${grade}; target is approximately grade 8 and release guard is grade 10 or lower`);
@@ -1216,6 +1224,9 @@ export async function runVertexCustomerCopyEditStage(
       'Do not change facts, evidence, promises, prices, dates, counts, thresholds, URLs, emails, IDs, day numbers, estimated minutes, or business strategy.',
       'Do not add testimonials, guarantees, proof, scarcity, claims, or facts.',
       'Keep every postId, scriptId, Day 1 through Day 30 entry, and schema shape exactly intact.',
+      blueprintLanguageInstruction(blueprintLanguages(context.order.intake)),
+      'Aim for the same plain reading level in Spanish when Spanish is required.',
+      'Keep or add a brief, plain why where the founder reads a step or finding; never turn it into a lecture.',
       'Return only schema-controlled JSON.'
     ].join(' '),
     prompt: JSON.stringify({
@@ -1456,6 +1467,7 @@ export async function runVertexRedTeamReviewStage(
       'Do not rewrite the Blueprint. Identify exact fields and classify material defects as blocking.',
       'Verified source IDs and URLs are immutable and must not be treated as invented when present in the supplied source ledger.',
       'A passed result may contain warnings but cannot contain a failed check or blocking finding.',
+      `Text written in the wrong language for its reader is a consistency defect. ${blueprintLanguageInstruction(blueprintLanguages(context.order.intake))}`,
       'Return only schema-controlled JSON.'
     ].join(' '),
     prompt: JSON.stringify({
