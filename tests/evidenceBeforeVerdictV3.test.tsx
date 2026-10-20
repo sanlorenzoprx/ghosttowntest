@@ -141,16 +141,14 @@ describe('Evidence Scan seven-layer free verdict', () => {
       <ResultReport result={result} onReset={() => {}} isLoggedIn={false}
         onLoginClick={() => {}} onRewardClaimed={() => {}} locale="en" />
     );
-    expect(html.indexOf('GhostTown Evidence Scan')).toBeGreaterThanOrEqual(0);
-    expect(html.indexOf('GhostTown Evidence Scan')).toBeLessThan(html.indexOf('Decision'));
-    expect(html).toContain('Customer consumption');
-    expect(html).toContain('Commercial consumption');
-    expect(html).toContain('Pricing landscape');
-    expect(html).toContain('Premium precedent');
-    expect(html).toContain('Direct offer response');
-    expect(html).toContain('Direct offer purchase');
-    expect(html).toContain('Not collected');
-    expect(html).toMatch(/does not automatically recommend the lowest, average, median, highest, or premium price/i);
+    expect(html.indexOf('GhostTown evidence scan')).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf('GhostTown evidence scan')).toBeLessThan(html.indexOf('Decision'));
+    for (const layer of ['1 · The market exists', '2 · People use similar solutions', '3 · People pay for similar solutions', '4 · Prices in the market', '5 · Premium prices', '6 · Buyers reply to your offer', '7 · Buyers pay for your offer']) {
+      expect(html, layer).toContain(layer);
+    }
+    expect(html).toContain('Not asked yet');
+    // Observed prices describe the market; GhostTown never turns them into a price for the founder.
+    expect(html).toContain('They are not a price for you.');
     // Rollout phase 1: the dormant Sprint is replaced by the First 30 email list.
     expect(html).toContain('First 30 opens soon');
     expect(html).not.toContain('30-Day Evidence Sprint');
@@ -190,6 +188,23 @@ describe('the verdict explains why each part matters', () => {
     expect(html.match(/<strong>Por qué importa:<\/strong>/g)).toHaveLength(3);
     expect(html).toContain('¿se van a comprometer?');
     expect(html).toContain('¿Algo no está claro? Escríbenos a');
+  });
+
+  it('shows the whole verdict page in Spanish', () => {
+    const html = render('es');
+    for (const spanish of ['Búsqueda de evidencia de GhostTown', 'La mayor duda', 'La prueba más rápida', 'Haz esto primero', 'Por qué podría funcionar', 'Análisis detallado', 'Tipo de negocio', 'Probar otra idea', 'Todavía no se ha preguntado', 'Lo que concluye GhostTown']) {
+      expect(html, spanish).toContain(spanish);
+    }
+    for (const english of ['Fastest test', 'Biggest unknown', 'Detailed analysis', 'Why this may work', 'Test another idea', 'Not asked yet', 'What GhostTown concludes', 'Business type']) {
+      expect(html, english).not.toContain(english);
+    }
+  });
+
+  it('uses plain words instead of jargon', () => {
+    for (const locale of ['en', 'es'] as const) {
+      const html = render(locale);
+      expect(html, locale).not.toMatch(/paid-pilot|falsification|PASS:|FAIL:|INCONCLUSIVE|bounded scan|commercial[- ]consumption|premium precedent/i);
+    }
   });
 
   it('explains a verdict that is waiting for missing details differently', () => {
