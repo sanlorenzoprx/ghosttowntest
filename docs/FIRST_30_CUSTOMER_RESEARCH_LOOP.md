@@ -120,7 +120,7 @@ leaves the active plan.
 | Research card: struggling / ask next / prepared / what would change the plan | Built: v2.1.11, dashboard, PDF and ZIP. |
 | Written test definitions and the four evidence levels in the tracker (step 7) | Next. |
 | Coach decisions that change the active plan; obsolete tasks leave the plan | Next. |
-| First 30 order, checkout and fulfillment running this loop | Next; checkout needs production approval. |
+| First 30 order, checkout and fulfillment running this loop | Built: v2.1.14. Sales stay off in production until `FIRST30_CHECKOUT_ENABLED` is turned on (see `docs/FIRST_30_TURN_ON.md`). |
 
 ## Build order
 

@@ -40,6 +40,7 @@ describe("GhostTown real local D1 migration contract", () => {
       "lead_id", "site_id", "email", "source_path", "consent_text"
     ]));
     expect(await columns("get_me_live_orders")).toEqual(expect.arrayContaining([
+      "entitlement_source", "build_started_at",
       "public_url", "custom_domain", "deployment_receipt_json", "hosting_json", "custom_domain_json"
     ]));
     expect(await columns("get_me_live_releases")).toEqual(expect.arrayContaining([

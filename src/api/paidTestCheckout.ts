@@ -7,6 +7,7 @@ import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2'
 import {
   DEFAULT_30_DAY_PLAN_DISPLAY_PRICE,
   GHOSTTOWN_30_DAY_PLAN_V1,
+  GHOSTTOWN_FIRST_30_V1,
   LEGACY_7_DAY_PLAN_LABEL
 } from '../lib/ghosttownOffer';
 import {
@@ -15,7 +16,7 @@ import {
   sanitizeCommercialAttribution
 } from './commercialAttribution';
 import { recordCommercialFunnelEvent } from './analytics';
-import { sprintCheckoutEnabled } from './runtimeControls';
+import { first30CheckoutEnabled, sprintCheckoutEnabled } from './runtimeControls';
 
 const PLAN_VERSION = '1.0' as const;
 const LEGACY_REPORT_VERSION = '1.0' as const;
@@ -38,9 +39,58 @@ function inferStripeMode(secretKey?: string): StripeMode {
   return secretKey?.startsWith('sk_live_') ? 'live' : 'test';
 }
 
-function configuredPlanPriceId(env: Env): string {
-  return env.STRIPE_30_DAY_PLAN_PRICE_ID?.trim() || '';
+// One checkout flow sells two plan offers: the dormant $97 Sprint and First 30.
+// First 30 runs the same Blueprint fulfillment and also includes the website.
+export interface PlanCheckoutOffer {
+  offerId: PaidTestOrder['offerId'] & string;
+  version: '1.0';
+  amountCents: number;
+  currency: string;
+  name: string;
+  displayPrice: string;
+  fulfillmentType: 'execution_plan_30day_v1' | 'first30_v1';
+  orderIdPrefix: string;
+  enabled: (env: Env) => boolean;
+  closed: { error: string; code: string };
+  priceId: (env: Env) => string;
+  missingPriceError: string;
+  stripeRejectedError: string;
+  successQuery: string;
 }
+
+export const SPRINT_CHECKOUT_OFFER: PlanCheckoutOffer = {
+  offerId: GHOSTTOWN_30_DAY_PLAN_V1.offerId,
+  version: GHOSTTOWN_30_DAY_PLAN_V1.version,
+  amountCents: GHOSTTOWN_30_DAY_PLAN_V1.amountCents,
+  currency: GHOSTTOWN_30_DAY_PLAN_V1.currency,
+  name: GHOSTTOWN_30_DAY_PLAN_V1.name,
+  displayPrice: DEFAULT_30_DAY_PLAN_DISPLAY_PRICE,
+  fulfillmentType: 'execution_plan_30day_v1',
+  orderIdPrefix: 'gtt',
+  enabled: sprintCheckoutEnabled,
+  closed: { error: 'The 30-Day Sprint is not on sale right now. First 30 opens soon.', code: 'SPRINT_CHECKOUT_CLOSED' },
+  priceId: env => env.STRIPE_30_DAY_PLAN_PRICE_ID?.trim() || '',
+  missingPriceError: 'Checkout is not configured for the 30-day plan yet',
+  stripeRejectedError: 'Stripe rejected the 30-day plan checkout configuration. Confirm the price mode and STRIPE_30_DAY_PLAN_PRICE_ID.',
+  successQuery: ''
+};
+
+export const FIRST30_CHECKOUT_OFFER: PlanCheckoutOffer = {
+  offerId: GHOSTTOWN_FIRST_30_V1.offerId,
+  version: GHOSTTOWN_FIRST_30_V1.version,
+  amountCents: GHOSTTOWN_FIRST_30_V1.amountCents,
+  currency: GHOSTTOWN_FIRST_30_V1.currency,
+  name: GHOSTTOWN_FIRST_30_V1.name,
+  displayPrice: GHOSTTOWN_FIRST_30_V1.displayPrice,
+  fulfillmentType: 'first30_v1',
+  orderIdPrefix: 'gtf',
+  enabled: first30CheckoutEnabled,
+  closed: { error: 'First 30 is not on sale yet. Join the list and we will email you when it opens.', code: 'FIRST30_CHECKOUT_CLOSED' },
+  priceId: env => env.STRIPE_FIRST_30_PRICE_ID?.trim() || '',
+  missingPriceError: 'Checkout is not configured for First 30 yet',
+  stripeRejectedError: 'Stripe rejected the First 30 checkout configuration. Confirm the price mode and STRIPE_FIRST_30_PRICE_ID.',
+  successQuery: '&offer=first30'
+};
 
 function validResearchSignals(value: PrePurchaseResearchSignals, verdictId: string, targetBuyer: string): boolean {
   if (
@@ -124,7 +174,9 @@ async function savePaidOrderSummary(env: Env, order: PaidTestOrder, ideaName: st
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     artifactType,
-    offerName: artifactType === 'execution_plan_30day_v1' ? GHOSTTOWN_30_DAY_PLAN_V1.name : LEGACY_7_DAY_PLAN_LABEL,
+    offerName: order.offerId === GHOSTTOWN_FIRST_30_V1.offerId
+      ? GHOSTTOWN_FIRST_30_V1.name
+      : artifactType === 'execution_plan_30day_v1' ? GHOSTTOWN_30_DAY_PLAN_V1.name : LEGACY_7_DAY_PLAN_LABEL,
     sourceVerdictId: order.verdictId,
     planVersion: artifactType === 'execution_plan_30day_v1' ? order.planVersion ?? PLAN_VERSION : order.reportVersion
   };
@@ -135,8 +187,16 @@ async function savePaidOrderSummary(env: Env, order: PaidTestOrder, ideaName: st
 }
 
 export async function handlePaidTestCheckout(request: Request, env: Env): Promise<Response> {
-  if (!sprintCheckoutEnabled(env)) {
-    return json({ error: 'The 30-Day Sprint is not on sale right now. First 30 opens soon.', code: 'SPRINT_CHECKOUT_CLOSED' }, 410);
+  return handlePlanCheckout(request, env, SPRINT_CHECKOUT_OFFER);
+}
+
+export async function handleFirst30Checkout(request: Request, env: Env): Promise<Response> {
+  return handlePlanCheckout(request, env, FIRST30_CHECKOUT_OFFER);
+}
+
+async function handlePlanCheckout(request: Request, env: Env, offer: PlanCheckoutOffer): Promise<Response> {
+  if (!offer.enabled(env)) {
+    return json(offer.closed, 410);
   }
 
   const auth = await authenticateRequest(request, env);
@@ -157,22 +217,22 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     return json({ error: 'This assessment must be saved before checkout. Reopen it from Dashboard and try again.' }, 404);
   }
 
-  const stripePriceId = configuredPlanPriceId(env);
+  const stripePriceId = offer.priceId(env);
   if (!stripePriceId) {
-    console.error('Paid checkout rejected: missing 30-day plan Stripe price configuration');
-    return json({ error: 'Checkout is not configured for the 30-day plan yet' }, 503);
+    console.error('Paid checkout rejected: missing Stripe price configuration', offer.offerId);
+    return json({ error: offer.missingPriceError }, 503);
   }
 
   const attribution = sanitizeCommercialAttribution(intake.attribution, intake.verdictId);
   const now = new Date().toISOString();
   const order: PaidTestOrder = {
-    orderId: id('gtt'),
+    orderId: id(offer.orderIdPrefix),
     email: normalizeEmail(auth.email),
     verdictId: intake.verdictId,
     status: 'pending',
     artifactType: 'execution_plan_30day_v1',
-    offerId: GHOSTTOWN_30_DAY_PLAN_V1.offerId,
-    offerVersion: GHOSTTOWN_30_DAY_PLAN_V1.version,
+    offerId: offer.offerId,
+    offerVersion: offer.version,
     planVersion: PLAN_VERSION,
     reportVersion: LEGACY_REPORT_VERSION,
     stripePriceId,
@@ -207,14 +267,14 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     client_reference_id: order.orderId,
     'metadata[paid_test_order_id]': order.orderId,
     'metadata[owner_id]': order.email,
-    'metadata[offer_id]': GHOSTTOWN_30_DAY_PLAN_V1.offerId,
-    'metadata[offer_version]': GHOSTTOWN_30_DAY_PLAN_V1.version,
-    'metadata[offer_amount_cents]': String(GHOSTTOWN_30_DAY_PLAN_V1.amountCents),
-    'metadata[offer_currency]': GHOSTTOWN_30_DAY_PLAN_V1.currency,
+    'metadata[offer_id]': offer.offerId,
+    'metadata[offer_version]': offer.version,
+    'metadata[offer_amount_cents]': String(offer.amountCents),
+    'metadata[offer_currency]': offer.currency,
     'metadata[plan_version]': PLAN_VERSION,
     'metadata[stripe_price_id]': stripePriceId,
-    'metadata[fulfillment_type]': 'execution_plan_30day_v1',
-    success_url: `${frontendUrl}/paid-test/success?order_id=${encodeURIComponent(order.orderId)}`,
+    'metadata[fulfillment_type]': offer.fulfillmentType,
+    success_url: `${frontendUrl}/paid-test/success?order_id=${encodeURIComponent(order.orderId)}${offer.successQuery}`,
     cancel_url: `${frontendUrl}/`
   });
   appendStripeAttributionMetadata(fields, attribution, intake.verdictId);
@@ -232,7 +292,7 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
     const stripeError = await response.text();
     console.error('Paid checkout Stripe rejection', response.status, stripeError);
     await env.KV.delete(orderKey(order.orderId));
-    return json({ error: 'Stripe rejected the 30-day plan checkout configuration. Confirm the price mode and STRIPE_30_DAY_PLAN_PRICE_ID.' }, 502);
+    return json({ error: offer.stripeRejectedError }, 502);
   }
 
   const session = await response.json() as { id: string; url: string };
@@ -246,7 +306,7 @@ export async function handlePaidTestCheckout(request: Request, env: Env): Promis
       ownerId: order.email,
       orderId: order.orderId,
       verdictId: order.verdictId,
-      content: DEFAULT_30_DAY_PLAN_DISPLAY_PRICE,
+      content: offer.displayPrice,
       ...commercialEventAttribution(order.commercialAttribution)
     });
   } catch (error) {

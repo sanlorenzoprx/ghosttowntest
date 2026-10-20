@@ -1,9 +1,9 @@
 import verdictHandler from './verdict';
 import type { Env } from './env';
-import { consumeHourlyRateLimit, sprintCheckoutEnabled } from './runtimeControls';
+import { consumeHourlyRateLimit, first30CheckoutEnabled, sprintCheckoutEnabled } from './runtimeControls';
 import { litQuestions } from '../lib/litQuestions';
 import { localizeAssessmentQuestion, localizedIdeaPrompt, normalizeAgentLocale, publicContentPrompt } from '../lib/agentQuestionLocalization';
-import { GHOSTTOWN_30_DAY_PLAN_V1, GHOSTTOWN_FIRST_30_WAITLIST_V1 } from '../lib/ghosttownOffer';
+import { GHOSTTOWN_30_DAY_PLAN_V1, GHOSTTOWN_FIRST_30_V1, GHOSTTOWN_FIRST_30_WAITLIST_V1 } from '../lib/ghosttownOffer';
 import type { EvaluationAnswers, EvaluationResult, IdeaIntake } from '../types/lit';
 import type {
   AgentCompleteVerdictResponse,
@@ -154,6 +154,17 @@ async function enforceRateLimit(request: Request, env: Env): Promise<Response | 
 
 export function currentAgentOffer(env: Env): AgentOfferProjection {
   const frontend = (env.FRONTEND_URL?.trim() || 'https://ghosttownverdict.app').replace(/\/$/, '');
+  if (first30CheckoutEnabled(env)) {
+    return {
+      offer_id: GHOSTTOWN_FIRST_30_V1.offerId,
+      name: GHOSTTOWN_FIRST_30_V1.name,
+      status: 'available',
+      price_usd: GHOSTTOWN_FIRST_30_V1.priceUsd,
+      currency: GHOSTTOWN_FIRST_30_V1.currency,
+      url: frontend,
+      requires_user_action: true
+    };
+  }
   if (!sprintCheckoutEnabled(env)) {
     return {
       offer_id: GHOSTTOWN_FIRST_30_WAITLIST_V1.offerId,

@@ -57,20 +57,20 @@ try {
 
 // Keep the v2.1.4 compatibility fields for roadmap scripts that were built
 // before the calendar/Copilot amendments, but require the actual source-chain
-// tip to advance through the approved v2.1.5 through v2.1.13 decisions.
+// tip to advance through the approved v2.1.5 through v2.1.14 decisions.
 if (manifest?.changeId !== 'GT-BP-2026-08-15-V2.1.4') {
   fail('Evidence manifest no longer preserves the v2.1.4 compatibility change ID.');
 }
 if (manifest?.previousChangeId !== 'GT-BP-2026-08-15-V2.1.3') {
   fail('Evidence manifest no longer preserves the v2.1.3 compatibility predecessor.');
 }
-if (manifest?.chainTip?.changeId !== 'GT-BP-2026-10-20-V2.1.13') {
-  fail('Evidence chain tip is not the approved v2.1.13 Spanish Fixed Text change ID.');
+if (manifest?.chainTip?.changeId !== 'GT-BP-2026-10-20-V2.1.14') {
+  fail('Evidence chain tip is not the approved v2.1.14 First 30 change ID.');
 }
-if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-10-20-V2.1.12') {
-  fail('Evidence chain tip does not preserve the v2.1.12 Language and Why predecessor.');
+if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-10-20-V2.1.13') {
+  fail('Evidence chain tip does not preserve the v2.1.13 Spanish Fixed Text predecessor.');
 }
-if (manifest?.chainTip?.version !== '2.1.13') fail('Evidence chain tip version must be 2.1.13.');
+if (manifest?.chainTip?.version !== '2.1.14') fail('Evidence chain tip version must be 2.1.14.');
 
 const canonical = verifyTrackedSource(manifest.canonical, 'Canonical Blueprint');
 const platformAmendment = verifyTrackedSource(manifest.platformAmendment, 'v2.1.2 Vertex AI platform amendment');
@@ -104,6 +104,9 @@ const languageEvidence = verifyTrackedSource(manifest.languageAndWhyEvidence, 'v
 const fixedTextAmendment = verifyTrackedSource(manifest.spanishFixedTextAmendment, 'v2.1.13 Spanish Fixed Text amendment');
 const fixedTextChangeRecord = verifyTrackedSource(manifest.spanishFixedTextChangeRecord, 'v2.1.13 change record');
 const fixedTextEvidence = verifyTrackedSource(manifest.spanishFixedTextEvidence, 'v2.1.13 implementation evidence');
+const first30Amendment = verifyTrackedSource(manifest.first30BundleAmendment, 'v2.1.14 First 30 amendment');
+const first30ChangeRecord = verifyTrackedSource(manifest.first30BundleChangeRecord, 'v2.1.14 change record');
+const first30Evidence = verifyTrackedSource(manifest.first30BundleEvidence, 'v2.1.14 implementation evidence');
 
 const authorityClause =
   'The canonical Blueprint is the authoritative product and implementation guide. Every Factory slice must revalidate its exact hash before execution.';
@@ -436,7 +439,7 @@ requireText(fixedTextChangeRecord.source, fixedTextDecision, 'v2.1.13 change rec
 requireText(fixedTextChangeRecord.source, 'Weakening approved outcomes remains prohibited.', 'v2.1.13 change record outcome protection');
 try {
   const evidence = JSON.parse(fixedTextEvidence.source);
-  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.13 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.changeId !== manifest.spanishFixedTextAmendment.changeId) fail('v2.1.13 implementation evidence change ID does not match the v2.1.13 amendment.');
   if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1 || evidence?.canonical?.sourceModified !== false) fail('v2.1.13 implementation evidence does not preserve the canonical Blueprint.');
   const fixed = evidence?.fixedText;
   if (fixed?.englishOutputByteIdentical !== true || fixed?.zipFileCount !== 16 || fixed?.validatorKeysUnchanged !== true) fail('v2.1.13 must keep English output, the ZIP manifest and validator keys unchanged.');
@@ -444,6 +447,33 @@ try {
   if (evidence?.validation?.blueprintVerification?.chainTip !== '2.1.13' || evidence?.validation?.productionDeploymentPerformed !== false) fail('v2.1.13 validation evidence is incomplete.');
 } catch (error) {
   fail(`Unable to verify v2.1.13 implementation evidence: ${error.message}`);
+}
+
+const first30Decision = 'First 30 sells the same Launch Blueprint Sprint and the Get Me Live website together, for $297 paid once.';
+requireText(first30Amendment.source, first30Decision, 'v2.1.14 First 30 product decision');
+for (const required of [
+  '**One payment, both entitlements.**',
+  '**The order decides the offer.**',
+  '**Replays change nothing.**',
+  '**The website is never sold twice.**',
+  '**Refund rule.** Full refund until the website build starts; no refund after.',
+  '**Sales are switched on deliberately.**',
+  'No commercial, evidence, safety, ownership, fulfillment, artifact-integrity, or release requirement is waived by this amendment.',
+  'Weakening approved outcomes remains prohibited.'
+]) requireText(first30Amendment.source, required, 'v2.1.14 First 30 amendment');
+requireText(first30ChangeRecord.source, first30Decision, 'v2.1.14 change record decision');
+requireText(first30ChangeRecord.source, 'Weakening approved outcomes remains prohibited.', 'v2.1.14 change record outcome protection');
+try {
+  const evidence = JSON.parse(first30Evidence.source);
+  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.14 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1 || evidence?.canonical?.sourceModified !== false) fail('v2.1.14 implementation evidence does not preserve the canonical Blueprint.');
+  const offer = evidence?.offer;
+  if (offer?.offerId !== 'ghosttown_first_30_v1' || offer?.amountCents !== 29700 || offer?.secondChargeForWebsite !== false || offer?.productionSwitchDefault !== 'false') fail('v2.1.14 offer terms changed without a versioned decision.');
+  const refund = evidence?.refundRule;
+  if (refund?.fullRefundUntilWebsiteBuildStarts !== true || refund?.buildStartAndRefundMutuallyExclusive !== true) fail('v2.1.14 refund rule changed without a versioned decision.');
+  if (evidence?.validation?.blueprintVerification?.chainTip !== '2.1.14' || evidence?.validation?.productionDeploymentPerformed !== false) fail('v2.1.14 validation evidence is incomplete.');
+} catch (error) {
+  fail(`Unable to verify v2.1.14 implementation evidence: ${error.message}`);
 }
 
 if (manifest?.outcomeProtection?.weakeningAllowed !== false) {
@@ -461,9 +491,9 @@ for (const required of [
 }
 
 console.log(
-  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${fixedTextAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
+  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${first30Amendment.actualHash} (${manifest.chainTip.changeId}); ` +
   `base ${manifest.canonical.version} ${canonical.actualHash}; platform ${manifest.platformAmendment.version} ${platformAmendment.actualHash}; ` +
   `website ${manifest.previousAmendment.version} ${websiteAmendment.actualHash}; spa ${manifest.amendment.version} ${spaAmendment.actualHash}; ` +
   `calendar ${manifest.calendarAmendment.version} ${calendarAmendment.actualHash}; execution ${manifest.executionIntelligenceAmendment.version} ${executionAmendment.actualHash}; ` +
-  `coherence ${coherenceAmendment.actualHash}; research-role ${researchRoleAmendment.actualHash}; recency ${recencyAmendment.actualHash}; language-and-why ${languageAmendment.actualHash}; community-research ${communityAmendment.actualHash}; copy-integrity ${copyIntegrityAmendment.actualHash}; copy-integrity-change-record ${copyIntegrityChangeRecord.actualHash}`
+  `coherence ${coherenceAmendment.actualHash}; research-role ${researchRoleAmendment.actualHash}; recency ${recencyAmendment.actualHash}; spanish-fixed-text ${fixedTextAmendment.actualHash}; language-and-why ${languageAmendment.actualHash}; community-research ${communityAmendment.actualHash}; copy-integrity ${copyIntegrityAmendment.actualHash}; copy-integrity-change-record ${copyIntegrityChangeRecord.actualHash}`
 );

@@ -57,6 +57,17 @@ describe('ASC-01 GhostTown agent surface', () => {
     });
   });
 
+  it('reports First 30 as available, at $297, only when First 30 checkout is open', () => {
+    const metadata = ghostTownProductMetadata({ FRONTEND_URL: 'https://ghosttownverdict.app', FIRST30_CHECKOUT_ENABLED: 'true', SPRINT_CHECKOUT_ENABLED: 'true' } as Env);
+    expect(metadata.paid_offer).toMatchObject({
+      offer_id: 'ghosttown_first_30_v1',
+      name: 'First 30',
+      status: 'available',
+      price_usd: 297,
+      requires_user_action: true
+    });
+  });
+
   it('publishes the stateless MCP tool catalog for the current protocol revision', async () => {
     const request = new Request('https://api.ghosttownverdict.app/mcp', {
       method: 'POST',
