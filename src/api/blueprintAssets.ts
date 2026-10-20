@@ -5,6 +5,8 @@ import type {
 } from "../types/launchBlueprintV21";
 import { researchEvidenceRole } from "./researchEvidenceRole";
 import { DEFAULT_GET_ME_LIVE_DISPLAY_PRICE } from "../lib/getMeLiveOffer";
+import { BLUEPRINT_DOCUMENT_COPY, BLUEPRINT_GENERATOR_FOUNDER_COPY, type BlueprintDocumentCopy } from "../lib/blueprintFixedCopy";
+import type { Locale } from "../lib/locale";
 
 export const BLUEPRINT_ASSET_FILENAMES = [
   "README.md",
@@ -35,9 +37,11 @@ const list = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
 
 function communityResearchMarkdown(
   blueprint: GhostTownLaunchBlueprintV21 | null,
+  z: BlueprintDocumentCopy["zip"],
 ): string {
   const research = blueprint?.communityResearch;
   if (!research) return "";
+  const c = z.community;
   const quotes = new Map(
     research.observations.map((item) => [item.observationId, item]),
   );
@@ -50,13 +54,13 @@ function communityResearchMarkdown(
   const problems = research.problems
     .map(
       (problem) =>
-        `## ${problem.title}\n\n**Why this matters:** ${problem.whyItMatters}\n\n**Who:** ${problem.who}\n\n**When:** ${problem.when}\n\n**How they handle it now:** ${problem.currentWorkaround}\n\n${quoteLines(problem.observationIds)}${problem.contradictingObservationIds.length ? `\n\n**What argues against it**\n\n${quoteLines(problem.contradictingObservationIds)}` : ""}\n\n**What to ask next:** ${problem.whatToAskNext}\n\n**What would change the plan:** ${problem.whatWouldChangePlan}`,
+        `## ${problem.title}\n\n**${c.whyThisMatters}:** ${problem.whyItMatters}\n\n**${c.who}:** ${problem.who}\n\n**${c.when}:** ${problem.when}\n\n**${c.workaround}:** ${problem.currentWorkaround}\n\n${quoteLines(problem.observationIds)}${problem.contradictingObservationIds.length ? `\n\n**${c.against}**\n\n${quoteLines(problem.contradictingObservationIds)}` : ""}\n\n**${c.askNext}:** ${problem.whatToAskNext}\n\n**${c.changePlan}:** ${problem.whatWouldChangePlan}`,
     )
     .join("\n\n");
   const gaps = research.gaps.length
-    ? `\n\n## Research gaps\n\n${list(research.gaps.map((gap) => `${gap.community} (${gap.url}): ${gap.reason}`))}`
+    ? `\n\n## ${c.gaps}\n\n${list(research.gaps.map((gap) => `${gap.community} (${gap.url}): ${gap.reason}`))}`
     : "";
-  return `# What your likely customers are struggling with\n\n${research.boundary}\n\n${problems || "No quote could be checked word for word yet. Start with the interview guide in outreach-scripts.md."}${gaps}\n\n# Helpful posts\n\n`;
+  return `# ${c.title}\n\n${research.boundary}\n\n${problems || c.noQuote}${gaps}\n\n# ${c.helpfulPosts}\n\n`;
 }
 
 function asV21(
@@ -67,20 +71,22 @@ function asV21(
     : null;
 }
 
-function executiveV21(blueprint: GhostTownLaunchBlueprintV21): string {
+function executiveV21(blueprint: GhostTownLaunchBlueprintV21, copy: BlueprintDocumentCopy): string {
   const audit = blueprint.startingStateAudit;
   const launchCard = blueprint.launchCard48Hour;
+  const z = copy.zip;
+  const label = (value: keyof BlueprintDocumentCopy["truthLabel"]) => copy.truthLabel[value] ?? value;
   return `
 
-## 48-Hour Launch Card
+## ${z.launchCard}
 
-**First customer:** ${launchCard.firstCustomer}
+**${z.firstCustomer}:** ${launchCard.firstCustomer}
 
-**First offer:** ${launchCard.firstOffer}
+**${z.firstOffer}:** ${launchCard.firstOffer}
 
-**First commitment request:** ${launchCard.firstCommitmentRequest}
+**${z.firstCommitmentRequest}:** ${launchCard.firstCommitmentRequest}
 
-### First three approaches
+### ${z.firstThreeApproaches}
 ${launchCard.firstThreeApproaches
   .map(
     (approach, index) =>
@@ -88,150 +94,152 @@ ${launchCard.firstThreeApproaches
   )
   .join("\n")}
 
-### Exact first message
+### ${z.exactFirstMessage}
 
 ${launchCard.exactFirstMessage}
 
-## Starting-State and Evidence Audit
+## ${z.startingState}
 
-**Current stage:** ${audit.currentStage.statement} [${audit.currentStage.truthLabel}]
+**${z.currentStage}:** ${audit.currentStage.statement} [${label(audit.currentStage.truthLabel)}]
 
-**Existing offer:** ${audit.existingOffer.statement} [${audit.existingOffer.truthLabel}]
+**${z.existingOffer}:** ${audit.existingOffer.statement} [${label(audit.existingOffer.truthLabel)}]
 
-**Existing landing page:** ${audit.existingLandingPage.statement} [${audit.existingLandingPage.truthLabel}]
+**${z.existingLandingPage}:** ${audit.existingLandingPage.statement} [${label(audit.existingLandingPage.truthLabel)}]
 
-**Previous outreach:** ${audit.previousOutreach.statement} [${audit.previousOutreach.truthLabel}]
+**${z.previousOutreach}:** ${audit.previousOutreach.statement} [${label(audit.previousOutreach.truthLabel)}]
 
-### Critical tests
+### ${z.criticalTests}
 ${audit.criticalTests
   .map(
     (test) =>
-      `- **${test.assumption}:** ${test.evidenceRequired} Failure consequence: ${test.failureConsequence}`,
+      `- **${test.assumption}:** ${test.evidenceRequired} ${z.failureConsequence} ${test.failureConsequence}`,
   )
   .join("\n")}
 
-## Canonical contract receipt
+## ${z.contractReceipt}
 
-- Contract version: ${blueprint.contractVersion}
-- Canonical Git blob SHA-1: ${blueprint.generationReceipt.canonicalContract.gitBlobSha1}
-- Source: ${blueprint.generationReceipt.canonicalContract.sourcePath}
-- Change record: ${blueprint.generationReceipt.canonicalContract.changeRecordPath}
-- Evidence manifest: ${blueprint.generationReceipt.canonicalContract.evidenceManifestPath}
+- ${z.contractVersion}: ${blueprint.contractVersion}
+- ${z.canonicalSha}: ${blueprint.generationReceipt.canonicalContract.gitBlobSha1}
+- ${z.source}: ${blueprint.generationReceipt.canonicalContract.sourcePath}
+- ${z.changeRecord}: ${blueprint.generationReceipt.canonicalContract.changeRecordPath}
+- ${z.evidenceManifest}: ${blueprint.generationReceipt.canonicalContract.evidenceManifestPath}
 `;
 }
 
-function offerV21(blueprint: GhostTownLaunchBlueprintV21): string {
+function offerV21(blueprint: GhostTownLaunchBlueprintV21, z: BlueprintDocumentCopy["zip"], founder: Locale): string {
   const revenue = blueprint.firstRevenuePath;
   const fulfillment = blueprint.manualFulfillmentPlan;
   const brief = blueprint.foundingCustomerPilotBrief;
+  const lane = blueprint.businessModelLane.lane;
+  const laneLabel = BLUEPRINT_GENERATOR_FOUNDER_COPY[founder].laneLabel[lane] ?? lane.replace(/_/g, " ");
   return `
 
-## Business-Model Execution Lane
+## ${z.laneHeading}
 
-**Lane:** ${blueprint.businessModelLane.lane.replace(/_/g, " ")}
+**${z.lane}:** ${laneLabel}
 
 ${blueprint.businessModelLane.rationale}
 
-**First meaningful test:** ${blueprint.businessModelLane.firstMeaningfulTest}
+**${z.firstMeaningfulTest}:** ${blueprint.businessModelLane.firstMeaningfulTest}
 
-**Earliest commercial ask:** Day ${blueprint.businessModelLane.earliestCommercialAskDay}
+**${z.earliestAsk}:** ${z.day(blueprint.businessModelLane.earliestCommercialAskDay)}
 
-## First-Revenue Path
+## ${z.revenueHeading}
 
-- **First buyer:** ${revenue.firstBuyer}
-- **First channel:** ${revenue.firstChannel}
-- **First price:** ${revenue.firstPrice}
-- **Target day:** ${revenue.targetDay}
-- **Minimum qualified asks:** ${revenue.minimumQualifiedAsks}
-- **Success threshold:** ${revenue.successThreshold}
+- **${z.firstBuyer}:** ${revenue.firstBuyer}
+- **${z.firstChannel}:** ${revenue.firstChannel}
+- **${z.firstPrice}:** ${revenue.firstPrice}
+- **${z.targetDay}:** ${revenue.targetDay}
+- **${z.minimumAsks}:** ${revenue.minimumQualifiedAsks}
+- **${z.successThreshold}:** ${revenue.successThreshold}
 
-### First ask
+### ${z.firstAsk}
 
 ${revenue.firstAsk}
 
-### Required proof
+### ${z.requiredProof}
 ${list(revenue.requiredProof)}
 
-### Follow-up sequence
+### ${z.followUpSequence}
 ${list(revenue.followUpSequence)}
 
-## Manual Fulfillment and Economics
+## ${z.fulfillmentHeading}
 
-**Expected delivery time:** ${fulfillment.expectedDeliveryTime}
+**${z.expectedDeliveryTime}:** ${fulfillment.expectedDeliveryTime}
 
-**Capacity per week:** ${fulfillment.capacityPerWeek}
+**${z.capacityPerWeek}:** ${fulfillment.capacityPerWeek}
 
-**Founder-hours guardrail:** ${fulfillment.estimatedFounderHours}
+**${z.founderHours}:** ${fulfillment.estimatedFounderHours}
 
-**Variable cost:** ${fulfillment.estimatedVariableCost}
+**${z.variableCost}:** ${fulfillment.estimatedVariableCost}
 
-**Gross-margin guardrail:** ${fulfillment.grossMarginGuardrail}
+**${z.grossMargin}:** ${fulfillment.grossMarginGuardrail}
 
-### Quality checklist
+### ${z.qualityChecklist}
 ${list(fulfillment.qualityChecklist)}
 
-### Intentionally manual during validation
+### ${z.intentionallyManual}
 ${list(fulfillment.intentionallyManual)}
 
-## Founding Customer Pilot Brief
+## ${z.pilotBrief}
 
-**Problem:** ${brief.problem}
+**${z.problem}:** ${brief.problem}
 
-**Scope:** ${brief.scope}
+**${z.scope}:** ${brief.scope}
 
-**Timeline:** ${brief.timeline}
+**${z.timeline}:** ${brief.timeline}
 
-**Price:** ${brief.price}
+**${z.price}:** ${brief.price}
 
-**Proof boundary:** ${brief.proofBoundary}
+**${z.proofBoundary}:** ${brief.proofBoundary}
 
-**Next step:** ${brief.nextStep}
+**${z.nextStep}:** ${brief.nextStep}
 `;
 }
 
-function checkpointV21(blueprint: GhostTownLaunchBlueprintV21): string {
+function checkpointV21(blueprint: GhostTownLaunchBlueprintV21, z: BlueprintDocumentCopy["zip"]): string {
   return `
 
-## Adaptive Evidence Checkpoints
+## ${z.checkpointsHeading}
 
 ${blueprint.adaptiveCheckpoints
   .map(
-    (checkpoint) => `### Day ${checkpoint.dayNumber}: ${checkpoint.title}
+    (checkpoint) => `### ${z.day(checkpoint.dayNumber)}: ${checkpoint.title}
 
-**Questions**
+**${z.questions}**
 ${list(checkpoint.questions)}
 
-**Evidence required**
+**${z.evidenceRequired}**
 ${list(checkpoint.evidenceRequired)}
 
-**Branches**
+**${z.branches}**
 ${checkpoint.branches
-  .map((branch) => `- If ${branch.condition} Then ${branch.action}`)
+  .map((branch) => z.branchLine(branch.condition, branch.action))
   .join("\n")}`,
   )
   .join("\n\n")}
 `;
 }
 
-function decisionV21(blueprint: GhostTownLaunchBlueprintV21): string {
+function decisionV21(blueprint: GhostTownLaunchBlueprintV21, z: BlueprintDocumentCopy["zip"]): string {
   return `
 
-## Behavioral Evidence Hierarchy
+## ${z.hierarchyHeading}
 
-### Strong evidence
+### ${z.strong}
 ${list(blueprint.evidenceHierarchy.strong)}
 
-### Moderate evidence
+### ${z.moderate}
 ${list(blueprint.evidenceHierarchy.moderate)}
 
-### Early evidence
+### ${z.early}
 ${list(blueprint.evidenceHierarchy.early)}
 
-### Weak evidence
+### ${z.weak}
 ${list(blueprint.evidenceHierarchy.weak)}
 
-**Ranking rule:** ${blueprint.evidenceHierarchy.rankingRule}
-${checkpointV21(blueprint)}
+**${z.rankingRule}:** ${blueprint.evidenceHierarchy.rankingRule}
+${checkpointV21(blueprint, z)}
 `;
 }
 
@@ -241,21 +249,25 @@ export function buildBlueprintAssetFiles(
 ): Array<{ name: string; data: Uint8Array }> {
   const root = "ghosttown-launch-blueprint/";
   const v21 = asV21(blueprint);
+  // Headings follow the founder's language; file names and CSV column keys stay fixed.
+  const founder: Locale = v21?.languages?.founder ?? "en";
+  const copy = BLUEPRINT_DOCUMENT_COPY[founder];
+  const z = copy.zip;
   const files: Record<(typeof BLUEPRINT_ASSET_FILENAMES)[number], Uint8Array> =
     {
       "README.md": encoded(
-        `# GhostTown Launch Blueprint\n\nAll files in this package were derived from canonical Blueprint ${blueprint.blueprintId} (${blueprint.schemaVersion}${v21 ? `, contract ${v21.contractVersion}` : ""}). The $97 Sprint does not include a live website. Get Me Live is a separate $297 one-time product; use the Sprint as the strategy and evidence handoff.${v21 ? `\n\nCanonical source hash: ${v21.generationReceipt.canonicalContract.gitBlobSha1}. Every Factory slice must verify this exact hash before execution.` : ""}\n`,
+        z.readme({ blueprintId: blueprint.blueprintId, schemaVersion: blueprint.schemaVersion, contractVersion: v21?.contractVersion, sha: v21?.generationReceipt.canonicalContract.gitBlobSha1 }),
       ),
       "blueprint.json": encoded(JSON.stringify(blueprint, null, 2)),
       "launch-blueprint.pdf": pdf,
       "executive-summary.md": encoded(
-        `# ${blueprint.offer.offerName}\n\n${blueprint.executiveDecision.verdict}\n\n**Initial customer:** ${blueprint.executiveDecision.recommendedInitialCustomer}\n\n**Strongest opportunity:** ${blueprint.executiveDecision.strongestOpportunity}\n\n**Biggest risk:** ${blueprint.executiveDecision.biggestRisk}\n\n**Validation objective:** ${blueprint.executiveDecision.validationObjective}${v21 ? executiveV21(v21) : ""}\n`,
+        `# ${blueprint.offer.offerName}\n\n${blueprint.executiveDecision.verdict}\n\n**${z.initialCustomer}:** ${blueprint.executiveDecision.recommendedInitialCustomer}\n\n**${z.strongestOpportunity}:** ${blueprint.executiveDecision.strongestOpportunity}\n\n**${z.biggestRisk}:** ${blueprint.executiveDecision.biggestRisk}\n\n**${z.validationObjective}:** ${blueprint.executiveDecision.validationObjective}${v21 ? executiveV21(v21, copy) : ""}\n`,
       ),
       "offer-and-pricing.md": encoded(
-        `# ${blueprint.offer.offerName}\n\n${blueprint.offer.oneSentencePromise}\n\n**Test price:** ${blueprint.offer.initialTestPrice}\n\n${blueprint.offer.pricingRationale}\n\n## Deliverables\n${blueprint.offer.deliverables.map((item) => `- **${item.name}:** ${item.description}`).join("\n")}${v21 ? offerV21(v21) : ""}\n`,
+        `# ${blueprint.offer.offerName}\n\n${blueprint.offer.oneSentencePromise}\n\n**${z.testPrice}:** ${blueprint.offer.initialTestPrice}\n\n${blueprint.offer.pricingRationale}\n\n## ${z.deliverables}\n${blueprint.offer.deliverables.map((item) => `- **${item.name}:** ${item.description}`).join("\n")}${v21 ? offerV21(v21, z, founder) : ""}\n`,
       ),
       "positioning.md": encoded(
-        `# Positioning\n\n${blueprint.positioning.positioningStatement}\n\n**Differentiator:** ${blueprint.positioning.differentiator}\n\n## Not for\n${blueprint.positioning.notFor.map((item) => `- ${item}`).join("\n")}${v21 ? `\n\n## Excluded from the first 30 days\n${list(v21.businessModelLane.intentionallyDeferred)}` : ""}\n`,
+        `# ${z.positioning}\n\n${blueprint.positioning.positioningStatement}\n\n**${z.differentiator}:** ${blueprint.positioning.differentiator}\n\n## ${z.notFor}\n${blueprint.positioning.notFor.map((item) => `- ${item}`).join("\n")}${v21 ? `\n\n## ${z.excluded}\n${list(v21.businessModelLane.intentionallyDeferred)}` : ""}\n`,
       ),
       "media-and-distribution-network.csv": encoded(
         csv([
@@ -292,7 +304,7 @@ export function buildBlueprintAssetFiles(
             channel.researchDate,
             channel.currentActivityStatus || "unverified",
             channel.currentActivityVerifiedAt || "",
-            channel.currentActivityEvidence || "Current activity was not independently verified.",
+            channel.currentActivityEvidence || z.currentActivityMissing,
             channel.confidence,
             channel.firstAction,
             channel.sourceIds.join(";"),
@@ -303,27 +315,27 @@ export function buildBlueprintAssetFiles(
         blueprint.customerAccessPack.outreachScripts
           .map(
             (script) =>
-              `## ${script.title}\n\n${script.message}\n\n**Purpose:** ${script.purpose}\n\n**Use when:** ${script.useWhen}`,
+              `## ${script.title}\n\n${script.message}\n\n**${z.purpose}:** ${script.purpose}\n\n**${z.useWhen}:** ${script.useWhen}`,
           )
           .join("\n\n") +
           (v21
-            ? `\n\n# Customer Interview Guide\n\n${v21.customerInterviewGuide.opening}\n\n## Last occurrence\n${list(v21.customerInterviewGuide.lastOccurrenceQuestions)}\n\n## Current workaround\n${list(v21.customerInterviewGuide.currentWorkaroundQuestions)}\n\n## Buying process\n${list(v21.customerInterviewGuide.buyingProcessQuestions)}\n\n# Offer Conversation Guide\n\n${v21.offerConversationGuide.opening}\n\n${v21.offerConversationGuide.offerExplanation}\n\n**Commitment request:** ${v21.offerConversationGuide.commitmentRequest}\n\n**Follow-up agreement:** ${v21.offerConversationGuide.followUpAgreement}`
+            ? `\n\n# ${z.interviewGuide}\n\n${v21.customerInterviewGuide.opening}\n\n## ${z.lastOccurrence}\n${list(v21.customerInterviewGuide.lastOccurrenceQuestions)}\n\n## ${z.currentWorkaround}\n${list(v21.customerInterviewGuide.currentWorkaroundQuestions)}\n\n## ${z.buyingProcess}\n${list(v21.customerInterviewGuide.buyingProcessQuestions)}\n\n# ${z.offerGuide}\n\n${v21.offerConversationGuide.opening}\n\n${v21.offerConversationGuide.offerExplanation}\n\n**${z.commitmentRequest}:** ${v21.offerConversationGuide.commitmentRequest}\n\n**${z.followUpAgreement}:** ${v21.offerConversationGuide.followUpAgreement}`
             : ""),
       ),
       "helpful-posts.md": encoded(
-        communityResearchMarkdown(v21) +
+        communityResearchMarkdown(v21, z) +
         blueprint.customerAccessPack.helpfulPosts
           .map(
             (post) =>
-              `## ${post.title}\n\n${post.body}\n\n${post.closingQuestion}\n\n**Objective:** ${post.objective}`,
+              `## ${post.title}\n\n${post.body}\n\n${post.closingQuestion}\n\n**${z.objective}:** ${post.objective}`,
           )
           .join("\n\n"),
       ),
       "landing-page-copy.md": encoded(
-        `# ${blueprint.landingPageCopy.headline}\n\n${blueprint.landingPageCopy.subheadline}\n\n## Problem\n${blueprint.landingPageCopy.problemSection}\n\n## Offer\n${blueprint.landingPageCopy.offerDescription}\n\n**Price:** ${blueprint.landingPageCopy.pricePresentation}\n\n**CTA:** ${blueprint.landingPageCopy.primaryCallToAction}${v21 ? `\n\n## Validation-stage proof boundary\n${v21.foundingCustomerPilotBrief.proofBoundary}` : ""}\n`,
+        `# ${blueprint.landingPageCopy.headline}\n\n${blueprint.landingPageCopy.subheadline}\n\n## ${z.landingProblem}\n${blueprint.landingPageCopy.problemSection}\n\n## ${z.landingOffer}\n${blueprint.landingPageCopy.offerDescription}\n\n**${z.landingPrice}:** ${blueprint.landingPageCopy.pricePresentation}\n\n**${z.cta}:** ${blueprint.landingPageCopy.primaryCallToAction}${v21 ? `\n\n## ${z.landingProofBoundary}\n${v21.foundingCustomerPilotBrief.proofBoundary}` : ""}\n`,
       ),
       "get-me-live-handoff.md": encoded(
-        `# Get Me Live — optional next step\n\nThe $97 30-Day Sprint does not include a live website, domain, publishing, or payment setup. **Get Me Live is a separate ${DEFAULT_GET_ME_LIVE_DISPLAY_PRICE.replace(".00", "")} one-time product.**\n\n## Sprint handoff\n\n**Customer:** ${blueprint.offer.targetCustomer}\n\n**Offer:** ${blueprint.offer.offerName}\n\n**Promise:** ${blueprint.offer.oneSentencePromise}\n\n**First commitment:** ${v21 ? v21.firstRevenuePath.firstAsk : blueprint.offer.oneSentencePromise}\n\nUse this validated strategy and evidence only after you choose Get Me Live.\n`,
+        z.getMeLive({ price: DEFAULT_GET_ME_LIVE_DISPLAY_PRICE.replace(".00", ""), customer: blueprint.offer.targetCustomer, offer: blueprint.offer.offerName, promise: blueprint.offer.oneSentencePromise, firstCommitment: v21 ? v21.firstRevenuePath.firstAsk : blueprint.offer.oneSentencePromise }),
       ),
       "thirty-day-calendar.csv": encoded(
         csv([
@@ -363,7 +375,7 @@ export function buildBlueprintAssetFiles(
               day.successMeasurement,
               day.evidenceToRecord.join("; "),
               (dayV21.ifThenBranches || [])
-                .map((branch) => `IF ${branch.condition} THEN ${branch.action}`)
+                .map((branch) => z.ifThen(branch.condition, branch.action))
                 .join("; "),
               packet?.actions.map(action => action.actionId).join("; ") || "",
               packet?.assets.map(asset => asset.assetId).join("; ") || "",
@@ -379,30 +391,24 @@ export function buildBlueprintAssetFiles(
         blueprint.weeklyMilestones
           .map(
             (week) =>
-              `## Week ${week.weekNumber}: ${week.objective}\n\n**Milestone:** ${week.milestone}\n\n${week.successMetrics.map((item) => `- ${item}`).join("\n")}`,
+              `## ${z.week(week.weekNumber, week.objective)}\n\n**${z.milestone}:** ${week.milestone}\n\n${week.successMetrics.map((item) => `- ${item}`).join("\n")}`,
           )
-          .join("\n\n") + (v21 ? checkpointV21(v21) : ""),
+          .join("\n\n") + (v21 ? checkpointV21(v21, z) : ""),
       ),
       "metrics-template.csv": encoded(
         csv([
           ["metric", "value", "evidence_to_record", "evidence_strength"],
-          ["outreach_sent", 0, "Recipient, channel, date", "activity only"],
-          ["replies", 0, "Reply and source", "early"],
-          ["interviews", 0, "Buyer fit and notes", "early"],
-          ["qualified_conversations", 0, "Problem and urgency evidence", "moderate"],
-          ["commitments", 0, "Commitment type and date", "strong or moderate"],
-          ["revenue_cents", 0, "Payment record", "strong"],
-          ["founder_hours", 0, "Time log by fulfillment step", "fulfillment evidence"],
-          ["variable_cost_cents", 0, "Direct-cost receipt", "fulfillment evidence"],
+          ...["outreach_sent", "replies", "interviews", "qualified_conversations", "commitments", "revenue_cents", "founder_hours", "variable_cost_cents"]
+            .map((metric, index) => [metric, 0, z.metricsEvidence[index], z.metricsStrength[index]]),
         ]),
       ),
       "decision-rules.md": encoded(
         blueprint.finalDecision.criteria
           .map(
             (rule) =>
-              `## ${rule.decision.toUpperCase()}\n\n${rule.condition}\n\n**Next action:** ${rule.nextAction}`,
+              `## ${copy.decision(rule.decision)}\n\n${rule.condition}\n\n**${z.nextAction}:** ${rule.nextAction}`,
           )
-          .join("\n\n") + (v21 ? decisionV21(v21) : ""),
+          .join("\n\n") + (v21 ? decisionV21(v21, z) : ""),
       ),
       "sources.csv": encoded(
         csv([

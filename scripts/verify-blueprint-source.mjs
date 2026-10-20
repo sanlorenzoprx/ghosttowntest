@@ -57,20 +57,20 @@ try {
 
 // Keep the v2.1.4 compatibility fields for roadmap scripts that were built
 // before the calendar/Copilot amendments, but require the actual source-chain
-// tip to advance through the approved v2.1.5 through v2.1.12 decisions.
+// tip to advance through the approved v2.1.5 through v2.1.13 decisions.
 if (manifest?.changeId !== 'GT-BP-2026-08-15-V2.1.4') {
   fail('Evidence manifest no longer preserves the v2.1.4 compatibility change ID.');
 }
 if (manifest?.previousChangeId !== 'GT-BP-2026-08-15-V2.1.3') {
   fail('Evidence manifest no longer preserves the v2.1.3 compatibility predecessor.');
 }
-if (manifest?.chainTip?.changeId !== 'GT-BP-2026-10-20-V2.1.12') {
-  fail('Evidence chain tip is not the approved v2.1.12 Language and Why change ID.');
+if (manifest?.chainTip?.changeId !== 'GT-BP-2026-10-20-V2.1.13') {
+  fail('Evidence chain tip is not the approved v2.1.13 Spanish Fixed Text change ID.');
 }
-if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-10-20-V2.1.11') {
-  fail('Evidence chain tip does not preserve the v2.1.11 Community Problem Research predecessor.');
+if (manifest?.chainTip?.previousChangeId !== 'GT-BP-2026-10-20-V2.1.12') {
+  fail('Evidence chain tip does not preserve the v2.1.12 Language and Why predecessor.');
 }
-if (manifest?.chainTip?.version !== '2.1.12') fail('Evidence chain tip version must be 2.1.12.');
+if (manifest?.chainTip?.version !== '2.1.13') fail('Evidence chain tip version must be 2.1.13.');
 
 const canonical = verifyTrackedSource(manifest.canonical, 'Canonical Blueprint');
 const platformAmendment = verifyTrackedSource(manifest.platformAmendment, 'v2.1.2 Vertex AI platform amendment');
@@ -101,6 +101,9 @@ const communityEvidence = verifyTrackedSource(manifest.communityProblemResearchE
 const languageAmendment = verifyTrackedSource(manifest.languageAndWhyAmendment, 'v2.1.12 Language and Why amendment');
 const languageChangeRecord = verifyTrackedSource(manifest.languageAndWhyChangeRecord, 'v2.1.12 change record');
 const languageEvidence = verifyTrackedSource(manifest.languageAndWhyEvidence, 'v2.1.12 implementation evidence');
+const fixedTextAmendment = verifyTrackedSource(manifest.spanishFixedTextAmendment, 'v2.1.13 Spanish Fixed Text amendment');
+const fixedTextChangeRecord = verifyTrackedSource(manifest.spanishFixedTextChangeRecord, 'v2.1.13 change record');
+const fixedTextEvidence = verifyTrackedSource(manifest.spanishFixedTextEvidence, 'v2.1.13 implementation evidence');
 
 const authorityClause =
   'The canonical Blueprint is the authoritative product and implementation guide. Every Factory slice must revalidate its exact hash before execution.';
@@ -403,7 +406,7 @@ if (manifest?.languageAndWhyEvidence?.path !== 'docs/blueprint-evidence/ghosttow
 }
 try {
   const evidence = JSON.parse(languageEvidence.source);
-  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.12 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.changeId !== manifest.languageAndWhyAmendment.changeId) fail('v2.1.12 implementation evidence change ID does not match the v2.1.12 amendment.');
   if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1) fail('v2.1.12 implementation evidence does not preserve the canonical Blueprint hash.');
   if (evidence?.canonical?.sourceModified !== false) fail('v2.1.12 implementation evidence must state that the canonical source was not modified.');
   const languages = evidence?.languages;
@@ -416,6 +419,31 @@ try {
   if (evidence?.validation?.productionDeploymentPerformed !== false) fail('v2.1.12 evidence must not claim a production deployment.');
 } catch (error) {
   fail(`Unable to verify v2.1.12 implementation evidence: ${error.message}`);
+}
+
+const fixedTextDecision = "The fixed parts of the Sprint follow the same two languages as the AI-written parts: what the founder reads is in the founder's language, and what the founder sends to buyers is in the buyers' language.";
+requireText(fixedTextAmendment.source, fixedTextDecision, 'v2.1.13 Spanish Fixed Text product decision');
+for (const required of [
+  '**The Blueprint records its languages.**',
+  '**Exports follow the founder\'s language.**',
+  '**Spanish characters survive the PDF.**',
+  '**Validators keep their keys.**',
+  'Blueprints for existing orders are byte-identical to before.',
+  'No commercial, evidence, safety, ownership, fulfillment, artifact-integrity, or release requirement is waived by this amendment.',
+  'Weakening approved outcomes remains prohibited.'
+]) requireText(fixedTextAmendment.source, required, 'v2.1.13 Spanish Fixed Text amendment');
+requireText(fixedTextChangeRecord.source, fixedTextDecision, 'v2.1.13 change record decision');
+requireText(fixedTextChangeRecord.source, 'Weakening approved outcomes remains prohibited.', 'v2.1.13 change record outcome protection');
+try {
+  const evidence = JSON.parse(fixedTextEvidence.source);
+  if (evidence?.changeId !== manifest.chainTip.changeId) fail('v2.1.13 implementation evidence change ID does not match the chain tip.');
+  if (evidence?.canonical?.gitBlobSha1 !== manifest.canonical.gitBlobSha1 || evidence?.canonical?.sourceModified !== false) fail('v2.1.13 implementation evidence does not preserve the canonical Blueprint.');
+  const fixed = evidence?.fixedText;
+  if (fixed?.englishOutputByteIdentical !== true || fixed?.zipFileCount !== 16 || fixed?.validatorKeysUnchanged !== true) fail('v2.1.13 must keep English output, the ZIP manifest and validator keys unchanged.');
+  if (fixed?.founderFacingFollowsFounderLanguage !== true || fixed?.buyerFacingFollowsBuyerLanguage !== true || fixed?.pdfKeepsSpanishCharacters !== true) fail('v2.1.13 language policy is incomplete.');
+  if (evidence?.validation?.blueprintVerification?.chainTip !== '2.1.13' || evidence?.validation?.productionDeploymentPerformed !== false) fail('v2.1.13 validation evidence is incomplete.');
+} catch (error) {
+  fail(`Unable to verify v2.1.13 implementation evidence: ${error.message}`);
 }
 
 if (manifest?.outcomeProtection?.weakeningAllowed !== false) {
@@ -433,9 +461,9 @@ for (const required of [
 }
 
 console.log(
-  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${languageAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
+  `[blueprint-source] verified chain tip ${manifest.chainTip.version} ${fixedTextAmendment.actualHash} (${manifest.chainTip.changeId}); ` +
   `base ${manifest.canonical.version} ${canonical.actualHash}; platform ${manifest.platformAmendment.version} ${platformAmendment.actualHash}; ` +
   `website ${manifest.previousAmendment.version} ${websiteAmendment.actualHash}; spa ${manifest.amendment.version} ${spaAmendment.actualHash}; ` +
   `calendar ${manifest.calendarAmendment.version} ${calendarAmendment.actualHash}; execution ${manifest.executionIntelligenceAmendment.version} ${executionAmendment.actualHash}; ` +
-  `coherence ${coherenceAmendment.actualHash}; research-role ${researchRoleAmendment.actualHash}; recency ${recencyAmendment.actualHash}; community-research ${communityAmendment.actualHash}; copy-integrity ${copyIntegrityAmendment.actualHash}; copy-integrity-change-record ${copyIntegrityChangeRecord.actualHash}`
+  `coherence ${coherenceAmendment.actualHash}; research-role ${researchRoleAmendment.actualHash}; recency ${recencyAmendment.actualHash}; language-and-why ${languageAmendment.actualHash}; community-research ${communityAmendment.actualHash}; copy-integrity ${copyIntegrityAmendment.actualHash}; copy-integrity-change-record ${copyIntegrityChangeRecord.actualHash}`
 );

@@ -1,5 +1,5 @@
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
-import { composeBlueprintDocumentModel, validateBlueprintDocumentAgainstCanonical, type BlueprintDocumentModel } from './blueprintDocumentModel';
+import { blueprintDocumentCopy, composeBlueprintDocumentModel, validateBlueprintDocumentAgainstCanonical, type BlueprintDocumentModel } from './blueprintDocumentModel';
 import { renderBlueprintDocumentHtml, renderWithBrowserPdfOrFallback, type BrowserPdfRenderer } from './blueprintDocumentHtml';
 import { currentCustomerAccessChannels, researchEvidenceRole, RESEARCH_EVIDENCE_ROLE_LABELS } from './researchEvidenceRole';
 
@@ -28,33 +28,41 @@ interface Page {
   number: number;
 }
 
-function normalize(value: string): string {
+/**
+ * `latin` keeps Latin-1 letters (á é í ó ú ñ ü ¿ ¡ …) for Spanish documents.
+ * Those PDFs declare WinAnsiEncoding on the standard fonts, where these
+ * characters share their Latin-1 codes. English documents keep the original
+ * ASCII-only output so their bytes do not change.
+ */
+function normalize(value: string, latin = false): string {
   return value
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201c\u201d]/g, '"')
     .replace(/[\u2013\u2014]/g, '-')
     .replace(/\u2026/g, '...')
     .replace(/\u2022/g, '-')
-    .replace(/[^\x20-\x7e\n]/g, '')
-    .replace(/[ \t]+/g, ' ')
+    .replace(latin ? /[^\x20-\x7e\xa0-\xff\n]/g : /[^\x20-\x7e\n]/g, '')
+    .replace(latin ? /[ \t\xa0]+/g : /[ \t]+/g, ' ')
     .trim();
 }
 
-function escape(value: string): string {
-  return normalize(value)
+function escape(value: string, latin = false): string {
+  const escaped = normalize(value, latin)
     .replace(/\\/g, '\\\\')
     .replace(/\(/g, '\\(')
     .replace(/\)/g, '\\)');
+  // Octal escapes keep the content stream 7-bit, so byte lengths stay exact.
+  return latin ? escaped.replace(/[\xa0-\xff]/g, char => `\\${char.charCodeAt(0).toString(8).padStart(3, '0')}`) : escaped;
 }
 
 function rgb(color: Color): string {
   return `${color[0]} ${color[1]} ${color[2]}`;
 }
 
-function wrap(value: string, width: number, size: number): string[] {
+function wrap(value: string, width: number, size: number, latin = false): string[] {
   const max = Math.max(12, Math.floor(width / (size * 0.52)));
   const output: string[] = [];
-  for (const paragraph of normalize(value).split(/\n+/)) {
+  for (const paragraph of normalize(value, latin).split(/\n+/)) {
     const words = paragraph.split(/\s+/).filter(Boolean);
     let line = '';
     for (const word of words) {
@@ -577,6 +585,10 @@ export class V21PdfBuilder {
  * cards, page chrome, and no operational identifiers on the cover. */
 export function renderBlueprintDocumentModelPdf(model: BlueprintDocumentModel): Uint8Array {
   const pages: Page[] = [];
+  const copy = blueprintDocumentCopy(model);
+  const t = copy.pdf;
+  // Spanish Sprints keep their accents (WinAnsi); English output is unchanged.
+  const latin = Boolean(model.languages);
   let current: Page;
   let y = HEIGHT - 64;
   const command = (value: string) => current.commands.push(value);
@@ -584,7 +596,7 @@ export function renderBlueprintDocumentModelPdf(model: BlueprintDocumentModel): 
     command(`q\n${rgb(fill)} rg\n${x} ${bottom} ${width} ${height} re f${stroke ? `\n${rgb(stroke)} RG\n0.8 w\n${x} ${bottom} ${width} ${height} re S` : ''}\nQ`);
   };
   const text = (value: string, x: number, baseline: number, size: number, font: Font = 'F1', color: Color = COLORS.ink) => {
-    command(`BT\n/${font} ${size} Tf\n${rgb(color)} rg\n1 0 0 1 ${x.toFixed(1)} ${baseline.toFixed(1)} Tm\n(${escape(value)}) Tj\nET`);
+    command(`BT\n/${font} ${size} Tf\n${rgb(color)} rg\n1 0 0 1 ${x.toFixed(1)} ${baseline.toFixed(1)} Tm\n(${escape(value, latin)}) Tj\nET`);
   };
   const page = (section: string, cover = false) => {
     current = { commands: [], section, number: pages.length + 1 };
@@ -592,28 +604,28 @@ export function renderBlueprintDocumentModelPdf(model: BlueprintDocumentModel): 
     if (cover) { y = HEIGHT - 64; return; }
     rect(0, HEIGHT - 38, WIDTH, 38, COLORS.ink);
     text('GHOSTTOWN LAUNCH BLUEPRINT', MARGIN, HEIGHT - 25, 8, 'F2', COLORS.white);
-    const shortSection = normalize(section).slice(0, 52);
+    const shortSection = normalize(section, latin).slice(0, 52);
     text(shortSection.toUpperCase(), WIDTH - MARGIN - shortSection.length * 4.1, HEIGHT - 25, 7.3, 'F2', COLORS.gold);
     command(`q\n${rgb(COLORS.line)} RG\n0.6 w\n${MARGIN} 38 m\n${WIDTH - MARGIN} 38 l\nS\nQ`);
-    text(`Contract ${model.sourceBlueprint.contractVersion}`, MARGIN, 24, 7.2, 'F1', COLORS.muted);
-    text(`PAGE ${pages.length}`, WIDTH - MARGIN - 34, 24, 7.2, 'F2', COLORS.muted);
+    text(t.contract(model.sourceBlueprint.contractVersion), MARGIN, 24, 7.2, 'F1', COLORS.muted);
+    text(t.page(pages.length), WIDTH - MARGIN - 34, 24, 7.2, 'F2', COLORS.muted);
     y = HEIGHT - 64;
   };
-  const ensure = (height: number) => { if (y - height < 54) page(`${current.section} / continued`); };
+  const ensure = (height: number) => { if (y - height < 54) page(`${current.section} / ${t.continued}`); };
   const heading = (value: string, kicker?: string) => {
     ensure(60);
     if (kicker) { text(kicker.toUpperCase(), MARGIN, y, 7.4, 'F2', COLORS.rust); y -= 17; }
-    const lines = wrap(value, BODY_WIDTH, 18);
+    const lines = wrap(value, BODY_WIDTH, 18, latin);
     lines.forEach(line => { text(line, MARGIN, y, 18, 'F2'); y -= 22; });
     rect(MARGIN, y + 6, 82, 3, COLORS.gold);
     y -= 14;
   };
   const card = (title: string, body: string, accent: Color = COLORS.rust) => {
-    const lines = wrap(body, BODY_WIDTH - 34, 8.8);
+    const lines = wrap(body, BODY_WIDTH - 34, 8.8, latin);
     const height = 40 + lines.length * 11.5;
     if (height > 620) {
       const chunkSize = 45;
-      for (let index = 0; index < lines.length; index += chunkSize) card(index ? `${title} / continued` : title, lines.slice(index, index + chunkSize).join(' '), accent);
+      for (let index = 0; index < lines.length; index += chunkSize) card(index ? `${title} / ${t.continued}` : title, lines.slice(index, index + chunkSize).join(' '), accent);
       return;
     }
     ensure(height + 10);
@@ -631,50 +643,51 @@ export function renderBlueprintDocumentModelPdf(model: BlueprintDocumentModel): 
   rect(MARGIN, HEIGHT - 114, 96, 4, COLORS.gold);
   text('GHOSTTOWN', MARGIN, HEIGHT - 82, 11, 'F2', COLORS.gold);
   text('LAUNCH BLUEPRINT', MARGIN, HEIGHT - 101, 11, 'F2', COLORS.white);
-  text('CANONICAL V2.1', WIDTH - MARGIN - 92, HEIGHT - 101, 9, 'F2', COLORS.gold);
+  text(t.canonical, WIDTH - MARGIN - 92, HEIGHT - 101, 9, 'F2', COLORS.gold);
   let coverY = HEIGHT - 190;
-  wrap(model.presentation.title, BODY_WIDTH - 24, 29).forEach(line => { text(line, MARGIN, coverY, 29, 'F2', COLORS.white); coverY -= 36; });
+  wrap(model.presentation.title, BODY_WIDTH - 24, 29, latin).forEach(line => { text(line, MARGIN, coverY, 29, 'F2', COLORS.white); coverY -= 36; });
   coverY -= 10;
-  text(`FOR ${normalize(model.presentation.customer).toUpperCase()}`, MARGIN, coverY, 9, 'F2', COLORS.gold);
+  text(t.for(normalize(model.presentation.customer, latin).toUpperCase()), MARGIN, coverY, 9, 'F2', COLORS.gold);
   coverY -= 30;
-  wrap(model.presentation.subtitle, BODY_WIDTH - 24, 13).forEach(line => { text(line, MARGIN, coverY, 13, 'F1', COLORS.white); coverY -= 18; });
+  wrap(model.presentation.subtitle, BODY_WIDTH - 24, 13, latin).forEach(line => { text(line, MARGIN, coverY, 13, 'F1', COLORS.white); coverY -= 18; });
   rect(MARGIN, 88, BODY_WIDTH, 54, COLORS.rust);
-  text('OPEN BLUEPRINT  /  DOWNLOAD PDF', MARGIN + 20, 111, 11, 'F2', COLORS.white);
-  text('A 30-day evidence-led plan built for action.', MARGIN + 20, 96, 8.4, 'F1', COLORS.white);
+  text(t.openDownload, MARGIN + 20, 111, 11, 'F2', COLORS.white);
+  text(t.tagline, MARGIN + 20, 96, 8.4, 'F1', COLORS.white);
 
   for (const section of model.prioritySections) {
     page(section.title);
-    heading(section.title, 'Priority decision');
-    card('Decision', section.decision, COLORS.rust);
-    card('Why', section.why, COLORS.gold);
-    bullets('Evidence', section.evidence.map(item => `[${item.truthLabel}] ${item.statement}`));
-    section.readyToUseAssets.forEach((item, index) => card(index ? item.title : `Ready-to-use assets / ${item.title}`, `${item.finishedContent}\n\nUSE IT: ${item.usageInstructions}`, COLORS.gold));
-    card('Measurement', `SUCCESS: ${section.measurement.successThreshold}\nFAILURE: ${section.measurement.failureThreshold}\nCOMPLETE WHEN: ${section.measurement.completionDefinition}\nCAPTURE: ${section.measurement.evidenceToCapture.join('; ')}`, COLORS.green);
+    heading(section.title, t.priorityDecision);
+    card(t.decision, section.decision, COLORS.rust);
+    card(t.why, section.why, COLORS.gold);
+    bullets(t.evidence, section.evidence.map(item => `[${copy.truthLabel[item.truthLabel] ?? item.truthLabel}] ${item.statement}`));
+    section.readyToUseAssets.forEach((item, index) => card(index ? item.title : t.readyAssets(item.title), `${item.finishedContent}\n\n${t.useIt}${item.usageInstructions}`, COLORS.gold));
+    card(t.measurement, t.measurementBody(section.measurement.successThreshold, section.measurement.failureThreshold, section.measurement.completionDefinition, section.measurement.evidenceToCapture.join('; ')), COLORS.green);
     if (section.accessGroups) {
-      heading('Research Roles', 'Customer access / Market evidence / Media-PR / Partnerships');
-      section.accessGroups.forEach(group => bullets(group.title, group.targets.map(target => `${target.name} [${target.evidenceRole}] (${target.targetType}) | ${target.publicUrl} | EVIDENCE DATED: ${target.evidenceDate || 'unknown'} (${target.evidenceRecency}) | RESEARCHED: ${target.researchDate} | CURRENT ACTIVITY: ${target.currentActivityStatus}${target.currentActivityVerifiedAt ? ` verified ${target.currentActivityVerifiedAt}` : ''} | EVIDENCE CONFIDENCE: ${target.confidence} | ACCESS: ${target.accessPath} | RESOURCE: ${target.matchedAssetOrScript.title} | RISK: ${target.risk} | FIRST ACTION: ${target.firstAction}`), group.groupId === 'customer_access' ? COLORS.green : group.groupId === 'partnership' ? COLORS.rust : COLORS.gold));
+      heading(t.researchRoles, t.researchRolesKicker);
+      section.accessGroups.forEach(group => bullets(group.title, group.targets.map(target => t.accessTarget({ name: target.name, role: target.evidenceRole, type: target.targetType, url: target.publicUrl, evidenceDate: target.evidenceDate || copy.html.unknown, recency: target.evidenceRecency, researchDate: target.researchDate, activity: target.currentActivityStatus, verifiedAt: target.currentActivityVerifiedAt, confidence: target.confidence, access: target.accessPath, resource: target.matchedAssetOrScript.title, risk: target.risk, firstAction: target.firstAction })), group.groupId === 'customer_access' ? COLORS.green : group.groupId === 'partnership' ? COLORS.rust : COLORS.gold));
     }
-    bullets('Adaptation Rule', section.adaptationRule.map(rule => `IF ${rule.condition} THEN ${rule.action} [${rule.route}]. Capture: ${rule.evidenceRequired.join('; ')}`), COLORS.rust);
+    bullets(t.adaptationRule, section.adaptationRule.map(rule => t.adaptation(rule.condition, rule.action, copy.route(rule.route), rule.evidenceRequired.join('; '))), COLORS.rust);
   }
   for (const section of model.supportingSections) {
     page(section.title);
-    heading(section.title, 'Supporting detail');
+    heading(section.title, t.supportingDetail);
     if (section.sectionId === 'evidence_checkpoints') {
-      card('Behavioral Evidence Hierarchy', 'Rank observed behavior above stated interest when deciding what to do next.', COLORS.gold);
-      card('Adaptive Checkpoint Reviews', 'Adaptive Checkpoint Reviews use the recorded evidence at each checkpoint and follow the declared branch.', COLORS.rust);
+      card(t.hierarchyTitle, t.hierarchyBody, COLORS.gold);
+      card(t.checkpointsTitle, t.checkpointsBody, COLORS.rust);
     }
     section.content.forEach((item, index) => card(`${section.title} / ${index + 1}`, item, index % 2 ? COLORS.gold : COLORS.rust));
   }
-  return encodePdf(pages);
+  return encodePdf(pages, latin);
 }
 
-function encodePdf(pages: Page[]): Uint8Array {
+function encodePdf(pages: Page[], latin = false): Uint8Array {
+  const encoding = latin ? ' /Encoding /WinAnsiEncoding' : '';
   const objects: string[] = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     `<< /Type /Pages /Kids [${pages.map((_, index) => `${6 + index * 2} 0 R`).join(' ')}] /Count ${pages.length} >>`,
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>'
+    `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica${encoding} >>`,
+    `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold${encoding} >>`,
+    `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique${encoding} >>`
   ];
   pages.forEach((page, index) => {
     const pageId = 6 + index * 2;
