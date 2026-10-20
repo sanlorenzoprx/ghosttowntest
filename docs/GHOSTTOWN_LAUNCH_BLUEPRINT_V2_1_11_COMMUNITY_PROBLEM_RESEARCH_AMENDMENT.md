@@ -14,6 +14,7 @@ Customer-access research (v2.1.8, v2.1.9) finds public places where likely buyer
 From v2.1.11, the paid Sprint also tells the founder:
 
 - what likely customers struggle with, in their own words, with a link to each quote;
+- why each problem matters to their business, in one or two plain sentences;
 - what argues against each problem;
 - how each community talks, what format fits, and whether promotion is allowed;
 - what to ask next, what GhostTown prepared, and what would change the plan;
@@ -32,7 +33,8 @@ The posts, outreach messages and landing-page copy are generated from those prob
 7. **Only current customer-access communities are read.** Targets must have `evidenceRole = customer_access` and `currentActivityStatus = verified_current`, at most six per Sprint. Market evidence, media/PR and partnership targets are not read as customer voices.
 8. **Unread pages are visible.** A page that cannot be read, or that yields no checkable quote, becomes a research gap shown to the founder. Missing research is never shown as silence or as a finding.
 9. **Quotes are never testimonials.** Generated posts, messages and landing-page copy may use the problems and customer language; they may not present a quote as an endorsement, review, testimonial or result.
-10. **"What we prepared" opens the work.** The dashboard shows the interview guide, the first message for that community and the post written for it, ready to copy. A list of tasks is not prepared work.
+10. **Every problem explains why it matters.** Each problem carries `whyItMatters`: one or two plain sentences, for a founder new to the subject, on what it means for their business. Brief, never a lecture. The prompt includes the shared `EXPLAIN_WHY_INSTRUCTION`, which the Coach also uses.
+11. **"What we prepared" opens the work.** The dashboard shows the interview guide, the first message for that community and the post written for it, ready to copy. A list of tasks is not prepared work.
 
 ## Pipeline
 

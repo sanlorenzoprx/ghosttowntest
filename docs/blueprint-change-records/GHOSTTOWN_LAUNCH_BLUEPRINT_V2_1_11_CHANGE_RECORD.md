@@ -21,6 +21,7 @@ Customer-access research verified that each community was relevant and current, 
 ## Implementation
 
 - `src/api/communityProblemResearch.ts` reads up to six current customer-access communities, asks Vertex (task `grounded_research`, no search) to group quotes into problems, and keeps only quotes that appear word for word on the linked page.
+- Each problem carries `whyItMatters`. The research prompt and the Execution Coach share `EXPLAIN_WHY_INSTRUCTION` (`src/lib/explainWhy.ts`): every finding comes with a brief, plain why and, for new topics, an offer to explain more.
 - New durable workflow step: `read customer communities and keep source-linked problems`, between research finalization and the canonical draft.
 - Canonical field `communityResearch` (`ghosttown-community-problem-research-v1`).
 - The asset-generation stage receives `customerResearch`: problems, customer words, contradicting words and each community's promotion rule.

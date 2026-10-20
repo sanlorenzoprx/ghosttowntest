@@ -26,7 +26,8 @@
     "evidenceLevel": "problem_evidence",
     "quotesMayBecomeTestimonials": false,
     "unreadPagesShownAsGaps": true,
-    "assetStageReceivesCustomerResearch": true
+    "assetStageReceivesCustomerResearch": true,
+    "everyProblemExplainsWhyItMatters": true
   },
   "surfaces": {
     "dashboard": "Research & Access tab: CommunityResearchCards",

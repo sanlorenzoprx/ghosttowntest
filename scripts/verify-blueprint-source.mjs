@@ -348,6 +348,7 @@ for (const required of [
   '`currentActivityStatus = verified_current`',
   '**Unread pages are visible.**',
   '**Quotes are never testimonials.**',
+  '**Every problem explains why it matters.**',
   '**"What we prepared" opens the work.**',
   'The 16-file package manifest is unchanged.',
   'No commercial, evidence, safety, ownership, fulfillment, artifact-integrity, or release requirement is waived by this amendment.',
@@ -369,6 +370,7 @@ try {
   if (research?.evidenceLevel !== 'problem_evidence' || research?.quotesMayBecomeTestimonials !== false) fail('v2.1.11 must keep community quotes at problem evidence and never testimonials.');
   if (research?.readsOnly !== 'customer_access + verified_current' || research?.maxCommunitiesRead !== 6) fail('v2.1.11 community selection changed without a versioned decision.');
   if (research?.unreadPagesShownAsGaps !== true || research?.assetStageReceivesCustomerResearch !== true) fail('v2.1.11 gap visibility or asset grounding is missing.');
+  if (research?.everyProblemExplainsWhyItMatters !== true) fail('v2.1.11 must explain why each problem matters.');
   if (evidence?.surfaces?.zipFileCount !== 16) fail('v2.1.11 must preserve the 16-file ZIP manifest.');
   if (evidence?.validation?.focusedTests?.failed !== 0 || evidence?.validation?.focusedTests?.passed < 47) fail('v2.1.11 focused regression evidence is incomplete.');
   if (evidence?.validation?.typecheck?.passed !== true) fail('v2.1.11 typecheck evidence did not pass.');

@@ -164,18 +164,18 @@
   "communityProblemResearchAmendment": {
     "path": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_11_COMMUNITY_PROBLEM_RESEARCH_AMENDMENT.md",
     "version": "2.1.11",
-    "gitBlobSha1": "d82a393e5e786c2b1169ae2995135b448352dec6",
+    "gitBlobSha1": "a23cfaab18b9c61e82c56019f4d2d2c940f29379",
     "changeId": "GT-BP-2026-10-20-V2.1.11",
     "decision": "GhostTown reads the communities it found and keeps customer problems only in the customers' own words, linked to the page they came from."
   },
   "communityProblemResearchChangeRecord": {
     "path": "docs/blueprint-change-records/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_11_CHANGE_RECORD.md",
     "version": "2.1.11",
-    "gitBlobSha1": "663d8b0b0d6799a1460aaef29cfab65e04646f9e"
+    "gitBlobSha1": "1aac687d8784c08b12770bacb01e706ae5da27ad"
   },
   "communityProblemResearchEvidence": {
     "path": "docs/blueprint-evidence/ghosttown-launch-blueprint-v2.1.11-community-problem-research-evidence.json",
     "version": "2.1.11",
-    "gitBlobSha1": "9122e5279ab01917444c6a1cc3b49e57c027a416"
+    "gitBlobSha1": "03976058c123d4ae98e1bb516400354aaff8a7fd"
   }
 }

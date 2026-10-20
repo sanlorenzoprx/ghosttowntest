@@ -90,7 +90,7 @@ function blueprintWithResearch() {
     problems: [{
       problemId: 'p1', title: 'Games nobody plays after one night', category: 'price', who: 'Parents of young kids', when: 'After buying a new game',
       currentWorkaround: 'Put a movie on instead', observationIds: ['obs_1'], contradictingObservationIds: ['obs_2'], channelIds: [channel.channelId],
-      strength: 'one_mention', whatToAskNext: 'Ask a parent about the last game they bought that nobody played.',
+      strength: 'one_mention', whyItMatters: 'Parents already spend money on games that fail, so a pick that works the first time saves them money and a ruined evening.', whatToAskNext: 'Ask a parent about the last game they bought that nobody played.',
       whatWouldChangePlan: 'If parents say one favorite game is enough, reconsider the offer.', evidenceLevel: 'problem_evidence'
     }],
     observations: [
@@ -111,6 +111,8 @@ describe('customer problems reach the founder', () => {
     expect(html).toContain('We spent $60 last month on two games nobody plays.');
     expect(html).toContain(`href="${blueprint.customerAccessPack.channels[0].publicUrl}"`);
     expect(html).toContain('What argues against it');
+    expect(html).toContain('Why this matters');
+    expect(html).toContain('saves them money and a ruined evening');
     expect(html).toContain('What to ask next');
     expect(html).toContain('What we prepared');
     expect(html).toContain('Interview guide');
@@ -124,7 +126,7 @@ describe('customer problems reach the founder', () => {
 
   it('shows the card in Spanish', () => {
     const html = renderToStaticMarkup(<CommunityResearchCards blueprint={blueprintWithResearch()} onCopy={() => {}} locale="es" />);
-    for (const label of ['Con qué batalla la gente', 'Qué preguntar ahora', 'Lo que preparamos', 'Guía de entrevistas', 'Qué cambiaría el plan', 'Vacíos de investigación', 'Sin promoción', 'Copiar']) {
+    for (const label of ['Por qué importa', 'Con qué batalla la gente', 'Qué preguntar ahora', 'Lo que preparamos', 'Guía de entrevistas', 'Qué cambiaría el plan', 'Vacíos de investigación', 'Sin promoción', 'Copiar']) {
       expect(html, label).toContain(label);
     }
     expect(html).not.toContain('What to ask next');
@@ -148,6 +150,8 @@ describe('customer problems reach the founder', () => {
     const posts = new TextDecoder().decode(files.find(file => file.name.endsWith('helpful-posts.md'))!.data);
     expect(posts.startsWith('# What your likely customers are struggling with')).toBe(true);
     expect(posts).toContain('> "We spent $60 last month on two games nobody plays."');
+    expect(posts).toContain('**Why this matters:** Parents already spend money');
+    expect(section.content.join('\n')).toContain('Why this matters: Parents already spend money');
     expect(posts).toContain('# Helpful posts');
   });
 

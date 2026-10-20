@@ -20,6 +20,17 @@ How to do it:
 
 `tests/bilingualComponents.test.ts` fails when a new component in `src/components` has no Spanish. Older components that predate this rule are listed there; that list may only shrink. Owner-only consoles are exempt.
 
+## Explain why it matters
+
+Everything GhostTown tells a founder carries its "why": research findings, Coach answers, the First 30 days and Year Squared. A fact without the why is worthless to someone who does not know the subject.
+
+- For each finding, number or step, add one or two plain sentences: what it means for their business and what they can do with it.
+- Assume they do not know the subject. A short example from their own business beats a definition.
+- Natural and brief, never a lecture.
+- When the topic is new or technical, end with one short offer to explain more.
+
+Every AI prompt that writes for a founder includes `EXPLAIN_WHY_INSTRUCTION` from `src/lib/explainWhy.ts`, and every finding shown to a founder has a `whyItMatters` field that the UI shows. Community research and the Execution Coach follow this today; the verdict and the Blueprint strategy stages are next.
+
 ## Copy
 
 - Plain words, about 8th-grade reading level, in both languages.

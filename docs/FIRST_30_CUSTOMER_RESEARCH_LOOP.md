@@ -102,6 +102,7 @@ leaves the active plan.
 ## What the founder sees: a research card
 
 - **What people are struggling with:** the problem, where we found it, what is still uncertain.
+- **Why this matters:** one or two plain sentences on what the problem means for this founder's business.
 - **What to ask next:** for example, "Ask a potential customer to describe the last time this happened."
 - **What we prepared:** opens the actual interview guide, first message, tracker or page draft. A list
   of tasks is not prepared work.

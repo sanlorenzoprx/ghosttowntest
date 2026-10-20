@@ -50,7 +50,7 @@ function communityResearchMarkdown(
   const problems = research.problems
     .map(
       (problem) =>
-        `## ${problem.title}\n\n**Who:** ${problem.who}\n\n**When:** ${problem.when}\n\n**How they handle it now:** ${problem.currentWorkaround}\n\n${quoteLines(problem.observationIds)}${problem.contradictingObservationIds.length ? `\n\n**What argues against it**\n\n${quoteLines(problem.contradictingObservationIds)}` : ""}\n\n**What to ask next:** ${problem.whatToAskNext}\n\n**What would change the plan:** ${problem.whatWouldChangePlan}`,
+        `## ${problem.title}\n\n**Why this matters:** ${problem.whyItMatters}\n\n**Who:** ${problem.who}\n\n**When:** ${problem.when}\n\n**How they handle it now:** ${problem.currentWorkaround}\n\n${quoteLines(problem.observationIds)}${problem.contradictingObservationIds.length ? `\n\n**What argues against it**\n\n${quoteLines(problem.contradictingObservationIds)}` : ""}\n\n**What to ask next:** ${problem.whatToAskNext}\n\n**What would change the plan:** ${problem.whatWouldChangePlan}`,
     )
     .join("\n\n");
   const gaps = research.gaps.length

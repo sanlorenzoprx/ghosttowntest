@@ -17,6 +17,7 @@ import {
 import { generateAI, type GenerativeAIResponseSchema } from './generativeAIService';
 import { verifyOriginalPage, type VerifiedPage } from './distributionFootprintResearch';
 import { currentCustomerAccessChannels } from './researchEvidenceRole';
+import { EXPLAIN_WHY_INSTRUCTION } from '../lib/explainWhy';
 
 // Reads the public communities that customer-access research verified, and
 // keeps only problems backed by quotes copied exactly from those pages. The
@@ -53,7 +54,7 @@ const RESPONSE_SCHEMA: GenerativeAIResponseSchema = {
       maxItems: MAX_PROBLEMS,
       items: {
         type: 'OBJECT',
-        required: ['problemId', 'title', 'category', 'who', 'when', 'currentWorkaround', 'whatToAskNext', 'whatWouldChangePlan'],
+        required: ['problemId', 'title', 'category', 'who', 'when', 'currentWorkaround', 'whyItMatters', 'whatToAskNext', 'whatWouldChangePlan'],
         properties: {
           problemId: { type: 'STRING' },
           title: { type: 'STRING', description: 'The problem in plain words, as the buyer would say it.' },
@@ -61,6 +62,7 @@ const RESPONSE_SCHEMA: GenerativeAIResponseSchema = {
           who: { type: 'STRING', description: 'Who describes this problem, from the pages.' },
           when: { type: 'STRING', description: 'When it happens, from the pages. Say "Not stated" if the pages do not say.' },
           currentWorkaround: { type: 'STRING', description: 'How people handle it today, from the pages. Say "Not stated" if the pages do not say.' },
+          whyItMatters: { type: 'STRING', description: 'One or two plain sentences for a founder new to the subject: what this problem means for their business and what they can do with it. Brief, not a lecture.' },
           whatToAskNext: { type: 'STRING', description: 'One question the founder can ask a potential customer about a recent, real occurrence.' },
           whatWouldChangePlan: { type: 'STRING', description: 'What customer behavior would make the founder reconsider this problem or offer.' }
         }
@@ -174,6 +176,7 @@ function prompt(order: PaidTestOrder, verdict: EvaluationResult, pages: Communit
       'Include quotes that contradict a problem, such as people saying it is easy to solve or not worth paying for, with stance "contradicts".',
       'A problem the pages do not mention must not appear. If no page is relevant, return empty lists.',
       'Do not claim demand, willingness to pay, or market size. Do not describe any quote as a testimonial.',
+      EXPLAIN_WHY_INSTRUCTION,
       'For each page, describe how people talk there, the post format that fits, and whether promotion is allowed, limited, not allowed, or unclear, based only on the page.'
     ],
     pages: pages.map(({ channel, page }) => ({
@@ -254,6 +257,7 @@ export function validateCommunityProblems(
       contradictingObservationIds: contradicting.map(item => item.observationId),
       channelIds: [...new Set(supporting.map(item => item.channelId))],
       strength: strength(supporting),
+      whyItMatters: clean(draft.whyItMatters) || `People describe this in their own words, so it is a problem worth checking with real buyers before you build or sell.`,
       whatToAskNext: clean(draft.whatToAskNext) || `Ask a potential customer to describe the last time this happened: ${title}.`,
       whatWouldChangePlan: clean(draft.whatWouldChangePlan) || 'If buyers already solve this easily, or will not take the next step, reconsider the offer.',
       evidenceLevel: 'problem_evidence'

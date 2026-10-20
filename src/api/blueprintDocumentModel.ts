@@ -248,6 +248,7 @@ function customerProblemsSection(blueprint: GhostTownLaunchBlueprintV21): Bluepr
       ...(research.problems.length ? [] : ['No quote could be checked word for word yet. Start with the interview guide and record what people tell you.']),
       ...research.problems.flatMap(problem => [
         `${problem.title}. Who: ${problem.who}. When: ${problem.when}. How they handle it now: ${problem.currentWorkaround}.`,
+        `Why this matters: ${problem.whyItMatters}`,
         ...quoted(problem.observationIds),
         ...quoted(problem.contradictingObservationIds).map(value => `Against: ${value}`),
         `What to ask next: ${problem.whatToAskNext}`,

@@ -15,6 +15,7 @@ interface Copy {
   unavailable: string;
   strength: Record<CommunityProblem['strength'], string>;
   promotion: Record<CommunityPromotionRule, string>;
+  why: string;
   struggling: string;
   who: string;
   when: string;
@@ -40,6 +41,7 @@ const COPY: Record<Locale, Copy> = {
     unavailable: 'GhostTown could not keep a quote that checks out word for word yet. Start with the interview guide, and record what people tell you.',
     strength: { one_mention: 'Mentioned once', repeated_in_one_place: 'Repeated in one place', seen_in_several_places: 'Seen in several places' },
     promotion: { allowed: 'Promotion allowed', limited: 'Promotion limited', not_allowed: 'No promotion', unclear: 'Promotion rule unclear' },
+    why: 'Why this matters',
     struggling: 'What people are struggling with',
     who: 'Who',
     when: 'When',
@@ -63,6 +65,7 @@ const COPY: Record<Locale, Copy> = {
     unavailable: 'GhostTown todavía no pudo guardar una cita que coincida palabra por palabra. Empieza con la guía de entrevistas y anota lo que te digan.',
     strength: { one_mention: 'Mencionado una vez', repeated_in_one_place: 'Repetido en un lugar', seen_in_several_places: 'Visto en varios lugares' },
     promotion: { allowed: 'Se permite promoción', limited: 'Promoción limitada', not_allowed: 'Sin promoción', unclear: 'Regla de promoción no clara' },
+    why: 'Por qué importa',
     struggling: 'Con qué batalla la gente',
     who: 'Quién',
     when: 'Cuándo',
@@ -134,6 +137,7 @@ export default function CommunityResearchCards({ blueprint, onCopy, locale = 'en
               <h3 className="text-xl font-black">{problem.title}</h3>
               <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-black">{t.strength[problem.strength]}</span>
             </div>
+            <p className="mt-3 rounded-lg bg-[#fff7f2] p-3 text-sm text-gray-800"><strong>{t.why}:</strong> {problem.whyItMatters}</p>
             <div className="mt-4 grid gap-6 lg:grid-cols-2">
               <div>
                 <p className="text-xs font-black uppercase text-gray-500">{t.struggling}</p>

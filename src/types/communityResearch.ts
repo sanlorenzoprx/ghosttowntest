@@ -33,6 +33,8 @@ export interface CommunityProblem {
   contradictingObservationIds: string[];
   channelIds: string[];
   strength: CommunityProblemStrength;
+  /** One or two plain sentences: what this problem means for the founder's business. */
+  whyItMatters: string;
   whatToAskNext: string;
   whatWouldChangePlan: string;
   // Public discussion is problem evidence at most; commitments and payments

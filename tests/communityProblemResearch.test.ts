@@ -65,7 +65,7 @@ const verdict = { idea: { ideaName: 'Family Game Night' } } as EvaluationResult;
 
 const modelOutput = {
   problems: [
-    { problemId: 'p1', title: 'Picking a game everyone will play', category: 'emotional', who: 'Parents of young kids', when: 'Friday game night', currentWorkaround: 'Put a movie on instead', whatToAskNext: 'Ask a parent to describe the last game night that fell apart.', whatWouldChangePlan: 'If parents say a single favorite game is enough, reconsider.' },
+    { problemId: 'p1', title: 'Picking a game everyone will play', category: 'emotional', who: 'Parents of young kids', when: 'Friday game night', currentWorkaround: 'Put a movie on instead', whyItMatters: 'Game night keeps failing, so a plan that works the first time is what parents would value.', whatToAskNext: 'Ask a parent to describe the last game night that fell apart.', whatWouldChangePlan: 'If parents say a single favorite game is enough, reconsider.' },
     { problemId: 'p2', title: 'Money wasted on games nobody plays', category: 'price', who: 'Parents', when: 'After buying new games', currentWorkaround: 'Not stated', whatToAskNext: 'Ask what they spent on games last month.', whatWouldChangePlan: 'If nobody tracks this spend, reconsider.' },
     { problemId: 'p3', title: 'Invented problem', category: 'functional', who: 'x', when: 'x', currentWorkaround: 'x', whatToAskNext: 'x', whatWouldChangePlan: 'x' }
   ],
@@ -115,6 +115,9 @@ describe('community problem research', () => {
     expect(p1.contradictingObservationIds).toHaveLength(1);
     expect(p2.strength).toBe('one_mention');
     expect(problems.every(problem => problem.evidenceLevel === 'problem_evidence')).toBe(true);
+    expect(p1.whyItMatters).toMatch(/works the first time/);
+    // A missing why gets a plain fallback, never an empty line.
+    expect(p2.whyItMatters).toMatch(/worth checking with real buyers/);
   });
 
   it('drops a problem that only has evidence against it', () => {
@@ -149,6 +152,7 @@ describe('community problem research', () => {
     expect(result.receipt).toMatchObject({ pagesRead: 2, quotesKept: 5 });
     expect(result.boundary).toMatch(/do not show that anyone will buy/);
     expect(ai.prompts[0]).toContain('copied exactly from the page text');
+    expect(ai.prompts[0]).toContain('Explain why it matters.');
   });
 
   it('reports research as unavailable, not as a finding, when nothing checks out', async () => {
