@@ -40,7 +40,7 @@ Every AI prompt that writes for a founder includes the shared instruction from `
 
 ## Contract changes
 
-The paid Blueprint is governed by a hash-verified contract chain (`npm run verify:blueprint`). A change to what the Blueprint promises or produces needs a new amendment version, a change record, and regenerated evidence. See `docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_11_COMMUNITY_PROBLEM_RESEARCH_AMENDMENT.md` for the latest example.
+The paid Blueprint is governed by a hash-verified contract chain (`npm run verify:blueprint`). A change to what the Blueprint promises or produces needs a new amendment version, a change record, and regenerated evidence. See `docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_13_SPANISH_FIXED_TEXT_AMENDMENT.md` for the latest example.
 
 ## Merging pull requests
 

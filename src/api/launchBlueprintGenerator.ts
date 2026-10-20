@@ -2,6 +2,9 @@ import type { EvaluationResult } from '../types/lit';
 import { hydrateEvaluationResultDecisionV2, projectVerdictDecisionV2ToLegacy } from '../verdict/verdictDecisionV2';
 import type { PaidTestOrder } from '../types/paidTest';
 import { correctCustomerSurfaceSpelling } from './customerCopyLanguage';
+import { blueprintLanguages } from '../lib/blueprintLanguage';
+import { BLUEPRINT_BASE_FOUNDER_COPY } from '../lib/blueprintFixedCopy';
+import type { Locale } from '../lib/locale';
 import type {
   BlueprintDailyAction,
   BlueprintSource,
@@ -506,37 +509,12 @@ function launchSiteConfig(offer: OfferAndPricing, positioning: PositioningPlan, 
   };
 }
 
-function weeklyMilestones(): WeeklyMilestone[] {
-  return [
-    {
-      weekNumber: 1,
-      objective: 'Activate the Launch Site Starter and verify the initial customer, problem, offer, price, and customer-access priorities.',
-      priorities: ['Review the populated site.', 'Verify assumptions against public customer conversations.', 'Select five priority customer channels.', 'Prepare the first outreach batch.'],
-      milestone: 'A coherent, visible offer with one customer, one problem, one pilot, one price hypothesis, and five prioritized access channels.',
-      successMetrics: ['Launch Site Starter version 1 saved.', 'One target-customer definition.', 'One primary problem.', 'One initial offer.', 'Five priority channels selected.']
-    },
-    {
-      weekNumber: 2,
-      objective: 'Publish the site, contribute useful material, and begin qualified customer conversations.',
-      priorities: ['Publish or privately share the site.', 'Use the prepared scripts.', 'Publish helpful posts one and two.', 'Record exact buyer language and objections.'],
-      milestone: 'The offer is visible and qualified customer conversations have begun.',
-      successMetrics: ['Landing page published or privately shared.', 'Tracking active.', 'Outreach batch completed.', 'Qualified conversations booked.', 'Two helpful posts published.']
-    },
-    {
-      weekNumber: 3,
-      objective: 'Ask qualified buyers for a meaningful commitment and identify the largest conversion constraint.',
-      priorities: ['Send transparent pilot invitations.', 'Test the initial price.', 'Contact complementary partners.', 'Compare channel results.', 'Record commitment behavior.'],
-      milestone: 'The founder has behavioral evidence rather than compliments.',
-      successMetrics: ['Qualified replies.', 'Buying conversations.', 'Deposits, payments, or serious commitments.', 'Objections grouped by frequency.', 'Channel-by-channel evidence.']
-    },
-    {
-      weekNumber: 4,
-      objective: 'Correct one primary constraint, run a focused second test, and make a disciplined decision.',
-      priorities: ['Select the largest constraint.', 'Make one evidence-backed revision.', 'Run a second acquisition test.', 'Compile the evidence.', 'Choose continue, revise, pivot, or stop.'],
-      milestone: 'A documented decision supported by observable evidence.',
-      successMetrics: ['Commitment rate.', 'Qualified conversations.', 'Acquisition effort per prospect.', 'Expected delivery cost and gross margin.', 'Final decision recorded.']
-    }
-  ];
+function weeklyMilestones(founder: Locale): WeeklyMilestone[] {
+  return BLUEPRINT_BASE_FOUNDER_COPY[founder].weeklyMilestones.map(week => ({
+    ...week,
+    priorities: [...week.priorities],
+    successMetrics: [...week.successMetrics]
+  }));
 }
 
 const DAY_TITLES = [
@@ -714,14 +692,16 @@ export function createGhostTownLaunchBlueprint(
   const site = launchSiteConfig(offer, positioning, copy, order.email, clean(verdict.idea.ideaName, 'New Business'));
   const days = dailyCalendar(offer, research);
   const v2 = verdict.verdictDecisionV2;
+  // Founder-facing fixed text follows the founder's language (English when not supplied).
+  const founderCopy = BLUEPRINT_BASE_FOUNDER_COPY[blueprintLanguages(order.intake).founder];
   const biggestRisk = clean(
     v2 ? `${v2.largestUncertainty.assumption}. ${v2.largestUncertainty.whyItMatters}` : verdict.deterministicScores.doNotBuildUntil,
-    `Do not scale until qualified ${offer.targetCustomer} take a meaningful action.`
+    founderCopy.biggestRiskFallback(offer.targetCustomer)
   );
   const initialCustomer = clean(v2?.customer.initialCustomer, offer.targetCustomer);
   const validationObjective = clean(
     v2?.predictionTarget,
-    `Within 30 days, determine whether qualified ${offer.targetCustomer} will engage with, discuss, and make a meaningful commitment to ${offer.offerName}.`
+    founderCopy.validationObjectiveFallback(offer.targetCustomer, offer.offerName)
   );
   const blueprint: GhostTownLaunchBlueprint = {
     schemaVersion: 'ghosttown-launch-blueprint-v2',
@@ -744,8 +724,8 @@ export function createGhostTownLaunchBlueprint(
       founderTimeRiskHours: 45,
       founderCashRiskMaximum: model === 'physical_product' || model === 'subscription' ? 300 : 150,
       currency: 'USD',
-      continueEvidence: ['Repeated qualified buyers describe a recent painful problem.', 'At least one buyer pays, deposits, signs, or takes another serious buying action.', 'The first result can be delivered within the planned effort and cost.', 'At least one acquisition path can be repeated.'],
-      stopEvidence: ['Qualified buyers cannot be reached after honest channel testing.', 'Buyers do not describe a recent meaningful problem.', 'The transparent paid ask produces no commitment and no sharper learning.', 'Delivery requires unrealistic cost, time, risk, or unsupported capability.']
+      continueEvidence: [...founderCopy.continueEvidence],
+      stopEvidence: [...founderCopy.stopEvidence]
     },
     offer,
     positioning,
@@ -771,16 +751,11 @@ export function createGhostTownLaunchBlueprint(
     },
     landingPageCopy: copy,
     launchSite: site,
-    weeklyMilestones: weeklyMilestones(),
+    weeklyMilestones: weeklyMilestones(blueprintLanguages(order.intake).founder),
     dailyCalendar: days,
     finalDecision: {
       options: ['continue', 'revise', 'pivot', 'stop'],
-      criteria: [
-        { decision: 'continue', condition: 'Repeated qualified buyers show recent pain, at least one meaningful commitment exists, and delivery appears repeatable within the risk limits.', nextAction: 'Run another focused paid-pilot batch before broad automation.' },
-        { decision: 'revise', condition: 'The buyer and problem remain credible, but one constraint—offer, trust, channel, copy, delivery, or price—blocks action.', nextAction: 'Change one constraint and run a smaller controlled test.' },
-        { decision: 'pivot', condition: 'Evidence supports a related problem or customer, but the current buyer/problem pair or business model does not produce commitment.', nextAction: 'Preserve the evidence, define the new hypothesis, and issue a separate bounded test.' },
-        { decision: 'stop', condition: 'Qualified buyers cannot be reached, do not report recent pain, reject the transparent paid ask, and show no credible workaround budget.', nextAction: 'Archive the evidence and redirect effort to a sharper opportunity.' }
-      ]
+      criteria: founderCopy.finalDecisionCriteria.map(item => ({ ...item }))
     },
     sources: research.sources,
     qualityGate: { passed: false, failures: [], warnings: [] },

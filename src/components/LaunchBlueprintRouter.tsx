@@ -7,6 +7,23 @@ import LaunchBlueprintExecutionHomeV21 from "./LaunchBlueprintExecutionHomeV21";
 import LaunchBlueprintCopilotV21 from "./LaunchBlueprintCopilotV21";
 import LaunchBlueprintViewV21, { type BlueprintV21Payload } from "./LaunchBlueprintViewV21";
 import { recordCommercialEvent } from "../lib/commercialAttribution";
+import type { Locale } from "../lib/locale";
+
+const COPY: Record<Locale, { openFailed: string; opening: string; back: string }> = {
+  en: {
+    openFailed: "Launch Blueprint could not be opened",
+    opening: "Opening your Launch Blueprint...",
+    back: "Return to Dashboard",
+  },
+  es: {
+    openFailed: "No pudimos abrir tu Launch Blueprint",
+    opening: "Abriendo tu Launch Blueprint...",
+    back: "Volver a tu panel",
+  },
+};
+
+// The daily packet header reads "Today · Day N" in English and "Hoy · Día N" in Spanish.
+const RENDERED_DAY_PATTERN = /(?:Today · Day|Hoy · D[ií]a)\s+(\d{1,2})/;
 
 export function isBlueprintV21(blueprint: { blueprintVersion?: string }): boolean {
   return blueprint.blueprintVersion === "2.1";
@@ -14,15 +31,16 @@ export function isBlueprintV21(blueprint: { blueprintVersion?: string }): boolea
 
 // Preserve the canonical v2.1 workspace as a directly renderable compatibility
 // surface while the paid customer route now opens through the guided execution home.
-export function BlueprintV21WorkspaceCompatibility({ orderId, onBack, payload }: { orderId: string; onBack: () => void; payload: BlueprintV21Payload }) {
-  return <LaunchBlueprintViewV21 orderId={orderId} onBack={onBack} initialPayload={payload} />;
+export function BlueprintV21WorkspaceCompatibility({ orderId, onBack, payload, locale = "en" }: { orderId: string; onBack: () => void; payload: BlueprintV21Payload; locale?: Locale }) {
+  return <LaunchBlueprintViewV21 orderId={orderId} onBack={onBack} initialPayload={payload} locale={locale} />;
 }
 
-function RoutedBlueprintV21({ orderId, onBack, payload }: { orderId: string; onBack: () => void; payload: BlueprintV21Payload }) {
-  return <LaunchBlueprintExecutionHomeV21 orderId={orderId} onBack={onBack} initialPayload={payload} />;
+function RoutedBlueprintV21({ orderId, onBack, payload, locale }: { orderId: string; onBack: () => void; payload: BlueprintV21Payload; locale: Locale }) {
+  return <LaunchBlueprintExecutionHomeV21 orderId={orderId} onBack={onBack} initialPayload={payload} locale={locale} />;
 }
 
-export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: string; onBack: () => void }) {
+export default function LaunchBlueprintRouter({ orderId, onBack, locale = "en" }: { orderId: string; onBack: () => void; locale?: Locale }) {
+  const copy = COPY[locale];
   const [payload, setPayload] = useState<BlueprintV21Payload | null>(null);
   const [legacy, setLegacy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -39,7 +57,7 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
     })
       .then(async response => {
         const body = await response.json<BlueprintV21Payload & { error?: string }>();
-        if (!response.ok || !body.blueprint) throw new Error(body.error || "Launch Blueprint could not be opened");
+        if (!response.ok || !body.blueprint) throw new Error(body.error || copy.openFailed);
         return body;
       })
       .then(body => {
@@ -53,13 +71,13 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
         }
       })
       .catch(caught => {
-        if (active) setError(caught instanceof Error ? caught.message : "Launch Blueprint could not be opened");
+        if (active) setError(caught instanceof Error ? caught.message : copy.openFailed);
       })
       .finally(() => {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [orderId]);
+  }, [orderId, copy.openFailed]);
 
   useEffect(() => {
     if (!payload) return;
@@ -82,7 +100,7 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
   const recordRenderedDailyPacket = (container: HTMLDivElement) => {
     if (!payload) return;
     window.setTimeout(() => {
-      const match = container.textContent?.match(/Today · Day\s+(\d{1,2})/);
+      const match = container.textContent?.match(RENDERED_DAY_PATTERN);
       const dayNumber = match ? Number(match[1]) : 0;
       if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 30) return;
       setActiveDay(dayNumber);
@@ -104,12 +122,12 @@ export default function LaunchBlueprintRouter({ orderId, onBack }: { orderId: st
   };
 
   if (loading) {
-    return <div className="mx-auto max-w-4xl p-8 text-center"><div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-ghost-rust/20 border-b-ghost-rust" /><p className="mt-4 text-gray-600">Opening your Launch Blueprint...</p></div>;
+    return <div className="mx-auto max-w-4xl p-8 text-center"><div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-ghost-rust/20 border-b-ghost-rust" /><p className="mt-4 text-gray-600">{copy.opening}</p></div>;
   }
   if (error) {
-    return <div className="mx-auto max-w-xl p-8 text-center"><p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</p><button onClick={onBack} className="mt-5 font-bold text-ghost-rust">Return to Dashboard</button></div>;
+    return <div className="mx-auto max-w-xl p-8 text-center"><p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</p><button onClick={onBack} className="mt-5 font-bold text-ghost-rust">{copy.back}</button></div>;
   }
-  if (payload) return <div onClickCapture={captureClick} onChangeCapture={captureChange}><RoutedBlueprintV21 orderId={orderId} onBack={onBack} payload={payload} /><LaunchBlueprintCopilotV21 orderId={orderId} dayNumber={activeDay} lane={payload.blueprint.businessModelLane.lane} /></div>;
+  if (payload) return <div onClickCapture={captureClick} onChangeCapture={captureChange}><RoutedBlueprintV21 orderId={orderId} onBack={onBack} payload={payload} locale={locale} /><LaunchBlueprintCopilotV21 orderId={orderId} dayNumber={activeDay} lane={payload.blueprint.businessModelLane.lane} locale={locale} /></div>;
   if (legacy) return <LaunchBlueprintView orderId={orderId} onBack={onBack} />;
   return null;
 }
