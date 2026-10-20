@@ -49,11 +49,7 @@ const COPY = {
     greeting: 'Hola:',
     opening: 'Nos pediste avisarte cuando First 30 abriera. Ya está abierto.',
     price: `First 30 cuesta ${GHOSTTOWN_FIRST_30_V1.displayPrice}, un solo pago. Durante ${GHOSTTOWN_FIRST_30_V1.durationDays} días, GhostTown te ayuda a probar tu idea con clientes reales. Recibes:`,
-    includes: [
-      'Un plan diario de 30 días que se adapta a lo que aprendes',
-      'Un sitio web para conseguir clientes, con la marca de tu negocio, en una dirección web gratis',
-      'Los materiales para llegar a tus primeros clientes, como una oferta, mensajes de contacto, una guía de entrevistas y un registro de evidencia'
-    ],
+    includes: [...GHOSTTOWN_FIRST_30_V1.includesEs],
     refund: 'Puedes pedir el reembolso completo hasta que empiece la construcción de tu sitio web.',
     button: 'Empezar First 30',
     questions: `¿Preguntas? Escribe a ${LEGAL_POLICY.supportEmail}.`,
