@@ -14,7 +14,7 @@ How to do it:
 2. **Keep the words in one typed object.** Put all the component's words in `const COPY: Record<Locale, …> = { en: {…}, es: {…} }`. TypeScript then fails the build if one language is missing a string. Examples: `src/components/CommunityResearchCards.tsx`, `src/components/LegalPage.tsx`, `src/components/AboutPage.tsx`.
 3. **Write Spanish, not a word-for-word translation.** Use the informal *tú* form, plain words, and Puerto Rico–friendly Spanish. Keep prices, dates, product names (First 30, Year Squared, GhostTown) and URLs identical.
 4. **Shared offer copy lives in data.** Offer, price and legal text keep `en` and `es` side by side in `src/lib` (`ghosttownOffer.ts`, `legalPages.ts` / `legalPagesEs.ts`), so one change updates every surface.
-5. **Generated content follows the customer's language.** When AI writes for a customer (verdicts, Blueprints, posts, messages), pass the customer's locale into the prompt so it writes in that language. Do not translate generated content after the fact.
+5. **Generated content is written in its reader's language.** A Sprint has two languages: `founderLanguage` for what the founder reads and `buyerLanguage` for what their buyers read (`src/lib/blueprintLanguage.ts`). Pass them into every AI prompt so each text is written natively in its reader's language. Do not translate generated content after the fact.
 6. **Legal pages:** the English version prevails; the Spanish page says so.
 7. **Test both.** Add at least one Spanish render assertion for a new component.
 
@@ -29,7 +29,7 @@ Everything GhostTown tells a founder carries its "why": research findings, Coach
 - Natural and brief, never a lecture.
 - When the topic is new or technical, end with one short offer to explain more.
 
-Every AI prompt that writes for a founder includes `EXPLAIN_WHY_INSTRUCTION` from `src/lib/explainWhy.ts`, and every finding shown to a founder has a `whyItMatters` field that the UI shows. Community research, the Execution Coach and the free verdict page (`src/lib/verdictWhy.ts`) follow this today; the Blueprint generation stages are next.
+Every AI prompt that writes for a founder includes the shared instruction from `src/lib/explainWhy.ts`: `EXPLAIN_WHY_FOR_DOCUMENTS` for plans and data fields, `EXPLAIN_WHY_INSTRUCTION` (which may offer to explain more) for conversations. Every finding shown to a founder has a `whyItMatters` field that the UI shows. The free verdict page (`src/lib/verdictWhy.ts`), community research, the Blueprint stages and the Execution Coach all follow this.
 
 ## Copy
 

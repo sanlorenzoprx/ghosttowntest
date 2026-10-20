@@ -4,6 +4,9 @@ import type { PaidTestIntake } from '../types/paidTest';
 import type { PrePurchaseResearchSignals } from '../types/researchSignals';
 import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
 import { commercialAttributionForCheckout } from '../lib/commercialAttribution';
+import type { Locale } from '../lib/locale';
+
+import LanguageChoices from './LanguageChoices';
 
 interface Props {
   idea: IdeaIntake;
@@ -14,9 +17,12 @@ interface Props {
   onSubmit: (intake: PaidTestIntake) => void;
   /** Kept temporarily for call-site compatibility. Research now starts after purchase. */
   researchSignals?: PrePurchaseResearchSignals | null;
+  locale?: Locale;
 }
 
-export default function ActionPlanModal({ idea, verdictId, loading, error, onClose, onSubmit }: Props) {
+export default function ActionPlanModal({ idea, verdictId, loading, error, onClose, onSubmit, locale = 'en' }: Props) {
+  const [founderLanguage, setFounderLanguage] = useState<Locale>(locale);
+  const [buyerLanguage, setBuyerLanguage] = useState<Locale>(locale);
   const [targetBuyer, setTargetBuyer] = useState(idea.targetUser);
   const [problem, setProblem] = useState(idea.painfulProblem);
   const [currentWorkaround, setCurrentWorkaround] = useState(idea.currentAlternative);
@@ -36,6 +42,8 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
       currentWorkaround: currentWorkaround.trim(),
       offerHypothesis: offerHypothesis.trim(),
       expectedPrice: expectedPrice.trim() || undefined,
+      founderLanguage,
+      buyerLanguage,
       attribution: commercialAttributionForCheckout(verdictId)
     });
   };
@@ -80,6 +88,8 @@ export default function ActionPlanModal({ idea, verdictId, loading, error, onClo
             <Field label="Who do you want to help first?" value={targetBuyer} onChange={setTargetBuyer} placeholder="Example: local salon owners" />
             <Field label="What problem do they have?" value={problem} onChange={setProblem} placeholder="Describe the problem in your own words" multiline />
             <Field label="What do they do now?" value={currentWorkaround} onChange={setCurrentWorkaround} placeholder="What do they use or do instead?" multiline />
+
+            <LanguageChoices locale={locale} founderLanguage={founderLanguage} buyerLanguage={buyerLanguage} onFounderLanguage={setFounderLanguage} onBuyerLanguage={setBuyerLanguage} />
 
             <details className="rounded-xl border border-gray-200 bg-gray-50 p-4">
               <summary className="cursor-pointer font-bold text-gray-800">Optional: I already know what I want to sell</summary>

@@ -111,6 +111,7 @@ function systemInstruction(mode: ExecutionCopilotMode, capability: ExecutionCapa
     'When evidence contradicts the plan, name the contradiction and respect mayChange/mustKeep from the formal branch.',
     'Prefer one bounded next experiment over broad business advice.',
     EXPLAIN_WHY_INSTRUCTION,
+    'Answer in the language the founder writes in (English or Spanish). Messages the founder will send to buyers follow the Blueprint\'s buyer language.',
     'When useful, reference the prepared asset by its exact title.',
     'Return only the requested JSON structure.'
   ].join('\n');

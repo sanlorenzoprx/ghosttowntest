@@ -1,3 +1,4 @@
+import { blueprintLanguages, blueprintLanguageStatement } from '../lib/blueprintLanguage';
 import type { EvaluationResult } from '../types/lit';
 import { hydrateEvaluationResultDecisionV2 } from '../verdict/verdictDecisionV2';
 import type { GhostTownLaunchBlueprint } from '../types/launchBlueprint';
@@ -163,7 +164,9 @@ function startingStateAudit(
       hoursPerWeek: evidence('Founder hours per week were not supplied; use the Blueprint time ceiling until confirmed.', 'Test', 'missing_input'),
       testBudget: evidence('Founder test budget was not supplied; use the Blueprint cash-risk ceiling until confirmed.', 'Test', 'missing_input'),
       geography: supplied(order.intake.geography, 'Geographic constraints were not supplied.'),
-      language: evidence('Language constraints were not supplied; current customer artifacts are generated in English.', 'Test', 'missing_input'),
+      language: order.intake.founderLanguage || order.intake.buyerLanguage
+        ? evidence(blueprintLanguageStatement(blueprintLanguages(order.intake), true), 'Verified', 'customer_input')
+        : evidence(blueprintLanguageStatement(blueprintLanguages(order.intake), false), 'Test', 'missing_input'),
       technicalCapability: evidence('Technical capability was not supplied and must not be assumed.', 'Test', 'missing_input')
     },
     manualFulfillmentReadiness: evidence(

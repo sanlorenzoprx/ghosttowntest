@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "ghosttown-blueprint-amendment-evidence-v1",
+  "amendmentVersion": "2.1.12",
+  "changeId": "GT-BP-2026-10-20-V2.1.12",
+  "recordedAt": "2026-10-20T12:30:00Z",
+  "repository": "sanlorenzoprx/ghosttowntest",
+  "branch": "claude/ghosttown-free-verdict-phase1-rhpnxs",
+  "canonical": {
+    "baseVersion": "2.1.1",
+    "sourcePath": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md",
+    "gitBlobSha1": "616c691e6b4c9cea93615963a07375d13ffba57f",
+    "sourceModified": false
+  },
+  "decision": {
+    "summary": "A Sprint has two languages, the founder's and the buyers'; each is written natively, never translated afterwards, and everything the founder reads explains why it matters.",
+    "customerOutcome": "A founder can read the plan in Spanish and send English messages to English-speaking buyers, or any other combination of English and Spanish."
+  },
+  "languages": {
+    "supported": ["en", "es"],
+    "defaultWhenMissing": "en",
+    "founderFacingFollowsFounderLanguage": true,
+    "buyerFacingFollowsBuyerLanguage": true,
+    "translatedAfterGeneration": false,
+    "factsAndQuotesUnchanged": true,
+    "researchPrefersBuyerLanguageCommunities": true,
+    "wrongLanguageIsRedTeamDefect": true
+  },
+  "explainWhy": {
+    "documentStagesInstruction": "EXPLAIN_WHY_FOR_DOCUMENTS",
+    "coachInstruction": "EXPLAIN_WHY_INSTRUCTION",
+    "stages": ["strategy_synthesis", "asset_generation", "customer_copy_edit", "community_problem_research"]
+  },
+  "validation": {
+    "focusedTests": { "passed": 13, "failed": 0 },
+    "fastSuite": { "passed": 661, "failed": 0 },
+    "typecheck": { "passed": true },
+    "blueprintVerification": { "passed": true, "chainTip": "2.1.12" },
+    "productionDeploymentPerformed": false
+  }
+}
