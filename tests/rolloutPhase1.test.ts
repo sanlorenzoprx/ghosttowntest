@@ -37,7 +37,7 @@ describe('rollout phase 1: free verdict with First 30 email list', () => {
     expect(sprintCheckoutEnabled({ SPRINT_CHECKOUT_ENABLED: 'false' } as Env)).toBe(false);
     expect(sprintCheckoutEnabled({ SPRINT_CHECKOUT_ENABLED: 'true' } as Env)).toBe(true);
 
-    const response = await handlePaidTestCheckout(new Request('https://api.ghosttowntest.com/api/paid-test/checkout', {
+    const response = await handlePaidTestCheckout(new Request('https://api.ghosttownverdict.com/api/paid-test/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: '{}'
@@ -76,7 +76,7 @@ describe('rollout phase 1: free verdict with First 30 email list', () => {
       expect(text, file).not.toContain('$97');
       expect(text, file).not.toContain('Evidence Sprint');
     }
-    const offer = currentAgentOffer({ FRONTEND_URL: 'https://ghosttowntest.com' } as Env);
+    const offer = currentAgentOffer({ FRONTEND_URL: 'https://ghosttownverdict.com' } as Env);
     const schema = JSON.parse(read('public/openapi.json')).components.schemas.Offer;
     expect([...schema.required].sort()).toEqual(Object.keys(offer).sort());
     expect(schema.properties.status.enum).toContain(offer.status);

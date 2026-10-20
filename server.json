@@ -7,7 +7,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://api.ghosttowntest.com/mcp"
+      "url": "https://api.ghosttownverdict.com/mcp"
     }
   ]
 }

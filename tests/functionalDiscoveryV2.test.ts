@@ -36,7 +36,7 @@ describe('Functional Discovery v2', () => {
   });
 
   it('returns genuinely Spanish needs_input prompts and scoring choices', async () => {
-    const request = new Request('https://api.ghosttowntest.com/api/v1/free-verdict', {
+    const request = new Request('https://api.ghosttownverdict.com/api/v1/free-verdict', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ locale: 'es' })
@@ -54,7 +54,7 @@ describe('Functional Discovery v2', () => {
 
   it('keeps the build generator wired to the canonical API and intent attribution', () => {
     const source = fs.readFileSync(path.resolve('scripts/generate-functional-discovery-pages.mjs'), 'utf8');
-    expect(source).toContain("const API_ORIGIN = 'https://api.ghosttowntest.com'");
+    expect(source).toContain("const API_ORIGIN = 'https://api.ghosttownverdict.com'");
     expect(source).toContain("canonicalCapability:'/api/v1/free-verdict'");
     expect(source).toContain("u.searchParams.set('intent',INTENT)");
     expect(source).toContain("u.searchParams.set('locale',LOCALE)");

@@ -10,7 +10,7 @@ const liveUrl = String(process.env.GHOSTTOWN_E2E_LIVE_URL || '').replace(/\/$/, 
 for (const [name, value] of Object.entries({ baseUrl, apiBase, authToken, orderId, liveUrl })) {
   if (!value) throw new Error('Missing owner-control input: ' + name);
 }
-if (/ghosttowntest\.com|lit-ghosttown\.app/i.test(new URL(apiBase).hostname)) {
+if (/ghosttownverdict\.com|ghosttowntest\.com|lit-ghosttown\.app/i.test(new URL(apiBase).hostname)) {
   throw new Error('Owner-control audit refuses the production API.');
 }
 
@@ -27,7 +27,7 @@ const proof = {
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseUrl });
-const productionHosts = new Set(['api.ghosttowntest.com', 'api.lit-ghosttown.app']);
+const productionHosts = new Set(['api.ghosttownverdict.com', 'api.ghosttowntest.com', 'api.lit-ghosttown.app']);
 const productionRequests = [];
 await context.route('**/*', async route => {
   const url = route.request().url();

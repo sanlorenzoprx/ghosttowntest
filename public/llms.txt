@@ -8,14 +8,14 @@ GhostTown does not guarantee startup success, provide investment advice, or repl
 
 ## Agent interfaces
 
-- Product metadata: https://api.ghosttowntest.com/api/v1/product
-- Free verdict adapter: POST https://api.ghosttowntest.com/api/v1/free-verdict
-- OpenAPI: https://ghosttowntest.com/openapi.json
-- MCP: POST https://api.ghosttowntest.com/mcp
-- Capabilities: https://ghosttowntest.com/agent/capabilities.md
-- Privacy: https://ghosttowntest.com/agent/privacy.md
-- Evidence: https://ghosttowntest.com/agent/evidence.md
-- Examples: https://ghosttowntest.com/agent/examples.md
+- Product metadata: https://api.ghosttownverdict.com/api/v1/product
+- Free verdict adapter: POST https://api.ghosttownverdict.com/api/v1/free-verdict
+- OpenAPI: https://ghosttownverdict.com/openapi.json
+- MCP: POST https://api.ghosttownverdict.com/mcp
+- Capabilities: https://ghosttownverdict.com/agent/capabilities.md
+- Privacy: https://ghosttownverdict.com/agent/privacy.md
+- Evidence: https://ghosttownverdict.com/agent/evidence.md
+- Examples: https://ghosttownverdict.com/agent/examples.md
 
 The free verdict adapter returns `needs_input` until the same canonical idea fields and assessment answers used by GhostTown are supplied. Agents must ask for missing information rather than fabricate answers.
 

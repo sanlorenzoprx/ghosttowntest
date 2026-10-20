@@ -13,7 +13,7 @@ const envFile = String(process.env.GITHUB_ENV || '');
 if (!baseUrl || !apiUrl || !email || !password || !authToken || !envFile) {
   throw new Error('Front-door acceptance requires base URL, API URL, fixture owner/password, auth token and GITHUB_ENV.');
 }
-if (/ghosttowntest\.com|lit-ghosttown\.app/i.test(new URL(baseUrl).hostname)) {
+if (/ghosttownverdict\.com|ghosttowntest\.com|lit-ghosttown\.app/i.test(new URL(baseUrl).hostname)) {
   throw new Error('Front-door acceptance refuses a production frontend.');
 }
 

@@ -571,7 +571,10 @@ function getAllowedOrigin(request: Request, env: Env): string | undefined {
   try {
     const hostname = new URL(origin).hostname;
     if (
-      hostname === 'ghosttowntest.com'
+      hostname === 'ghosttownverdict.com'
+      || hostname === 'www.ghosttownverdict.com'
+      || hostname === 'app.ghosttownverdict.com'
+      || hostname === 'ghosttowntest.com'
       || hostname === 'www.ghosttowntest.com'
       || hostname === 'app.ghosttowntest.com'
       || hostname === 'lit-ghosttown.app'

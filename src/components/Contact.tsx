@@ -30,8 +30,8 @@ export default function Contact({ onStart }: Props) {
             <p className="mt-2 text-sm leading-relaxed text-gray-600">
               Startup communities, agencies, creators, and tools that want sharper idea validation.
             </p>
-            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:hello@ghosttowntest.com">
-              hello@ghosttowntest.com
+            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:hello@ghosttownverdict.com">
+              hello@ghosttownverdict.com
             </a>
           </article>
 

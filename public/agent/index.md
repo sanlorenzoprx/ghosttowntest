@@ -18,9 +18,9 @@ GhostTown is a business-idea validation product for founders who want to reduce 
 
 ## Interfaces
 
-- `GET https://api.ghosttowntest.com/api/v1/product`
-- `POST https://api.ghosttowntest.com/api/v1/free-verdict`
-- `POST https://api.ghosttowntest.com/mcp`
-- OpenAPI: https://ghosttowntest.com/openapi.json
+- `GET https://api.ghosttownverdict.com/api/v1/product`
+- `POST https://api.ghosttownverdict.com/api/v1/free-verdict`
+- `POST https://api.ghosttownverdict.com/mcp`
+- OpenAPI: https://ghosttownverdict.com/openapi.json
 
 See `capabilities.md`, `privacy.md`, `evidence.md`, and `examples.md` in this directory.

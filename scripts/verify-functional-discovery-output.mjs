@@ -25,7 +25,7 @@ for (const route of routes) {
   if (start < 0 || end <= start) throw new Error(`Generated inline script missing: ${route.slug}`);
   const js = html.slice(start + '<script>'.length, end);
   new Function(js);
-  const url = `https://ghosttowntest.com/${route.slug}`;
+  const url = `https://ghosttownverdict.com/${route.slug}`;
   if (!sitemap.includes(url)) throw new Error(`Sitemap missing ${url}`);
   if (!llms.includes(url)) throw new Error(`llms.txt missing ${url}`);
 }

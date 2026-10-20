@@ -32,8 +32,8 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_TOKEN || secrets.CLOUDFLARE_PRODUCTION_RELEASE_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       PAGES_PROJECT: ghosttowntest
-      PRODUCTION_URL: https://ghosttowntest.com
-      VITE_API_URL: https://api.ghosttowntest.com
+      PRODUCTION_URL: https://ghosttownverdict.com
+      VITE_API_URL: https://api.ghosttownverdict.com
 
     steps:
       - name: Check out protected main
@@ -135,7 +135,7 @@ jobs:
             sleep 3
           done
           test "$ok" -eq 1 || {
-            echo "::error::ghosttowntest.com is not serving the frontend asset built from $EXPECTED_MAIN_SHA."
+            echo "::error::ghosttownverdict.com is not serving the frontend asset built from $EXPECTED_MAIN_SHA."
             echo "Expected asset: $EXPECTED_ASSET"
             exit 1
           }

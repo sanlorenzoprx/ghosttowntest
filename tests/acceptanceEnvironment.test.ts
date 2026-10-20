@@ -48,7 +48,7 @@ describe('acceptance Cloudflare environment', () => {
 
     expect(acceptance).not.toContain('ghosttowntest-public-videos');
     expect(acceptance).not.toContain('id = "289662c8981d421ba85a7ca588640650"');
-    expect(acceptance).not.toContain('api.ghosttowntest.com');
+    expect(acceptance).not.toContain('api.ghosttownverdict.com');
     expect(acceptance).not.toContain('api.lit-ghosttown.app');
   });
 
@@ -56,7 +56,7 @@ describe('acceptance Cloudflare environment', () => {
     const config = await readText('wrangler.toml');
     const production = section(config, '[env.production]', /\n\[env\.acceptance\]/);
 
-    expect(production).toContain('api.ghosttowntest.com');
+    expect(production).toContain('api.ghosttownverdict.com');
     expect(production).toContain('binding = "KV"');
     expect(production).toContain('id = "289662c8981d421ba85a7ca588640650"');
     expect(production).toContain('binding = "DB"');
@@ -100,7 +100,7 @@ describe('acceptance Cloudflare environment', () => {
     }
 
     expect(acceptanceVars).toContain('FRONTEND_URL = "https://main.ghosttown-acceptance.pages.dev"');
-    expect(acceptanceVars).not.toContain('https://ghosttowntest.com');
+    expect(acceptanceVars).not.toContain('https://ghosttownverdict.com');
     expect(acceptanceVars).not.toContain('https://lit-ghosttown.app');
   });
 
