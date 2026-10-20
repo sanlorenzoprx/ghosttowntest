@@ -130,7 +130,7 @@ async function prepareSurface(page: Page, surface: string, viewportWidth: number
   }
   if (surface === 'micro-commitments') {
     await page.locator('[data-testid="verdict-decision-v2"]').waitFor();
-    await page.getByText('Commitment', { exact: true }).first().waitFor();
+    await page.getByText('What you ask for', { exact: true }).first().waitFor();
     return;
   }
   if (surface === 'checkout') {

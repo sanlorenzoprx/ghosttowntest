@@ -13,6 +13,7 @@ import type { PrePurchaseResearchSignals as ResearchSignals } from '../types/res
 import { buildVerdictDecisionV2 } from '../verdict/verdictDecisionV2';
 import { buildVerdictDecisionV3 } from '../verdict/verdictDecisionV3';
 import { explainVerdict } from '../lib/verdictWhy';
+import { presentVerdict } from '../lib/verdictPresentation';
 import EvidenceScanPanel from './EvidenceScanPanel';
 import First30Waitlist from './First30Waitlist';
 import { SPRINT_OFFER_ACTIVE } from '../lib/postVerdictOffer';
@@ -49,6 +50,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
     : undefined;
   const decision = decisionV3 ?? decisionV2;
   const why = explainVerdict(decision, locale);
+  const view = presentVerdict(result, decision, locale);
   const whyLine = (text: string, testId?: string) => <p data-testid={testId} className="mt-3 max-w-2xl text-sm leading-6 text-gray-800"><strong>{why.label}:</strong> {text}</p>;
 
   useEffect(() => {
@@ -119,59 +121,59 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 pb-28 sm:py-10 sm:pb-10">
-      {result.evidenceScan && decisionV3 && <EvidenceScanPanel scan={result.evidenceScan} decision={decisionV3} />}
+      {result.evidenceScan && decisionV3 && <EvidenceScanPanel scan={result.evidenceScan} decision={decisionV3} idea={result.idea} locale={locale} />}
       <section data-testid="verdict-decision-v2" data-verdict-version={decisionV3 ? 'v3' : 'v2'} className="mb-8 overflow-hidden rounded-2xl border border-ghost-rust/30 bg-white shadow-dust">
         <div data-testid="verdict-card" className="border-b border-ghost-rust/20 bg-[#fff7f2] p-6 sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Decision</p>
-          <h1 className="mt-2 font-display text-4xl font-bold leading-tight text-gray-950">{decision.decision.replace(/_/g, ' ')}</h1>
-          <p className="mt-3 max-w-2xl text-base leading-7 text-gray-700">{decision.confidence.rationale}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">{view.labels.decision}</p>
+          <h1 className="mt-2 font-display text-4xl font-bold leading-tight text-gray-950">{view.decisionLabel}</h1>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-gray-700">{view.confidenceText}</p>
           {whyLine(why.decision, 'verdict-why')}
-          <p className="mt-3 text-sm text-gray-600">This tells you what is worth testing next. It is not a prediction that the whole business will succeed.</p>
+          <p className="mt-3 text-sm text-gray-600">{view.disclaimer}</p>
         </div>
 
         <div className="grid gap-4 p-6 sm:p-8">
           <article className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">Biggest unknown</p>
-            <h2 className="mt-2 text-xl font-black text-gray-950">{decision.largestUncertainty.assumption}</h2>
-            <p className="mt-2 leading-7 text-gray-700">{decision.largestUncertainty.whyItMatters}</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">{view.labels.biggestUnknown}</p>
+            <h2 className="mt-2 text-xl font-black text-gray-950">{view.biggestUnknown.question}</h2>
+            <p className="mt-2 leading-7 text-gray-700">{view.biggestUnknown.why}</p>
           </article>
 
           <article data-testid="next-step" className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-800">Fastest test</p>
-            <h2 className="mt-2 text-xl font-black text-gray-950">{decision.cheapestFalsification.test}</h2>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-800">{view.labels.fastestTest}</p>
+            <h2 className="mt-2 text-xl font-black text-gray-950">{view.test.text}</h2>
             {whyLine(why.test)}
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Who to test</dt><dd className="mt-1 text-gray-700">{decision.cheapestFalsification.target}</dd></div>
-              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Good result</dt><dd className="mt-1 text-gray-700">{decision.cheapestFalsification.successThreshold}</dd></div>
-              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Stop / revise</dt><dd className="mt-1 text-gray-700">{decision.cheapestFalsification.failureThreshold}</dd></div>
-              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Limit</dt><dd className="mt-1 text-gray-700">{decision.cheapestFalsification.maximumTime} · {decision.cheapestFalsification.maximumCash}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">{view.labels.who}</dt><dd className="mt-1 text-gray-700">{view.test.who}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">{view.labels.good}</dt><dd className="mt-1 text-gray-700">{view.test.good}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">{view.labels.stop}</dt><dd className="mt-1 text-gray-700">{view.test.stop}</dd></div>
+              <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">{view.labels.limit}</dt><dd className="mt-1 text-gray-700">{view.test.limit}</dd></div>
             </dl>
           </article>
 
           <article className="rounded-xl border-2 border-ghost-rust bg-white p-5 shadow-lantern">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-ghost-rust">Do this first</p>
-            <h2 className="mt-2 text-2xl font-black leading-8 text-gray-950">{decision.firstAction.action}</h2>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-ghost-rust">{view.labels.doFirst}</p>
+            <h2 className="mt-2 text-2xl font-black leading-8 text-gray-950">{view.firstAction}</h2>
             {whyLine(why.firstAction)}
           </article>
         </div>
 
         <div className="space-y-6 border-t border-gray-200 p-6 text-sm text-gray-800 sm:p-8">
-          <DecisionSection title="What we are testing">
-            <p>{decision.predictionTarget}</p>
+          <DecisionSection title={view.labels.testing}>
+            <p>{view.testing.target}</p>
             <dl className="mt-3 grid gap-2 rounded-sm bg-gray-50 p-3 sm:grid-cols-2">
-              <div><dt className="font-bold">Customer</dt><dd>{decision.customer.initialCustomer}</dd></div>
-              <div><dt className="font-bold">Problem</dt><dd>{decision.problem.painfulProblem}</dd></div>
-              <div><dt className="font-bold">Offer</dt><dd>{decision.offerHypothesis.offer}</dd></div>
-              <div><dt className="font-bold">Commitment</dt><dd>{decision.offerHypothesis.commitmentRequested}{decision.offerHypothesis.priceOrCommitmentRange ? ` (${decision.offerHypothesis.priceOrCommitmentRange})` : ''}</dd></div>
+              <div><dt className="font-bold">{view.labels.customer}</dt><dd>{view.testing.customer}</dd></div>
+              <div><dt className="font-bold">{view.labels.problem}</dt><dd>{view.testing.problem}</dd></div>
+              <div><dt className="font-bold">{view.labels.offer}</dt><dd>{view.testing.offer}</dd></div>
+              <div><dt className="font-bold">{view.labels.commitment}</dt><dd>{view.testing.commitment}</dd></div>
             </dl>
           </DecisionSection>
-          <DecisionSection title="Confidence"><p><span className="font-bold">{decision.confidence.level}.</span> {decision.confidence.rationale}</p></DecisionSection>
-          <DecisionSection title="Why this may work"><DecisionList items={decision.reasonsFor} /></DecisionSection>
-          <DecisionSection title="Why this may fail"><DecisionList items={decision.reasonsAgainst} /></DecisionSection>
-          <DecisionSection title="What would change this verdict"><DecisionList items={decision.whatWouldChangeTheVerdict} /></DecisionSection>
-          <DecisionSection title="Evidence labels">
+          <DecisionSection title={view.labels.confidence}><p><span className="font-bold">{view.confidenceLevel}.</span> {view.confidenceText}</p></DecisionSection>
+          <DecisionSection title={view.labels.mayWork}><DecisionList items={view.reasonsFor} /></DecisionSection>
+          <DecisionSection title={view.labels.mayFail}><DecisionList items={view.reasonsAgainst} /></DecisionSection>
+          <DecisionSection title={view.labels.wouldChange}><DecisionList items={view.wouldChange} /></DecisionSection>
+          <DecisionSection title={view.labels.evidenceLabels}>
             <ul className="space-y-2">
-              {decision.evidenceLabels.map((label, index) => <li key={`${label.statement}-${index}`} className="rounded-sm border border-gray-200 p-3"><span className="mr-2 text-xs font-bold uppercase tracking-wide text-gray-500">{label.truthLabel}</span>{label.statement}</li>)}
+              {view.evidenceLabels.map((item, index) => <li key={`${item.statement}-${index}`} className="rounded-sm border border-gray-200 p-3"><span className="mr-2 text-xs font-bold uppercase tracking-wide text-gray-500">{item.label}</span>{item.statement}</li>)}
             </ul>
           </DecisionSection>
         </div>
@@ -179,7 +181,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
       {video && (
         <section className="mb-8 rounded-sm border border-gray-200 bg-gray-950 p-5 text-white shadow-dust">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-gold">Your public short</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-gold">{view.labels.video}</p>
           {video.status === 'complete' && video.video_url ? (
             <video
               className="mx-auto mt-4 max-h-[70vh] w-full max-w-sm rounded bg-black"
@@ -188,18 +190,16 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
               preload="metadata"
               src={apiUrl(video.video_url)}
             >
-              Your browser does not support MP4 video.
+              {view.labels.videoUnsupported}
             </video>
           ) : (
             <div className="mt-4 rounded border border-white/15 bg-white/5 p-6 text-center">
               <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-ghost-gold border-t-transparent" />
-              <p className="font-bold">Shorts Factory is preparing the video.</p>
-              <p className="mt-2 text-sm text-white/70">Your report is ready now. This panel updates automatically.</p>
+              <p className="font-bold">{view.labels.videoPreparing}</p>
+              <p className="mt-2 text-sm text-white/70">{view.labels.videoReady}</p>
             </div>
           )}
-          <p className="mt-4 text-xs text-white/60">
-            Public content · eligible for reuse and distribution after media verification.
-          </p>
+          <p className="mt-4 text-xs text-white/60">{view.labels.videoPublic}</p>
         </section>
       )}
 
@@ -207,66 +207,34 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         <summary className="cursor-pointer list-none p-5 font-black text-gray-950 focus:outline-none focus:ring-4 focus:ring-ghost-rust/20 sm:p-6">
           <span className="flex items-center justify-between gap-4">
             <span>
-              <span className="block text-lg">Detailed analysis</span>
-              <span className="mt-1 block text-sm font-normal text-gray-600">Diagnostic scores and business-model notes</span>
+              <span className="block text-lg">{view.labels.detailed}</span>
+              <span className="mt-1 block text-sm font-normal text-gray-600">{view.labels.detailedSub}</span>
             </span>
             <span aria-hidden="true" className="text-2xl text-ghost-rust">＋</span>
           </span>
         </summary>
         <div className="border-t border-gray-200 p-5 sm:p-6">
-          <p className="mb-5 text-sm leading-6 text-gray-600">These diagnostics help explain the decision. They are not a prediction that the business will succeed.</p>
+          <p className="mb-5 text-sm leading-6 text-gray-600">{view.labels.detailedIntro}</p>
           <p className="mb-4 text-sm font-semibold text-gray-800">{why.scoresIntro}</p>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            <div data-testid="risk-level" className="rounded-sm border border-gray-200 bg-gray-50 p-4">
-              <div className="text-xs font-bold uppercase text-gray-600">Ghost Town Risk</div>
-              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.ghostTownScore}/5</div>
-              <div className="mt-1 text-xs text-gray-500">{scores.ghostTownRisk} risk</div>
-              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.ghostTownRisk}</p>
-            </div>
-
-            <div data-testid="lit-score" className="rounded-sm border border-gray-200 bg-gray-50 p-4">
-              <div className="text-xs font-bold uppercase text-gray-600">LIT Score</div>
-              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.litScore}/5</div>
-              <div className="mt-1 text-xs text-gray-500">{scores.litBand}</div>
-              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.lit}</p>
-            </div>
-
-            <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
-              <div className="text-xs font-bold uppercase text-gray-600">Leverage</div>
-              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.leverageScore}/5</div>
-              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.leverage}</p>
-            </div>
-
-            <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
-              <div className="text-xs font-bold uppercase text-gray-600">Insight</div>
-              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.insightScore}/5</div>
-              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.insight}</p>
-            </div>
-
-            <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
-              <div className="text-xs font-bold uppercase text-gray-600">Timing</div>
-              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.timingScore}/5</div>
-              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.timing}</p>
-            </div>
-
-            <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
-              <div className="text-xs font-bold uppercase text-gray-600">High Walls</div>
-              <div className="mt-1 text-2xl font-bold text-gray-900">{scores.highWallsScore}/5</div>
-              <div className="mt-1 text-xs text-gray-500">{scores.highWallsBand}</div>
-              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.highWalls}</p>
-            </div>
+            <ScoreCard testId="risk-level" name={view.scores.names.ghostTownRisk} value={scores.ghostTownScore} band={view.scores.risk} meaning={why.scores.ghostTownRisk} />
+            <ScoreCard testId="lit-score" name={view.scores.names.lit} value={scores.litScore} band={view.scores.litBand} meaning={why.scores.lit} />
+            <ScoreCard name={view.scores.names.leverage} value={scores.leverageScore} meaning={why.scores.leverage} />
+            <ScoreCard name={view.scores.names.insight} value={scores.insightScore} meaning={why.scores.insight} />
+            <ScoreCard name={view.scores.names.timing} value={scores.timingScore} meaning={why.scores.timing} />
+            <ScoreCard name={view.scores.names.highWalls} value={scores.highWallsScore} band={view.scores.highWallsBand} meaning={why.scores.highWalls} />
           </div>
 
           <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 p-5">
-            <h3 className="font-bold text-blue-900">Business DNA: {scores.businessDnaType}</h3>
+            <h3 className="font-bold text-blue-900">{view.labels.businessType}: {view.dna.type}</h3>
             <div className="mt-3 space-y-3">
               <div>
-                <p className="text-sm font-bold text-blue-900">The Trap:</p>
-                <p className="text-sm text-blue-800">{scores.businessDnaTrap}</p>
+                <p className="text-sm font-bold text-blue-900">{view.labels.trap}</p>
+                <p className="text-sm text-blue-800">{view.dna.trap}</p>
               </div>
               <div>
-                <p className="text-sm font-bold text-blue-900">How to Win:</p>
-                <p className="text-sm text-blue-800">{scores.businessDnaWinStrategy}</p>
+                <p className="text-sm font-bold text-blue-900">{view.labels.win}</p>
+                <p className="text-sm text-blue-800">{view.dna.win}</p>
               </div>
             </div>
           </div>
@@ -280,6 +248,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         isLoggedIn={isLoggedIn}
         onLoginClick={onLoginClick}
         onRewardClaimed={onRewardClaimed}
+        locale={locale}
       />
 
       {!SPRINT_OFFER_ACTIVE && <First30Waitlist source="verdict" verdictId={result.resultId} locale={locale} />}
@@ -307,7 +276,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           onClick={onReset}
           className="rounded bg-blue-600 px-6 py-3 font-bold text-white transition hover:bg-blue-700"
         >
-          Test Another Idea
+          {view.labels.testAnother}
         </button>
       </div>
 
@@ -318,7 +287,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           </button>
         ) : (
           <a href="#first-30" className="flex min-h-14 w-full items-center justify-center rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern">
-            First 30 opens soon: join the list
+            {view.labels.stickyFirst30}
           </a>
         )}
       </div>
@@ -349,13 +318,23 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
       <div className="mt-8 border-t border-gray-200 pt-6 text-center">
         <p className="text-xs text-gray-500">
-          GhostTown Test verdict{result.cacheHit ? ' (cached report)' : ''}
-          {' '}at {new Date(result.generatedAt).toLocaleString()}
+          {view.footer.madeAt}{view.footer.cached}{' '}{new Date(result.generatedAt).toLocaleString(locale === 'es' ? 'es-PR' : 'en-US')}
         </p>
         <p className="mt-2 text-xs text-gray-400">
-          This is a judgment tool to help you decide what to test next. Not a guarantee of success.
+          {view.footer.boundary}
         </p>
       </div>
+    </div>
+  );
+}
+
+function ScoreCard({ name, value, band, meaning, testId }: { name: string; value: number; band?: string; meaning: string; testId?: string }) {
+  return (
+    <div data-testid={testId} className="rounded-sm border border-gray-200 bg-gray-50 p-4">
+      <div className="text-xs font-bold uppercase text-gray-600">{name}</div>
+      <div className="mt-1 text-2xl font-bold text-gray-900">{value}/5</div>
+      {band && <div className="mt-1 text-xs text-gray-500">{band}</div>}
+      <p className="mt-2 text-xs leading-5 text-gray-600">{meaning}</p>
     </div>
   );
 }
