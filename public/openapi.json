@@ -182,11 +182,12 @@
       },
       "Offer": {
         "type": "object",
-        "required": ["offer_id", "name", "price_usd", "currency", "url", "requires_user_action"],
+        "required": ["offer_id", "name", "status", "price_usd", "currency", "url", "requires_user_action"],
         "properties": {
           "offer_id": { "type": "string" },
           "name": { "type": "string" },
-          "price_usd": { "type": "number" },
+          "status": { "enum": ["available", "opens_soon"], "description": "opens_soon means the offer is not on sale yet; a person can join its email list from the verdict page." },
+          "price_usd": { "type": ["number", "null"], "description": "null while the offer is not on sale." },
           "currency": { "type": "string" },
           "url": { "type": "string", "format": "uri" },
           "requires_user_action": { "const": true }

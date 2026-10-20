@@ -11,7 +11,7 @@ GhostTown can:
 - return deterministic scores even when the configured AI provider path fails;
 - identify a bounded verdict, major uncertainty, fastest useful test, and next actions;
 - hand the result to a human-controlled GhostTown account flow;
-- offer the GhostTown 30-Day Evidence Sprint after the free verdict.
+- tell the person about First 30, which opens soon, after the free verdict.
 
 ## Claims GhostTown does not make
 

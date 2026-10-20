@@ -27,13 +27,13 @@ A complete public response includes:
 - fastest test;
 - next actions;
 - an expiring human handoff URL;
-- the current GhostTown 30-Day Evidence Sprint offer.
+- the offer that follows the free verdict (currently First 30, which opens soon).
 
 The verdict ID is not authorization. The handoff uses a separate unguessable capability token.
 
 ## Human handoff
 
-The handoff URL lets a human review the public verdict projection. If the person chooses to continue, they must log in and explicitly claim the handoff into their GhostTown account. Only then does the normal saved-result and paid 30-Day Evidence Sprint path apply.
+The handoff URL lets a human review the public verdict projection. If the person chooses to continue, they must log in and explicitly claim the handoff into their GhostTown account. Only then does the normal saved-result path apply, where the person can join the First 30 email list.
 
 No agent can create a Stripe Checkout session on the user's behalf.
 
@@ -79,7 +79,7 @@ Tools:
 
 ## Offer
 
-GhostTown 30-Day Evidence Sprint is currently $97 USD one time. The canonical application constant remains the source of truth for runtime offer metadata.
+First 30 is planned at $297 USD, paid once, and is not on sale yet. It is thirty days of guided help to test the idea with real customers, a customer-acquisition website on a free web address, and outreach materials. Until it is on sale, runtime offer metadata reports `status: "opens_soon"` and `price_usd: null`; the runtime metadata is the source of truth. People can join the First 30 email list from their verdict page. Agents cannot join it for them.
 
 ## Limits
 

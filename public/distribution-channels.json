@@ -19,6 +19,6 @@
     "community": "?source=community&campaign={community_id}&publication_id={post_id}",
     "social": "?source=social&campaign={campaign_id}&platform={platform}&creative_id={creative_id}&publication_id={publication_id}"
   },
-  "outcomePath": "localized intent utility -> canonical free verdict -> secure human handoff -> account -> 30-Day Evidence Sprint / Get Me Live -> product-native outcome",
+  "outcomePath": "localized intent utility -> canonical free verdict -> secure human handoff -> account -> First 30 email list (First 30 opens soon) -> product-native outcome",
   "measurement": "intent_id is derived from the discovery route and preserved through the handoff into GhostTown commercial attribution."
 }

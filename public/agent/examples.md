@@ -35,8 +35,12 @@ The response is:
   "handoff_id": "...",
   "result_url": "https://ghosttowntest.com/agent/handoff/...",
   "offer": {
-    "name": "GhostTown 30-Day Evidence Sprint",
-    "price_usd": 97,
+    "offer_id": "ghosttown_first_30_waitlist_v1",
+    "name": "First 30",
+    "status": "opens_soon",
+    "price_usd": null,
+    "currency": "usd",
+    "url": "https://ghosttowntest.com",
     "requires_user_action": true
   }
 }
