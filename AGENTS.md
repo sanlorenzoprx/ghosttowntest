@@ -42,6 +42,19 @@ Every AI prompt that writes for a founder includes `EXPLAIN_WHY_INSTRUCTION` fro
 
 The paid Blueprint is governed by a hash-verified contract chain (`npm run verify:blueprint`). A change to what the Blueprint promises or produces needs a new amendment version, a change record, and regenerated evidence. See `docs/GHOSTTOWN_LAUNCH_BLUEPRINT_V2_1_11_COMMUNITY_PROBLEM_RESEARCH_AMENDMENT.md` for the latest example.
 
+## Merging pull requests
+
+The founder has approved this standing rule: **an agent merges its own pull request without asking when every condition below is true.** If any one is false, do not merge; fix it or report it.
+
+1. Every CI check on the current head commit has finished and passed. None is pending, skipped, cancelled or failing.
+2. GitHub shows no merge conflict, and the branch includes the latest `main`.
+3. No open review comments, no requested changes, and no failing Claude Approvals check.
+4. The local checks below passed on the same commit.
+5. The pull request does only what the founder asked for.
+6. It does not deploy, release or change production settings, secrets, prices, payments or checkout. Those always need the founder's explicit approval, even when everything passes.
+
+After merging, say in one line what was merged.
+
 ## Before you push
 
 Run `npm run type-check`, `npm run test:fast` and `npm run build`. Run `npm run test:workers-runtime` when Worker code changes.
