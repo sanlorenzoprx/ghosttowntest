@@ -51,10 +51,10 @@ export const GHOSTTOWN_FIRST_30_WAITLIST_V1 = {
   headline: 'First 30 opens soon',
   summary: 'Thirty days of guided help after your verdict: one clear step at a time, built around the evidence for your idea.',
   promise: [
-    'Where your likely customers are already talking, with a link to each place',
-    'The problems they describe there, in their own words',
-    'Messages and content prepared for those places, ready for you to test',
-    'One clear step each day, and help deciding whether to keep going, change something, or stop, based on what customers actually do'
+    'One clear next step each day, based on what you learn',
+    'A customer-acquisition website for your business, written from what your likely customers actually say',
+    'The words and materials you need to reach your first customers, made for the places where they are already talking',
+    'Help deciding whether to keep going, change something, or stop'
   ],
   consentText: 'Email me when First 30 opens. GhostTown will use this address only for First 30 news, and I can ask to be removed at any time.',
   truthBoundary: 'Joining the list is free and does not buy anything. First 30 is not on sale yet.',
@@ -62,10 +62,10 @@ export const GHOSTTOWN_FIRST_30_WAITLIST_V1 = {
     headline: 'First 30 abre pronto',
     summary: 'Treinta días de ayuda guiada después de tu veredicto: un paso claro a la vez, basado en la evidencia de tu idea.',
     promise: [
-      'Dónde ya conversan tus posibles clientes, con un enlace a cada lugar',
-      'Los problemas que describen allí, con sus propias palabras',
-      'Mensajes y contenido preparados para esos lugares, listos para que los pruebes',
-      'Un paso claro cada día y ayuda para decidir si seguir, cambiar algo o parar, según lo que hacen los clientes de verdad'
+      'Un paso claro cada día, según lo que aprendes',
+      'Un sitio web para conseguir clientes, escrito con lo que tus posibles clientes dicen de verdad',
+      'Las palabras y materiales para llegar a tus primeros clientes, hechos para los lugares donde ya conversan',
+      'Ayuda para decidir si seguir, cambiar algo o parar'
     ],
     consentText: 'Envíenme un email cuando First 30 abra. GhostTown usará este email solo para noticias de First 30 y puedo pedir que me borren en cualquier momento.',
     truthBoundary: 'Unirte a la lista es gratis y no compra nada. First 30 todavía no está a la venta.'

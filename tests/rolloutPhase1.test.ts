@@ -32,13 +32,16 @@ describe('rollout phase 1: free verdict with First 30 email list', () => {
     expect(copy).not.toMatch(/\$\d/);
   });
 
-  it('describes the First 30 customer research loop without overclaiming', () => {
+  it('weaves the customer research into the First 30 offer without overclaiming', () => {
     const landing = read('src/components/LandingCommercial.tsx');
-    expect(landing).toContain('GhostTown finds places where your likely customers are already talking, researches the problems they describe, and prepares messages and content you can test during those 30 days.');
-    expect(landing).toContain('GhostTown encuentra lugares donde tus posibles clientes ya conversan, investiga los problemas que describen y prepara mensajes y contenido que puedes probar durante esos 30 días.');
-    expect(GHOSTTOWN_FIRST_30_WAITLIST_V1.promise[0]).toMatch(/already talking/);
-    expect(GHOSTTOWN_FIRST_30_WAITLIST_V1.es.promise[0]).toMatch(/ya conversan/);
-    expect(GHOSTTOWN_FIRST_30_WAITLIST_V1.promise).toHaveLength(GHOSTTOWN_FIRST_30_WAITLIST_V1.es.promise.length);
+    expect(landing).toContain('GhostTown finds places where your likely customers are already talking, researches the problems they describe, and uses what they say to shape your website and the messages and content you test during those 30 days.');
+    expect(landing).toContain('GhostTown encuentra lugares donde tus posibles clientes ya conversan, investiga los problemas que describen y usa lo que dicen para dar forma a tu sitio web y a los mensajes y contenido que pruebas durante esos 30 días.');
+    // The primary offer leads; research shapes the website and the materials.
+    const { promise, es } = GHOSTTOWN_FIRST_30_WAITLIST_V1;
+    expect(promise).toHaveLength(es.promise.length);
+    expect(promise[1]).toMatch(/^A customer-acquisition website .* what your likely customers actually say$/);
+    expect(promise[2]).toMatch(/where they are already talking$/);
+    expect(es.promise[1]).toMatch(/^Un sitio web para conseguir clientes/);
     // Finding some communities does not show where most buyers are.
     const copy = `${landing}\n${JSON.stringify(GHOSTTOWN_FIRST_30_WAITLIST_V1)}\n${read('public/llms.txt')}`;
     expect(copy).not.toMatch(/majority of|most of your (niche|customers|buyers)|la mayoría de tus/i);

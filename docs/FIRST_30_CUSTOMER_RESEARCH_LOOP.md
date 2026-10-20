@@ -1,13 +1,14 @@
 # First 30: customer research loop (follow-up work)
 
-Status: **planned, not built.** The landing page, the First 30 signup card and `llms.txt` now say:
+Status: **being built.** This research is part of how First 30 delivers its primary offer, the
+customer-acquisition website and outreach materials. It does not change that offer. The landing page,
+the First 30 signup card and `llms.txt` say:
 
 > GhostTown finds places where your likely customers are already talking, researches the problems they
-> describe, and prepares messages and content you can test during your 30-Day Sprint.
+> describe, and uses what they say to shape your website and the messages and content you test during
+> those 30 days.
 
-That is a promise about First 30, which is not on sale yet. Before First 30 opens, the full path below
-must work end to end in the product, from finding sources to giving the founder usable content. If it
-does not, change the copy before taking money.
+First 30 opens with this loop working end to end.
 
 Source: founder notes of 20 October 2026, reviewing a TikTok / e-commerce research playbook. This file
 keeps the parts of that playbook GhostTown adopts and the corrections it needs.
