@@ -49,7 +49,10 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PRODUCTION_RELEASE_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       WORKER_NAME: lit-ghost-town-api-production
-      HEALTH_URL: https://api.ghosttownverdict.app/api/integrations/shorts-factory/health
+      # The release resolves HEALTH_URL from these two hosts of the same Worker:
+      # the new domain once it is attached, otherwise the legacy host.
+      HEALTH_URL_PRIMARY: https://api.ghosttownverdict.app/api/integrations/shorts-factory/health
+      HEALTH_URL_LEGACY: https://api.ghosttowntest.com/api/integrations/shorts-factory/health
     steps:
       - name: Check out protected main
         uses: actions/checkout@v7
@@ -96,6 +99,21 @@ jobs:
 
       - name: Type check release SHA
         run: npm run type-check
+
+      - name: Resolve production health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          for url in "$HEALTH_URL_PRIMARY" "$HEALTH_URL_LEGACY"; do
+            if curl -fsS --connect-timeout 10 --max-time 20 "$url" > /dev/null; then
+              echo "HEALTH_URL=$url" >> "$GITHUB_ENV"
+              echo "Production health endpoint: $url"
+              exit 0
+            fi
+            echo "::warning::$url did not answer."
+          done
+          echo "::error::Neither production health endpoint answered."
+          exit 1
 
       - name: Capture production state before operation
         shell: bash
