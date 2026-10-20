@@ -1,32 +1,53 @@
 import type { ReactNode } from 'react';
 import { LEGAL_POLICY } from '../lib/businessPolicy';
-import { LEGAL_PAGES, type LegalBlock, type LegalPageKind } from '../lib/legalPages';
+import { legalPage, type LegalBlock, type LegalLocale, type LegalPageKind } from '../lib/legalPages';
 
 export type { LegalPageKind };
 
 interface Props {
   kind: LegalPageKind;
+  locale?: LegalLocale;
 }
 
-const OTHER_PAGES: Array<{ kind: LegalPageKind; label: string; href: string }> = [
-  { kind: 'terms', label: 'Terms of service', href: '/terms' },
-  { kind: 'privacy', label: 'Privacy policy', href: '/privacy' },
-  { kind: 'refund', label: 'Refunds and cancellation', href: '/refunds' },
-  { kind: 'disclaimer', label: 'Disclaimer', href: '/disclaimer' }
-];
+const UI = {
+  en: {
+    updated: `Last updated ${LEGAL_POLICY.lastUpdated}`,
+    onThisPage: 'On this page',
+    questions: 'Questions? Email',
+    noSecrets: 'Never send passwords or full card numbers by email.',
+    otherPolicies: 'Other policies',
+    about: 'About GhostTown',
+    translation: '',
+    pages: { terms: 'Terms of service', privacy: 'Privacy policy', refund: 'Refunds and cancellation', disclaimer: 'Disclaimer' }
+  },
+  es: {
+    updated: `Última actualización: ${LEGAL_POLICY.lastUpdatedEs}`,
+    onThisPage: 'En esta página',
+    questions: '¿Preguntas? Escribe a',
+    noSecrets: 'Nunca envíes contraseñas ni números completos de tarjeta por email.',
+    otherPolicies: 'Otras políticas',
+    about: 'Sobre GhostTown',
+    translation: 'Esta es una traducción de la versión en inglés. Si hay alguna diferencia entre las dos, prevalece la versión en inglés.',
+    pages: { terms: 'Términos de servicio', privacy: 'Política de privacidad', refund: 'Reembolsos y cancelación', disclaimer: 'Aviso legal' }
+  }
+} as const;
 
-export default function LegalPage({ kind }: Props) {
-  const page = LEGAL_PAGES[kind];
+const HREFS: Record<LegalPageKind, string> = { terms: '/terms', privacy: '/privacy', refund: '/refunds', disclaimer: '/disclaimer' };
+
+export default function LegalPage({ kind, locale = 'en' }: Props) {
+  const page = legalPage(kind, locale);
+  const ui = UI[locale];
   return (
     <section className="bg-ghost-paper px-4 py-12 sm:py-16">
-      <article className="mx-auto max-w-3xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-10">
+      <article lang={locale} className="mx-auto max-w-3xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-10">
         <p className="text-sm font-black uppercase tracking-[0.2em] text-ghost-rust">{page.eyebrow}</p>
         <h1 className="mt-3 font-slab text-4xl font-bold leading-tight tracking-tight text-ghost-ink sm:text-5xl">{page.title}</h1>
-        <p className="mt-3 text-sm text-gray-500">Last updated {LEGAL_POLICY.lastUpdated}</p>
+        <p className="mt-3 text-sm text-gray-500">{ui.updated}</p>
+        {ui.translation && <p data-testid="legal-translation-note" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{ui.translation}</p>}
         <p className="mt-6 text-lg leading-relaxed text-gray-700">{inline(page.summary)}</p>
 
-        <nav aria-label="On this page" className="mt-8 rounded-lg border border-gray-200 bg-gray-50 p-5">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">On this page</p>
+        <nav aria-label={ui.onThisPage} className="mt-8 rounded-lg border border-gray-200 bg-gray-50 p-5">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">{ui.onThisPage}</p>
           <ol className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
             {page.sections.map(section => (
               <li key={section.id}><a className="text-blue-700 hover:underline" href={`#${section.id}`}>{section.title}</a></li>
@@ -45,13 +66,13 @@ export default function LegalPage({ kind }: Props) {
 
         <footer className="mt-12 border-t border-gray-200 pt-6 text-sm text-gray-600">
           <p>
-            Questions? Email <a className="font-bold text-blue-700 underline" href={`mailto:${LEGAL_POLICY.supportEmail}`}>{LEGAL_POLICY.supportEmail}</a>. Never send passwords or full card numbers by email.
+            {ui.questions} <a className="font-bold text-blue-700 underline" href={`mailto:${LEGAL_POLICY.supportEmail}`}>{LEGAL_POLICY.supportEmail}</a>. {ui.noSecrets}
           </p>
-          <nav aria-label="Other policies" className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
-            {OTHER_PAGES.filter(other => other.kind !== kind).map(other => (
-              <a key={other.kind} className="font-bold text-blue-700 hover:underline" href={other.href}>{other.label}</a>
+          <nav aria-label={ui.otherPolicies} className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+            {(Object.keys(HREFS) as LegalPageKind[]).filter(other => other !== kind).map(other => (
+              <a key={other} className="font-bold text-blue-700 hover:underline" href={HREFS[other]}>{ui.pages[other]}</a>
             ))}
-            <a className="font-bold text-blue-700 hover:underline" href="/about">About GhostTown</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/about">{ui.about}</a>
           </nav>
         </footer>
       </article>

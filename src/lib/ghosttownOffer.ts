@@ -86,6 +86,11 @@ export const GHOSTTOWN_FIRST_30_V1 = {
     'A customer-acquisition website branded for your business, on a free web address',
     'The materials you need to reach your first customers, such as an offer, outreach messages, an interview guide, and an evidence tracker'
   ],
+  includesEs: [
+    'Un plan diario de 30 días que se adapta a lo que aprendes',
+    'Un sitio web para conseguir clientes, con la marca de tu negocio, en una dirección web gratis',
+    'Los materiales para llegar a tus primeros clientes, como una oferta, mensajes de contacto, una guía de entrevistas y un registro de evidencia'
+  ],
   refundRule: 'Full refund until your website build starts; no refund after it starts.'
 } as const;
 
@@ -103,6 +108,13 @@ export const GHOSTTOWN_YEAR_SQUARED_V1 = {
     'Ongoing execution with GhostTown’s AI operating partner (your COO)',
     'A stress test and a report at each stage gate',
     'An operating playbook'
+  ],
+  includesEs: [
+    'Una sesión inicial a fondo',
+    'Un mapa para tu año',
+    'Ejecución continua con el socio operativo de IA de GhostTown (tu COO)',
+    'Una prueba de estrés y un informe en cada etapa',
+    'Un manual de operaciones'
   ],
   refund: { fullRefundDays: 7, halfRefundThroughDay: 21 }
 } as const;

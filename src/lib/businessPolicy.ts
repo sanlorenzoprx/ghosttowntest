@@ -16,6 +16,8 @@ export const LEGAL_POLICY = {
   formerWebsite: 'ghosttowntest.com',
   supportEmail: 'support@ghosttownverdict.app',
   lastUpdated: 'October 19, 2026',
+  lastUpdatedEs: '19 de octubre de 2026',
+  jurisdictionEs: 'Estado Libre Asociado de Puerto Rico, EE. UU.',
   // Postal address required in the footer of every First 30 list email
   // (CAN-SPAM). Kept off the website itself; written as the founder gave it.
   mailingAddress: ['BO QUEBRADA ONDA', 'CARR 181R 913 KM10', 'SAN LORENZO PR 00754']

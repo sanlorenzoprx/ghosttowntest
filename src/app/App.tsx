@@ -404,8 +404,8 @@ export default function App() {
         {screen === 'get-me-live' && getMeLiveSetup && isLoggedIn && <GetMeLiveWorkspace orderId={getMeLiveOrderId} onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
         {screen === 'get-me-live' && getMeLiveSetup && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Log in to open your Get Me Live page</h1><p className="mt-3 text-gray-700">Use the email from checkout. Your work is saved.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
         {screen === 'contact' && <Contact onStart={handleStartTest} />}
-        {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && <LegalPage kind={screen} />}
-        {screen === 'about' && <AboutPage />}
+        {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && <LegalPage kind={screen} locale={locale} />}
+        {screen === 'about' && <AboutPage locale={locale} />}
         {screen === 'action-plan-success' && <ActionPlanSuccess orderId={new URLSearchParams(window.location.search).get('order_id') || ''} onDone={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
         {screen === 'internal-research' && isLoggedIn && <InternalGoogleSearchConsole onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
         {screen === 'internal-research' && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Owner login required</h1><p className="mt-3 text-gray-700">This standalone research console is not part of the customer product.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
@@ -415,13 +415,13 @@ export default function App() {
 
       <footer className="border-t border-gray-200 bg-ghost-sand px-4 py-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
-          <p>Zayas House LLC · Commonwealth of Puerto Rico, USA</p>
-          <nav aria-label="Legal policies" className="flex flex-wrap gap-x-4 gap-y-2">
-            <a className="font-bold text-blue-700 hover:underline" href="/about">About</a>
-            <a className="font-bold text-blue-700 hover:underline" href="/privacy">Privacy</a>
-            <a className="font-bold text-blue-700 hover:underline" href="/terms">Terms</a>
-            <a className="font-bold text-blue-700 hover:underline" href="/refunds">Refunds</a>
-            <a className="font-bold text-blue-700 hover:underline" href="/disclaimer">Disclaimer</a>
+          <p>{locale === 'es' ? 'Zayas House LLC · Estado Libre Asociado de Puerto Rico, EE. UU.' : 'Zayas House LLC · Commonwealth of Puerto Rico, USA'}</p>
+          <nav aria-label={locale === 'es' ? 'Políticas legales' : 'Legal policies'} className="flex flex-wrap gap-x-4 gap-y-2">
+            <a className="font-bold text-blue-700 hover:underline" href="/about">{locale === 'es' ? 'Sobre nosotros' : 'About'}</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/privacy">{locale === 'es' ? 'Privacidad' : 'Privacy'}</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/terms">{locale === 'es' ? 'Términos' : 'Terms'}</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/refunds">{locale === 'es' ? 'Reembolsos' : 'Refunds'}</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/disclaimer">{locale === 'es' ? 'Aviso legal' : 'Disclaimer'}</a>
           </nav>
         </div>
       </footer>

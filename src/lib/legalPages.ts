@@ -1,48 +1,17 @@
 import { ASSESSMENT_PACK_CREDITS, ASSESSMENT_PACK_DISPLAY_PRICE } from './assessmentPack';
 import { LEGAL_POLICY } from './businessPolicy';
-import { GHOSTTOWN_FIRST_30_V1, GHOSTTOWN_YEAR_SQUARED_V1 } from './ghosttownOffer';
+import { LEGAL_FIGURES, list, p, table, usd, type LegalLocale, type LegalPageContent, type LegalPageKind } from './legalShared';
+import { LEGAL_PAGES_ES } from './legalPagesEs';
 
 // Public policy pages. Structure follows what the rules ask for (CalOPPA and
 // CCPA privacy disclosures, CAN-SPAM for the email list, Stripe's fulfillment
 // and refund disclosures, FTC guidance against income claims) and the plain,
 // second-person style of the Basecamp/37signals open policies (CC BY 4.0).
-// Inline markup: **bold** and [label](href).
+// Spanish versions live in legalPagesEs.ts with the same section ids.
 
-export type LegalPageKind = 'privacy' | 'terms' | 'refund' | 'disclaimer';
+export type { LegalBlock, LegalLocale, LegalPageContent, LegalPageKind, LegalSection } from './legalShared';
 
-export type LegalBlock =
-  | { kind: 'p'; text: string }
-  | { kind: 'list'; items: string[] }
-  | { kind: 'table'; head: string[]; rows: string[][] };
-
-export interface LegalSection {
-  id: string;
-  title: string;
-  blocks: LegalBlock[];
-}
-
-export interface LegalPageContent {
-  eyebrow: string;
-  title: string;
-  summary: string;
-  sections: LegalSection[];
-}
-
-const p = (text: string): LegalBlock => ({ kind: 'p', text });
-const list = (...items: string[]): LegalBlock => ({ kind: 'list', items });
-const table = (head: string[], rows: string[][]): LegalBlock => ({ kind: 'table', head, rows });
-
-const usd = (amount: number) => `$${amount.toLocaleString('en-US')}`;
-const first30 = GHOSTTOWN_FIRST_30_V1;
-const year = GHOSTTOWN_YEAR_SQUARED_V1;
-const yearPrepayAfterCredit = year.prepayUsd - year.first30CreditUsd;
-const yearFirstPaymentAfterCredit = year.installments.eachUsd - year.first30CreditUsd;
-const yearPlanAfterCredit = year.installments.count * year.installments.eachUsd - year.first30CreditUsd;
-// Tuition-style refunds: inside days 8-21 you owe half of the price of the plan
-// you chose, after the First 30 credit, whatever you have paid so far.
-const yearHalfPrepay = yearPrepayAfterCredit / 2;
-const yearHalfPlan = yearPlanAfterCredit / 2;
-const yearPlanTopUp = yearHalfPlan - yearFirstPaymentAfterCredit;
+const { first30, year, yearPrepayAfterCredit, yearFirstPaymentAfterCredit, yearPlanAfterCredit, yearHalfPrepay, yearHalfPlan, yearPlanTopUp } = LEGAL_FIGURES;
 const support = `[${LEGAL_POLICY.supportEmail}](mailto:${LEGAL_POLICY.supportEmail})`;
 const operator = `${LEGAL_POLICY.operator}, a company organized in the ${LEGAL_POLICY.jurisdiction.replace(', USA', '')}`;
 
@@ -437,3 +406,7 @@ const disclaimer: LegalPageContent = {
 };
 
 export const LEGAL_PAGES: Record<LegalPageKind, LegalPageContent> = { terms, refund, privacy, disclaimer };
+
+export function legalPage(kind: LegalPageKind, locale: LegalLocale = 'en'): LegalPageContent {
+  return locale === 'es' ? LEGAL_PAGES_ES[kind] : LEGAL_PAGES[kind];
+}
