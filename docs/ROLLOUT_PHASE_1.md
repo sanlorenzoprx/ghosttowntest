@@ -81,13 +81,26 @@ Then run `Acceptance` within 24 hours of the payment.
 
 The First 30 email list holds people who ticked the consent box on their verdict page or on the landing
 page. They asked to hear when First 30 opens, and the privacy policy promises we email them only about
-First 30. Nothing sends these emails yet: export the list from `GET /api/internal/first30-waitlist` and send
-through an email service when First 30 opens.
+First 30. These are commercial emails to the public, so CAN-SPAM applies to every one.
 
-Every list email must, under CAN-SPAM:
+What is built:
 
-- say who it is from (GhostTown) and have an honest subject line;
-- include an unsubscribe link, and stop emailing anyone who unsubscribes within 10 business days;
-- include the postal address in `LEGAL_POLICY.mailingAddress` (`src/lib/businessPolicy.ts`).
+- **The email.** `renderFirst30OpensEmail` (`src/lib/first30Email.ts`) builds the "First 30 is open" email in
+  English and Spanish, as HTML and plain text. The footer always has an Unsubscribe button and the postal
+  address in `LEGAL_POLICY.mailingAddress`. Price, inclusions and the refund line come from the offer constants.
+- **Preview.** Owners open `GET /api/internal/first30-email-preview?locale=en` (or `es`; add `&format=json` for
+  subject, text, HTML and headers).
+- **Unsubscribe.** Each subscriber gets a signed link, `/api/first30/unsubscribe?id=…&t=…`. Opening it shows a
+  confirm button. Mail apps' one-click unsubscribe (RFC 8058) posts to the same link. Unsubscribing takes effect
+  at once. Signing up again with fresh consent rejoins the list. Links are signed with
+  `FIRST30_UNSUBSCRIBE_SECRET` (falls back to `JWT_SECRET`); changing the secret breaks links already sent.
+- **Export.** `GET /api/internal/first30-waitlist` returns only people still subscribed, each with their own
+  `unsubscribeUrl`, plus the postal address.
 
-Name the email service in the privacy policy's provider table before the first send.
+How to send, when First 30 opens:
+
+1. Export the list. Load it into the email service with `unsubscribeUrl` as a per-person field.
+2. Use the preview HTML as the template, with each person's `unsubscribeUrl` in the footer link.
+3. Set the `List-Unsubscribe` and `List-Unsubscribe-Post` headers from the preview's `headers`, per person.
+4. Name the email service in the privacy policy's provider table before the first send.
+5. Re-export before every send, so anyone who unsubscribed is left out.

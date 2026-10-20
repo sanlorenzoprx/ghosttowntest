@@ -4,6 +4,8 @@ import type { Env } from "../../src/api/env";
 import { handleSignup } from "../../src/api/auth";
 import {
   FIRST_30_WAITLIST_KEY_PREFIX,
+  first30UnsubscribeUrl,
+  handleFirst30Unsubscribe,
   handleFirst30WaitlistExport,
   handleFirst30WaitlistJoin,
   type First30WaitlistEntry,
@@ -104,6 +106,68 @@ describe("First 30 email list on real local bindings", () => {
     const body = (await exported.json()) as { count: number; entries: First30WaitlistEntry[] };
     expect(body.entries.map(entry => entry.email)).toContain("export-me@example.com");
     expect(body.count).toBe(body.entries.length);
+  });
+});
+
+describe("First 30 unsubscribe on real local bindings", () => {
+  async function ownerToken(runtime: Env, owner: string): Promise<string> {
+    const signup = await handleSignup(new Request("https://runtime.test/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: owner, password: "runtime-password" }),
+    }), runtime);
+    return ((await signup.json()) as { token: string }).token;
+  }
+
+  async function exported(runtime: Env, token: string) {
+    const response = await handleFirst30WaitlistExport(new Request("https://api.runtime.test/api/internal/first30-waitlist", {
+      headers: { Authorization: `Bearer ${token}` },
+    }), runtime);
+    return (await response.json()) as { count: number; unsubscribedCount: number; postalAddress: string[]; entries: Array<First30WaitlistEntry & { unsubscribeUrl: string }> };
+  }
+
+  it("unsubscribes only through the signed POST, drops the address from the export, and lets a fresh signup rejoin", async () => {
+    const owner = "unsub-owner@runtime.test";
+    const runtime = runtimeEnv({ INTERNAL_RESEARCH_OWNER_EMAILS: owner });
+    const token = await ownerToken(runtime, owner);
+    await handleFirst30WaitlistJoin(join({ email: "leaver@example.com", consent: true }, "192.0.2.40"), runtime);
+
+    const before = await exported(runtime, token);
+    const leaver = before.entries.find(entry => entry.email === "leaver@example.com");
+    expect(leaver?.unsubscribeUrl).toContain("https://api.runtime.test/api/first30/unsubscribe?id=");
+    expect(before.postalAddress).toContain("SAN LORENZO PR 00754");
+
+    const link = leaver!.unsubscribeUrl;
+    const confirm = await handleFirst30Unsubscribe(new Request(link), runtime);
+    expect(confirm.status).toBe(200);
+    expect(await confirm.text()).toContain('method="post"');
+    expect((await exported(runtime, token)).entries.some(entry => entry.email === "leaver@example.com")).toBe(true);
+
+    const oneClick = await handleFirst30Unsubscribe(new Request(link, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "List-Unsubscribe=One-Click",
+    }), runtime);
+    expect(oneClick.status).toBe(200);
+    expect(await oneClick.text()).toContain("You are unsubscribed");
+
+    const after = await exported(runtime, token);
+    expect(after.entries.some(entry => entry.email === "leaver@example.com")).toBe(false);
+    expect(after.unsubscribedCount).toBeGreaterThanOrEqual(1);
+
+    const repeat = await handleFirst30Unsubscribe(new Request(link, { method: "POST" }), runtime);
+    expect(repeat.status).toBe(200);
+
+    await handleFirst30WaitlistJoin(join({ email: "leaver@example.com", consent: true }, "192.0.2.41"), runtime);
+    expect((await exported(runtime, token)).entries.some(entry => entry.email === "leaver@example.com")).toBe(true);
+  });
+
+  it("rejects a tampered or missing token", async () => {
+    const runtime = runtimeEnv();
+    const link = new URL(await first30UnsubscribeUrl(runtime, "https://api.runtime.test", "someone@example.com"));
+    link.searchParams.set("t", "0".repeat(64));
+    expect((await handleFirst30Unsubscribe(new Request(link.toString(), { method: "POST" }), runtime)).status).toBe(400);
+    expect((await handleFirst30Unsubscribe(new Request("https://api.runtime.test/api/first30/unsubscribe", { method: "POST" }), runtime)).status).toBe(400);
   });
 });
 
