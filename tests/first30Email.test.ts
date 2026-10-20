@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { postalAddressLine, renderFirst30OpensEmail } from '../src/lib/first30Email';
 import { LEGAL_POLICY } from '../src/lib/businessPolicy';
 
-const unsubscribeUrl = 'https://api.ghosttownverdict.com/api/first30/unsubscribe?id=abc&t=def';
-const first30Url = 'https://ghosttownverdict.com';
+const unsubscribeUrl = 'https://api.ghosttownverdict.app/api/first30/unsubscribe?id=abc&t=def';
+const first30Url = 'https://ghosttownverdict.app';
 
 describe('First 30 list email', () => {
   for (const locale of ['en', 'es'] as const) {

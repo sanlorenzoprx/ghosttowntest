@@ -155,7 +155,7 @@ async function livePairing() {
   if (allowed.status !== 200 || allowed.headers.get('access-control-allow-origin') !== PAGES_URL) {
     throw new Error('Acceptance CORS pairing failed.');
   }
-  const denied = await preflight('https://ghosttownverdict.com');
+  const denied = await preflight('https://ghosttownverdict.app');
   if (denied.headers.get('access-control-allow-origin')) throw new Error('Acceptance Worker allows the production frontend origin.');
   return { js_url: jsUrl, acceptance_origin_allowed: true, production_origin_denied: true };
 }

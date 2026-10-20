@@ -153,7 +153,7 @@ async function enforceRateLimit(request: Request, env: Env): Promise<Response | 
 }
 
 export function currentAgentOffer(env: Env): AgentOfferProjection {
-  const frontend = (env.FRONTEND_URL?.trim() || 'https://ghosttownverdict.com').replace(/\/$/, '');
+  const frontend = (env.FRONTEND_URL?.trim() || 'https://ghosttownverdict.app').replace(/\/$/, '');
   if (!sprintCheckoutEnabled(env)) {
     return {
       offer_id: GHOSTTOWN_FIRST_30_WAITLIST_V1.offerId,
@@ -182,8 +182,8 @@ export function ghostTownProductMetadata(env: Env) {
     purpose: 'Business idea validation and next-test guidance before heavy build investment.',
     free_capability: 'GhostTown verdict',
     paid_offer: currentAgentOffer(env),
-    openapi: `${(env.FRONTEND_URL?.trim() || 'https://ghosttownverdict.com').replace(/\/$/, '')}/openapi.json`,
-    mcp: 'https://api.ghosttownverdict.com/mcp',
+    openapi: `${(env.FRONTEND_URL?.trim() || 'https://ghosttownverdict.app').replace(/\/$/, '')}/openapi.json`,
+    mcp: 'https://api.ghosttownverdict.app/mcp',
     limitations: [
       'GhostTown does not guarantee startup success.',
       'The verdict is bounded to the next evidence-seeking commitment test.',

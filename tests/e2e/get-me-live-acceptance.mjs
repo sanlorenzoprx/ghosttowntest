@@ -16,7 +16,7 @@ const missing = Object.entries(required).filter(([, value]) => !value).map(([nam
 if (missing.length) throw new Error('Runtime Get Me Live acceptance is mandatory. Missing: ' + missing.join(', '));
 if (!submitLead) throw new Error('Runtime Get Me Live acceptance must submit a disposable lead. Set GHOSTTOWN_E2E_SUBMIT_LEAD=1.');
 
-const productionApiHosts = new Set(['api.ghosttownverdict.com', 'api.ghosttowntest.com', 'api.lit-ghosttown.app']);
+const productionApiHosts = new Set(['api.ghosttownverdict.app', 'api.ghosttowntest.com', 'api.lit-ghosttown.app']);
 const apiHost = new URL(apiBase).hostname;
 if (productionApiHosts.has(apiHost)) throw new Error(`Acceptance API origin points to production: ${apiBase}`);
 

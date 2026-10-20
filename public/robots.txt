@@ -7,4 +7,4 @@ Allow: /
 User-agent: ChatGPT-User
 Allow: /
 
-Sitemap: https://ghosttownverdict.com/sitemap.xml
+Sitemap: https://ghosttownverdict.app/sitemap.xml

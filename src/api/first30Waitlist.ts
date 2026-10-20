@@ -199,7 +199,7 @@ export async function handleFirst30EmailPreview(request: Request, env: Env): Pro
   const email = renderFirst30OpensEmail({
     locale,
     unsubscribeUrl: await first30UnsubscribeUrl(env, url.origin, owner.email),
-    first30Url: (env.FRONTEND_URL?.trim() || 'https://ghosttownverdict.com').replace(/\/$/, '')
+    first30Url: (env.FRONTEND_URL?.trim() || 'https://ghosttownverdict.app').replace(/\/$/, '')
   });
   if (url.searchParams.get('format') === 'json') return json(email);
   return new Response(email.html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-store' } });

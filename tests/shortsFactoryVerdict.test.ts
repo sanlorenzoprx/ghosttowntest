@@ -85,7 +85,7 @@ function createEnv(apiKey = '', aiMode: AiMode = 'valid') {
     AI: {} as Ai,
     AI_GATEWAY_ID: 'default',
     VERTEX_VERDICT_MODEL: 'gemini-3.5-flash-lite',
-    FRONTEND_URL: 'https://ghosttownverdict.com',
+    FRONTEND_URL: 'https://ghosttownverdict.app',
     DEPLOYMENT_ENV: 'production' as const,
     CF_VERSION_METADATA: {
       id: '00000000-0000-4000-8000-000000000123',
@@ -114,15 +114,15 @@ function verdictRequest(
 
 describe('Shorts Factory verdict API contract', () => {
   it('exposes a read-only production integration handshake', async () => {
-    const request = new Request('https://api.ghosttownverdict.com/api/integrations/shorts-factory/health', {
+    const request = new Request('https://api.ghosttownverdict.app/api/integrations/shorts-factory/health', {
       method: 'GET',
-      headers: { Origin: 'https://ghosttownverdict.com' }
+      headers: { Origin: 'https://ghosttownverdict.app' }
     });
     const response = await worker.fetch(request, createEnv('factory-secret'));
     const body = await response.json<Record<string, unknown>>();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://ghosttownverdict.com');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://ghosttownverdict.app');
     expect(body).toEqual({
       status: 'ok',
       service: 'ghosttowntest',

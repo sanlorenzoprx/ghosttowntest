@@ -3,8 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SITE_ORIGIN = 'https://ghosttownverdict.com';
-const HOST = 'ghosttownverdict.com';
+const SITE_ORIGIN = 'https://ghosttownverdict.app';
+const HOST = 'ghosttownverdict.app';
 const KEY = '67fd4ba161fec63f38248051c548f077';
 const KEY_LOCATION = `${SITE_ORIGIN}/${KEY}.txt`;
 const ENDPOINT = 'https://api.indexnow.org/indexnow';

@@ -12,7 +12,7 @@ const required = { baseUrl, apiBase, authToken, ownerId, orderId, gmlOrderId };
 const missing = Object.entries(required).filter(([, value]) => !value).map(([name]) => name);
 if (missing.length) throw new Error('Sprint-without-GML acceptance missing runtime inputs: ' + missing.join(', '));
 
-const productionApiHosts = new Set(['api.ghosttownverdict.com', 'api.ghosttowntest.com', 'api.lit-ghosttown.app']);
+const productionApiHosts = new Set(['api.ghosttownverdict.app', 'api.ghosttowntest.com', 'api.lit-ghosttown.app']);
 if (productionApiHosts.has(new URL(apiBase).hostname)) throw new Error('Sprint-without-GML acceptance points to production API.');
 
 const headers = { Authorization: `Bearer ${authToken}` };

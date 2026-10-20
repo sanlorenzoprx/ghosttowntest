@@ -314,9 +314,9 @@ async function verifyLivePairing() {
     throw new Error(`Acceptance CORS allow test failed: HTTP ${allowed.status}, origin=${allowedOrigin}`);
   }
 
-  const denied = await preflight('https://ghosttownverdict.com');
+  const denied = await preflight('https://ghosttownverdict.app');
   if (denied.headers.get('access-control-allow-origin')) {
-    throw new Error('Acceptance Worker still emits Access-Control-Allow-Origin for production ghosttownverdict.com.');
+    throw new Error('Acceptance Worker still emits Access-Control-Allow-Origin for production ghosttownverdict.app.');
   }
   return { js_url: jsUrl, acceptance_origin_allowed: true, production_origin_denied: true };
 }
@@ -467,7 +467,7 @@ const handlers = {
       EXPECTED.workflowName
     ];
     for (const token of requiredAcceptance) if (!acceptance.includes(token) && !acceptanceVars.includes(token)) throw new Error(`Acceptance config missing ${token}.`);
-    for (const forbidden of ['api.ghosttownverdict.com', 'api.ghosttowntest.com', 'api.lit-ghosttown.app', '289662c8981d421ba85a7ca588640650']) {
+    for (const forbidden of ['api.ghosttownverdict.app', 'api.ghosttowntest.com', 'api.lit-ghosttown.app', '289662c8981d421ba85a7ca588640650']) {
       if (acceptance.includes(forbidden)) throw new Error(`Acceptance config contains production binding/domain ${forbidden}.`);
     }
     if (!productionVars.includes('DISTRIBUTION_FOOTPRINT_ENABLED = "false"')) {

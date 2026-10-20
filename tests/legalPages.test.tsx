@@ -99,6 +99,6 @@ describe('public policy pages', () => {
     const html = renderToStaticMarkup(<AboutPage />);
     expect(html).toContain('Zayas House LLC');
     expect(html).toContain('Commonwealth of Puerto Rico, USA');
-    expect(html).toContain('support@ghosttownverdict.com');
+    expect(html).toContain('support@ghosttownverdict.app');
   });
 });
