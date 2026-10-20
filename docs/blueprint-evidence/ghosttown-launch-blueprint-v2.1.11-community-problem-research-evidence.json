@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "ghosttown-blueprint-amendment-evidence-v1",
+  "amendmentVersion": "2.1.11",
+  "changeId": "GT-BP-2026-10-20-V2.1.11",
+  "recordedAt": "2026-10-20T11:00:00Z",
+  "repository": "sanlorenzoprx/ghosttowntest",
+  "branch": "claude/ghosttown-free-verdict-phase1-rhpnxs",
+  "canonical": {
+    "baseVersion": "2.1.1",
+    "sourcePath": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md",
+    "gitBlobSha1": "616c691e6b4c9cea93615963a07375d13ffba57f",
+    "sourceModified": false
+  },
+  "decision": {
+    "summary": "GhostTown reads the communities it found and keeps customer problems only in the customers' own words, linked to the page they came from.",
+    "customerOutcome": "The founder sees what likely customers struggle with, what to ask next, the prepared material for that community, and what would change the plan; posts, messages and landing-page copy are generated from that customer language."
+  },
+  "research": {
+    "version": "ghosttown-community-problem-research-v1",
+    "workflowStep": "read customer communities and keep source-linked problems",
+    "maxCommunitiesRead": 6,
+    "readsOnly": "customer_access + verified_current",
+    "quoteMustAppearWordForWordOnLinkedPage": true,
+    "duplicateQuotesCountOnce": true,
+    "contradictingEvidenceKept": true,
+    "evidenceLevel": "problem_evidence",
+    "quotesMayBecomeTestimonials": false,
+    "unreadPagesShownAsGaps": true,
+    "assetStageReceivesCustomerResearch": true
+  },
+  "surfaces": {
+    "dashboard": "Research & Access tab: CommunityResearchCards",
+    "documentModelSection": "customer_problems",
+    "zip": "helpful-posts.md leads with customer problems",
+    "zipFileCount": 16
+  },
+  "validation": {
+    "focusedTests": { "passed": 47, "failed": 0 },
+    "fastSuite": { "passed": true },
+    "workersRuntime": { "passed": true },
+    "typecheck": { "passed": true },
+    "blueprintVerification": { "passed": true, "chainTip": "2.1.11" },
+    "productionDeploymentPerformed": false
+  }
+}

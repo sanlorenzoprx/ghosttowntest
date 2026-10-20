@@ -4,6 +4,7 @@ import type { GhostTownLaunchBlueprintV21 } from "../types/launchBlueprintV21";
 import GetMeLiveUpsell from "./GetMeLiveUpsell";
 import SprintShareMoment from "./SprintShareMoment";
 import SprintWebsiteEvidence from "./SprintWebsiteEvidence";
+import CommunityResearchCards from "./CommunityResearchCards";
 import { researchEvidenceRole, RESEARCH_EVIDENCE_ROLE_LABELS } from "../api/researchEvidenceRole";
 
 export type EvidenceStrength = "strong" | "moderate" | "early" | "weak";
@@ -465,6 +466,7 @@ export default function LaunchBlueprintViewV21({ orderId, onBack, initialPayload
           <h2 className="mt-2 text-3xl font-black">Know which evidence can actually reach a buyer.</h2>
           <p className="mt-3 text-white/75">Only Direct Customer Access with current activity independently verified can drive first-revenue outreach. Evidence date and research date are shown separately so an old article cannot look current merely because GhostTown checked it today.</p>
         </section>
+        <CommunityResearchCards blueprint={blueprint} onCopy={text => void copy(text)} />
         {(["customer_access","market_evidence","media_pr","partnership"] as const).map(role => {
           const channels = blueprint.customerAccessPack.channels.filter(channel => researchEvidenceRole(channel) === role);
           const boundary = role === "customer_access"

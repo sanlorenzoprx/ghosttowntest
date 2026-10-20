@@ -108,12 +108,24 @@ leaves the active plan.
 - **What would change the plan:** for example, "If buyers already solve this easily, or will not take
   the next step, we reconsider the offer."
 
+## Build status
+
+| Part | Status |
+|---|---|
+| Find where likely customers gather (steps 1–2) | Built: customer-access research, v2.1.8 and v2.1.9. |
+| Read those places; problems in customers' own words, with evidence against them (steps 3–4) | Built: v2.1.11, `src/api/communityProblemResearch.ts`. Quotes must appear word for word on the linked page. |
+| How each place talks and whether promotion is allowed (step 5 input) | Built: v2.1.11, per-community style. |
+| Posts, messages and landing-page copy written from that language (step 6) | Built: v2.1.11, the asset stage receives `customerResearch`. |
+| Research card: struggling / ask next / prepared / what would change the plan | Built: v2.1.11, dashboard, PDF and ZIP. |
+| Written test definitions and the four evidence levels in the tracker (step 7) | Next. |
+| Coach decisions that change the active plan; obsolete tasks leave the plan | Next. |
+| First 30 order, checkout and fulfillment running this loop | Next; checkout needs production approval. |
+
 ## Build order
 
 1. Prove one complete journey first: customer language → conversation → offer → commitment → delivery
    → revised plan.
-2. Then add source-linked problem evidence, written test definitions, and Coach decisions that update
-   the active plan.
+2. Then add written test definitions and Coach decisions that update the active plan.
 3. Keep the canonical record, the shared dashboard / PDF / ZIP content, ownership checks, durable
    retries and version history. Any approved contract change gets a new version and hash.
 4. Later, if the evidence supports it: more scraping, more content variations, ad automation, other

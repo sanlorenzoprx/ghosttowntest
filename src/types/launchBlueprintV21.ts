@@ -5,6 +5,7 @@ import type {
   GhostTownLaunchBlueprint
 } from './launchBlueprint';
 import type { TruthLabel } from './paidTest';
+import type { CommunityProblemResearch } from './communityResearch';
 
 export type BusinessModelExecutionLane =
   | 'service_or_consulting'
@@ -361,6 +362,8 @@ export type GhostTownLaunchBlueprintV21 = Omit<
   blueprintVersion: '2.1';
   contractVersion: '2.1.1';
   startingStateAudit: StartingStateAudit;
+  /** V2.1.11: customer problems read from verified customer-access communities. */
+  communityResearch?: CommunityProblemResearch;
   businessModelLane: BusinessModelLane;
   firstRevenuePath: FirstRevenuePath;
   manualFulfillmentPlan: ManualFulfillmentPlan;
