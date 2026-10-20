@@ -38,8 +38,8 @@ describe('acceptance CORS isolation', () => {
 
   it.each([
     'https://ghosttown-acceptance.pages.dev',
-    'https://ghosttownverdict.com',
-    'https://www.ghosttownverdict.com',
+    'https://ghosttownverdict.app',
+    'https://www.ghosttownverdict.app',
     'https://ghosttowntest.com',
     'https://lit-ghosttown.app',
     'https://preview.ghosttowntest.pages.dev'
@@ -51,18 +51,18 @@ describe('acceptance CORS isolation', () => {
   });
 });
 
-describe('production CORS during the ghosttownverdict.com move', () => {
-  const productionEnv = { ...acceptanceEnv, DEPLOYMENT_ENV: 'production', FRONTEND_URL: 'https://ghosttownverdict.com' } satisfies Env;
+describe('production CORS during the ghosttownverdict.app move', () => {
+  const productionEnv = { ...acceptanceEnv, DEPLOYMENT_ENV: 'production', FRONTEND_URL: 'https://ghosttownverdict.app' } satisfies Env;
 
   it.each([
-    'https://ghosttownverdict.com',
-    'https://www.ghosttownverdict.com',
-    'https://app.ghosttownverdict.com',
+    'https://ghosttownverdict.app',
+    'https://www.ghosttownverdict.app',
+    'https://app.ghosttownverdict.app',
     'https://ghosttowntest.com',
     'https://www.ghosttowntest.com',
     'https://app.ghosttowntest.com'
   ])('allows %s', async origin => {
-    const response = await worker.fetch(new Request('https://api.ghosttownverdict.com/api/verdict', {
+    const response = await worker.fetch(new Request('https://api.ghosttownverdict.app/api/verdict', {
       method: 'OPTIONS',
       headers: { Origin: origin, 'Access-Control-Request-Method': 'POST' }
     }), productionEnv);
@@ -70,9 +70,9 @@ describe('production CORS during the ghosttownverdict.com move', () => {
   });
 
   it('denies unrelated origins', async () => {
-    const response = await worker.fetch(new Request('https://api.ghosttownverdict.com/api/verdict', {
+    const response = await worker.fetch(new Request('https://api.ghosttownverdict.app/api/verdict', {
       method: 'OPTIONS',
-      headers: { Origin: 'https://ghosttownverdict.com.evil.example', 'Access-Control-Request-Method': 'POST' }
+      headers: { Origin: 'https://ghosttownverdict.app.evil.example', 'Access-Control-Request-Method': 'POST' }
     }), productionEnv);
     expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });

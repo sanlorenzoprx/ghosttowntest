@@ -20,8 +20,8 @@ export default function Contact({ onStart }: Props) {
             <p className="mt-2 text-sm leading-relaxed text-gray-600">
               Checkout, account, plan access, or a verdict that did not save.
             </p>
-            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:support@ghosttownverdict.com">
-              support@ghosttownverdict.com
+            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:support@ghosttownverdict.app">
+              support@ghosttownverdict.app
             </a>
           </article>
 
@@ -30,8 +30,8 @@ export default function Contact({ onStart }: Props) {
             <p className="mt-2 text-sm leading-relaxed text-gray-600">
               Startup communities, agencies, creators, and tools that want sharper idea validation.
             </p>
-            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:hello@ghosttownverdict.com">
-              hello@ghosttownverdict.com
+            <a className="mt-4 inline-block font-bold text-blue-700 hover:text-blue-900" href="mailto:hello@ghosttownverdict.app">
+              hello@ghosttownverdict.app
             </a>
           </article>
 

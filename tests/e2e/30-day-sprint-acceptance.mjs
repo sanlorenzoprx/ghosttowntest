@@ -13,7 +13,7 @@ if (missing.length) throw new Error('Runtime Sprint acceptance is mandatory. Mis
 if (!mutate) throw new Error('Runtime Sprint acceptance is mandatory. Set GHOSTTOWN_E2E_SPRINT_MUTATE=1 only for the disposable acceptance order.');
 if (!agentic) throw new Error('Agentic Sprint acceptance is mandatory. Set GHOSTTOWN_E2E_AGENTIC=1 only for the disposable acceptance order.');
 
-const productionApiHosts = new Set(['api.ghosttownverdict.com', 'api.ghosttowntest.com', 'api.lit-ghosttown.app']);
+const productionApiHosts = new Set(['api.ghosttownverdict.app', 'api.ghosttowntest.com', 'api.lit-ghosttown.app']);
 const apiHost = new URL(apiBase).hostname;
 if (productionApiHosts.has(apiHost)) throw new Error(`Acceptance API origin points to production: ${apiBase}`);
 

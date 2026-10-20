@@ -51,7 +51,7 @@ The secret handoff token is not written into commercial attribution.
 
 ## MCP
 
-Endpoint: `POST https://api.ghosttownverdict.com/mcp`
+Endpoint: `POST https://api.ghosttownverdict.app/mcp`
 
 Protocol revision: `2026-07-28`.
 

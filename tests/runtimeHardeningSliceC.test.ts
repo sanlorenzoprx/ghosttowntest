@@ -56,7 +56,7 @@ describe('Slice C runtime hardening', () => {
   });
 
   it('returns a deliberate privacy-safe 503 when a production Blueprint binding is unavailable', async () => {
-    const request = new Request('https://api.ghosttownverdict.com/api/paid-test/orders/order-1/blueprint/pdf');
+    const request = new Request('https://api.ghosttownverdict.app/api/paid-test/orders/order-1/blueprint/pdf');
     const response = productionRuntimeBindingGuard(request, { DEPLOYMENT_ENV: 'production' } as Env);
     expect(response).not.toBeNull();
     expect(response!.status).toBe(503);
@@ -66,7 +66,7 @@ describe('Slice C runtime hardening', () => {
     expect(text).not.toMatch(/DB|BLUEPRINTS|LAUNCH_BLUEPRINT_WORKFLOW/);
 
     const checkout = productionRuntimeBindingGuard(
-      new Request('https://api.ghosttownverdict.com/api/paid-test/checkout', { method: 'POST' }),
+      new Request('https://api.ghosttownverdict.app/api/paid-test/checkout', { method: 'POST' }),
       { DEPLOYMENT_ENV: 'production' } as Env
     );
     expect(checkout).not.toBeNull();
@@ -74,7 +74,7 @@ describe('Slice C runtime hardening', () => {
     expect(await checkout!.text()).not.toMatch(/DB|BLUEPRINTS|LAUNCH_BLUEPRINT_WORKFLOW/);
 
     expect(productionRuntimeBindingGuard(request, { DEPLOYMENT_ENV: 'acceptance' } as Env)).toBeNull();
-    expect(productionRuntimeBindingGuard(new Request('https://api.ghosttownverdict.com/api/verdict'), { DEPLOYMENT_ENV: 'production' } as Env)).toBeNull();
+    expect(productionRuntimeBindingGuard(new Request('https://api.ghosttownverdict.app/api/verdict'), { DEPLOYMENT_ENV: 'production' } as Env)).toBeNull();
   });
 
   it('uses D1 atomic rate gates instead of KV read-modify-write counters for paid Copilot and Launch Site leads', () => {

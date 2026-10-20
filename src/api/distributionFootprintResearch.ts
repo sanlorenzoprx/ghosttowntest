@@ -408,7 +408,7 @@ async function verifyOriginalPage(rawUrl: string): Promise<VerifiedPage> {
   const response = await fetchWithTimeout(safe.toString(), {
     headers: {
       Accept: 'text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.2',
-      'User-Agent': 'GhostTownDistributionResearch/1.0 (+https://ghosttownverdict.com)'
+      'User-Agent': 'GhostTownDistributionResearch/1.0 (+https://ghosttownverdict.app)'
     }
   });
   const final = safePublicUrl(response.url || safe.toString());

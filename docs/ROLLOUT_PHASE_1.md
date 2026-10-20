@@ -44,8 +44,8 @@ DataForSEO invoices arrive.
    `INTERNAL_RESEARCH_OWNER_EMAILS`.
 4. **Production release workflow** (`docs/PRODUCTION_RELEASE.md`): `preflight` → `migrate-0011` →
    `stage-version` → `promote-version`, approving each.
-5. **Pages production settings:** custom domains `ghosttownverdict.com`, `www` and `app`;
-   `VITE_API_URL=https://api.ghosttownverdict.com`; remove `VITE_30_DAY_PLAN_DISPLAY_PRICE`; leave
+5. **Pages production settings:** custom domains `ghosttownverdict.app`, `www` and `app`;
+   `VITE_API_URL=https://api.ghosttownverdict.app`; remove `VITE_30_DAY_PLAN_DISPLAY_PRICE`; leave
    `VITE_POST_VERDICT_OFFER` unset. Then run `Production Pages Release`.
 
 ## Measuring the exit criteria

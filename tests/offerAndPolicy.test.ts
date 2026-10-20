@@ -17,7 +17,7 @@ describe('GhostTown launch offer and public business policy', () => {
   it('publishes the approved business identity and refund position', () => {
     expect(BUSINESS_POLICY.businessName).toBe('Zayas House LLC');
     expect(BUSINESS_POLICY.jurisdiction).toBe('Commonwealth of Puerto Rico, USA');
-    expect(BUSINESS_POLICY.supportEmail).toBe('support@ghosttownverdict.com');
+    expect(BUSINESS_POLICY.supportEmail).toBe('support@ghosttownverdict.app');
     expect(BUSINESS_POLICY.productPrice).toBe('$97.00');
     expect(BUSINESS_POLICY.refundPosition).toBe('Conditional 100% Money-Back Guarantee');
     expect(BUSINESS_POLICY.refundCondition).toMatch(/fully implemented.*achieved no results/i);

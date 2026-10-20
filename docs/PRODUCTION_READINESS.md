@@ -32,7 +32,7 @@ AI-unavailable stderr output is expected in integration tests because local dev 
 
 1. **Secrets configuration**: Set Worker secrets for JWT_SECRET, STRIPE_SECRET_KEY, STRIPE_PRICE_ID, STRIPE_30_DAY_PLAN_PRICE_ID, and STRIPE_WEBHOOK_SECRET via Wrangler secrets or the Cloudflare dashboard. Do not place secrets in `wrangler.toml`.
 2. **KV namespace**: Replace placeholder KV namespace IDs in wrangler.toml with production IDs
-3. **Frontend URL and DNS**: Publish `ghosttownverdict.com`, set `FRONTEND_URL=https://ghosttownverdict.com`, and verify the canonical domain resolves before opening checkout
+3. **Frontend URL and DNS**: Publish `ghosttownverdict.app`, set `FRONTEND_URL=https://ghosttownverdict.app`, and verify the canonical domain resolves before opening checkout
 4. **AI model**: Set AI_MODEL environment variable for the production environment (default is `@cf/meta/llama-3.1-8b-instruct-fast`)
 5. **Static hosting**: Deploy dist/ to a static frontend host (e.g., Cloudflare Pages, Vercel, Netlify)
 6. **Stripe product and webhook**: Create the one-time $97.00 30-day plan price, configure Checkout policy links, and send checkout.session.completed events to `/api/webhook/stripe`

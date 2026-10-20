@@ -6,7 +6,7 @@
     "description": "Public machine interface for GhostTown business-idea validation. The verdict adapter reuses GhostTown's canonical verdict path and never fabricates missing assessment answers. Purchases require explicit human action."
   },
   "servers": [
-    { "url": "https://api.ghosttownverdict.com" }
+    { "url": "https://api.ghosttownverdict.app" }
   ],
   "paths": {
     "/api/v1/product": {

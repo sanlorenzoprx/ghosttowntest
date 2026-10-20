@@ -183,7 +183,7 @@ describe('production roadmap autopilot contract', () => {
     expect(gate18).toContain("stripeUrl.hostname !== 'checkout.stripe.com'");
     expect(gate18).toContain("checkout.body.sessionUrl.includes('cs_test_')");
     expect(gate18).toContain("const PAGES_URL = 'https://ghosttown-acceptance.pages.dev'");
-    expect(gate18).toContain("const PRODUCTION_HOSTS = ['ghosttownverdict.com', 'ghosttowntest.com', 'lit-ghosttown.app']");
+    expect(gate18).toContain("const PRODUCTION_HOSTS = ['ghosttownverdict.app', 'ghosttowntest.com', 'lit-ghosttown.app']");
     expect(gate18).toContain("created.status !== 'checkout_created'");
     expect(gate18).toContain("secret_values_recorded: false");
     expect(gate18).not.toMatch(/card|payment_method_data|4242 4242/i);

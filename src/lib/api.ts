@@ -5,14 +5,14 @@ function inferProductionApiBaseUrl(): string {
 
   const { hostname, protocol } = window.location;
   if (hostname === 'localhost' || hostname === '127.0.0.1') return '';
-  if (hostname === 'api.ghosttownverdict.com' || hostname === 'api.ghosttowntest.com' || hostname === 'api.lit-ghosttown.app') return '';
+  if (hostname === 'api.ghosttownverdict.app' || hostname === 'api.ghosttowntest.com' || hostname === 'api.lit-ghosttown.app') return '';
   if (hostname === 'main.ghosttown-acceptance.pages.dev' || hostname.endsWith('.ghosttown-acceptance.pages.dev')) {
     return 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev';
   }
   if (
-    hostname === 'ghosttownverdict.com'
-    || hostname === 'www.ghosttownverdict.com'
-    || hostname === 'app.ghosttownverdict.com'
+    hostname === 'ghosttownverdict.app'
+    || hostname === 'www.ghosttownverdict.app'
+    || hostname === 'app.ghosttownverdict.app'
     || hostname === 'ghosttowntest.com'
     || hostname === 'www.ghosttowntest.com'
     || hostname === 'app.ghosttowntest.com'
@@ -20,7 +20,7 @@ function inferProductionApiBaseUrl(): string {
     || hostname === 'www.lit-ghosttown.app'
     || hostname.endsWith('.pages.dev')
   ) {
-    return `${protocol}//api.ghosttownverdict.com`;
+    return `${protocol}//api.ghosttownverdict.app`;
   }
   return '';
 }

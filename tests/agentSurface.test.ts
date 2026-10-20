@@ -6,7 +6,7 @@ import { GHOSTTOWN_30_DAY_PLAN_V1, GHOSTTOWN_FIRST_30_WAITLIST_V1 } from '../src
 
 describe('ASC-01 GhostTown agent surface', () => {
   it('returns needs_input instead of fabricating missing canonical verdict data', async () => {
-    const request = new Request('https://api.ghosttownverdict.com/api/v1/free-verdict', {
+    const request = new Request('https://api.ghosttownverdict.app/api/v1/free-verdict', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -28,7 +28,7 @@ describe('ASC-01 GhostTown agent surface', () => {
   });
 
   it('requires explicit public-content acknowledgement before the agent verdict can run', async () => {
-    const request = new Request('https://api.ghosttownverdict.com/api/v1/free-verdict', {
+    const request = new Request('https://api.ghosttownverdict.app/api/v1/free-verdict', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ idea: 'A business idea' })
@@ -39,7 +39,7 @@ describe('ASC-01 GhostTown agent surface', () => {
   });
 
   it('reuses the canonical GhostTown $97 offer metadata when the Sprint is on sale', () => {
-    const metadata = ghostTownProductMetadata({ FRONTEND_URL: 'https://ghosttownverdict.com', SPRINT_CHECKOUT_ENABLED: 'true' } as Env);
+    const metadata = ghostTownProductMetadata({ FRONTEND_URL: 'https://ghosttownverdict.app', SPRINT_CHECKOUT_ENABLED: 'true' } as Env);
     expect(metadata.paid_offer.name).toBe(GHOSTTOWN_30_DAY_PLAN_V1.name);
     expect(metadata.paid_offer.status).toBe('available');
     expect(metadata.paid_offer.price_usd).toBe(97);
@@ -47,7 +47,7 @@ describe('ASC-01 GhostTown agent surface', () => {
   });
 
   it('tells agents First 30 opens soon while the Sprint is dormant', () => {
-    const metadata = ghostTownProductMetadata({ FRONTEND_URL: 'https://ghosttownverdict.com' } as Env);
+    const metadata = ghostTownProductMetadata({ FRONTEND_URL: 'https://ghosttownverdict.app' } as Env);
     expect(metadata.paid_offer).toMatchObject({
       offer_id: GHOSTTOWN_FIRST_30_WAITLIST_V1.offerId,
       name: 'First 30',
@@ -58,7 +58,7 @@ describe('ASC-01 GhostTown agent surface', () => {
   });
 
   it('publishes the stateless MCP tool catalog for the current protocol revision', async () => {
-    const request = new Request('https://api.ghosttownverdict.com/mcp', {
+    const request = new Request('https://api.ghosttownverdict.app/mcp', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -79,7 +79,7 @@ describe('ASC-01 GhostTown agent surface', () => {
   });
 
   it('rejects MCP requests whose routing headers disagree with the body', async () => {
-    const request = new Request('https://api.ghosttownverdict.com/mcp', {
+    const request = new Request('https://api.ghosttownverdict.app/mcp', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

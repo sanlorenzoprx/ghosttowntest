@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'dist');
-const SITE_ORIGIN = 'https://ghosttownverdict.com';
-const API_ORIGIN = 'https://api.ghosttownverdict.com';
+const SITE_ORIGIN = 'https://ghosttownverdict.app';
+const API_ORIGIN = 'https://api.ghosttownverdict.app';
 const CATALOG_PATH = path.join(ROOT, 'config', 'functional-discovery-intents.json');
 const ACQUISITION_KEYS = ['source','utm_source','campaign','utm_campaign','platform','creative_id','publication_id','experiment_id','distribution_account_id','share_type'];
 
