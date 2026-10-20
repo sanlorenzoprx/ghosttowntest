@@ -6,6 +6,10 @@ import SprintShareMoment from "./SprintShareMoment";
 import SprintWebsiteEvidence from "./SprintWebsiteEvidence";
 import CommunityResearchCards from "./CommunityResearchCards";
 import { researchEvidenceRole, RESEARCH_EVIDENCE_ROLE_LABELS } from "../api/researchEvidenceRole";
+import type { Locale } from "../lib/locale";
+import type { TruthLabel } from "../types/paidTest";
+import type { BusinessModelExecutionLane } from "../types/launchBlueprintV21";
+import type { CurrentActivityStatus, DistributionTargetType, EvidenceRecency, ResearchConfidence, ResearchEvidenceRole } from "../types/launchBlueprint";
 
 export type EvidenceStrength = "strong" | "moderate" | "early" | "weak";
 export type PrimaryConstraint = "customer" | "urgency" | "access" | "trust" | "offer" | "fulfillment" | "price" | "message" | "missing_evidence" | "none";
@@ -92,12 +96,13 @@ export function resolveReminderTarget(reminder: ScheduledReminderV21): ReminderT
   return { kind: "unresolved" };
 }
 
-export function describeReminderReference(reminder: ScheduledReminderV21): string {
+export function describeReminderReference(reminder: ScheduledReminderV21, locale: Locale = "en"): string {
+  const t = COPY[locale].reminderRef;
   const target = resolveReminderTarget(reminder);
-  if (target.kind === "action") return `Day ${target.dayNumber} action`;
-  if (target.kind === "entry") return `Recorded result ${target.entryId}`;
-  if (target.kind === "checkpoint") return `Day ${target.dayNumber} checkpoint review`;
-  return "Reference unavailable";
+  if (target.kind === "action") return t.action(target.dayNumber);
+  if (target.kind === "entry") return t.entry(target.entryId);
+  if (target.kind === "checkpoint") return t.checkpoint(target.dayNumber);
+  return t.unavailable;
 }
 
 export function checkpointReminderDueAt(
