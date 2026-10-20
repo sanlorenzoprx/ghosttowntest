@@ -5,6 +5,8 @@ import type { Env } from '../src/api/env';
 import { buildAnalyzePrompt } from '../src/lib/prompts';
 import ResultReport from '../src/components/ResultReport';
 import { buildVerdictDecisionV3 } from '../src/verdict/verdictDecisionV3';
+import { buildVerdictDecisionV2 } from '../src/verdict/verdictDecisionV2';
+import { explainVerdict, verdictNeedsMoreDetails } from '../src/lib/verdictWhy';
 import type { EvidenceScanItem, GhostTownEvidenceScanV1 } from '../src/types/evidence';
 import type { EvaluationResult, IdeaIntake } from '../src/types/lit';
 
@@ -152,5 +154,50 @@ describe('Evidence Scan seven-layer free verdict', () => {
     // Rollout phase 1: the dormant Sprint is replaced by the First 30 email list.
     expect(html).toContain('First 30 opens soon');
     expect(html).not.toContain('30-Day Evidence Sprint');
+  });
+});
+
+describe('the verdict explains why each part matters', () => {
+  function render(locale: 'en' | 'es') {
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { origin: 'https://ghost.test' } } });
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => null } });
+    const scan = sevenLayerScan();
+    const result: EvaluationResult = {
+      resultId: `why-${locale}`, idea, answers: {}, deterministicScores: scores,
+      evidenceScan: scan,
+      verdictDecisionV3: buildVerdictDecisionV3({ idea, scores, evidenceScan: scan }),
+      usedAI: false, generatedAt: '2026-09-16T20:00:00.000Z', cacheHit: false
+    };
+    return renderToStaticMarkup(
+      <ResultReport result={result} onReset={() => {}} isLoggedIn={false} onLoginClick={() => {}} onRewardClaimed={() => {}} locale={locale} />
+    );
+  }
+
+  it('adds a plain why to the decision, the test, the first step and every score', () => {
+    const html = render('en');
+    expect(html).toContain('data-testid="verdict-why"');
+    expect(html.match(/<strong>Why this matters:<\/strong>/g)).toHaveLength(3);
+    expect(html).toContain('will they commit?');
+    expect(html).toContain('the replies you get this week are your first real evidence');
+    expect(html).toContain('How likely you are to launch and find no buyers.');
+    expect(html).toContain('How hard it would be for others to copy you once it works.');
+    expect(html).toContain('Something not clear? Write to');
+    expect(html).toContain('href="mailto:support@ghosttownverdict.app"');
+  });
+
+  it('explains it in Spanish', () => {
+    const html = render('es');
+    expect(html.match(/<strong>Por qué importa:<\/strong>/g)).toHaveLength(3);
+    expect(html).toContain('¿se van a comprometer?');
+    expect(html).toContain('¿Algo no está claro? Escríbenos a');
+  });
+
+  it('explains a verdict that is waiting for missing details differently', () => {
+    const vague = buildVerdictDecisionV2({ idea: { ...idea, targetUser: '', painfulProblem: '' }, scores });
+    expect(verdictNeedsMoreDetails(vague)).toBe(true);
+    expect(explainVerdict(vague).decision).toMatch(/key details are missing/);
+    const complete = buildVerdictDecisionV2({ idea, scores });
+    expect(verdictNeedsMoreDetails(complete)).toBe(false);
+    expect(explainVerdict(complete).test).toMatch(/will they commit\?/);
   });
 });

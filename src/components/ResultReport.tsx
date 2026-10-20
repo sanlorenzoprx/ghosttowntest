@@ -12,6 +12,7 @@ import { DEFAULT_30_DAY_PLAN_DISPLAY_PRICE, GHOSTTOWN_30_DAY_PLAN_V1 } from '../
 import type { PrePurchaseResearchSignals as ResearchSignals } from '../types/researchSignals';
 import { buildVerdictDecisionV2 } from '../verdict/verdictDecisionV2';
 import { buildVerdictDecisionV3 } from '../verdict/verdictDecisionV3';
+import { explainVerdict } from '../lib/verdictWhy';
 import EvidenceScanPanel from './EvidenceScanPanel';
 import First30Waitlist from './First30Waitlist';
 import { SPRINT_OFFER_ACTIVE } from '../lib/postVerdictOffer';
@@ -47,6 +48,8 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         })
     : undefined;
   const decision = decisionV3 ?? decisionV2;
+  const why = explainVerdict(decision, locale);
+  const whyLine = (text: string, testId?: string) => <p data-testid={testId} className="mt-3 max-w-2xl text-sm leading-6 text-gray-800"><strong>{why.label}:</strong> {text}</p>;
 
   useEffect(() => {
     saveLatestResult(result);
@@ -122,6 +125,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">Decision</p>
           <h1 className="mt-2 font-display text-4xl font-bold leading-tight text-gray-950">{decision.decision.replace(/_/g, ' ')}</h1>
           <p className="mt-3 max-w-2xl text-base leading-7 text-gray-700">{decision.confidence.rationale}</p>
+          {whyLine(why.decision, 'verdict-why')}
           <p className="mt-3 text-sm text-gray-600">This tells you what is worth testing next. It is not a prediction that the whole business will succeed.</p>
         </div>
 
@@ -135,6 +139,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           <article data-testid="next-step" className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-800">Fastest test</p>
             <h2 className="mt-2 text-xl font-black text-gray-950">{decision.cheapestFalsification.test}</h2>
+            {whyLine(why.test)}
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
               <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Who to test</dt><dd className="mt-1 text-gray-700">{decision.cheapestFalsification.target}</dd></div>
               <div className="rounded-lg bg-white/80 p-3"><dt className="font-black text-gray-900">Good result</dt><dd className="mt-1 text-gray-700">{decision.cheapestFalsification.successThreshold}</dd></div>
@@ -146,6 +151,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           <article className="rounded-xl border-2 border-ghost-rust bg-white p-5 shadow-lantern">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-ghost-rust">Do this first</p>
             <h2 className="mt-2 text-2xl font-black leading-8 text-gray-950">{decision.firstAction.action}</h2>
+            {whyLine(why.firstAction)}
           </article>
         </div>
 
@@ -209,38 +215,45 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         </summary>
         <div className="border-t border-gray-200 p-5 sm:p-6">
           <p className="mb-5 text-sm leading-6 text-gray-600">These diagnostics help explain the decision. They are not a prediction that the business will succeed.</p>
+          <p className="mb-4 text-sm font-semibold text-gray-800">{why.scoresIntro}</p>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
             <div data-testid="risk-level" className="rounded-sm border border-gray-200 bg-gray-50 p-4">
               <div className="text-xs font-bold uppercase text-gray-600">Ghost Town Risk</div>
               <div className="mt-1 text-2xl font-bold text-gray-900">{scores.ghostTownScore}/5</div>
               <div className="mt-1 text-xs text-gray-500">{scores.ghostTownRisk} risk</div>
+              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.ghostTownRisk}</p>
             </div>
 
             <div data-testid="lit-score" className="rounded-sm border border-gray-200 bg-gray-50 p-4">
               <div className="text-xs font-bold uppercase text-gray-600">LIT Score</div>
               <div className="mt-1 text-2xl font-bold text-gray-900">{scores.litScore}/5</div>
               <div className="mt-1 text-xs text-gray-500">{scores.litBand}</div>
+              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.lit}</p>
             </div>
 
             <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
               <div className="text-xs font-bold uppercase text-gray-600">Leverage</div>
               <div className="mt-1 text-2xl font-bold text-gray-900">{scores.leverageScore}/5</div>
+              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.leverage}</p>
             </div>
 
             <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
               <div className="text-xs font-bold uppercase text-gray-600">Insight</div>
               <div className="mt-1 text-2xl font-bold text-gray-900">{scores.insightScore}/5</div>
+              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.insight}</p>
             </div>
 
             <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
               <div className="text-xs font-bold uppercase text-gray-600">Timing</div>
               <div className="mt-1 text-2xl font-bold text-gray-900">{scores.timingScore}/5</div>
+              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.timing}</p>
             </div>
 
             <div className="rounded-sm border border-gray-200 bg-gray-50 p-4">
               <div className="text-xs font-bold uppercase text-gray-600">High Walls</div>
               <div className="mt-1 text-2xl font-bold text-gray-900">{scores.highWallsScore}/5</div>
               <div className="mt-1 text-xs text-gray-500">{scores.highWallsBand}</div>
+              <p className="mt-2 text-xs leading-5 text-gray-600">{why.scores.highWalls}</p>
             </div>
           </div>
 
@@ -259,6 +272,8 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           </div>
         </div>
       </details>
+
+      <p data-testid="verdict-ask-more" className="mb-8 text-sm text-gray-700">{why.askMore.before}<a className="font-bold text-ghost-rust underline" href={`mailto:${why.askMore.email}`}>{why.askMore.email}</a>{why.askMore.after}</p>
 
       <ShareCard
         result={result}

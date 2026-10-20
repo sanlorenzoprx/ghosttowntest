@@ -29,7 +29,7 @@ Everything GhostTown tells a founder carries its "why": research findings, Coach
 - Natural and brief, never a lecture.
 - When the topic is new or technical, end with one short offer to explain more.
 
-Every AI prompt that writes for a founder includes `EXPLAIN_WHY_INSTRUCTION` from `src/lib/explainWhy.ts`, and every finding shown to a founder has a `whyItMatters` field that the UI shows. Community research and the Execution Coach follow this today; the verdict and the Blueprint strategy stages are next.
+Every AI prompt that writes for a founder includes `EXPLAIN_WHY_INSTRUCTION` from `src/lib/explainWhy.ts`, and every finding shown to a founder has a `whyItMatters` field that the UI shows. Community research, the Execution Coach and the free verdict page (`src/lib/verdictWhy.ts`) follow this today; the Blueprint generation stages are next.
 
 ## Copy
 
