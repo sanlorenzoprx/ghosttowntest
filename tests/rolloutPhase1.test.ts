@@ -32,6 +32,18 @@ describe('rollout phase 1: free verdict with First 30 email list', () => {
     expect(copy).not.toMatch(/\$\d/);
   });
 
+  it('describes the First 30 customer research loop without overclaiming', () => {
+    const landing = read('src/components/LandingCommercial.tsx');
+    expect(landing).toContain('GhostTown finds places where your likely customers are already talking, researches the problems they describe, and prepares messages and content you can test during those 30 days.');
+    expect(landing).toContain('GhostTown encuentra lugares donde tus posibles clientes ya conversan, investiga los problemas que describen y prepara mensajes y contenido que puedes probar durante esos 30 días.');
+    expect(GHOSTTOWN_FIRST_30_WAITLIST_V1.promise[0]).toMatch(/already talking/);
+    expect(GHOSTTOWN_FIRST_30_WAITLIST_V1.es.promise[0]).toMatch(/ya conversan/);
+    expect(GHOSTTOWN_FIRST_30_WAITLIST_V1.promise).toHaveLength(GHOSTTOWN_FIRST_30_WAITLIST_V1.es.promise.length);
+    // Finding some communities does not show where most buyers are.
+    const copy = `${landing}\n${JSON.stringify(GHOSTTOWN_FIRST_30_WAITLIST_V1)}\n${read('public/llms.txt')}`;
+    expect(copy).not.toMatch(/majority of|most of your (niche|customers|buyers)|la mayoría de tus/i);
+  });
+
   it('closes new Sprint checkouts unless the Worker opts in', async () => {
     expect(sprintCheckoutEnabled({} as Env)).toBe(false);
     expect(sprintCheckoutEnabled({ SPRINT_CHECKOUT_ENABLED: 'false' } as Env)).toBe(false);
