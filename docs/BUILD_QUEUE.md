@@ -167,6 +167,16 @@ production and what is not); and no file in the repository links to a deleted on
 
 ### Q08 — Prove `main` on acceptance — `blocked`
 
+Run 43114798249 (`plan_change`, e98b4d3): the plan changed exactly as expected through Day 22
+(`revise_message` from Day 7, `revise_price` from 14, `revise_offer` from 21, each allowing only its
+one part to change). The grounded research fix worked (structured, not degraded) and the front door
+passed. The run stopped at Day 23: the Coach review never appeared. Root cause, a product bug: after
+the plan changes, and at every checkpoint, the Coach uses the thinking model ("blueprint" slot) with a
+1,800-token cap; it spent about 1,725 thinking and cut the JSON answer off after about 60, so every
+such review was degraded, and on Day 23 it most likely returned nothing at all, which errors. The
+thinking slots now get 8,192 tokens (the service default); the critic's 700-token cap had the same
+problem. The Sprint test now reports what the screen showed if a review panel never appears.
+
 Run 43109842657 (`on_track`, 8ea92f3): the full 30-day Sprint passed. All 30 days were completed and
 all 30 Coach reviews saved, and the plan stayed `continue` every day as the scenario expects. Get Me
 Live, owner controls and Sprint without Get Me Live passed. The go-live report passed 28 of 33 checks.
