@@ -28,7 +28,7 @@ describe('Cloudflare Registrar handoff', () => {
     const order = { hosting: { pagesProjectName: 'proof-path', pagesSubdomain: 'proof-path.pages.dev', pagesUrl: 'https://proof-path.pages.dev' } };
     expect(preferredPublicUrl(order)).toBe('https://proof-path.pages.dev');
     const workspace = await read('src/components/GetMeLiveWorkspace.tsx');
-    const card = workspace.slice(workspace.indexOf('Want your own website address?'), workspace.indexOf('Want a matching business email?'));
+    const card = workspace.slice(workspace.indexOf('{!order.customDomainState &&'), workspace.indexOf('{emailDomain &&'));
     expect(card).toContain('<a href={cloudflareRegistrarUrl(accountId)} target="_blank" rel="noopener noreferrer"');
     expect(card).toContain('Ideas to try — Cloudflare will confirm what is available and show the current price.');
     expect(card).not.toMatch(/request\(|fetch\(|setConfiguration|publish/);
