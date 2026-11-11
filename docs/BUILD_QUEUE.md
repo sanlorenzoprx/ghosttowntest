@@ -47,7 +47,10 @@ the end of the queue in your pull request and say why in one line.
 
 Status is one of `todo`, `done`, `blocked`.
 
-### Q01 — Land the retired public video change — `todo`
+### Q01 — Land the retired public video change — `done`
+
+Merged as pull request #64 on 11 November. Its description says the ShortsFactory consumer must be
+removed alongside it (`sanlorenzoprx/shortsfactory` pull request #82); that check is a step in Q09.
 
 Pull request #64 (`fix/retire-legacy-public-video`). It stops fresh and cached verdicts from creating
 public video work and keeps finished media.
@@ -61,10 +64,16 @@ request and close #64.
 Pull request #50 (`test/autonomous-production-customer-journey`). It adds a black-box test of the live
 customer journey and manual workflows to run it.
 
-Done when: the branch includes the latest `main`, every check passes, and it is merged. Merging is
-allowed; **running** any of its production workflows is not. Before merging, read each workflow it
-adds and confirm none starts on push, on a schedule or on pull request. If one does, make it
-manual-only first.
+Found on 11 November: four of its five workflows (`production-canary-entitlement-probe`,
+`production-canary-inventory`, `production-customer-journey-full-proof`,
+`production-stripe-mode-probe`) start on a push to the `test/autonomous-production-customer-journey`
+branch. Only `production-customer-journey.yml` is manual.
+
+Done when: the work is on `main` with all five workflows manual-only (`workflow_dispatch`, with a
+typed confirmation like the one `production-customer-journey.yml` already has), every check passes,
+and #50 is closed. Carry the files onto your session's branch and open a new pull request; do not
+push to the old branch, because a push there can start a production probe. Merging is allowed;
+**running** any of these workflows is not.
 
 ### Q03 — Land the Learning Coach — `todo`
 
@@ -76,7 +85,14 @@ Done when: the work is merged into the latest `main` with the conflicts resolved
 `main` added since (Spanish and locale handling, `founderLanguage` and `buyerLanguage`, the "explain
 why" instructions, First 30). Every new Coach string the customer sees is in English and Spanish, and
 every Coach prompt includes the shared instruction from `src/lib/explainWhy.ts`. Migration `0011` is
-already on `main`; do not add a second copy. If the Coach changes what the paid Blueprint promises or
+already on `main`; do not add a second copy.
+
+Found on 11 November: the Coach's Sprint boundary (`evaluateExecutionInteraction` in
+`src/lib/blueprintExecutionIntelligence.ts`) decides what is in scope with English-only word
+patterns, and the "boundary" answers in `src/api/blueprintExecutionCopilot.ts` are English-only. A
+founder who writes in Spanish could be refused. This must be fixed before the Coach merges: the
+patterns accept Spanish, the boundary answers are written in the founder's language, and tests prove
+a Spanish Sprint question is allowed and a Spanish off-topic question is refused in Spanish. If the Coach changes what the paid Blueprint promises or
 produces, add the amendment. Open a new pull request from your session's branch and close #63 once
 it merges.
 
@@ -139,6 +155,12 @@ step with the exact command, workflow name or screen, what it does and how to un
 4. Turning First 30 on (`docs/FIRST_30_TURN_ON.md`), the real-card test purchase and its refund.
 5. Emailing the First 30 list.
 6. Decisions still open: lawyer review of the legal pages, and the $14.95 10-verdict pack.
+7. Before the Worker release: confirm the ShortsFactory consumer is gone
+   (`sanlorenzoprx/shortsfactory` pull request #82), because Q01 makes the old video endpoints
+   answer 410.
+8. Branch clean-up. Agents in this setup cannot delete branches. List the branches that are fully
+   merged into `main` so the founder can delete them from GitHub's Branches page, and suggest
+   turning on "Automatically delete head branches".
 
 It names the exact `main` commit that Q08 proved, and lists any item left `blocked` with its reason.
 `docs/CURRENT_STATE.md` links to it.
