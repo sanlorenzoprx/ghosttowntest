@@ -235,7 +235,11 @@ format and the code path cannot be reached by a new order, it is also acceptable
 `blocked` with that finding and leave the decision (translate or retire the old view) to the founder
 in Q09; do not delete the old view without that decision.
 
-### Q12 — Spanish for the Get Me Live setup workspace — `todo`
+### Q12 — Spanish for the Get Me Live setup workspace — `done`
+
+The ten-step workspace now takes the app locale, with typed English/Spanish copy for labels,
+notices, errors and post-launch controls. Removed the unused Studio alias. A browser test walks
+all ten Spanish steps, confirms provider choices remain stable and proves autosave. PR #84.
 
 Added on 11 November, split from Q06. `GetMeLiveWorkspace.tsx` is the ten-step screen where a buyer
 names the business, picks the look, connects Cloudflare and goes live. A First 30 buyer who reads
