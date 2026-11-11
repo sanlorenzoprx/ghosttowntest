@@ -521,7 +521,11 @@ try {
     await page.getByRole('button', { name: /Completed ✓ — reopen/ }).waitFor({ state: 'visible', timeout: 15000 });
     const completionResponse = await completionSaved;
     if (!completionResponse.ok()) throw new Error(`Day ${day.dayNumber} completion save failed HTTP ${completionResponse.status()}`);
-    const autoReview = page.getByRole('region', { name: 'GhostTown daily review' });
+    // Exact name: from Day 2 on, the screen also shows the "Previous GhostTown daily
+    // review" panel, which a substring match would accept before this day's review
+    // exists. The panel must also name this day, so an older review never passes.
+    const autoReview = page.getByRole('region', { name: 'GhostTown daily review', exact: true })
+      .filter({ hasText: `GhostTown reviewed Day ${day.dayNumber}` });
     await autoReview.waitFor({ state: 'visible', timeout: 90000 });
     const coachMemoryAfterDay = await apiJson(page.request, coachMemoryUrl);
     const persistedReview = (coachMemoryAfterDay.dailyReviews || []).find(review => review.dayNumber === day.dayNumber);
