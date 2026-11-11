@@ -116,11 +116,15 @@ describe('paid Sprint screens in Spanish', () => {
     const state = [true, undefined, undefined, [{ role: 'user', content: 'Hola' }, { role: 'assistant', content: 'Respuesta' }], latest];
     const es = render(<LaunchBlueprintCopilotV21 orderId="order-1" dayNumber={3} lane="saas" locale="es" />, state);
     expectSpanish(es,
-      ['Execution Copilot · Día 3', 'Experimento: SaaS', 'Cerrar', 'Prueba de venta:', 'Experimento actual', 'Sala de estrategia', 'Tú', 'Próximo paso recomendado', 'Límites del experimento', 'Puedes cambiar:', 'nada todavía', 'No cambies:', 'Anota ahora', 'Pregúntale a GhostTown', 'Pega la respuesta de un cliente', 'Preguntar'],
+      ['Execution Copilot · Día 3', 'Experimento: SaaS', 'Cerrar', 'Prueba de venta:', 'Experimento actual', 'Sala de estrategia', 'Tú', 'Próximo paso recomendado', 'Límites del experimento', 'Puedes cambiar:', 'nada todavía', 'No cambies:', 'Anota ahora', 'Pregúntale a GhostTown', 'Pregunta sobre la tarea de hoy', 'Preguntar'],
       ['Execution Copilot · Day', 'SaaS experiment', 'Commercial proof', 'Current Experiment', 'Strategy Room', 'Recommended bounded action', 'Experiment guardrails', 'May change', 'Keep fixed', 'Record next', 'Paste a customer response']);
 
     const empty = render(<LaunchBlueprintCopilotV21 orderId="order-1" dayNumber={3} lane="saas" locale="es" />, [true]);
-    expectSpanish(empty, ['Revisar los resultados que anoté hoy', '¿Qué exactamente debo hacer hoy?'], ['Review today’s recorded results', 'What exactly should I do today?']);
+    expectSpanish(empty, ['Revisar los resultados que anoté hoy', '¿Qué exactamente debo hacer hoy?', 'Buscar información actual del mercado para esta decisión', 'GhostTown se queda dentro de tu Sprint de 30 días.'], ['Review today’s recorded results', 'What exactly should I do today?', 'Check current market information for this decision', 'GhostTown stays inside your 30-Day Sprint.']);
+
+    const blocked = render(<LaunchBlueprintCopilotV21 orderId="order-1" dayNumber={3} lane="saas" locale="es" />,
+      [true, undefined, undefined, [{ role: 'user', content: 'Hola' }], { scope: { allowed: false }, externalResearch: { requested: true, allowed: false } }]);
+    expectSpanish(blocked, ['Límite del Sprint', 'Búsqueda de afuera bloqueada'], ['Sprint boundary', 'Outside research blocked']);
 
     const en = render(<LaunchBlueprintCopilotV21 orderId="order-1" dayNumber={3} lane="saas" />, state);
     for (const label of ['Execution Copilot · Day 3', 'SaaS experiment', 'Current Experiment', 'Experiment guardrails', 'May change:', 'nothing yet']) expect(en).toContain(label);

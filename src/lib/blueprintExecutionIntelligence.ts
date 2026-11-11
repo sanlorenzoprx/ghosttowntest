@@ -18,6 +18,21 @@ export type ExecutionBranchRoute =
 export type ExecutionCopilotMode = 'current_experiment' | 'strategy_room';
 export type ExecutionCapability = 'fast_assistant' | 'strategy_reasoner' | 'critic' | 'grounded_research';
 
+export type ExecutionInteractionScopeReason =
+  | 'explicit_sprint_reference'
+  | 'active_context_overlap'
+  | 'bounded_follow_up'
+  | 'out_of_scope';
+
+export interface ExecutionInteractionGate {
+  allowed: boolean;
+  reason: ExecutionInteractionScopeReason;
+  contextOverlap: number;
+  externalResearchRequested: boolean;
+  externalResearchAllowed: boolean;
+  externalResearchReason: 'not_requested' | 'sprint_relevant' | 'not_tied_to_active_sprint' | 'out_of_scope';
+}
+
 export interface ExecutionLaneProfile {
   lane: BusinessModelExecutionLane;
   label: string;
@@ -300,7 +315,136 @@ export function formalCheckpointBranch(progress: ExecutionProgressLike, dayNumbe
 }
 
 function words(value: string): Set<string> {
-  return new Set(value.toLowerCase().match(/[a-z0-9]{3,}/g) || []);
+  return new Set(value.toLowerCase().match(/[a-z0-9áéíóúüñ]{3,}/g) || []);
+}
+
+const RELEVANCE_STOP_WORDS = new Set([
+  'and', 'are', 'but', 'can', 'for', 'has', 'not', 'the', 'was', 'were', 'will',
+  'about', 'after', 'again', 'also', 'because', 'before', 'could', 'current', 'does', 'from',
+  'have', 'into', 'latest', 'more', 'please', 'search', 'should', 'that', 'their', 'there',
+  'these', 'they', 'this', 'today', 'using', 'want', 'what', 'when', 'where', 'which', 'with',
+  'would', 'your',
+  // Spanish: a founder may run the Sprint in Spanish (AGENTS.md, "Languages").
+  'una', 'unos', 'unas', 'los', 'las', 'del', 'que', 'qué', 'con', 'por', 'para', 'como', 'cómo',
+  'pero', 'más', 'sus', 'mis', 'esto', 'esta', 'este', 'estos', 'estas', 'eso', 'esa', 'ese',
+  'hoy', 'sobre', 'antes', 'después', 'también', 'porque', 'debo', 'debe', 'puedo', 'puede',
+  'quiero', 'cuando', 'cuándo', 'donde', 'dónde', 'cual', 'cuál', 'tiene', 'tengo', 'hay',
+  'son', 'está', 'están', 'ser', 'fue', 'actual', 'busca', 'buscar', 'favor'
+]);
+
+function relevanceWords(value: string): Set<string> {
+  return new Set([...words(value)].filter(word => !RELEVANCE_STOP_WORDS.has(word)));
+}
+
+const SPRINT_REFERENCE_PATTERN = /\b(?:30[- ]day|sprint|blueprint|today(?:'s)?\s+(?:task|work|result|evidence)|day\s*\d{1,2}|recorded results?|checkpoint|experiment|next action|next step|success threshold|failure threshold|prepared asset|get me live|(?:my|our|this|the)\s+(?:task|evidence|customer|buyer|offer|competitors?|market|channel|message|audience|outreach|replies?|responses?|commitment|revenue|leads?|conversion|interview|fulfillment))\b/i;
+const BOUNDED_FOLLOW_UP_PATTERN = /^(?:why|how|what does that mean|what should i do|what exactly do i do today|what next|is that good|is that bad|should i continue|should i change it)[?.!\s]*$/i;
+const EXTERNAL_RESEARCH_REQUEST_PATTERN = /\b(?:current market|latest|benchmark|industry average|external source|external research|research|look up|lookup|search the web|web search|current trend|market trend|market information|outside source|outside research)\b/i;
+const EXPLICIT_RESEARCH_SPRINT_ANCHOR_PATTERN = /\b(?:sprint|blueprint|today(?:'s)?\s+(?:task|decision|work)|day\s*\d{1,2}|this\s+(?:task|experiment|offer|customer|market|competitor|channel|decision|checkpoint)|my\s+(?:offer|customer|market|competitor|channel|experiment)|active\s+(?:task|experiment|checkpoint)|next action)\b/i;
+
+// The same boundary for a founder who writes in Spanish. `\b` does not see
+// accented letters, so these patterns use explicit letter boundaries.
+const ES_LETTER = 'a-záéíóúüñ';
+const esPattern = (body: string): RegExp => new RegExp(`(?:^|[^${ES_LETTER}])(?:${body})(?![${ES_LETTER}])`, 'i');
+const SPRINT_REFERENCE_PATTERN_ES = esPattern([
+  '30 d[ií]as',
+  '(?:tarea|trabajo|resultados?|pruebas?|decisi[oó]n) de hoy',
+  'd[ií]a\\s*\\d{1,2}',
+  'resultados? (?:que anot[eé]|anotados?)',
+  'chequeo',
+  'experimento',
+  'pr[oó]ximo paso',
+  'cuenta (?:hoy )?como (?:[eé]xito|fallo)',
+  '(?:mis|las|qu[eé]) pruebas',
+  '(?:mi|mis|nuestr[oa]s?|est[ea]|el|la|los|las)\\s+(?:tarea|plan|clientes?|compradores?|oferta|competidor(?:es)?|competencia|mercado|canal|mensaje|audiencia|respuestas?|ventas?|ingresos|entrevistas?)'
+].join('|'));
+const BOUNDED_FOLLOW_UP_PATTERN_ES = /^[¿¡\s]*(?:por qu[eé]|c[oó]mo|qu[eé] significa eso|qu[eé] (?:exactamente )?(?:debo|tengo que) hacer(?: hoy)?|qu[eé] sigue|y ahora qu[eé]|eso es bueno|eso es malo|debo seguir|sigo|debo cambiarlo|lo cambio)[?.!\s]*$/i;
+const EXTERNAL_RESEARCH_REQUEST_PATTERN_ES = esPattern([
+  'mercado actual',
+  'informaci[oó]n (?:actual )?del mercado',
+  'lo [uú]ltimo',
+  '[uú]ltim[oa]s? (?:datos|tendencias|noticias)',
+  'promedio de la industria',
+  'fuentes? (?:de afuera|externas?)',
+  'informaci[oó]n de afuera',
+  'b[uú]squeda de afuera',
+  'busca(?:r)? en (?:la web|internet)',
+  'investiga(?:r|ci[oó]n)?',
+  'tendencias? (?:actual(?:es)?|del mercado)'
+].join('|'));
+const EXPLICIT_RESEARCH_SPRINT_ANCHOR_PATTERN_ES = esPattern([
+  '(?:tarea|decisi[oó]n|trabajo) de hoy',
+  'd[ií]a\\s*\\d{1,2}',
+  'est[ea]\\s+(?:tarea|experimento|oferta|cliente|mercado|competidor|canal|decisi[oó]n|chequeo)',
+  'mi\\s+(?:oferta|cliente|mercado|competidor|canal|experimento)',
+  'pr[oó]ximo paso'
+].join('|'));
+
+function activeContextText(context: ExecutionRagContext): string[] {
+  return [
+    context.blueprint.customer,
+    context.blueprint.problem,
+    context.blueprint.offer,
+    context.blueprint.price,
+    context.experiment.title,
+    context.experiment.objective,
+    context.experiment.whyThisDayExists,
+    context.experiment.successThreshold,
+    context.experiment.failureThreshold,
+    context.experiment.completionDefinition,
+    context.branch.reason,
+    context.branch.nextAction,
+    ...context.experiment.exactActions.map(action => action.instruction),
+    ...context.experiment.exactTargets.flatMap(target => [target.name, target.qualificationRule]),
+    ...context.experiment.assets.flatMap(asset => [asset.title, asset.usageInstructions])
+  ].filter(Boolean);
+}
+
+export function evaluateExecutionInteraction(
+  question: string,
+  context: ExecutionRagContext
+): ExecutionInteractionGate {
+  const query = relevanceWords(question);
+  const activeText = activeContextText(context);
+  const activeWords = relevanceWords(activeText.join(' '));
+  let contextOverlap = 0;
+  for (const word of query) if (activeWords.has(word)) contextOverlap += 1;
+
+  const minimumContextOverlap = 2;
+  const explicitSprintReference = SPRINT_REFERENCE_PATTERN.test(question) || SPRINT_REFERENCE_PATTERN_ES.test(question);
+  const boundedFollowUp = BOUNDED_FOLLOW_UP_PATTERN.test(question.trim()) || BOUNDED_FOLLOW_UP_PATTERN_ES.test(question.trim());
+  const meaningfulContextOverlap = contextOverlap >= minimumContextOverlap;
+  const allowed = explicitSprintReference || meaningfulContextOverlap || boundedFollowUp;
+  const reason: ExecutionInteractionScopeReason = explicitSprintReference
+    ? 'explicit_sprint_reference'
+    : meaningfulContextOverlap
+      ? 'active_context_overlap'
+      : boundedFollowUp
+        ? 'bounded_follow_up'
+        : 'out_of_scope';
+
+  const externalResearchRequested = EXTERNAL_RESEARCH_REQUEST_PATTERN.test(question) || EXTERNAL_RESEARCH_REQUEST_PATTERN_ES.test(question);
+  const researchTiedToSprint = allowed && (
+    meaningfulContextOverlap
+    || EXPLICIT_RESEARCH_SPRINT_ANCHOR_PATTERN.test(question)
+    || EXPLICIT_RESEARCH_SPRINT_ANCHOR_PATTERN_ES.test(question)
+  );
+  const externalResearchAllowed = externalResearchRequested && researchTiedToSprint;
+  const externalResearchReason: ExecutionInteractionGate['externalResearchReason'] = !externalResearchRequested
+    ? 'not_requested'
+    : !allowed
+      ? 'out_of_scope'
+      : researchTiedToSprint
+        ? 'sprint_relevant'
+        : 'not_tied_to_active_sprint';
+
+  return {
+    allowed,
+    reason,
+    contextOverlap,
+    externalResearchRequested,
+    externalResearchAllowed,
+    externalResearchReason
+  };
 }
 
 function overlapScore(query: Set<string>, values: string[]): number {
@@ -401,9 +545,14 @@ export function buildExecutionRagContext(
   };
 }
 
-export function routeExecutionCapability(question: string, mode: ExecutionCopilotMode, context: ExecutionRagContext): ExecutionCapability {
+export function routeExecutionCapability(
+  question: string,
+  mode: ExecutionCopilotMode,
+  context: ExecutionRagContext,
+  interaction: ExecutionInteractionGate = evaluateExecutionInteraction(question, context)
+): ExecutionCapability {
   const value = question.toLowerCase();
-  if (/\b(latest|current market|research|competitor|external source|look up|web)\b/.test(value)) return 'grounded_research';
+  if (interaction.externalResearchAllowed) return 'grounded_research';
   if (/\b(challenge|critic|contradict|are you sure|overinterpret|weak evidence)\b/.test(value)) return 'critic';
   if (mode === 'strategy_room' || context.branch.route !== 'continue' || /\b(pivot|change|price|strategy|customer segment|offer|should i|what next)\b/.test(value)) return 'strategy_reasoner';
   return 'fast_assistant';
