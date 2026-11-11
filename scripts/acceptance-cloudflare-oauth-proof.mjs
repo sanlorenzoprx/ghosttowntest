@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { deployedWorkerVersion, acceptanceProbeHeaders } from './lib/acceptance-worker-version.mjs';
 
 const ROOT = resolve(process.cwd());
 const STATE_DIR = join(ROOT, '.roadmap-autopilot');
@@ -29,11 +30,11 @@ function runWrangler(args) {
 
 function sleep(ms) { return new Promise(resolvePromise => setTimeout(resolvePromise, ms)); }
 
-async function postWithPropagationRetry(token) {
+async function postWithPropagationRetry(token, versionId) {
   for (let attempt = 1; attempt <= 8; attempt += 1) {
-    const response = await fetch(`${WORKER_URL}${SMOKE_PATH}`, {
+    const response = await fetch(`${WORKER_URL}${SMOKE_PATH}?version=${encodeURIComponent(versionId)}`, {
       method: 'POST',
-      headers: { 'X-Acceptance-Token': token, 'Content-Type': 'application/json' },
+      headers: acceptanceProbeHeaders(token, WORKER_URL, versionId),
       body: '{}'
     });
     const text = await response.text();
@@ -184,12 +185,15 @@ const token = randomBytes(32).toString('hex');
 writeFileSync(TEMP_ENTRY, temporaryWorkerSource(token), 'utf8');
 
 let wrappedDeployed = false;
+let probeVersionId = null;
 let proofBody = null;
 let proofError = null;
 try {
-  runWrangler(['deploy', '.roadmap-autopilot/acceptance-cloudflare-oauth-proof-entry.ts', '--env', 'acceptance']);
+  const deployed = runWrangler(['deploy', '.roadmap-autopilot/acceptance-cloudflare-oauth-proof-entry.ts', '--env', 'acceptance']);
   wrappedDeployed = true;
-  const { response, body } = await postWithPropagationRetry(token);
+  probeVersionId = deployedWorkerVersion(deployed);
+  console.log(`[acceptance-cloudflare-oauth] Probing exact temporary Worker version ${probeVersionId}`);
+  const { response, body } = await postWithPropagationRetry(token, probeVersionId);
   proofBody = body;
   if (!response.ok || body?.passed !== true) {
     if (body?.inputRequired === true) {
@@ -214,11 +218,13 @@ try {
 const output = proofBody?.passed === true ? {
   schemaVersion: 'ghosttown-cloudflare-oauth-proof-v1',
   ...proofBody,
+  probeVersionId,
   recordedAt: new Date().toISOString()
 } : {
   schemaVersion: 'ghosttown-cloudflare-oauth-proof-v1',
   passed: false,
   inputRequired: proofBody?.inputRequired === true,
+  probeVersionId,
   stage: proofBody?.stage || null,
   providerStateConnected: proofBody?.providerStateConnected === true,
   tokenPersisted: proofBody?.tokenPersisted === true,

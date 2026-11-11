@@ -266,3 +266,11 @@ Tests exercise allowed and rejected migration ledgers. No production workflow ha
 The direct-upload Pages workflow now takes a validated offer choice, defaults to waitlist, and
 passes it into the local Vite build. Its release receipt records the choice. Updated the First 30
 activation and undo instructions. No production release or setting has changed.
+
+### Q16 — Pin the OAuth acceptance probe to its deployed version — `done`
+
+Run 43071614954 hit the canonical Worker's 404 after deploying the temporary OAuth verifier.
+The probe now records Wrangler's version UUID and requests that exact acceptance Worker version.
+It still requires a real consent callback and successful refresh. The manual OAuth workflow also
+accepts the actual acceptance test account email instead of requiring its historical default.
+Unit tests reject unknown versions and every production hostname. No production changes.
