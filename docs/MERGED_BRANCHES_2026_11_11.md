@@ -1,0 +1,59 @@
+# Merged branch inventory
+
+Captured against main during the 11 November 2026 review. No branches were deleted.
+Recheck each branch against the current main before deletion; record its head SHA for recovery.
+
+- `agent/integrate-commercial-ui-v21-acceptance`
+- `claude/bold-hypatia-coroah`
+- `claude/first30-email-compliance`
+- `claude/ghosttown-free-verdict-phase1-rhpnxs`
+- `claude/ghosttownverdict-domain`
+- `claude/quirky-newton-j8tpyh`
+- `codex/q12-spanish-workspace`
+- `codex/q13-migration-release`
+- `feat/dashboard-resume-verdict`
+- `feat/evidence-before-verdict-v1`
+- `feat/free-verdict-evidence-model-v2`
+- `feat/functional-discovery-bilingual-v2`
+- `feat/get-me-live-v1`
+- `feat/ghosttown-startup-sprint-factory-v1`
+- `feat/launch-blueprint-spa`
+- `feat/verdict-unlock-journey`
+- `feature/get-me-live-completion-domain-handoff`
+- `feature/gml-10-docs-cleanup`
+- `feature/gml-1b-publication-identity`
+- `feature/gml-1c-project-naming`
+- `feature/gml-2-release-records`
+- `feature/gml-3-safe-returns`
+- `feature/gml-4-prelaunch-domain-removal`
+- `feature/gml-5-completion-opening-tab`
+- `feature/gml-6-registrar-handoff`
+- `feature/gml-7-custom-domain-connect`
+- `feature/gml-8-business-email`
+- `feature/gml-9-oauth-scopes`
+- `feature/learning-coach-full-integration`
+- `fix/copy-language-quality`
+- `fix/dashboard-verdict-intake-direct`
+- `fix/deploy-production-pages`
+- `fix/github-acceptance-artifact-upload`
+- `fix/gml-preview-reuse-ai-plan`
+- `fix/pages-release-token-preflight`
+- `fix/pay-before-second-verdict`
+- `fix/post-payment-verdict-balance-copy`
+- `fix/prepopulate-blueprint-seeds`
+- `fix/production-health-version-id`
+- `fix/production-release-version-identity`
+- `fix/production-rollback-shell`
+- `fix/retire-legacy-public-video`
+- `fix/second-verdict-paywall-after-completion`
+- `fix/source-usability-uncertainty-promise`
+- `fix/sprint-eval-closeout-2026-09-27`
+- `fix/sprint-execution-home-saves`
+- `fix/sprint-progress-completion-race`
+- `fix/start-next-verdict-before-paywall`
+- `fix/strategic-coherence-gate`
+- `fix/stripe-connect-boundary-and-return`
+- `infra/github-first-acceptance`
+- `release/production-migration-0011`
+- `test/agentic-go-live-gate`
+- `test/playwright-full-30-day-sprint`

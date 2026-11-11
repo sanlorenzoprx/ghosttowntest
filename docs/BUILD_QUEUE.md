@@ -165,7 +165,14 @@ true or needed) or corrected; `README.md` and `docs/CURRENT_STATE.md` describe t
 `main` now (free verdict, First 30 at $297, Get Me Live included, English and Spanish, what is live in
 production and what is not); and no file in the repository links to a deleted one.
 
-### Q08 — Prove `main` on acceptance — `todo`
+### Q08 — Prove `main` on acceptance — `blocked`
+
+Run 43071614954 tested cd92715 with deploy and full tests enabled. Fixture, inputs, front door,
+Get Me Live and owner controls passed; Day 2 Coach persistence failed, causing the no-GML proof
+also to fail. PR #87 fixes the Coach routing; #88 prepares an exact-version OAuth verifier. Stripe
+needs a completed test payment. Rerun on the final main head after these inputs/fixes. See
+`docs/ACCEPTANCE_STATUS_2026_11_11.md`. Read `execution-receipt.json` stage outcomes, not GitHub's
+continue-on-error step conclusions. No gate was weakened.
 
 Take this only when Q01 to Q06 and Q10 to Q12 are `done` or `blocked`.
 
@@ -175,7 +182,11 @@ Sprint without Get Me Live. The Stripe payment and Cloudflare OAuth stages need 
 expected to fail; record them for Q09. If an automated stage fails, fix the cause in a pull request and
 run it again. Write the run link, the commit and each stage result under this item.
 
-### Q09 — Write the founder's release checklist — `todo`
+### Q09 — Write the founder's release checklist — `blocked`
+
+The ordered checklist and merged-branch inventory are prepared in this pull request. Its remaining
+blocker is Q08: the final passing release SHA is not known yet. The checklist links the exact failed
+run and explains the required provider input, recovery paths and the separate ShortsFactory dependency.
 
 Take this last.
 
