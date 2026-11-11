@@ -167,6 +167,16 @@ production and what is not); and no file in the repository links to a deleted on
 
 ### Q08 — Prove `main` on acceptance — `blocked`
 
+Run 43105507992 tested 5b234cb (after #87 and #88). Fixture, runtime inputs, front door, Get Me Live
+and owner controls passed. The Sprint stopped at Day 2 again with "automatic UI learning review was
+not durably persisted", and Sprint without Get Me Live failed only because the Sprint never reached
+30 days. Root cause was in the acceptance test, not the product: it waited for the region named
+"GhostTown daily review" without an exact match, and from Day 2 on the screen also shows "Previous
+GhostTown daily review", so the wait passed at once and the test read saved reviews before Day 2's
+review existed. Day 1 has no previous panel, which is why only Day 2 failed, before and after #87.
+The wait now requires the exact name and "GhostTown reviewed Day N" for the day just completed. Stripe
+and OAuth still need the founder's two proofs. Rerun Acceptance on the merged fix.
+
 Run 43071614954 tested cd92715 with deploy and full tests enabled. Fixture, inputs, front door,
 Get Me Live and owner controls passed; Day 2 Coach persistence failed, causing the no-GML proof
 also to fail. PR #87 fixes the Coach routing; #88 prepares an exact-version OAuth verifier. Stripe

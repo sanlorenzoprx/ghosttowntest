@@ -28,6 +28,10 @@ describe('agentic go-live gate contract', () => {
     expect(sprint).toContain('Review the recorded results for Day');
     expect(sprint).toContain('Use only this Sprint’s Blueprint, recorded evidence, saved Sprint research, and prior Sprint learning');
     expect(sprint).toContain('QA simulation only; not real customer or market evidence.');
+    // Day 2 onward also shows "Previous GhostTown daily review"; the wait must not accept it.
+    expect(sprint).toContain("getByRole('region', { name: 'GhostTown daily review', exact: true })");
+    expect(sprint).toContain('.filter({ hasText: `GhostTown reviewed Day ${day.dayNumber}` })');
+    expect(sprint).not.toMatch(/getByRole\('region', \{ name: 'GhostTown daily review' \}\)/);
     expect(sprint).toContain('coachMemory.reviewCount !== 30');
     expect(sprint).toContain("cachedReview.cache?.hit !== true");
     expect(sprint).toContain('verifySprintResearchGate');
