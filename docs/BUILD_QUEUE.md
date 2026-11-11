@@ -250,3 +250,9 @@ message and error it writes itself. The English text stays exactly as it is, bec
 `tests/e2e/get-me-live-acceptance.mjs`, `tests/getMeLiveBrowser.test.ts` and the contract tests find
 the screen by its English labels; run `npm run test:browser` as well as the usual checks. Text that
 comes back from the server stays as the server wrote it.
+
+### Q13 — Prepare the guarded First 30 migration release — `done`
+
+Prepared in this pull request. Production Release gains a manual `migrate-0011-0012` operation,
+accepts only 0011+0012 or 0012 alone, captures the schema, and verifies both schemas after apply.
+Tests exercise allowed and rejected migration ledgers. No production workflow has been run.
