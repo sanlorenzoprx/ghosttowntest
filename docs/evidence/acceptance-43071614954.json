@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "ghosttown-github-acceptance-execution-v1",
+  "repository": "sanlorenzoprx/ghosttowntest",
+  "gitSha": "cd92715f9decb4e715fe415bcd45429f51c5b96c",
+  "gitRef": "refs/heads/main",
+  "workflow": "Acceptance",
+  "runId": "43071614954",
+  "runAttempt": "1",
+  "actor": "sanlorenzoprx",
+  "environment": "acceptance",
+  "deployRequested": true,
+  "fullTestsRequested": true,
+  "stages": {
+    "fixture": "success",
+    "runtimeInputs": "success",
+    "frontDoor": "success",
+    "sprint30Day": "failure",
+    "getMeLive": "success",
+    "ownerControls": "success",
+    "sprintWithoutGetMeLive": "failure",
+    "stripePaymentWebhook": "failure",
+    "cloudflareOAuth": "failure",
+    "agenticGoLiveGate": "failure"
+  },
+  "recordedAt": "2026-11-11T17:56:09.648Z"
+}

@@ -11,8 +11,9 @@ What is on `main`:
 - Free Verdict, the 30-day plan, Get Me Live and the post-launch loop, with First 30 ($297 paid once for
   the plan and the website) as Blueprint contract v2.1.14.
 - The Learning Coach: a review after each completed Sprint day and a checkpoint assessment on request.
-- English and Spanish across the customer journey. Still English only: the Get Me Live setup
-  workspace and the old-format Blueprint view (queue items Q12 and Q11).
+- English and Spanish across the customer journey, including the complete Get Me Live setup
+  workspace and the old-format Blueprint controls. Historical generated plan content remains as stored;
+  server-originated error messages may still be English.
 - The wording for "First 30 is open" on the landing page, About page and agent handoff, used once the
   site is built with First 30 on sale.
 
@@ -24,7 +25,11 @@ What is live in production:
 - First 30 checkout is off (`FIRST30_CHECKOUT_ENABLED = "false"`), and the verdict page shows the
   First 30 email list.
 
-What only the founder can do is in `docs/FOUNDER_RELEASE_CHECKLIST.md` (written by queue item Q09):
+Acceptance is currently blocked. See [the exact run, outcomes and fixes](ACCEPTANCE_STATUS_2026_11_11.md).
+The first run exposed a Day 2 Coach persistence bug (fixed in PR #87); provider proofs and a fresh
+run on the final main head are still required.
+
+What remains for release is in [the founder release checklist](FOUNDER_RELEASE_CHECKLIST.md):
 the two acceptance proofs that need a person, the production migrations and releases, turning First 30
 on, and the open decisions.
 

@@ -42,13 +42,13 @@ Migration `0010_get_me_live_hosting_releases.sql` was applied successfully in pr
 
 For the current release, run:
 
-- Operation: `migrate-0011`
+- Operation: `migrate-0011-0012`
 - same exact current `main` SHA
-- Confirmation: `APPLY 0011 TO PRODUCTION`
+- Confirmation: `APPLY 0011 AND 0012 TO PRODUCTION`
 
 Approve the production environment again.
 
-The workflow refuses to continue unless the only pending D1 migration is `0011_execution_learning_coach.sql`. It captures the production schema before applying the migration, runs Wrangler's remote migration command, verifies the migration ledger, then proves the Learning Coach response, learning-candidate, and product-knowledge tables, critical columns, and indexes exist. The currently deployed Worker remains on its existing version and traffic allocation.
+The workflow accepts only the reviewed pending set: `0011_execution_learning_coach.sql` plus `0012_first30_included_website.sql`, or 0012 alone. It captures the production schema before applying the migration, runs Wrangler's remote migration command, verifies the migration ledger, then proves the Learning Coach response, learning-candidate, and product-knowledge tables, critical columns, indexes, and the First 30 `entitlement_source` and `build_started_at` columns exist. The currently deployed Worker remains on its existing version and traffic allocation.
 
 The legacy `migrate-0010` operation remains available only for repositories/environments where 0010 is genuinely the sole pending migration; it will fail closed in the current production environment.
 
@@ -94,11 +94,10 @@ Every production operation uploads `github-production-release` evidence for 30 d
 
 Production migration `0010_get_me_live_hosting_releases.sql` was applied successfully on October 3, 2026.
 
-After PR #61 merged, the current release adds:
-
-`0011_execution_learning_coach.sql`
-
-Run preflight first and require 0011 to be the sole pending migration before applying it. Do not stage or promote the new Worker until the migration ledger is clean.
+The current release includes `0011_execution_learning_coach.sql` and
+`0012_first30_included_website.sql`. Run preflight first and require 0011+0012, or 0012 alone,
+to be pending before using the combined operation. The older `migrate-0011` operation is only
+valid when 0011 is genuinely the sole pending migration. Do not stage or promote the new Worker until the migration ledger is clean.
 
 The active production deployment recorded during the earlier release work was:
 
