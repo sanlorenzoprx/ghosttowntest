@@ -52,6 +52,6 @@ describe('#18 popup blocking does not prevent completion', () => {
     const app = await read('src/app/App.tsx');
     expect(app).toContain("const getMeLiveOpening = screen === 'get-me-live' && window.location.pathname.startsWith('/get-me-live/opening');");
     expect(app).toContain('const getMeLiveSetup = !getMeLiveOpening &&');
-    expect(app).toContain('<GetMeLiveOpening orderId={getMeLiveOrderId} />');
+    expect(app).toContain('<GetMeLiveOpening orderId={getMeLiveOrderId} locale={locale} />');
   });
 });

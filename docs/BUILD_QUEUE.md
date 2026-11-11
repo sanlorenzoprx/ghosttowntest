@@ -138,7 +138,11 @@ screen after payment, the competitor step and the agent handoff. Three files sta
 
 Done when: the same as Q04.
 
-### Q06 — Spanish for Get Me Live — `todo`
+### Q06 — Spanish for Get Me Live — `done`
+
+Done on 11 November for the Get Me Live offer card, the landing page and the "putting your website
+online" tab. The setup workspace (`GetMeLiveWorkspace.tsx`, 323 long lines, also driven by the
+acceptance test) and its one-line alias `GetMeLiveStudio.tsx` moved to Q12.
 
 `GetMeLiveLanding`, `GetMeLiveOpening`, `GetMeLiveStudio`, `GetMeLiveUpsell`, `GetMeLiveWorkspace`.
 
@@ -158,7 +162,7 @@ production and what is not); and no file in the repository links to a deleted on
 
 ### Q08 — Prove `main` on acceptance — `todo`
 
-Take this only when Q01 to Q06, Q10 and Q11 are `done` or `blocked`.
+Take this only when Q01 to Q06 and Q10 to Q12 are `done` or `blocked`.
 
 Done when: the `Acceptance` workflow has run on the head of `main` with deploy on, and every automated
 stage passes: fixture, runtime inputs, front door, 30-day Sprint, Get Me Live, owner controls, and
@@ -219,3 +223,15 @@ Done when: the same as Q04 for both files. If no order in the acceptance databas
 format and the code path cannot be reached by a new order, it is also acceptable to mark this
 `blocked` with that finding and leave the decision (translate or retire the old view) to the founder
 in Q09; do not delete the old view without that decision.
+
+### Q12 — Spanish for the Get Me Live setup workspace — `todo`
+
+Added on 11 November, split from Q06. `GetMeLiveWorkspace.tsx` is the ten-step screen where a buyer
+names the business, picks the look, connects Cloudflare and goes live. A First 30 buyer who reads
+Spanish reaches it, so this matters for the goal. Take it before Q11.
+
+Done when: the same as Q04 for this file, including the step names, the look names, every button,
+message and error it writes itself. The English text stays exactly as it is, because
+`tests/e2e/get-me-live-acceptance.mjs`, `tests/getMeLiveBrowser.test.ts` and the contract tests find
+the screen by its English labels; run `npm run test:browser` as well as the usual checks. Text that
+comes back from the server stays as the server wrote it.

@@ -2,8 +2,26 @@ import { useEffect, useState } from "react";
 import { apiUrl, authHeaders } from "../lib/api";
 import { preferredPublicUrl } from "../lib/getMeLiveOffer";
 import type { GetMeLiveOrder } from "../types/getMeLive";
+import type { Locale } from "../lib/locale";
 
-interface Props { orderId: string; }
+const COPY: Record<Locale, Record<"slowTitle" | "slowBody" | "back" | "title" | "body", string>> = {
+  en: {
+    slowTitle: "This is taking longer than usual.",
+    slowBody: "GhostTown will keep checking. You can close this tab; your website link will be on your Get Me Live page.",
+    back: "Back to GhostTown",
+    title: "Putting your website online…",
+    body: "This tab will open your website as soon as it is ready. This can take a minute."
+  },
+  es: {
+    slowTitle: "Esto está tardando más de lo normal.",
+    slowBody: "GhostTown va a seguir revisando. Puedes cerrar esta pestaña; el enlace de tu página web va a estar en tu página de Get Me Live.",
+    back: "Volver a GhostTown",
+    title: "Poniendo tu página web en línea…",
+    body: "Esta pestaña va a abrir tu página web en cuanto esté lista. Puede tardar un minuto."
+  }
+};
+
+interface Props { orderId: string; locale?: Locale; }
 export interface OpeningVerifyResult { status?: string; verified?: boolean; pending?: boolean; failure?: string; }
 export type OpeningStep = "wait" | "open" | "slow";
 
@@ -23,7 +41,8 @@ export function openingStep(result: OpeningVerifyResult | null, sawPending: bool
   return "wait";
 }
 
-export default function GetMeLiveOpening({ orderId }: Props) {
+export default function GetMeLiveOpening({ orderId, locale = "en" }: Props) {
+  const t = COPY[locale];
   const [slow, setSlow] = useState(false);
 
   useEffect(() => {
@@ -61,12 +80,12 @@ export default function GetMeLiveOpening({ orderId }: Props) {
   const back = `/get-me-live/setup?order_id=${encodeURIComponent(orderId)}&step=review`;
   return <main className="mx-auto max-w-xl px-4 py-20 text-center">
     {slow ? <>
-      <h1 className="text-3xl font-black text-ghost-ink">This is taking longer than usual.</h1>
-      <p className="mt-3 text-gray-700">GhostTown will keep checking. You can close this tab; your website link will be on your Get Me Live page.</p>
-      <a href={back} className="mt-6 inline-block rounded-xl bg-ghost-rust px-6 py-3 font-black text-white">Back to GhostTown</a>
+      <h1 className="text-3xl font-black text-ghost-ink">{t.slowTitle}</h1>
+      <p className="mt-3 text-gray-700">{t.slowBody}</p>
+      <a href={back} className="mt-6 inline-block rounded-xl bg-ghost-rust px-6 py-3 font-black text-white">{t.back}</a>
     </> : <>
-      <h1 className="text-3xl font-black text-ghost-ink">Putting your website online…</h1>
-      <p className="mt-3 text-gray-700">This tab will open your website as soon as it is ready. This can take a minute.</p>
+      <h1 className="text-3xl font-black text-ghost-ink">{t.title}</h1>
+      <p className="mt-3 text-gray-700">{t.body}</p>
     </>}
   </main>;
 }

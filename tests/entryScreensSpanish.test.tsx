@@ -11,6 +11,10 @@ import VerdictUnlockPage from '../src/components/VerdictUnlockPage';
 import AgentHandoff from '../src/components/AgentHandoff';
 import ActionPlanSuccess from '../src/components/ActionPlanSuccess';
 import CompetitorSeedStep from '../src/components/CompetitorSeedStep';
+import GetMeLiveLanding from '../src/components/GetMeLiveLanding';
+import GetMeLiveOpening from '../src/components/GetMeLiveOpening';
+import GetMeLiveUpsell from '../src/components/GetMeLiveUpsell';
+import { DEFAULT_GET_ME_LIVE_DISPLAY_PRICE } from '../src/lib/getMeLiveOffer';
 import { litQuestions } from '../src/lib/litQuestions';
 import { localizeAssessmentQuestion } from '../src/lib/agentQuestionLocalization';
 import { ASSESSMENT_PACK_DISPLAY_PRICE } from '../src/lib/assessmentPack';
@@ -76,5 +80,16 @@ describe('entry screens in Spanish', () => {
       ['Abriendo la investigación de tu Blueprint...'], ['Opening your Blueprint research']);
     expectSpanish(render(<AgentHandoff handoffToken="token" isLoggedIn={false} onLoginClick={noop} onClaimed={noop} onHome={noop} locale="es" />),
       ['Abriendo tu veredicto de GhostTown…'], ['Opening your GhostTown verdict']);
+  });
+
+  it('the Get Me Live offer, landing page and opening tab speak Spanish and keep the price', () => {
+    expectSpanish(render(<GetMeLiveUpsell sourceSprintOrderId="order-1" locale="es" />),
+      ['Próximo paso', 'Ver Get Me Live'], ['Next step', 'See Get Me Live']);
+    expectSpanish(render(<GetMeLiveLanding sourceSprintOrderId="order-1" isLoggedIn onLoginClick={noop} onBack={noop} locale="es" />),
+      ['Poner mi negocio en vivo', 'Lo que recibes', 'Tu página es tuya.', DEFAULT_GET_ME_LIVE_DISPLAY_PRICE, 'Get Me Live'],
+      ['Get My Business Live', 'What you get', 'You own your site.']);
+    expectSpanish(render(<GetMeLiveOpening orderId="order-1" locale="es" />),
+      ['Poniendo tu página web en línea…'], ['Putting your website online']);
+    expect(render(<GetMeLiveLanding sourceSprintOrderId="order-1" isLoggedIn onLoginClick={noop} onBack={noop} />)).toContain('Get My Business Live');
   });
 });
