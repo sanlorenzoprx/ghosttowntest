@@ -1,3 +1,4 @@
+import type { ExecutionCoachPhase } from "../types/executionLearning";
 import type { BusinessModelExecutionLane, GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import type { ExecutionCoachMemoryContext } from '../types/executionLearning';
 
@@ -401,7 +402,8 @@ function activeContextText(context: ExecutionRagContext): string[] {
 
 export function evaluateExecutionInteraction(
   question: string,
-  context: ExecutionRagContext
+  context: ExecutionRagContext,
+  phase: ExecutionCoachPhase = "chat"
 ): ExecutionInteractionGate {
   const query = relevanceWords(question);
   const activeText = activeContextText(context);
@@ -422,7 +424,10 @@ export function evaluateExecutionInteraction(
         ? 'bounded_follow_up'
         : 'out_of_scope';
 
-  const externalResearchRequested = EXTERNAL_RESEARCH_REQUEST_PATTERN.test(question) || EXTERNAL_RESEARCH_REQUEST_PATTERN_ES.test(question);
+  // Automatic reviews mention saved research and prohibit new outside research. That
+  // wording is not consent to search. Explicit research stays in the chat/plan path.
+  const automaticReview = phase === 'review' || phase === 'checkpoint';
+  const externalResearchRequested = !automaticReview && (EXTERNAL_RESEARCH_REQUEST_PATTERN.test(question) || EXTERNAL_RESEARCH_REQUEST_PATTERN_ES.test(question));
   const researchTiedToSprint = allowed && (
     meaningfulContextOverlap
     || EXPLICIT_RESEARCH_SPRINT_ANCHOR_PATTERN.test(question)
