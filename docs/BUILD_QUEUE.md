@@ -60,7 +60,14 @@ Done when: the branch includes the latest `main`, the pull request is marked rea
 and it is merged. If the branch cannot be updated in place, carry its two commits onto a new pull
 request and close #64.
 
-### Q02 — Land the production customer journey test — `todo`
+### Q02 — Land the production customer journey test — `blocked`
+
+Blocked on 11 November. The test is pinned to the old address (`ghosttowntest.com`, which now
+redirects to `ghosttownverdict.app`), to an old Worker version and to an old `main` commit, and it
+walks the old $97 Sprint offer, which production no longer shows. Fixing it means rewriting it against
+what production serves today, and agents may not run anything against production to check the
+rewrite. Pull request #50 stays open and untouched. The founder decides in Q09: rewrite it with a
+person running it, or close it.
 
 Pull request #50 (`test/autonomous-production-customer-journey`). It adds a black-box test of the live
 customer journey and manual workflows to run it.
@@ -103,7 +110,13 @@ a Spanish Sprint question is allowed and a Spanish off-topic question is refused
 produces, add the amendment. Open a new pull request from your session's branch and close #63 once
 it merges.
 
-### Q04 — Spanish for the entry screens — `todo`
+### Q04 — Spanish for the entry screens — `done`
+
+Done on 11 November. The idea form, the assessment questions, the progress bar, login, the paywall
+and the contact page now work in Spanish; the question flow passes the language down and uses the
+Spanish question text that already existed for agents. `Landing.tsx` was a one-line alias and is
+removed. Not covered: error messages that come from the server are still English, and the idea
+form's consent still mentions a generated video although Q01 retired automatic video (see Q09).
 
 `IdeaIntake`, `QuestionCard`, `ProgressBar`, `Landing`, `LoginModal`, `PaywallModal`, `Contact`.
 
@@ -168,6 +181,10 @@ step with the exact command, workflow name or screen, what it does and how to un
 8. Branch clean-up. Agents in this setup cannot delete branches. List the branches that are fully
    merged into `main` so the founder can delete them from GitHub's Branches page, and suggest
    turning on "Automatically delete head branches".
+9. The idea form asks every visitor to accept that "the generated video" is public content that
+   Shorts Factory may distribute. Q01 retired automatic video. The founder decides whether that
+   consent wording should change; it is legal text, so the loop did not change its meaning.
+10. Pull request #50 (production customer journey test): rewrite with a person, or close.
 
 It names the exact `main` commit that Q08 proved, and lists any item left `blocked` with its reason.
 `docs/CURRENT_STATE.md` links to it.

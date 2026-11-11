@@ -3,6 +3,31 @@ import { EvaluationAnswers, EvaluationResult, IdeaIntake } from '../types/lit';
 import { litQuestions } from '../lib/litQuestions';
 import QuestionCard from './QuestionCard';
 import ProgressBar from './ProgressBar';
+import { localizeAssessmentQuestion } from '../lib/agentQuestionLocalization';
+import type { Locale } from '../lib/locale';
+
+type FlowCopy = { verdictFailed: string; genericError: string; working: string; steps: string[]; saved: string; back: string; autosaved: string };
+
+const FLOW_COPY: Record<Locale, FlowCopy> = {
+  en: {
+    verdictFailed: 'Failed to generate verdict',
+    genericError: 'An error occurred. Please try again.',
+    working: 'Prospecting for the truth',
+    steps: ['Analyzing leverage…', 'Scoring LIT…', 'Checking Ghost Town risk…'],
+    saved: 'Your progress is saved. Deterministic scoring remains available if AI is unavailable.',
+    back: '← Back',
+    autosaved: 'Saved automatically'
+  },
+  es: {
+    verdictFailed: 'No pudimos crear tu veredicto',
+    genericError: 'Algo falló. Inténtalo otra vez.',
+    working: 'Buscando la verdad',
+    steps: ['Analizando tu ventaja…', 'Calculando LIT…', 'Revisando el riesgo de pueblo fantasma…'],
+    saved: 'Tu progreso está guardado. Si la IA no está disponible, igual calculamos tu puntuación con reglas fijas.',
+    back: '← Atrás',
+    autosaved: 'Se guarda solo'
+  }
+};
 import {
   clearEvaluationDraft,
   incrementTestsUsed,
@@ -20,6 +45,7 @@ interface Props {
   onAllowanceRequired: () => void;
   autoSubmitCompleteDraft?: boolean;
   onAutoSubmitConsumed?: () => void;
+  locale?: Locale;
 }
 
 export default function QuestionFlow({
@@ -29,8 +55,10 @@ export default function QuestionFlow({
   onDraftChange,
   onAllowanceRequired,
   autoSubmitCompleteDraft = false,
-  onAutoSubmitConsumed
+  onAutoSubmitConsumed,
+  locale = 'en'
 }: Props) {
+  const t = FLOW_COPY[locale];
   const canResumeDraft = initialDraft?.idea.ideaName === idea.ideaName;
   const [currentIndex, setCurrentIndex] = useState(() => canResumeDraft
     ? Math.min(Math.max(initialDraft.currentIndex, 0), litQuestions.length - 1)
@@ -108,7 +136,7 @@ export default function QuestionFlow({
           onAllowanceRequired();
           return;
         }
-        throw new Error(body.error || 'Failed to generate verdict');
+        throw new Error(body.error || t.verdictFailed);
       }
 
       const result = await response.json<EvaluationResult>();
@@ -119,7 +147,7 @@ export default function QuestionFlow({
       onDraftChange(null);
       onResult(result);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'An error occurred. Please try again.');
+      setError(caught instanceof Error ? caught.message : t.genericError);
       setLoading(false);
     }
   };
@@ -135,7 +163,7 @@ export default function QuestionFlow({
 
   return (
     <div className="mx-auto min-h-[calc(100dvh-72px)] max-w-2xl px-3 py-4 sm:px-4 sm:py-8">
-      <ProgressBar currentIndex={currentIndex} />
+      <ProgressBar currentIndex={currentIndex} locale={locale} />
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700" role="alert">
@@ -145,7 +173,8 @@ export default function QuestionFlow({
 
       {!loading && (
         <QuestionCard
-          question={current}
+          question={localizeAssessmentQuestion(current, locale)}
+          locale={locale}
           selectedValue={answers[current.id]}
           onAnswer={handleAnswer}
         />
@@ -154,16 +183,16 @@ export default function QuestionFlow({
       {loading && (
         <div className="ghost-surface rounded-sm border border-ghost-ink px-6 py-14 text-center text-white shadow-lantern">
           <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full border-2 border-ghost-gold border-t-transparent animate-spin" />
-          <p className="font-display text-3xl font-bold">Prospecting for the truth</p>
+          <p className="font-display text-3xl font-bold">{t.working}</p>
           <ol className="mx-auto mt-7 max-w-sm space-y-3 text-left">
-            {['Analyzing leverage…', 'Scoring LIT…', 'Checking Ghost Town risk…'].map((step, index) => (
+            {t.steps.map((step, index) => (
               <li key={step} className={`flex items-center gap-3 rounded border px-4 py-3 text-sm transition ${index <= loadingStep ? 'border-ghost-gold/50 bg-white/10 text-white' : 'border-white/10 text-white/40'}`}>
                 <span className={`grid h-5 w-5 place-items-center rounded-full text-xs ${index <= loadingStep ? 'bg-ghost-gold text-ghost-ink' : 'border border-white/30'}`}>{index < loadingStep ? '✓' : index + 1}</span>
                 {step}
               </li>
             ))}
           </ol>
-          <p className="mt-6 text-xs text-white/60">Your progress is saved. Deterministic scoring remains available if AI is unavailable.</p>
+          <p className="mt-6 text-xs text-white/60">{t.saved}</p>
         </div>
       )}
 
@@ -175,10 +204,10 @@ export default function QuestionFlow({
               onClick={handleBack}
               className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2 font-bold text-gray-700 transition hover:bg-gray-50 active:bg-gray-100"
             >
-              ← Back
+              {t.back}
             </button>
           ) : <span />}
-          <span className="text-xs font-medium text-gray-500">Saved automatically</span>
+          <span className="text-xs font-medium text-gray-500">{t.autosaved}</span>
         </div>
       )}
     </div>

@@ -1,12 +1,19 @@
 import { EvaluationQuestion } from '../types/lit';
+import type { Locale } from '../lib/locale';
+
+const COPY: Record<Locale, { noWrongAnswers: string }> = {
+  en: { noWrongAnswers: "There are no wrong answers. We're evaluating your idea objectively." },
+  es: { noWrongAnswers: 'No hay respuestas malas. Evaluamos tu idea de forma objetiva.' }
+};
 
 interface Props {
   question: EvaluationQuestion;
   onAnswer: (value: number | string) => void;
   selectedValue?: number | string;
+  locale?: Locale;
 }
 
-export default function QuestionCard({ question, onAnswer, selectedValue }: Props) {
+export default function QuestionCard({ question, onAnswer, selectedValue, locale = 'en' }: Props) {
   return (
     <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:mb-8 sm:p-8">
       <h3 className="mb-3 text-2xl font-bold leading-tight text-gray-950 sm:text-3xl">{question.question}</h3>
@@ -37,7 +44,7 @@ export default function QuestionCard({ question, onAnswer, selectedValue }: Prop
       </div>
 
       <p className="mt-6 text-center text-xs text-gray-500 sm:mt-8">
-        There are no wrong answers. We're evaluating your idea objectively.
+        {COPY[locale].noWrongAnswers}
       </p>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Landing from '../components/Landing';
+import Landing from '../components/LandingCommercial';
 import IdeaIntake from '../components/IdeaIntake';
 import QuestionFlow from '../components/QuestionFlow';
 import ResultReport from '../components/ResultReport';
@@ -363,9 +363,10 @@ export default function App() {
           </section>
         )}
         {screen === 'landing' && <Landing onStart={handleStartTest} onSelectExample={handleSelectExample} hasDraft={Boolean(resumeDraft)} onResume={handleResume} isLoggedIn={isLoggedIn} hasUsedFreeVerdict={Boolean(user && user.testsUsed > 0)} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} locale={locale} />}
-        {screen === 'intake' && <IdeaIntake onSubmit={handleIdeaSubmit} initialIdea={idea} />}
+        {screen === 'intake' && <IdeaIntake onSubmit={handleIdeaSubmit} initialIdea={idea} locale={locale} />}
         {screen === 'questions' && idea && (
           <QuestionFlow
+            locale={locale}
             idea={idea}
             onResult={handleResultReceived}
             initialDraft={resumeDraft}
@@ -403,7 +404,7 @@ export default function App() {
         {screen === 'get-me-live' && !getMeLiveOpening && !getMeLiveSetup && <GetMeLiveLanding sourceSprintOrderId={getMeLiveSourceSprintOrderId} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} onBack={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
         {screen === 'get-me-live' && getMeLiveSetup && isLoggedIn && <GetMeLiveWorkspace orderId={getMeLiveOrderId} onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
         {screen === 'get-me-live' && getMeLiveSetup && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Log in to open your Get Me Live page</h1><p className="mt-3 text-gray-700">Use the email from checkout. Your work is saved.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
-        {screen === 'contact' && <Contact onStart={handleStartTest} />}
+        {screen === 'contact' && <Contact onStart={handleStartTest} locale={locale} />}
         {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && <LegalPage kind={screen} locale={locale} />}
         {screen === 'about' && <AboutPage locale={locale} />}
         {screen === 'action-plan-success' && <ActionPlanSuccess orderId={new URLSearchParams(window.location.search).get('order_id') || ''} onDone={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
@@ -426,8 +427,8 @@ export default function App() {
         </div>
       </footer>
 
-      {showLoginModal && <LoginModal onLogin={handleLogin} onClose={() => setShowLoginModal(false)} initialMode={authMode} />}
-      {showPaywall && <PaywallModal isLoggedIn={isLoggedIn} onLoginClick={() => { setShowPaywall(false); setAuthMode('signup'); setShowLoginModal(true); }} onClose={() => setShowPaywall(false)} />}
+      {showLoginModal && <LoginModal onLogin={handleLogin} onClose={() => setShowLoginModal(false)} initialMode={authMode} locale={locale} />}
+      {showPaywall && <PaywallModal isLoggedIn={isLoggedIn} onLoginClick={() => { setShowPaywall(false); setAuthMode('signup'); setShowLoginModal(true); }} onClose={() => setShowPaywall(false)} locale={locale} />}
     </div>
   );
 }

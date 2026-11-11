@@ -317,6 +317,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           isLoggedIn={isLoggedIn}
           onLoginClick={onLoginClick}
           onClose={() => setShowDeclinedPlanOffer(false)}
+          locale={locale}
         />
       )}
 
