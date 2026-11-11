@@ -534,7 +534,14 @@ try {
     // exists. The panel must also name this day, so an older review never passes.
     const autoReview = page.getByRole('region', { name: 'GhostTown daily review', exact: true })
       .filter({ hasText: `GhostTown reviewed Day ${day.dayNumber}` });
-    await autoReview.waitFor({ state: 'visible', timeout: 90000 });
+    try {
+      await autoReview.waitFor({ state: 'visible', timeout: 90000 });
+    } catch (error) {
+      // Say what the screen showed instead, so a failed run explains itself.
+      const alerts = await page.getByRole('alert').allTextContents().catch(() => []);
+      const statuses = await page.getByRole('status').allTextContents().catch(() => []);
+      throw new Error(`Day ${day.dayNumber} Coach review did not appear within 90 seconds. alerts=${JSON.stringify(alerts).slice(0, 800)} status=${JSON.stringify(statuses).slice(0, 400)} cause=${error instanceof Error ? error.message.split('\n')[0] : String(error)}`);
+    }
     const coachMemoryAfterDay = await apiJson(page.request, coachMemoryUrl);
     const persistedReview = (coachMemoryAfterDay.dailyReviews || []).find(review => review.dayNumber === day.dayNumber);
     if (!persistedReview?.responseId || persistedReview.phase !== 'review') {

@@ -10,7 +10,7 @@ vi.mock('../src/api/generativeAIService', async importOriginal => {
   return { ...actual, generateAI };
 });
 
-const { runExecutionCopilot } = await import('../src/api/executionAIService');
+const { runExecutionCopilot, coachOutputTokenBudget, generativeTaskForExecutionCapability } = await import('../src/api/executionAIService');
 const { buildExecutionRagContext } = await import('../src/lib/blueprintExecutionIntelligence');
 const { checkoutAccessibilityBlueprintFixture } = await import('./fixtures/checkoutAccessibilityBlueprint');
 
@@ -75,5 +75,23 @@ describe('grounded research answers that come back as prose', () => {
 
     expect(result.degraded).toEqual({ active: true, reason: 'unstructured_response' });
     expect(generateAI).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Coach token budget', () => {
+  // Run 43114798249: the thinking model used ~1,725 of 1,800 tokens thinking and
+  // cut every plan-change review off after ~60 answer tokens.
+  it('gives thinking-model capabilities room to think and still answer', () => {
+    for (const capability of ['strategy_reasoner', 'critic'] as const) {
+      expect(generativeTaskForExecutionCapability(capability)).toBe('blueprint');
+      expect(coachOutputTokenBudget(capability)).toBeGreaterThanOrEqual(8192);
+    }
+    expect(coachOutputTokenBudget('fast_assistant')).toBe(1800);
+  });
+
+  it('sends that budget on the plan-change Coach call', async () => {
+    generateAI.mockResolvedValueOnce({ text: JSON.stringify(structuredAnswer), receipt: { ...groundedReceipt, task: 'blueprint' } });
+    await runExecutionCopilot(env, 'strategy_reasoner', 'current_experiment', context, 'Should I change the offer?', [], 'review');
+    expect(generateAI.mock.calls[0][1].maxOutputTokens).toBeGreaterThanOrEqual(8192);
   });
 });

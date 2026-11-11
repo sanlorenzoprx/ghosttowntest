@@ -66,6 +66,15 @@ const CRITIC_SCHEMA: GenerativeAIResponseSchema = {
   required: ['challenge', 'overreachDetected', 'saferRecommendation']
 };
 
+// Token budget for one Coach answer. The "blueprint" slot runs a thinking model,
+// and Vertex counts its thinking against maxOutputTokens: with 1,800 tokens it
+// spent about 1,725 thinking and cut the JSON answer off after about 60
+// (Acceptance run 43114798249, every review after the plan changed). Thinking
+// slots get the service default; the light model keeps its short budget.
+export function coachOutputTokenBudget(capability: ExecutionCapability): number {
+  return generativeTaskForExecutionCapability(capability) === 'blueprint' ? 8192 : 1800;
+}
+
 export function generativeTaskForExecutionCapability(capability: ExecutionCapability): GenerativeAITask {
   // Capability names are stable product contracts. Provider/model configuration remains replaceable.
   // The current Vertex mapping deliberately reuses the proven cheap/strong/research slots rather
@@ -250,7 +259,7 @@ export async function runExecutionCopilot(
     systemInstruction: systemInstruction(mode, capability, phase),
     responseSchema: COPILOT_SCHEMA,
     temperature: capability === 'fast_assistant' ? 0.15 : capability === 'critic' ? 0 : 0.05,
-    maxOutputTokens: 1800,
+    maxOutputTokens: coachOutputTokenBudget(capability),
     timeoutMs: 35_000,
     googleSearch: capability === 'grounded_research'
   } as const;
@@ -306,7 +315,7 @@ export async function runExecutionCritic(
     ].join('\n'),
     responseSchema: CRITIC_SCHEMA,
     temperature: 0,
-    maxOutputTokens: 700,
+    maxOutputTokens: coachOutputTokenBudget('critic'),
     timeoutMs: 30_000
   });
   return { output: generated.data, receipt: generated.result.receipt };
