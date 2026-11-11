@@ -1,12 +1,14 @@
 # First 30 release checklist
 
 Prepared 11 November 2026. This is an ordered release plan, not a record that production has changed.
-Candidate commit: `cd92715f9decb4e715fe415bcd45429f51c5b96c`.
-Acceptance run: https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43071614954
+Candidate commit: `901f36334f79bded4c9805985889c9ce31ccc3eb`.
+Acceptance run: https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43118493729 (`plan_change`)
 
-The run failed; see [the actual outcomes and fixes](ACCEPTANCE_STATUS_2026_11_11.md). This is not
-a release-approved SHA. After the fixes and provider input, prove the current main head again
-before production release.
+Every automated stage passed on this commit: front door, the full 30-day Sprint (the plan changed at
+Days 7, 14, 21 and 30 exactly as the evidence required, and all 30 Coach reviews were complete and
+saved), Get Me Live, owner controls and Sprint without Get Me Live. The go-live report passed 31 of 33
+checks; the other two are the Stripe payment and Cloudflare OAuth proofs, which need you. This is not
+yet a release-approved SHA: run `on_track` on this same commit too, and do step 2, then rerun.
 
 1. **Prove the release commit on acceptance.** From the repository, run:
    ```sh

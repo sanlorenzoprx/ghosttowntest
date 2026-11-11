@@ -167,6 +167,15 @@ production and what is not); and no file in the repository links to a deleted on
 
 ### Q08 — Prove `main` on acceptance — `blocked`
 
+Run 43118493729 (`plan_change`, 901f363, after #93): every automated stage passed. All 30 days were
+completed and all 30 Coach reviews saved; the plan moved continue (1-6), revise_message (7-13),
+revise_price (14-20), revise_offer (21-29), revise_customer (30) exactly as expected; no review was
+degraded, and plan-change answers ran 306-757 tokens instead of being cut off at about 60. Outside
+research came back structured and the front door passed. The go-live report passed 31 of 33 checks;
+the two left are the Stripe payment and Cloudflare OAuth proofs, which need the founder. Remaining
+for Q08: run `on_track` on 901f363 (its last run predates #92 and #93), then both founder proofs,
+then a final Acceptance run.
+
 Run 43114798249 (`plan_change`, e98b4d3): the plan changed exactly as expected through Day 22
 (`revise_message` from Day 7, `revise_price` from 14, `revise_offer` from 21, each allowing only its
 one part to change). The grounded research fix worked (structured, not degraded) and the front door
