@@ -1,5 +1,6 @@
 import { LEGAL_POLICY } from '../lib/businessPolicy';
-import { GHOSTTOWN_FIRST_30_V1, GHOSTTOWN_YEAR_SQUARED_V1 } from '../lib/ghosttownOffer';
+import { GHOSTTOWN_FIRST_30_OPEN_COPY, GHOSTTOWN_FIRST_30_V1, GHOSTTOWN_YEAR_SQUARED_V1 } from '../lib/ghosttownOffer';
+import { FIRST30_OFFER_ACTIVE } from '../lib/postVerdictOffer';
 
 interface Props {
   locale?: 'en' | 'es';
@@ -15,7 +16,7 @@ export default function AboutPage({ locale = 'en' }: Props) {
     intro: 'GhostTown te ayuda a saber si vale la pena construir una idea de negocio antes de pasar meses en ella, y luego te ayuda a probarla con clientes reales.',
     offerTitle: 'Lo que ofrecemos',
     verdict: ['Veredicto gratis.', 'Contesta unas preguntas sobre tu idea y recibe un veredicto claro y la prueba más rápida para hacer después.'],
-    first30: [`${first30.name}: ${first30.displayPrice}, abre pronto.`, `${first30.durationDays} días de ayuda guiada, un sitio web para conseguir clientes para tu negocio y los materiales para llegar a tus primeros clientes.`],
+    first30: [FIRST30_OFFER_ACTIVE ? GHOSTTOWN_FIRST_30_OPEN_COPY.es.aboutLead : `${first30.name}: ${first30.displayPrice}, abre pronto.`, `${first30.durationDays} días de ayuda guiada, un sitio web para conseguir clientes para tu negocio y los materiales para llegar a tus primeros clientes.`],
     year: [`${year.name}.`, `Se ofrece durante ${first30.name}: un año con el socio operativo de IA de GhostTown, con tu pago de ${first30.name} acreditado.`],
     whoTitle: 'Quién opera GhostTown',
     labels: { company: 'Compañía', based: 'Ubicada en', website: 'Sitio web', email: 'Email' },
@@ -28,7 +29,7 @@ export default function AboutPage({ locale = 'en' }: Props) {
     intro: 'GhostTown helps you find out whether a business idea is worth building before you spend months on it, and then helps you test it with real customers.',
     offerTitle: 'What we offer',
     verdict: ['Free verdict.', 'Answer a few questions about your idea and get a clear verdict and the fastest test to run next.'],
-    first30: [`${first30.name} — ${first30.displayPrice}, opens soon.`, `${first30.durationDays} days of guided help, a customer-acquisition website for your business, and the materials to reach your first customers.`],
+    first30: [FIRST30_OFFER_ACTIVE ? GHOSTTOWN_FIRST_30_OPEN_COPY.en.aboutLead : `${first30.name} — ${first30.displayPrice}, opens soon.`, `${first30.durationDays} days of guided help, a customer-acquisition website for your business, and the materials to reach your first customers.`],
     year: [`${year.name}.`, `Offered during ${first30.name}: a year with GhostTown's AI operating partner, with your ${first30.name} payment credited toward it.`],
     whoTitle: 'Who runs GhostTown',
     labels: { company: 'Company', based: 'Based in', website: 'Website', email: 'Email' },

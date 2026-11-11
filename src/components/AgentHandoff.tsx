@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 import { captureCommercialAttribution } from '../lib/commercialAttribution';
 import type { EvaluationResult } from '../types/lit';
-import { SPRINT_OFFER_ACTIVE } from '../lib/postVerdictOffer';
+import { FIRST30_OFFER_ACTIVE, SPRINT_OFFER_ACTIVE } from '../lib/postVerdictOffer';
+import { GHOSTTOWN_FIRST_30_OPEN_COPY } from '../lib/ghosttownOffer';
 import type { Locale } from '../lib/locale';
 
 const COPY: Record<Locale, Record<'expired'
@@ -208,6 +209,9 @@ export default function AgentHandoff({ handoffToken, isLoggedIn, onLoginClick, o
           {SPRINT_OFFER_ACTIVE ? <>
             <h2 className="text-2xl font-black text-ghost-ink">{t.sprintTitle}</h2>
             <p className="mt-2 text-gray-700">{t.sprintBody}</p>
+          </> : FIRST30_OFFER_ACTIVE ? <>
+            <h2 className="text-2xl font-black text-ghost-ink">{GHOSTTOWN_FIRST_30_OPEN_COPY[locale].handoffTitle}</h2>
+            <p className="mt-2 text-gray-700">{GHOSTTOWN_FIRST_30_OPEN_COPY[locale].handoffBody}</p>
           </> : <>
             <h2 className="text-2xl font-black text-ghost-ink">{t.soonTitle}</h2>
             <p className="mt-2 text-gray-700">{t.soonBody}</p>

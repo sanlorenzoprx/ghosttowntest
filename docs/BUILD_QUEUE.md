@@ -138,13 +138,22 @@ screen after payment, the competitor step and the agent handoff. Three files sta
 
 Done when: the same as Q04.
 
-### Q06 — Spanish for Get Me Live — `todo`
+### Q06 — Spanish for Get Me Live — `done`
+
+Done on 11 November for the Get Me Live offer card, the landing page and the "putting your website
+online" tab. The setup workspace (`GetMeLiveWorkspace.tsx`, 323 long lines, also driven by the
+acceptance test) and its one-line alias `GetMeLiveStudio.tsx` moved to Q12.
 
 `GetMeLiveLanding`, `GetMeLiveOpening`, `GetMeLiveStudio`, `GetMeLiveUpsell`, `GetMeLiveWorkspace`.
 
 Done when: the same as Q04, and the legacy list in the test is empty.
 
-### Q07 — Make the docs tell the truth — `todo`
+### Q07 — Make the docs tell the truth — `done`
+
+Done on 11 November. The nine root files and `docs/PRODUCTION_READINESS.md` were leftovers from the
+first code generation ("44 files, ready to ship") and described nothing true today; all ten are
+deleted, and nothing linked to them. `README.md` now describes what GhostTown sells today, and
+`docs/CURRENT_STATE.md` opens with the state on 11 November, with the older sections kept as history.
 
 `GO_LIVE_GOAL.md` and `docs/PRODUCTION_READINESS.md` describe an early $97 product with 46 tests. The
 root also holds `READY_TO_SHIP.txt`, `PUSH_TO_GITHUB.sh`, `START_HERE.md`, `FINAL_DELIVERY_SUMMARY.md`,
@@ -158,7 +167,7 @@ production and what is not); and no file in the repository links to a deleted on
 
 ### Q08 — Prove `main` on acceptance — `todo`
 
-Take this only when Q01 to Q06, Q10 and Q11 are `done` or `blocked`.
+Take this only when Q01 to Q06 and Q10 to Q12 are `done` or `blocked`.
 
 Done when: the `Acceptance` workflow has run on the head of `main` with deploy on, and every automated
 stage passes: fixture, runtime inputs, front door, 30-day Sprint, Get Me Live, owner controls, and
@@ -194,7 +203,13 @@ step with the exact command, workflow name or screen, what it does and how to un
 It names the exact `main` commit that Q08 proved, and lists any item left `blocked` with its reason.
 `docs/CURRENT_STATE.md` links to it.
 
-### Q10 — Say "First 30 is open" everywhere once it is on sale — `todo`
+### Q10 — Say "First 30 is open" everywhere once it is on sale — `done`
+
+Done on 11 November. The shared copy is `GHOSTTOWN_FIRST_30_OPEN_COPY` in `src/lib/ghosttownOffer.ts`.
+With First 30 on sale, the landing page shows the price, what it covers and the refund rule, and its
+button starts a free verdict; the FAQ, the About page and the agent handoff say it is open. With it
+off, all three are unchanged. The agent surface was already right: it reports `available` only when
+the Worker has `FIRST30_CHECKOUT_ENABLED`.
 
 Added on 11 November. Take this before Q08. When the site is built with
 `VITE_POST_VERDICT_OFFER=first30`, the verdict page sells First 30, but the landing page
@@ -219,3 +234,15 @@ Done when: the same as Q04 for both files. If no order in the acceptance databas
 format and the code path cannot be reached by a new order, it is also acceptable to mark this
 `blocked` with that finding and leave the decision (translate or retire the old view) to the founder
 in Q09; do not delete the old view without that decision.
+
+### Q12 — Spanish for the Get Me Live setup workspace — `todo`
+
+Added on 11 November, split from Q06. `GetMeLiveWorkspace.tsx` is the ten-step screen where a buyer
+names the business, picks the look, connects Cloudflare and goes live. A First 30 buyer who reads
+Spanish reaches it, so this matters for the goal. Take it before Q11.
+
+Done when: the same as Q04 for this file, including the step names, the look names, every button,
+message and error it writes itself. The English text stays exactly as it is, because
+`tests/e2e/get-me-live-acceptance.mjs`, `tests/getMeLiveBrowser.test.ts` and the contract tests find
+the screen by its English labels; run `npm run test:browser` as well as the usual checks. Text that
+comes back from the server stays as the server wrote it.

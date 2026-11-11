@@ -5,7 +5,8 @@ import ExampleIdeaGallery from './ExampleIdeaGallery';
 import FounderJourneyHero from './FounderJourneyHero';
 import ProofStandard from './ProofStandard';
 import First30Waitlist from './First30Waitlist';
-import { SPRINT_OFFER_ACTIVE } from '../lib/postVerdictOffer';
+import { FIRST30_OFFER_ACTIVE, SPRINT_OFFER_ACTIVE } from '../lib/postVerdictOffer';
+import { GHOSTTOWN_FIRST_30_OPEN_COPY } from '../lib/ghosttownOffer';
 
 interface Props {
   onStart: () => void;
@@ -29,6 +30,7 @@ export default function LandingCommercial({
   locale
 }: Props) {
   const es = locale === 'es';
+  const first30Open = GHOSTTOWN_FIRST_30_OPEN_COPY[locale];
   const isReturningVerdictCustomer = isLoggedIn && hasUsedFreeVerdict;
   const primaryVerdictCta = isReturningVerdictCustomer
     ? (es ? 'Probar otra idea' : 'Test Another Idea')
@@ -58,7 +60,7 @@ export default function LandingCommercial({
         ['¿Qué recibo gratis?', 'Un veredicto claro sobre tu idea, el mayor riesgo que vemos y qué hacer después. No necesitas tarjeta.'],
         SPRINT_OFFER_ACTIVE
           ? ['¿Qué recibo por $97?', 'Un Sprint de 30 días hecho para tu idea, con oferta, precio, clientes, mensajes, tareas diarias, investigación, reglas de evidencia y decisiones claras sobre qué hacer después. El sitio web en vivo no está incluido; Get Me Live es un producto separado de $297, pago único.']
-          : ['¿Qué viene después del veredicto?', 'First 30 abre pronto: treinta días de ayuda guiada para probar tu idea, con un sitio web para conseguir clientes y materiales de contacto basados en lo que investigamos: dónde ya conversan tus posibles clientes y qué problemas describen. Todavía no está a la venta. Únete a la lista y te escribiremos cuando abra.'],
+          : FIRST30_OFFER_ACTIVE ? [GHOSTTOWN_FIRST_30_OPEN_COPY.es.faqQuestion, GHOSTTOWN_FIRST_30_OPEN_COPY.es.faqAnswer] : ['¿Qué viene después del veredicto?', 'First 30 abre pronto: treinta días de ayuda guiada para probar tu idea, con un sitio web para conseguir clientes y materiales de contacto basados en lo que investigamos: dónde ya conversan tus posibles clientes y qué problemas describen. Todavía no está a la venta. Únete a la lista y te escribiremos cuando abra.'],
         ['¿GhostTown garantiza que mi negocio funcionará?', 'No. Nadie puede prometer eso. GhostTown te ayuda a aprender antes de gastar meses y dinero.'],
         ['¿Tengo que construir algo primero?', 'No. La meta es probar primero las partes que pueden matar la idea.'],
         ...(SPRINT_OFFER_ACTIVE ? [['¿Puedo volver a descargar mi plan?', 'Sí. Tu plan y tus archivos terminados se guardan en tu cuenta.']] : [['¿Se guarda mi veredicto?', 'Sí, si creas una cuenta. Tu veredicto queda guardado en tu panel.']])
@@ -67,7 +69,7 @@ export default function LandingCommercial({
         ['What do I get free?', 'A clear verdict on your idea, the biggest risk we see, and what to do next. No credit card needed.'],
         SPRINT_OFFER_ACTIVE
           ? ['What do I get for $97?', 'A 30-day Sprint made for your idea, with your offer, price, customer, messages, daily steps, research, evidence rules, and clear decisions about what to do next. A live website is not included; Get Me Live is a separate $297 one-time product.']
-          : ['What comes after the verdict?', 'First 30 opens soon: thirty days of guided help to test your idea, with a customer-acquisition website and outreach materials shaped by our research into where your likely customers already talk and the problems they describe. It is not on sale yet. Join the list and we will email you when it opens.'],
+          : FIRST30_OFFER_ACTIVE ? [GHOSTTOWN_FIRST_30_OPEN_COPY.en.faqQuestion, GHOSTTOWN_FIRST_30_OPEN_COPY.en.faqAnswer] : ['What comes after the verdict?', 'First 30 opens soon: thirty days of guided help to test your idea, with a customer-acquisition website and outreach materials shaped by our research into where your likely customers already talk and the problems they describe. It is not on sale yet. Join the list and we will email you when it opens.'],
         ['Does GhostTown promise my business will work?', 'No. Nobody can promise that. GhostTown helps you learn before you lose months and money.'],
         ['Do I have to build something first?', 'No. The goal is to test the parts that could kill the idea before you build.'],
         ...(SPRINT_OFFER_ACTIVE ? [['Can I download my plan again?', 'Yes. Your plan and finished files stay in your account.']] : [['Is my verdict saved?', 'Yes, if you create an account. Your verdict stays in your dashboard.']])
@@ -214,7 +216,24 @@ export default function LandingCommercial({
       <ExampleIdeaGallery onSelect={onSelectExample} locale={locale} />
       <ProofStandard locale={locale} />
 
-      {!SPRINT_OFFER_ACTIVE && <section className="bg-[#F8F4ED]">
+      {FIRST30_OFFER_ACTIVE && <section className="bg-[#F8F4ED]" data-first30-open>
+        <div className="mx-auto grid max-w-[78rem] gap-12 px-4 py-24 sm:px-6 sm:py-32 lg:grid-cols-[1fr_0.95fr] lg:items-center lg:gap-20 lg:px-8">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{first30Open.kicker}</p>
+            <h2 className="mt-4 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl">{first30Open.headline}</h2>
+            <p className="mt-7 text-xl leading-9 text-[#3F4944]">{first30Open.body}</p>
+            <p className="mt-4 text-lg font-semibold leading-8 text-[#101A17]">{first30Open.whereToBuy}</p>
+          </div>
+          <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm sm:p-8">
+            <p className="text-sm font-bold uppercase tracking-[0.15em] text-[#A94F2A]">{first30Open.includesTitle}</p>
+            <ul className="mt-4 space-y-3 text-base leading-7 text-[#3F4944]">{first30Open.includes.map(item => <li key={item} className="flex gap-3"><span aria-hidden="true" className="font-black text-emerald-700">✓</span><span>{item}</span></li>)}</ul>
+            <p className="mt-5 text-sm leading-6 text-[#3F4944]">{first30Open.refund}</p>
+            <button type="button" onClick={onStart} className="mt-6 w-full rounded-xl bg-[#A94F2A] px-6 py-4 text-lg font-black text-white">{first30Open.cta}</button>
+            <p className="mt-4 text-xs leading-5 text-gray-500">{first30Open.boundary}</p>
+          </div>
+        </div>
+      </section>}
+      {!SPRINT_OFFER_ACTIVE && !FIRST30_OFFER_ACTIVE && <section className="bg-[#F8F4ED]">
         <div className="mx-auto grid max-w-[78rem] gap-12 px-4 py-24 sm:px-6 sm:py-32 lg:grid-cols-[1fr_0.95fr] lg:items-center lg:gap-20 lg:px-8">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#A94F2A]">{es ? 'Si la idea merece una prueba' : 'If the idea is worth testing'}</p>

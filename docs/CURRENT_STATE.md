@@ -1,6 +1,38 @@
 # GhostTown Current State
 
-Date: 2026-10-01 (Get Me Live dev plan v4 completion); earlier sections dated 2026-09-25 are kept as history.
+Date: 11 November 2026. Earlier sections below are kept as history.
+
+## Where things stand (11 November 2026)
+
+**The product is built. First 30 is not on sale yet, and production is behind `main`.**
+
+What is on `main`:
+
+- Free Verdict, the 30-day plan, Get Me Live and the post-launch loop, with First 30 ($297 paid once for
+  the plan and the website) as Blueprint contract v2.1.14.
+- The Learning Coach: a review after each completed Sprint day and a checkpoint assessment on request.
+- English and Spanish across the customer journey. Still English only: the Get Me Live setup
+  workspace and the old-format Blueprint view (queue items Q12 and Q11).
+- The wording for "First 30 is open" on the landing page, About page and agent handoff, used once the
+  site is built with First 30 on sale.
+
+What is live in production:
+
+- The Worker was last released on 3 October 2026 (pull request #60) and the site at pull request #59.
+  Everything merged since is **not** live: Spanish for the paid Sprint, First 30, the Learning Coach,
+  and D1 migrations `0011` and `0012`.
+- First 30 checkout is off (`FIRST30_CHECKOUT_ENABLED = "false"`), and the verdict page shows the
+  First 30 email list.
+
+What only the founder can do is in `docs/FOUNDER_RELEASE_CHECKLIST.md` (written by queue item Q09):
+the two acceptance proofs that need a person, the production migrations and releases, turning First 30
+on, and the open decisions.
+
+The list of remaining work, with a "done when" for each item, is `docs/BUILD_QUEUE.md`.
+
+## History: 1 October 2026 (Get Me Live dev plan v4 completion)
+
+Earlier sections dated 2026-09-25 are kept as history.
 Purpose: evidence-backed handoff after the fresh acceptance customer-journey pass and Get Me Live stabilization.
 
 ## Get Me Live v4 — "website first, domain optional" (2026-10-01)

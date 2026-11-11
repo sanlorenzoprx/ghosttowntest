@@ -248,7 +248,7 @@ export default function ActionPlanSuccess({ orderId, onDone, locale = "en" }: Pr
         {ready && (
           <>
             <SprintShareMoment sourceSprintOrderId={orderId} locale={locale} />
-            {isFirst30OrderId(orderId) ? <First30WebsiteIncluded locale={locale} /> : <GetMeLiveUpsell sourceSprintOrderId={orderId} />}
+            {isFirst30OrderId(orderId) ? <First30WebsiteIncluded locale={locale} /> : <GetMeLiveUpsell locale={locale} sourceSprintOrderId={orderId} />}
             <div className="mt-7 grid gap-3">
               <button
                 onClick={() => void download()}

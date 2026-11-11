@@ -791,7 +791,7 @@ export default function UserDashboard({
                       )}
                     </div>
                   </div>
-                  {isBlueprint && plan.status === "ready" && <div className="mt-4">{isFirst30OrderId(plan.orderId) ? <First30WebsiteIncluded locale={locale} /> : <GetMeLiveUpsell sourceSprintOrderId={plan.orderId} compact />}</div>}
+                  {isBlueprint && plan.status === "ready" && <div className="mt-4">{isFirst30OrderId(plan.orderId) ? <First30WebsiteIncluded locale={locale} /> : <GetMeLiveUpsell locale={locale} sourceSprintOrderId={plan.orderId} compact />}</div>}
                 </article>
               );
             })}
