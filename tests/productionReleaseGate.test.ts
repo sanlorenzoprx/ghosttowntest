@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
@@ -28,6 +29,21 @@ describe('production release gate', () => {
     expect(workflow).toContain('execution_learning_candidates');
     expect(workflow).toContain('execution_product_knowledge');
     expect(workflow).toContain('idx_execution_product_knowledge_retrieval');
+  });
+
+  it('permits only the reviewed pending migration sets for the First 30 release', () => {
+    expect(workflow).toContain('migrate-0011-0012');
+    expect(workflow).toContain('APPLY 0011 AND 0012 TO PRODUCTION');
+    expect(workflow).toContain("pragma_table_info('get_me_live_orders') WHERE name='entitlement_source'");
+    expect(workflow).toContain("pragma_table_info('get_me_live_orders') WHERE name='build_started_at'");
+    const step = workflow.split('- name: Verify the pending migrations are 0011 and 0012, or 0012 alone')[1].split('- name: Capture production schema')[0];
+    const guard = step.slice(step.indexOf('          case ')).split('\n').map(line => line.slice(10)).join('\n');
+    const check = (pending: string[]) => execFileSync('bash', ['-c', 'pending=("$@");\n' + guard, 'guard', ...pending], { stdio: 'pipe' });
+    expect(() => check(['0011_execution_learning_coach.sql', '0012_first30_included_website.sql'])).not.toThrow();
+    expect(() => check(['0012_first30_included_website.sql'])).not.toThrow();
+    for (const pending of [[], ['0011_execution_learning_coach.sql'], ['0010_get_me_live_hosting_releases.sql', '0012_first30_included_website.sql'], ['0012_first30_included_website.sql', '0013_unreviewed.sql']]) {
+      expect(() => check(pending)).toThrow();
+    }
   });
 
   it('stages an exact version at zero percent before promotion', () => {

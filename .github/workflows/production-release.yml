@@ -11,6 +11,7 @@ on:
           - preflight
           - migrate-0010
           - migrate-0011
+          - migrate-0011-0012
           - stage-version
           - promote-version
       expected_main_sha:
@@ -73,6 +74,7 @@ jobs:
             preflight) expected="PREFLIGHT PRODUCTION" ;;
             migrate-0010) expected="APPLY 0010 TO PRODUCTION" ;;
             migrate-0011) expected="APPLY 0011 TO PRODUCTION" ;;
+            migrate-0011-0012) expected="APPLY 0011 AND 0012 TO PRODUCTION" ;;
             stage-version) expected="STAGE VERSION FOR PRODUCTION" ;;
             promote-version) expected="PROMOTE VERSION TO PRODUCTION" ;;
             *) echo "::error::Unknown operation $OPERATION"; exit 1 ;;
@@ -209,8 +211,35 @@ jobs:
             exit 1
           fi
 
+      - name: Verify the pending migrations are 0011 and 0012, or 0012 alone
+        if: ${{ inputs.operation == 'migrate-0011-0012' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t pending < <(grep -oE '[0-9]{4}_[A-Za-z0-9_-]+\.sql' github-production-release/migrations-before.txt | sort -u)
+          case "${pending[*]}" in
+            "0011_execution_learning_coach.sql 0012_first30_included_website.sql"|"0012_first30_included_website.sql") ;;
+            *) echo "::error::Unexpected pending migrations; refusing apply."; printf '%s\n' "${pending[@]}"; exit 1 ;;
+          esac
+
+      - name: Capture production schema before 0011 and 0012
+        if: ${{ inputs.operation == 'migrate-0011-0012' }}
+        run: npx wrangler d1 export DB --env production --remote --no-data --output github-production-release/schema-before.sql --skip-confirmation
+
+      - name: Apply production migrations 0011 and 0012
+        if: ${{ inputs.operation == 'migrate-0011-0012' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 migrations apply DB --env production --remote | tee github-production-release/migration-apply.txt
+          npx wrangler d1 migrations list DB --env production --remote | tee github-production-release/migrations-after.txt
+          if grep -Eq '[0-9]{4}_[A-Za-z0-9_-]+\.sql' github-production-release/migrations-after.txt; then
+            echo "::error::Migrations remain pending after apply."
+            exit 1
+          fi
+
       - name: Verify production schema after 0011
-        if: ${{ inputs.operation == 'migrate-0011' }}
+        if: ${{ inputs.operation == 'migrate-0011' || inputs.operation == 'migrate-0011-0012' }}
         shell: bash
         run: |
           SCHEMA_SQL="SELECT
@@ -256,6 +285,25 @@ jobs:
           NODE
           curl -fsS --connect-timeout 10 --max-time 20 "$HEALTH_URL" > github-production-release/health-after-migration-0011.json
           node -e "const h=require('./github-production-release/health-after-migration-0011.json'); if(h.status!=='ok'||h.service!=='ghosttowntest') process.exit(1)"
+
+      - name: Verify production schema after 0012
+        if: ${{ inputs.operation == 'migrate-0011-0012' }}
+        shell: bash
+        run: |
+          SCHEMA_SQL="SELECT
+            (SELECT COUNT(*) FROM pragma_table_info('get_me_live_orders') WHERE name='entitlement_source') AS entitlement_source,
+            (SELECT COUNT(*) FROM pragma_table_info('get_me_live_orders') WHERE name='build_started_at') AS build_started_at;"
+          npx wrangler d1 execute DB --env production --remote --command "$SCHEMA_SQL" --json > github-production-release/schema-verification-0012.json
+          node <<'NODE'
+          const fs = require('fs');
+          const parsed = JSON.parse(fs.readFileSync('github-production-release/schema-verification-0012.json', 'utf8'));
+          const result = Array.isArray(parsed) ? parsed[0] : parsed;
+          const row = (result.results || result.result || [])[0] || {};
+          if (Number(row.entitlement_source) !== 1 || Number(row.build_started_at) !== 1) throw new Error('Migration 0012 schema verification failed.');
+          console.log('MIGRATION_0012_SCHEMA_OK=' + JSON.stringify(row));
+          NODE
+          curl -fsS --connect-timeout 10 --max-time 20 "$HEALTH_URL" > github-production-release/health-after-migration-0012.json
+          node -e "const h=require('./github-production-release/health-after-migration-0012.json'); if(h.status!=='ok'||h.service!=='ghosttowntest') process.exit(1)"
 
       - name: Resolve current 100 percent production version
         if: ${{ inputs.operation == 'stage-version' }}
