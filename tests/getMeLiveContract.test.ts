@@ -106,7 +106,7 @@ describe('Get Me Live pre-launch has no domain step', () => {
     for (const retired of ['/domains/search', '/domains/register', '/domains/status', '/name-options', 'registrationPrice', 'Costs outside GhostTown', 'Buy a web address', 'domainReady', 'chosenDomain']) {
       expect(workspace).not.toContain(retired);
     }
-    expect(workspace).toContain('{configuration.offer.intent === "buy" && <p className="mt-5 text-sm text-gray-700">Stripe charges its normal fees only when a customer pays.</p>}');
+    expect(workspace).toContain('{configuration.offer.intent === "buy" && <p className="mt-5 text-sm text-gray-700">{t("Stripe charges its normal fees only when a customer pays.")}</p>}');
     const index = await read('src/api/index.ts');
     for (const retired of ['domains\\/search', 'domains\\/register', 'domains\\/status', 'name-options']) expect(index).not.toContain(retired);
     const api = await read('src/api/getMeLive.ts');
@@ -121,7 +121,7 @@ describe('Get Me Live pre-launch has no domain step', () => {
     expect(contactStep).not.toMatch(/business ?email|setupEmail/i);
     expect(workspace).toContain('const activeDomain = order?.customDomainState?.status === "active" ? order.customDomainState.name : undefined;');
     expect(workspace).toContain('const emailDomain = activeDomain && order?.customDomainState?.hosts.includes(`www.${activeDomain}`) ? activeDomain : undefined;');
-    expect(workspace).toContain('{emailDomain && <div className="mt-7 rounded-xl border p-5"><p className="text-xs font-black uppercase tracking-[.18em] text-gray-600">Optional</p><h3 className="mt-1 text-xl font-black">Want a matching business email?</h3>');
+    expect(workspace).toContain('{emailDomain && <div className="mt-7 rounded-xl border p-5"><p className="text-xs font-black uppercase tracking-[.18em] text-gray-600">{t("Optional")}</p><h3 className="mt-1 text-xl font-black">{t("Want a matching business email?")}</h3>');
   });
 
   it('#26 the step URL param resolves to a real step; legacy step=domain maps to name', async () => {

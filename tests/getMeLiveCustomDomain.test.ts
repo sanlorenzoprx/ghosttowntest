@@ -42,11 +42,11 @@ describe('Get Me Live custom domain contracts', () => {
   it('the card reads as optional in every state and always names the working Pages address', async () => {
     const workspace = await read('src/components/GetMeLiveWorkspace.tsx');
     expect(workspace).toContain('Cloudflare is setting up your address. This can take a few minutes; you can close this page.');
-    expect(workspace).toContain('Your website is now at {order.customDomainState.name}');
-    expect(workspace).toContain('Your website is still open at {order.hosting?.pagesUrl}.');
+    expect(workspace).toContain('{t("Your website is now at")} {order.customDomainState.name}');
+    expect(workspace).toContain('{t("Your website is still open at")} {order.hosting?.pagesUrl}.');
     expect(workspace).toContain('I bought it — connect it');
     expect(workspace).toContain('Show me how to connect it');
-    expect(workspace).toContain('>Try again</button>');
+    expect(workspace).toContain('>{t("Try again")}</button>');
   });
 
   it('custom_domain is written only by the compare-and-swap writer, and only while active', async () => {
