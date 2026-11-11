@@ -377,7 +377,7 @@ export default function App() {
           />
         )}
         {screen === 'unlock-verdict' && (
-          <VerdictUnlockPage
+          <VerdictUnlockPage locale={locale}
             draft={resumeDraft}
             isLoggedIn={isLoggedIn}
             purchaseReturn={purchaseReturn}
@@ -407,7 +407,7 @@ export default function App() {
         {screen === 'contact' && <Contact onStart={handleStartTest} locale={locale} />}
         {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && <LegalPage kind={screen} locale={locale} />}
         {screen === 'about' && <AboutPage locale={locale} />}
-        {screen === 'action-plan-success' && <ActionPlanSuccess orderId={new URLSearchParams(window.location.search).get('order_id') || ''} onDone={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
+        {screen === 'action-plan-success' && <ActionPlanSuccess locale={locale} orderId={new URLSearchParams(window.location.search).get('order_id') || ''} onDone={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
         {screen === 'internal-research' && isLoggedIn && <InternalGoogleSearchConsole onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
         {screen === 'internal-research' && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Owner login required</h1><p className="mt-3 text-gray-700">This standalone research console is not part of the customer product.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
         {screen === 'internal-metrics' && isLoggedIn && <CommercialMetricsConsole onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}

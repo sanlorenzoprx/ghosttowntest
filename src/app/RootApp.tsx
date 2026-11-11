@@ -58,6 +58,7 @@ function AgentHandoffEntry({ token }: { token: string }) {
         onLoginClick={() => setShowLogin(true)}
         onClaimed={setResult}
         onHome={() => { window.location.href = '/'; }}
+        locale={locale}
       />
       {showLogin && <LoginModal onLogin={() => { setIsLoggedIn(true); setShowLogin(false); }} onClose={() => setShowLogin(false)} initialMode="login" locale={locale} />}
     </div>

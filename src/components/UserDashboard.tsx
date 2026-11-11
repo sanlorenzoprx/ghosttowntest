@@ -504,6 +504,7 @@ export default function UserDashboard({
         <div className="rounded-xl border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern sm:p-10">
           <CompetitorSeedStep
             orderId={seedOrderId}
+            locale={locale}
             onBack={() => {
               setSeedOrderId("");
               void loadPaidPlans();
