@@ -151,15 +151,24 @@ try {
   }
 
   // Prove the checkout side effect independently from the authenticated order projection.
-  const ordersResponse = await fetch(`${apiUrl}/api/paid-test/orders`, {
-    headers: { Authorization: `Bearer ${authToken}` },
-  });
-  const ordersBody = await ordersResponse.json().catch(() => ({}));
-  const checkoutOrder = Array.isArray(ordersBody?.orders)
-    ? ordersBody.orders.find(order => order?.status === 'checkout_created' && /^gtt_[A-Za-z0-9_-]+$/.test(String(order?.orderId || '')))
-    : null;
+  // The order list is a per-account summary in Cloudflare KV. KV can serve a cached
+  // copy for up to about 60 seconds after a write, and this fixture account read its
+  // list moments earlier, so check again for up to 90 seconds before failing.
+  let ordersResponse;
+  let checkoutOrder = null;
+  const ordersDeadline = Date.now() + 90_000;
+  do {
+    if (ordersResponse) await new Promise(resolve => setTimeout(resolve, 3000));
+    ordersResponse = await fetch(`${apiUrl}/api/paid-test/orders`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    const ordersBody = await ordersResponse.json().catch(() => ({}));
+    checkoutOrder = Array.isArray(ordersBody?.orders)
+      ? ordersBody.orders.find(order => order?.status === 'checkout_created' && /^gtt_[A-Za-z0-9_-]+$/.test(String(order?.orderId || '')))
+      : null;
+  } while ((!ordersResponse.ok || !checkoutOrder?.orderId) && Date.now() < ordersDeadline);
   if (!ordersResponse.ok || !checkoutOrder?.orderId) {
-    throw new Error(`Stripe test checkout opened but GhostTown did not expose the checkout_created order: HTTP ${ordersResponse.status}`);
+    throw new Error(`Stripe test checkout opened but GhostTown did not expose the checkout_created order within 90 seconds: HTTP ${ordersResponse.status}`);
   }
   await appendFile(envFile, `GHOSTTOWN_E2E_CHECKOUT_ORDER_ID=${checkoutOrder.orderId}\n`);
   proof.checkoutOrderId = checkoutOrder.orderId;

@@ -167,6 +167,18 @@ production and what is not); and no file in the repository links to a deleted on
 
 ### Q08 — Prove `main` on acceptance — `blocked`
 
+Run 43109842657 (`on_track`, 8ea92f3): the full 30-day Sprint passed. All 30 days were completed and
+all 30 Coach reviews saved, and the plan stayed `continue` every day as the scenario expects. Get Me
+Live, owner controls and Sprint without Get Me Live passed. The go-live report passed 28 of 33 checks.
+Two new blockers were fixed in the following pull request:
+- Front door: the order list is a KV summary that can be served from cache for up to about 60 seconds
+  after a write, and the test read it at once. It now re-checks for up to 90 seconds.
+- Outside research: Vertex returns prose, not the requested JSON, when Google Search is on in the
+  same request ("grounded_non_json"; also in run 43105507992). The Coach now asks a second, ungrounded
+  call to put the grounded answer into the schema, using only what that answer says. It keeps the
+  grounded receipt and sources, and falls back as before if that also fails.
+Stripe and OAuth still need the founder's proofs. Next: `plan_change`, then `on_track` again if needed.
+
 Run 43105507992 tested 5b234cb (after #87 and #88). Fixture, runtime inputs, front door, Get Me Live
 and owner controls passed. The Sprint stopped at Day 2 again with "automatic UI learning review was
 not durably persisted", and Sprint without Get Me Live failed only because the Sprint never reached
