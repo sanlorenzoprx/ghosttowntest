@@ -2,6 +2,12 @@ name: Cloudflare OAuth Proof
 
 on:
   workflow_dispatch:
+    inputs:
+      test_owner:
+        description: "Acceptance account email that will authorize Cloudflare; blank reuses the existing test owner"
+        required: false
+        default: ""
+        type: string
   push:
     branches:
       - test/agentic-go-live-gate
@@ -33,7 +39,7 @@ jobs:
       CI: "true"
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      GHOSTTOWN_OAUTH_TEST_OWNER: ghosttown.acceptance.20261004@example.com
+      GHOSTTOWN_OAUTH_TEST_OWNER: ${{ inputs.test_owner || 'ghosttown.acceptance.20261004@example.com' }}
 
     steps:
       - name: Check out repository
