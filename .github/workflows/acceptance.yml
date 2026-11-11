@@ -13,6 +13,14 @@ on:
         required: true
         default: false
         type: boolean
+      sprint_scenario:
+        description: "Synthetic 30-day data: on_track (plan stays unchanged) or plan_change (each checkpoint changes one part of the plan)"
+        required: false
+        default: on_track
+        type: choice
+        options:
+          - on_track
+          - plan_change
 
 permissions:
   contents: read
@@ -176,6 +184,8 @@ jobs:
         if: ${{ always() && inputs.deploy && steps.fixture.outcome == 'success' && steps.runtime_inputs.outcome == 'success' }}
         continue-on-error: true
         shell: bash
+        env:
+          GHOSTTOWN_E2E_SPRINT_SCENARIO: ${{ inputs.sprint_scenario || 'on_track' }}
         run: timeout --foreground 35m node tests/e2e/30-day-sprint-acceptance.mjs
 
       - name: Prove live Get Me Live customer journey

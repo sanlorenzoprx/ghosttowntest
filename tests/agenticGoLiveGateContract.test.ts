@@ -32,6 +32,16 @@ describe('agentic go-live gate contract', () => {
     expect(sprint).toContain("getByRole('region', { name: 'GhostTown daily review', exact: true })");
     expect(sprint).toContain('.filter({ hasText: `GhostTown reviewed Day ${day.dayNumber}` })');
     expect(sprint).not.toMatch(/getByRole\('region', \{ name: 'GhostTown daily review' \}\)/);
+    // Synthetic scenario data drives the evidence and checkpoint forms, and every
+    // saved review must carry the route the scenario's checkpoints produce.
+    expect(sprint).toContain("process.env.GHOSTTOWN_E2E_SPRINT_SCENARIO || 'on_track'");
+    expect(sprint).toContain('scenarioEvidence(scenario, day.dayNumber)');
+    expect(sprint).toContain('scenarioCheckpoint(scenario, dayNumber)');
+    expect(sprint).toContain('expectedBranchForDay(scenario, day.dayNumber)');
+    expect(sprint).toContain('proof.scenario.routesMatched');
+    expect(report).toContain("'sprint.scenario.routes'");
+    expect(workflow).toContain('sprint_scenario:');
+    expect(workflow).toContain("GHOSTTOWN_E2E_SPRINT_SCENARIO: ${{ inputs.sprint_scenario || 'on_track' }}");
     expect(sprint).toContain('coachMemory.reviewCount !== 30');
     expect(sprint).toContain("cachedReview.cache?.hit !== true");
     expect(sprint).toContain('verifySprintResearchGate');
