@@ -30,128 +30,36 @@ interface PublicVideoJob {
 }
 
 const JOB_PREFIX = 'video-job:';
-const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
 export async function queuePublicVideo(
-  result: EvaluationResult,
-  locale: string,
-  env: Env
+  _result: EvaluationResult,
+  _locale: string,
+  _env: Env
 ): Promise<PublicVideoSummary> {
-  const jobId = safeJobId(result.resultId);
-  const key = jobKey(jobId);
-  const existing = await env.KV.get<PublicVideoJob>(key, 'json');
-  if (existing) return summary(existing, true);
-
-  const now = new Date().toISOString();
-  const job: PublicVideoJob = {
-    schema_version: 'ghosttown-public-video-job-v1',
-    job_id: jobId,
-    status: 'queued',
-    public: true,
-    origin: 'user_submission',
-    result_id: result.resultId,
-    locale: normalizeLocale(locale),
-    report: sanitizePublicData(result),
-    object_key: `public-videos/${jobId}.mp4`,
-    created_at: now,
-    updated_at: now,
-    failure_code: null
-  };
-  await env.KV.put(key, JSON.stringify(job), { expirationTtl: 86400 * 365 });
-  return summary(job, false);
+  throw new Error('LEGACY_PUBLIC_VIDEO_PIPELINE_RETIRED: submit an accepted StoryFactory production packet');
 }
 
 export async function handleNextPublicVideoJob(request: Request, env: Env): Promise<Response> {
   if (!authorized(request, env)) return json({ error: 'unauthorized' }, 401);
-  const listed = await env.KV.list({ prefix: JOB_PREFIX, limit: 100 });
-  for (const entry of listed.keys) {
-    const job = await env.KV.get<PublicVideoJob>(entry.name, 'json');
-    if (!job || job.status !== 'queued') continue;
-    const claimed = { ...job, status: 'processing' as const, updated_at: new Date().toISOString() };
-    await env.KV.put(entry.name, JSON.stringify(claimed), { expirationTtl: 86400 * 365 });
-    return json({
-      schema_version: claimed.schema_version,
-      job_id: claimed.job_id,
-      origin: claimed.origin,
-      public: claimed.public,
-      locale: claimed.locale,
-      report: claimed.report,
-      upload_path: `/api/integrations/shorts-factory/video-jobs/${claimed.job_id}/video`
-    });
-  }
-  return new Response(null, { status: 204 });
+  return json({ error: 'legacy_public_video_pipeline_retired', replacement: 'accepted StoryFactory production packets' }, 410);
 }
 
 export async function handlePublicVideoUpload(
   request: Request,
   env: Env,
-  jobIdValue: string
+  _jobIdValue: string
 ): Promise<Response> {
   if (!authorized(request, env)) return json({ error: 'unauthorized' }, 401);
-  if (!env.VIDEOS) return json({ error: 'video storage is not configured' }, 503);
-  if (!request.body) return json({ error: 'video body is required' }, 400);
-  if (!request.headers.get('content-type')?.toLowerCase().startsWith('video/mp4')) {
-    return json({ error: 'content-type must be video/mp4' }, 415);
-  }
-
-  const length = Number(request.headers.get('content-length'));
-  if (!Number.isSafeInteger(length) || length <= 0 || length > MAX_VIDEO_BYTES) {
-    return json({ error: 'invalid video size' }, 413);
-  }
-  const sha256 = request.headers.get('x-content-sha256')?.toLowerCase() ?? '';
-  if (!/^[0-9a-f]{64}$/.test(sha256)) return json({ error: 'x-content-sha256 is required' }, 422);
-
-  const jobId = safeJobId(jobIdValue);
-  const key = jobKey(jobId);
-  const job = await env.KV.get<PublicVideoJob>(key, 'json');
-  if (!job) return json({ error: 'video job not found' }, 404);
-  if (job.status === 'complete') return json(summary(job, true), 200);
-
-  const bytes = await request.arrayBuffer();
-  if (bytes.byteLength !== length) return json({ error: 'content length mismatch' }, 422);
-  const actualHash = await digest(bytes);
-  if (actualHash !== sha256) return json({ error: 'video checksum mismatch' }, 422);
-  const signature = new TextDecoder().decode(bytes.slice(4, 8));
-  if (bytes.byteLength < 12 || signature !== 'ftyp') {
-    return json({ error: 'video is not a recognizable MP4 container' }, 422);
-  }
-
-  await env.VIDEOS.put(job.object_key, bytes, {
-    httpMetadata: { contentType: 'video/mp4', cacheControl: 'public, max-age=31536000, immutable' },
-    customMetadata: { sha256, public: 'true', origin: job.origin }
-  });
-  const completed: PublicVideoJob = {
-    ...job,
-    status: 'complete',
-    updated_at: new Date().toISOString(),
-    failure_code: null
-  };
-  await env.KV.put(key, JSON.stringify(completed), { expirationTtl: 86400 * 365 });
-  return json(summary(completed, false), 201);
+  return json({ error: 'legacy_public_video_upload_retired' }, 410);
 }
 
 export async function handlePublicVideoFailure(
   request: Request,
   env: Env,
-  jobIdValue: string
+  _jobIdValue: string
 ): Promise<Response> {
   if (!authorized(request, env)) return json({ error: 'unauthorized' }, 401);
-  const jobId = safeJobId(jobIdValue);
-  const key = jobKey(jobId);
-  const job = await env.KV.get<PublicVideoJob>(key, 'json');
-  if (!job) return json({ error: 'video job not found' }, 404);
-  const body: { failure_code?: unknown } = await request.json<{ failure_code?: unknown }>().catch(() => ({}));
-  const failureCode = typeof body.failure_code === 'string'
-    ? body.failure_code.replace(/[^a-z0-9_-]/gi, '').slice(0, 80) || 'render_failed'
-    : 'render_failed';
-  const failed: PublicVideoJob = {
-    ...job,
-    status: 'failed',
-    updated_at: new Date().toISOString(),
-    failure_code: failureCode
-  };
-  await env.KV.put(key, JSON.stringify(failed), { expirationTtl: 86400 * 365 });
-  return json(summary(failed, false));
+  return json({ error: 'legacy_public_video_failure_endpoint_retired' }, 410);
 }
 
 export async function handlePublicVideoStatus(env: Env, jobIdValue: string): Promise<Response> {
@@ -177,7 +85,7 @@ export async function handlePublicVideo(env: Env, jobIdValue: string): Promise<R
 function summary(job: PublicVideoJob, reused: boolean): PublicVideoSummary {
   return {
     job_id: job.job_id,
-    status: job.status,
+    status: job.status === 'complete' ? 'complete' : 'failed',
     public: true,
     origin: 'user_submission',
     reused,
@@ -202,33 +110,6 @@ function jobKey(jobId: string): string {
   return `${JOB_PREFIX}${jobId}`;
 }
 
-function normalizeLocale(value: string): string {
-  const normalized = value.trim();
-  return /^[a-z]{2}(?:-[A-Z]{2})?$/.test(normalized) ? normalized : 'en-US';
-}
-
-function sanitizePublicData(value: unknown): unknown {
-  if (typeof value === 'string') {
-    return value
-      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]')
-      .replace(/(?:\+?\d[\d\s().-]{7,}\d)/g, '[redacted-phone]')
-      .slice(0, 4000);
-  }
-  if (Array.isArray(value)) return value.slice(0, 100).map(sanitizePublicData);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .slice(0, 100)
-        .map(([key, item]) => [key, sanitizePublicData(item)])
-    );
-  }
-  return value;
-}
-
-async function digest(value: ArrayBuffer): Promise<string> {
-  const bytes = await crypto.subtle.digest('SHA-256', value);
-  return [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
-}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
