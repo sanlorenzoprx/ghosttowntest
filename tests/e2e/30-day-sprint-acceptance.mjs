@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { CHECKPOINT_DAYS, expectedBranchForDay, expectedRouteTrail, scenarioCheckpoint, scenarioEvidence, sprintScenario } from './sprintScenarios.mjs';
 
 const baseUrl = String(process.env.GHOSTTOWN_E2E_BASE_URL || '').replace(/\/$/, '');
 const apiBase = String(process.env.GHOSTTOWN_E2E_API_URL || '').replace(/\/$/, '');
@@ -7,6 +8,11 @@ const authToken = String(process.env.GHOSTTOWN_E2E_AUTH_TOKEN || '');
 const orderId = String(process.env.GHOSTTOWN_E2E_SPRINT_ORDER_ID || '');
 const mutate = process.env.GHOSTTOWN_E2E_SPRINT_MUTATE === '1';
 const agentic = process.env.GHOSTTOWN_E2E_AGENTIC === '1';
+// Which synthetic data the 30 days use: "on_track" (the plan must stay unchanged)
+// or "plan_change" (each checkpoint must change one named part of the plan).
+// See tests/e2e/sprintScenarios.mjs.
+const scenario = String(process.env.GHOSTTOWN_E2E_SPRINT_SCENARIO || 'on_track').trim();
+sprintScenario(scenario);
 const required = { GHOSTTOWN_E2E_BASE_URL: baseUrl, GHOSTTOWN_E2E_API_URL: apiBase, GHOSTTOWN_E2E_AUTH_TOKEN: authToken, GHOSTTOWN_E2E_SPRINT_ORDER_ID: orderId };
 const missing = Object.entries(required).filter(([, value]) => !value).map(([name]) => name);
 if (missing.length) throw new Error('Runtime Sprint acceptance is mandatory. Missing: ' + missing.join(', '));
@@ -26,7 +32,7 @@ const today = new Date().toISOString().slice(0, 10);
 const checkpoints = new Set([7, 14, 21, 30]);
 const externalKinds = new Set(['verified_channel', 'qualified_buyer_batch', 'existing_contact', 'fulfillment_run']);
 const preparationOnly = new Set([9, 15]);
-const proof = { schemaVersion: 'ghosttown-agentic-go-live-sprint-v1', orderId, days: [], recovery: [], websiteEvidence: [], surfaceAudit: [], contentReview: {}, agentic: { daily: [], checkpoints: [], researchGate: {} }, sequencing: {}, reminders: {}, viewports: [], recordedAt: new Date().toISOString() };
+const proof = { schemaVersion: 'ghosttown-agentic-go-live-sprint-v1', orderId, days: [], recovery: [], websiteEvidence: [], surfaceAudit: [], contentReview: {}, scenario: { name: scenario, label: sprintScenario(scenario).label, expectedTrail: expectedRouteTrail(scenario), branchByDay: [] }, agentic: { daily: [], checkpoints: [], researchGate: {} }, sequencing: {}, reminders: {}, viewports: [], recordedAt: new Date().toISOString() };
 
 function quantity(value) {
   const match = String(value || '').match(/\b([1-9]\d?)\b/);
@@ -197,12 +203,13 @@ async function addEvidence(page, day, index) {
   await page.getByLabel('Contact or channel').fill(marker);
   await page.getByRole('textbox', { name: 'Date', exact: true }).fill(today);
   await page.getByLabel('Action').fill(day.title);
-  await page.getByLabel('Response').fill('Synthetic acceptance response. No real person was contacted and no market claim is implied.');
-  await page.getByLabel('Exact customer language').fill('SYNTHETIC ACCEPTANCE DATA — not a real customer quote.');
-  await page.getByLabel('Commitment offered').fill('Synthetic acceptance commitment request');
-  await page.getByLabel('Commitment received').fill('no commitment');
+  const evidence = scenarioEvidence(scenario, day.dayNumber);
+  await page.getByLabel('Response').fill(`${evidence.response} No real person was contacted and no market claim is implied.`);
+  await page.getByLabel('Exact customer language').fill(evidence.customerLanguage);
+  await page.getByLabel('Commitment offered').fill(evidence.commitmentOffered);
+  await page.getByLabel('Commitment received').fill(evidence.commitmentReceived);
   await page.getByLabel('Founder minutes').fill('5');
-  await page.getByLabel('Evidence strength').selectOption('weak');
+  await page.getByLabel('Evidence strength').selectOption(evidence.strength);
   await page.getByLabel('Source note').fill('AUTOMATED PLAYWRIGHT ACCEPTANCE FIXTURE. Synthetic only; never market evidence.');
   await page.getByRole('button', { name: 'Save evidence entry', exact: true }).click();
   await page.getByText(/^Saved /).waitFor({ state: 'visible', timeout: 15000 });
@@ -213,8 +220,9 @@ async function saveCheckpoint(page, dayNumber, guidance) {
   await openWorkspaceSection(page, 'review', 'Weekly Review');
   await verifyWebsiteEvidence(page, undefined, dayNumber);
   const section = page.locator(`#checkpoint-${dayNumber}`);
-  await section.getByLabel('Strongest evidence').selectOption('weak');
-  await section.getByLabel('Primary constraint').selectOption('missing_evidence');
+  const checkpointInput = scenarioCheckpoint(scenario, dayNumber);
+  await section.getByLabel('Strongest evidence').selectOption(checkpointInput.strongestEvidence);
+  await section.getByLabel('Primary constraint').selectOption(checkpointInput.primaryConstraint);
   const summary = String(guidance?.evidenceAssessment || guidance?.answer || `Synthetic Day ${dayNumber} acceptance evidence only; no real market conclusion.`).slice(0, 1800);
   const nextAction = String(guidance?.recommendedAction || (dayNumber === 30 ? 'Acceptance Sprint complete; continue to Get Me Live proof.' : `Continue to Day ${dayNumber + 1} in acceptance.`)).slice(0, 1200);
   await section.getByLabel('Evidence summary').fill(`AGENTIC QA — synthetic acceptance evidence is not market proof. ${summary}`);
@@ -532,6 +540,15 @@ try {
     if (!persistedReview?.responseId || persistedReview.phase !== 'review') {
       throw new Error(`Day ${day.dayNumber} automatic UI learning review was not durably persisted.`);
     }
+    // The saved review must be working from the branch the scenario's evidence
+    // and checkpoints produce: the plan changed (or stayed) where it should.
+    const expectedBranch = expectedBranchForDay(scenario, day.dayNumber);
+    const actualRoute = persistedReview.guardrails?.route;
+    const actualMayChange = persistedReview.guardrails?.mayChange || [];
+    proof.scenario.branchByDay.push({ dayNumber: day.dayNumber, expectedRoute: expectedBranch.route, actualRoute, expectedMayChange: expectedBranch.mayChange, actualMayChange });
+    if (actualRoute !== expectedBranch.route || JSON.stringify(actualMayChange) !== JSON.stringify(expectedBranch.mayChange)) {
+      throw new Error(`Scenario ${scenario} Day ${day.dayNumber}: expected plan route ${expectedBranch.route} (may change ${JSON.stringify(expectedBranch.mayChange)}) but the saved Coach review used ${actualRoute} (may change ${JSON.stringify(actualMayChange)}).`);
+    }
     proof.agentic.daily.push({
       dayNumber: day.dayNumber,
       trigger: 'ui_completion',
@@ -581,6 +598,11 @@ try {
     }
   }
 
+  const routesSeen = CHECKPOINT_DAYS.map(day => proof.scenario.branchByDay.find(item => item.dayNumber === day)?.actualRoute);
+  proof.scenario.routesMatched = JSON.stringify(routesSeen) === JSON.stringify(proof.scenario.expectedTrail.map(item => item.route));
+  if (!proof.scenario.routesMatched) {
+    throw new Error(`Scenario ${scenario} checkpoint routes ${JSON.stringify(routesSeen)} did not match ${JSON.stringify(proof.scenario.expectedTrail)}.`);
+  }
   const final = await apiJson(page.request, progressUrl);
   const coachMemory = await apiJson(page.request, coachMemoryUrl);
   if (coachMemory.reviewCount !== 30 || coachMemory.dailyReviews?.length !== 30) {

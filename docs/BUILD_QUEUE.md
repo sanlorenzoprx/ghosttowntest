@@ -303,3 +303,15 @@ The probe now records Wrangler's version UUID and requests that exact acceptance
 It still requires a real consent callback and successful refresh. The manual OAuth workflow also
 accepts the actual acceptance test account email instead of requiring its historical default.
 Unit tests reject unknown versions and every production hostname. No production changes.
+
+### Q17 — Prove the plan reacts to evidence across all 30 days — `done`
+
+Added on 11 November at the founder's request. Acceptance now takes `sprint_scenario`:
+`on_track` fills every day with synthetic interested replies and commitments, and every checkpoint
+names no constraint, so the plan must stay `continue` for all 30 days; `plan_change` fills each week
+with synthetic replies pointing at one problem, and the checkpoints name it, so the plan must move
+to `revise_message` (Day 7), `revise_price` (14), `revise_offer` (21) and `revise_customer` (30),
+each allowing only that one part to change. After every day the saved Coach review must carry the
+expected route. The data lives in `tests/e2e/sprintScenarios.mjs`; `tests/sprintScenarios.test.ts`
+runs the real checkpoint rules on it in normal CI. Q08 needs one passing Acceptance run of each.
+

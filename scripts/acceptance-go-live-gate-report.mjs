@@ -54,6 +54,11 @@ add('sprint.entitlement', '$97 Sprint entitlement exists for isolated customer f
   { proof: '30-day-sprint-ui-proof.json', orderId: sprint.orderId || null });
 add('sprint.blueprint', 'Canonical Blueprint renders all 30 days', sprint.passed === true && completedDays.length === 30,
   { proof: '30-day-sprint-ui-proof.json', completedDays });
+add('sprint.scenario.routes', 'The plan stays unchanged or changes exactly where the synthetic scenario\'s evidence says it should',
+  sprint.passed === true && sprint.scenario?.routesMatched === true
+    && Array.isArray(sprint.scenario?.branchByDay) && sprint.scenario.branchByDay.length === 30
+    && sprint.scenario.branchByDay.every(item => item.actualRoute === item.expectedRoute),
+  { proof: '30-day-sprint-ui-proof.json', scenario: sprint.scenario?.name || null, expectedTrail: sprint.scenario?.expectedTrail || [], branchByDay: sprint.scenario?.branchByDay || [] });
 const dailyAgentic = sprint.agentic?.daily || [];
 const checkpointAgentic = sprint.agentic?.checkpoints || [];
 const researchGate = sprint.agentic?.researchGate || {};

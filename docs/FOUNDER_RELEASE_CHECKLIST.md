@@ -10,8 +10,12 @@ before production release.
 
 1. **Prove the release commit on acceptance.** From the repository, run:
    ```sh
-   gh workflow run acceptance.yml --ref main -f deploy=true -f run_full_tests=true
+   gh workflow run acceptance.yml --repo sanlorenzoprx/ghosttowntest --ref main -f deploy=true -f run_full_tests=true -f sprint_scenario=on_track
    ```
+   When it finishes, run it once more with `-f sprint_scenario=plan_change`. The first run uses
+   synthetic replies that should keep the plan unchanged for all 30 days; the second uses replies that
+   should change one named part of the plan at each checkpoint (message, price, offer, customer). Both
+   must pass `sprint.scenario.routes` in the go-live report. Do not run them at the same time.
    Record the run URL, its full `headSha`, and the uploaded `execution-receipt.json`. Require fixture,
    runtime inputs, front door, 30-day Sprint, Get Me Live, owner controls and Sprint without Get Me Live
    to pass. The release is still blocked if Stripe, OAuth or the aggregate go-live gate fails.
