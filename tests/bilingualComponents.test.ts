@@ -12,8 +12,6 @@ const OWNER_ONLY = new Set(['InternalGoogleSearchConsole.tsx', 'CommercialMetric
 // Spanish copy. Some receive Spanish text from their parent. This list may
 // only shrink: remove a file when you make it bilingual, and never add one.
 const LEGACY_WITHOUT_OWN_SPANISH = new Set([
-  'GetMeLiveStudio.tsx',
-  'GetMeLiveWorkspace.tsx',
   'PrePurchaseResearchSignals.tsx',
 ]);
 
@@ -33,6 +31,6 @@ describe('bilingual UI components', () => {
     const nowBilingual = [...LEGACY_WITHOUT_OWN_SPANISH].filter(name => bilingual(readFileSync(new URL(name, dir), 'utf8')));
     expect(nowBilingual, 'These are bilingual now: remove them from LEGACY_WITHOUT_OWN_SPANISH').toEqual([]);
     expect([...LEGACY_WITHOUT_OWN_SPANISH].filter(name => !components.includes(name))).toEqual([]);
-    expect(LEGACY_WITHOUT_OWN_SPANISH.size).toBeLessThanOrEqual(3);
+    expect(LEGACY_WITHOUT_OWN_SPANISH.size).toBeLessThanOrEqual(1);
   });
 });
