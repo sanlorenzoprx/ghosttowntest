@@ -7,6 +7,15 @@ on:
         description: "Exact full SHA currently on protected main"
         required: true
         type: string
+      post_verdict_offer:
+        description: "Offer after a free verdict; waitlist preserves phase 1"
+        required: true
+        default: waitlist
+        type: choice
+        options:
+          - waitlist
+          - first30
+          - sprint
       confirm:
         description: "Exact confirmation phrase"
         required: true
@@ -27,6 +36,7 @@ jobs:
     environment:
       name: production
     env:
+      VITE_POST_VERDICT_OFFER: ${{ inputs.post_verdict_offer }}
       EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
       CONFIRM: ${{ inputs.confirm }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_TOKEN || secrets.CLOUDFLARE_PRODUCTION_RELEASE_TOKEN }}
@@ -51,6 +61,10 @@ jobs:
           main_sha="$(git rev-parse origin/main)"
           test "$head_sha" = "$EXPECTED_MAIN_SHA" || { echo "::error::Checked-out SHA does not match expected_main_sha."; exit 1; }
           test "$main_sha" = "$EXPECTED_MAIN_SHA" || { echo "::error::origin/main moved after release was prepared."; exit 1; }
+          case "$VITE_POST_VERDICT_OFFER" in
+            waitlist|first30|sprint) ;;
+            *) echo "::error::Unknown post-verdict offer."; exit 1 ;;
+          esac
           test "$CONFIRM" = "DEPLOY PAGES TO PRODUCTION" || { echo "::error::Confirmation phrase mismatch."; exit 1; }
 
       - name: Set up Node
@@ -110,6 +124,7 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_ENV, `EXPECTED_ASSET=/${asset}\n`);
           fs.writeFileSync('github-production-pages-release/expected.json', JSON.stringify({
             expected_main_sha: process.env.EXPECTED_MAIN_SHA,
+            post_verdict_offer: process.env.VITE_POST_VERDICT_OFFER,
             expected_asset: '/' + asset
           }, null, 2) + '\n');
           console.log('EXPECTED_ASSET=/' + asset);
