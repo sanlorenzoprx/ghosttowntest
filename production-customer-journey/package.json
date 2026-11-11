@@ -1,0 +1,13 @@
+{
+  "name": "production-customer-journey",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check run.mjs",
+    "run": "node run.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.55.0"
+  }
+}
