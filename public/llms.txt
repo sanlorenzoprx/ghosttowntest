@@ -8,21 +8,23 @@ GhostTown does not guarantee startup success, provide investment advice, or repl
 
 ## Agent interfaces
 
-- Product metadata: https://api.ghosttowntest.com/api/v1/product
-- Free verdict adapter: POST https://api.ghosttowntest.com/api/v1/free-verdict
-- OpenAPI: https://ghosttowntest.com/openapi.json
-- MCP: POST https://api.ghosttowntest.com/mcp
-- Capabilities: https://ghosttowntest.com/agent/capabilities.md
-- Privacy: https://ghosttowntest.com/agent/privacy.md
-- Evidence: https://ghosttowntest.com/agent/evidence.md
-- Examples: https://ghosttowntest.com/agent/examples.md
+- Product metadata: https://api.ghosttownverdict.app/api/v1/product
+- Free verdict adapter: POST https://api.ghosttownverdict.app/api/v1/free-verdict
+- OpenAPI: https://ghosttownverdict.app/openapi.json
+- MCP: POST https://api.ghosttownverdict.app/mcp
+- Capabilities: https://ghosttownverdict.app/agent/capabilities.md
+- Privacy: https://ghosttownverdict.app/agent/privacy.md
+- Evidence: https://ghosttownverdict.app/agent/evidence.md
+- Examples: https://ghosttownverdict.app/agent/examples.md
 
 The free verdict adapter returns `needs_input` until the same canonical idea fields and assessment answers used by GhostTown are supplied. Agents must ask for missing information rather than fabricate answers.
 
 Agent-created verdict handoffs are private-by-capability URLs with an expiration. A result ID is not an authorization token.
 
-## Paid offer
+## After the free verdict
 
-GhostTown 30-Day Evidence Sprint — $97 USD one time.
+First 30 is planned at $297 USD, paid once. It is not on sale yet: it opens soon. It is thirty days of guided help to test the idea with real customers, a customer-acquisition website on a free web address, and outreach materials. GhostTown finds places where likely customers are already talking, researches the problems they describe, and uses what they say to shape the website, messages and content, so the founder starts from the words customers already use instead of guessing. People can join the First 30 email list from their verdict page.
 
-The paid Sprint requires explicit human account and checkout action. Agents cannot autonomously purchase it.
+Until First 30 is on sale, the `offer` returned by the API and by `ghosttown.get_offer` has `status: "opens_soon"` and `price_usd: null`. When it goes on sale, the offer reports `offer_id: "ghosttown_first_30_v1"`, `status: "available"` and `price_usd: 297`; the person buys it themselves after their verdict. Agents cannot buy it for them.
+
+Buying anything or joining the email list requires explicit human action. Agents cannot buy, check out, or sign anyone up.

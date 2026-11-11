@@ -3,7 +3,7 @@
 ## REST
 
 ### GET `/api/v1/product`
-Returns public product identity, current canonical paid offer metadata, OpenAPI location, MCP location, and limitations.
+Returns public product identity, the current offer that follows a free verdict (with whether it is on sale), OpenAPI location, MCP location, and limitations.
 
 ### POST `/api/v1/free-verdict`
 Accepts partial or complete GhostTown validation input.
@@ -27,8 +27,8 @@ Tools:
 - `ghosttown.explain` — product identity, limitations and interface information.
 - `ghosttown.validate_idea` — same business capability as the REST verdict adapter.
 - `ghosttown.get_fastest_test` — reads the fastest test from an active handoff; does not regenerate a verdict.
-- `ghosttown.get_offer` — returns the current paid offer; never creates checkout.
+- `ghosttown.get_offer` — returns the current offer and whether it is on sale; never creates checkout.
 
 ## Human-action boundary
 
-No public agent capability can autonomously buy the GhostTown 30-Day Evidence Sprint. Checkout remains an authenticated human action in the existing application.
+No public agent capability can buy anything or join the First 30 email list for a person. Checkout and email signup remain human actions in the GhostTown application.

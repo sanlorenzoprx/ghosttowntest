@@ -38,14 +38,42 @@ describe('acceptance CORS isolation', () => {
 
   it.each([
     'https://ghosttown-acceptance.pages.dev',
+    'https://ghosttownverdict.app',
+    'https://www.ghosttownverdict.app',
     'https://ghosttowntest.com',
-    'https://www.ghosttowntest.com',
     'https://lit-ghosttown.app',
     'https://preview.ghosttowntest.pages.dev'
   ])('denies production origin %s in acceptance', async origin => {
     const response = await preflight(origin);
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  });
+});
+
+describe('production CORS during the ghosttownverdict.app move', () => {
+  const productionEnv = { ...acceptanceEnv, DEPLOYMENT_ENV: 'production', FRONTEND_URL: 'https://ghosttownverdict.app' } satisfies Env;
+
+  it.each([
+    'https://ghosttownverdict.app',
+    'https://www.ghosttownverdict.app',
+    'https://app.ghosttownverdict.app',
+    'https://ghosttowntest.com',
+    'https://www.ghosttowntest.com',
+    'https://app.ghosttowntest.com'
+  ])('allows %s', async origin => {
+    const response = await worker.fetch(new Request('https://api.ghosttownverdict.app/api/verdict', {
+      method: 'OPTIONS',
+      headers: { Origin: origin, 'Access-Control-Request-Method': 'POST' }
+    }), productionEnv);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(origin);
+  });
+
+  it('denies unrelated origins', async () => {
+    const response = await worker.fetch(new Request('https://api.ghosttownverdict.app/api/verdict', {
+      method: 'OPTIONS',
+      headers: { Origin: 'https://ghosttownverdict.app.evil.example', 'Access-Control-Request-Method': 'POST' }
+    }), productionEnv);
     expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });
 });

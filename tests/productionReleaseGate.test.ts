@@ -62,3 +62,13 @@ describe('production release gate', () => {
     expect(api).toContain('version_id: env.CF_VERSION_METADATA?.id || null');
   });
 });
+
+describe('production release health endpoint during the domain move', () => {
+  it('checks the new API host and falls back to the legacy host of the same Worker', () => {
+    expect(workflow).toContain('HEALTH_URL_PRIMARY: https://api.ghosttownverdict.app/api/integrations/shorts-factory/health');
+    expect(workflow).toContain('HEALTH_URL_LEGACY: https://api.ghosttowntest.com/api/integrations/shorts-factory/health');
+    expect(workflow).toContain('for url in "$HEALTH_URL_PRIMARY" "$HEALTH_URL_LEGACY"; do');
+    expect(workflow).toContain('echo "HEALTH_URL=$url" >> "$GITHUB_ENV"');
+    expect(workflow.indexOf('Resolve production health endpoint')).toBeLessThan(workflow.indexOf('Capture production state before operation'));
+  });
+});

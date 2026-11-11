@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiUrl, authHeaders } from '../lib/api';
 import { captureCommercialAttribution } from '../lib/commercialAttribution';
 import type { EvaluationResult } from '../types/lit';
+import { SPRINT_OFFER_ACTIVE } from '../lib/postVerdictOffer';
 
 interface ResolveResponse {
   handoff_id: string;
@@ -141,8 +142,13 @@ export default function AgentHandoff({ handoffToken, isLoggedIn, onLoginClick, o
         {error && <p className="mt-6 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
 
         <div className="mt-8 border-t border-gray-200 pt-6">
-          <h2 className="text-2xl font-black text-ghost-ink">Want the full 30-day execution plan?</h2>
-          <p className="mt-2 text-gray-700">The GhostTown 30-Day Evidence Sprint is $97. Saving this verdict to your account is required before checkout. No agent can purchase it for you.</p>
+          {SPRINT_OFFER_ACTIVE ? <>
+            <h2 className="text-2xl font-black text-ghost-ink">Want the full 30-day execution plan?</h2>
+            <p className="mt-2 text-gray-700">The GhostTown 30-Day Evidence Sprint is $97. Saving this verdict to your account is required before checkout. No agent can purchase it for you.</p>
+          </> : <>
+            <h2 className="text-2xl font-black text-ghost-ink">First 30 opens soon</h2>
+            <p className="mt-2 text-gray-700">Save this verdict to your account to keep it and see the full report, where you can join the First 30 list. Nothing is for sale yet, and no agent can sign you up.</p>
+          </>}
           <div className="mt-5 flex flex-wrap gap-3">
             <button type="button" disabled={claiming} onClick={() => void claim()} className="rounded-lg bg-ghost-rust px-6 py-3 font-black text-white disabled:opacity-60">
               {claiming ? 'Saving…' : isLoggedIn ? 'Save verdict and continue' : 'Log in to save and continue'}

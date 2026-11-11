@@ -5,6 +5,8 @@ import type {
   GhostTownLaunchBlueprint
 } from './launchBlueprint';
 import type { TruthLabel } from './paidTest';
+import type { CommunityProblemResearch } from './communityResearch';
+import type { BlueprintLanguages } from '../lib/blueprintLanguage';
 
 export type BusinessModelExecutionLane =
   | 'service_or_consulting'
@@ -360,7 +362,15 @@ export type GhostTownLaunchBlueprintV21 = Omit<
 > & {
   blueprintVersion: '2.1';
   contractVersion: '2.1.1';
+  /**
+   * The Sprint's two languages: what the founder reads and what buyers read.
+   * Present only when the order supplied a language, so earlier Blueprints
+   * stay byte-identical. Absent means English for both.
+   */
+  languages?: BlueprintLanguages;
   startingStateAudit: StartingStateAudit;
+  /** V2.1.11: customer problems read from verified customer-access communities. */
+  communityResearch?: CommunityProblemResearch;
   businessModelLane: BusinessModelLane;
   firstRevenuePath: FirstRevenuePath;
   manualFulfillmentPlan: ManualFulfillmentPlan;

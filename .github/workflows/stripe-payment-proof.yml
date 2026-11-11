@@ -57,6 +57,9 @@ jobs:
       - name: Build acceptance frontend against acceptance Worker
         env:
           VITE_API_URL: https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev
+          # Rollout phase 1 hides the $97 Sprint by default. This proof needs a
+          # person to buy it in acceptance, so this build shows the dormant offer.
+          VITE_POST_VERDICT_OFFER: sprint
         run: |
           rm -rf dist
           npm run build

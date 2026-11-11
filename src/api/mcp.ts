@@ -1,7 +1,6 @@
 import type { Env } from './env';
-import { GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
 import type { AgentVerdictInput } from '../types/agentSurface';
-import { ghostTownProductMetadata, runAgentVerdictPayload } from './agentVerdict';
+import { currentAgentOffer, ghostTownProductMetadata, runAgentVerdictPayload } from './agentVerdict';
 import { readAgentHandoff } from './agentHandoff';
 
 const PROTOCOL_VERSION = '2026-07-28';
@@ -74,7 +73,7 @@ const TOOLS = [
   },
   {
     name: 'ghosttown.get_offer',
-    description: 'Return the current GhostTown 30-Day Evidence Sprint offer. This never creates a Stripe Checkout session and always requires human action.',
+    description: 'Return the current GhostTown offer that follows a free verdict, including whether it is on sale yet. This never creates a Stripe Checkout session and always requires human action.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false }
   }
 ] as const;
@@ -110,15 +109,8 @@ async function callTool(request: Request, env: Env, rpc: JsonRpcRequest): Promis
   if (name === 'ghosttown.explain') return response(rpc.id ?? null, toolResult(ghostTownProductMetadata(env)));
 
   if (name === 'ghosttown.get_offer') {
-    const frontend = (env.FRONTEND_URL?.trim() || 'https://ghosttowntest.com').replace(/\/$/, '');
-    return response(rpc.id ?? null, toolResult({
-      offer_id: GHOSTTOWN_30_DAY_PLAN_V1.offerId,
-      offer: GHOSTTOWN_30_DAY_PLAN_V1.name,
-      price_usd: GHOSTTOWN_30_DAY_PLAN_V1.amountCents / 100,
-      currency: GHOSTTOWN_30_DAY_PLAN_V1.currency,
-      url: frontend,
-      requires_user_action: true
-    }));
+    const { name: offerName, ...current } = currentAgentOffer(env);
+    return response(rpc.id ?? null, toolResult({ ...current, offer: offerName }));
   }
 
   if (name === 'ghosttown.get_fastest_test') {

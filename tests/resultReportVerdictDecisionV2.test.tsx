@@ -41,12 +41,12 @@ describe('ResultReport VerdictDecisionV2', () => {
     expect(primaryPositions).toEqual([...primaryPositions].sort((left, right) => left - right));
 
     const detailedAnalysis = html.indexOf('Detailed analysis');
-    const litScore = html.indexOf('LIT Score');
-    const businessDna = html.indexOf('Business DNA');
+    const litScore = html.indexOf('LIT score');
+    const businessDna = html.indexOf('Business type');
     expect(detailedAnalysis).toBeGreaterThan(primaryPositions[primaryPositions.length - 1]);
     expect(litScore).toBeGreaterThan(detailedAnalysis);
     expect(businessDna).toBeGreaterThan(detailedAnalysis);
-    expect(html.slice(0, detailedAnalysis)).not.toContain('LIT Score');
+    expect(html.slice(0, detailedAnalysis)).not.toContain('LIT score');
     expect(html).toContain('<details data-testid="detailed-analysis"');
     expect(html).not.toContain('ghost-score-ring');
   });

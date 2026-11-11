@@ -45,8 +45,11 @@ const dailyAgentDays = new Set((sprint.agentic?.daily || []).map(item => item.da
 const viewportNames = new Set((sprint.viewports || []).map(item => item.name));
 const gmlViewportNames = new Set((getMeLive.viewports || []).map(item => item.name));
 
-add('sprint.checkout', '$97 Sprint checkout reaches Stripe test checkout', frontDoor.stripeTestCheckout === true,
-  { proof: 'front-door-proof.json', checkoutOrderId: frontDoor.checkoutOrderId || null, checkoutModal: frontDoor.checkoutModal || false });
+add('first30.waitlist', 'Verdict page offers First 30 and records an email-list signup instead of selling the Sprint',
+  frontDoor.first30Waitlist === true && frontDoor.sprintCtaHidden === true,
+  { proof: 'front-door-proof.json', first30Waitlist: frontDoor.first30Waitlist || false, sprintCtaHidden: frontDoor.sprintCtaHidden || false });
+add('sprint.checkout', 'Dormant $97 Sprint checkout still reaches Stripe test checkout', frontDoor.stripeTestCheckout === true,
+  { proof: 'front-door-proof.json', checkoutOrderId: frontDoor.checkoutOrderId || null });
 add('sprint.entitlement', '$97 Sprint entitlement exists for isolated customer fixture', sprint.passed === true && Boolean(sprint.orderId),
   { proof: '30-day-sprint-ui-proof.json', orderId: sprint.orderId || null });
 add('sprint.blueprint', 'Canonical Blueprint renders all 30 days', sprint.passed === true && completedDays.length === 30,

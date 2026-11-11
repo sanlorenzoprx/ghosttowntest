@@ -66,8 +66,11 @@ import {
   saveGetMeLiveLead,
   saveGetMeLivePreview,
   saveGetMeLiveShareDraft,
-  updateGetMeLiveOrder
+  updateGetMeLiveOrder,
+  grantIncludedGetMeLiveOrder,
+  markGetMeLiveBuildStarted
 } from './getMeLiveStore';
+import { isFirst30OrderId } from '../lib/first30Order';
 import {
   completeCloudflareAuthorization,
   configureCloudflareEmailRouting,
@@ -231,7 +234,36 @@ async function ownedGetMeLiveOrder(request: Request, env: Env, orderId: string):
   if (!order || normalizeEmail(order.ownerId) !== normalizeEmail(auth.email)) {
     return json({ error: 'Get Me Live order not found' }, 404);
   }
+  if (order.status === 'refunded') return json({ error: 'This website was refunded', code: 'GET_ME_LIVE_REFUNDED' }, 410);
   return normalizeLegacyHosting(env, order);
+}
+
+/**
+ * First 30 includes the website. Called from the verified First 30 payment:
+ * records a paid Get Me Live row for the same owner and source order, with no
+ * second charge. A replayed payment event finds the existing row.
+ */
+export async function grantFirst30Website(
+  env: Env,
+  paid: { orderId: string; email: string; stripePriceId?: string; stripeCheckoutSessionId?: string; stripePaymentIntentId?: string; paidAt?: string }
+): Promise<GetMeLiveOrder> {
+  const now = new Date().toISOString();
+  return grantIncludedGetMeLiveOrder(env, {
+    orderId: id('gml'),
+    ownerId: normalizeEmail(paid.email),
+    sourceSprintOrderId: paid.orderId,
+    offerId: GHOSTTOWN_GET_ME_LIVE_V1.offerId,
+    offerVersion: GHOSTTOWN_GET_ME_LIVE_V1.version,
+    stripePriceId: paid.stripePriceId || 'included_in_first30',
+    stripeCheckoutSessionId: paid.stripeCheckoutSessionId,
+    stripePaymentIntentId: paid.stripePaymentIntentId,
+    status: 'paid',
+    providerState: emptyProviderState(),
+    createdAt: now,
+    updatedAt: now,
+    paidAt: paid.paidAt || now,
+    entitlementSource: 'first30'
+  });
 }
 
 function businessNameSuggestions(blueprint: GhostTownLaunchBlueprint): string[] {
@@ -371,6 +403,11 @@ export async function handleGetMeLiveCheckout(request: Request, env: Env): Promi
   const body = await request.json<{ sourceSprintOrderId?: string }>().catch(() => ({} as { sourceSprintOrderId?: string }));
   const sourceSprintOrderId = safeText(body.sourceSprintOrderId, 120);
   if (!sourceSprintOrderId) return json({ error: 'Choose the Evidence Sprint you want to get live' }, 400);
+  // First 30 already includes the website; it must never be sold a second time.
+  if (isFirst30OrderId(sourceSprintOrderId)) {
+    const included = await loadGetMeLiveBySprint(env, normalizeEmail(auth.email), sourceSprintOrderId);
+    return json({ orderId: included?.orderId, alreadyPurchased: true, includedInFirst30: true, nextUrl: included ? `/get-me-live/setup?order_id=${encodeURIComponent(included.orderId)}` : '/dashboard' });
+  }
   const source = await ownedLaunchBlueprintOrder(request, env, sourceSprintOrderId, true);
   if (source instanceof Response) return source;
   const record = await loadBlueprintRecord(env, sourceSprintOrderId);
@@ -759,6 +796,12 @@ export async function handleGetMeLivePreview(request: Request, env: Env, orderId
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   const record = await loadBlueprintRecord(env, owned.sourceSprintOrderId);
   if (!record) return json({ error: 'Source Evidence Sprint is unavailable' }, 409);
+  // First 30: asking for the first preview starts the website build, which ends the refund window.
+  if (owned.entitlementSource === 'first30' && !(await markGetMeLiveBuildStarted(env, orderId, new Date().toISOString()))) {
+    return json({ error: 'This website was refunded', code: 'GET_ME_LIVE_REFUNDED' }, 410);
+  }
+  // An included website is granted at purchase, before the Blueprint exists; link it now.
+  owned.sourceBlueprintId = owned.sourceBlueprintId || record.blueprint.blueprintId;
   const config = owned.configuration || defaultConfiguration(record.blueprint, owned.ownerId);
   owned.configuration = config;
   const sourceBlueprint = overlayBlueprint(record.blueprint, config);

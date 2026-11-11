@@ -127,8 +127,9 @@ describe('Q1 golden decision receipt', () => {
       expect(shorts.verdict_headline).toBe(projection.verdict_headline);
       expect(shorts.recommended_next_test).toBe(projection.recommended_next_test);
       expect(vertex.recommendedNextTest).toBe(projection.recommended_next_test);
-      expect(html).toContain(decision.customer.initialCustomer);
-      expect(html).toContain(decision.offerHypothesis.offer);
+      // The page shows the founder's own words; the stored decision keeps its canonical phrasing.
+      expect(html).toContain(result.idea.targetUser.replace(/[.;:,]+$/, '').trim());
+      expect(html).toContain(result.idea.description.replace(/\s+/g, ' ').replace(/[.;:,]+$/, '').trim());
       expect(html).not.toContain('Start building now.');
       expect(share).not.toContain('Build an MVP');
       expect(card).not.toContain('Start building now.');

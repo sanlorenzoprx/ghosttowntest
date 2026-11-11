@@ -13,7 +13,7 @@ if (missing.length) throw new Error('Runtime Sprint acceptance is mandatory. Mis
 if (!mutate) throw new Error('Runtime Sprint acceptance is mandatory. Set GHOSTTOWN_E2E_SPRINT_MUTATE=1 only for the disposable acceptance order.');
 if (!agentic) throw new Error('Agentic Sprint acceptance is mandatory. Set GHOSTTOWN_E2E_AGENTIC=1 only for the disposable acceptance order.');
 
-const productionApiHosts = new Set(['api.ghosttowntest.com', 'api.lit-ghosttown.app']);
+const productionApiHosts = new Set(['api.ghosttownverdict.app', 'api.ghosttowntest.com', 'api.lit-ghosttown.app']);
 const apiHost = new URL(apiBase).hostname;
 if (productionApiHosts.has(apiHost)) throw new Error(`Acceptance API origin points to production: ${apiBase}`);
 
@@ -468,8 +468,21 @@ try {
       }
       proof.recovery.push({ dayNumber: day.dayNumber, persistedStateReentry: true, exactNoteMatched: true });
     }
+    // The button flips to "Completed" before the save lands. Wait for the save
+    // that carries this day's completion, so a checkpoint reload cannot cancel it.
+    const completionSaved = page.waitForResponse(response => {
+      if (response.url() !== progressUrl || response.request().method() !== 'POST') return false;
+      try {
+        const changes = JSON.parse(response.request().postData() || '{}').completedDayChanges || [];
+        return changes.some(change => change.dayNumber === day.dayNumber && change.completed === true);
+      } catch {
+        return false;
+      }
+    }, { timeout: 30000 });
     await complete.click();
     await page.getByRole('button', { name: /Completed ✓ — reopen/ }).waitFor({ state: 'visible', timeout: 15000 });
+    const completionResponse = await completionSaved;
+    if (!completionResponse.ok()) throw new Error(`Day ${day.dayNumber} completion save failed HTTP ${completionResponse.status()}`);
     proof.days.push({ dayNumber: day.dayNumber, title: day.title, evidenceEntries: evidenceRequired(day), noteSaved: true, completedViaVisibleButton: true });
 
     if (day.dayNumber === 20) {

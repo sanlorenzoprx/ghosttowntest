@@ -1,14 +1,15 @@
 import verdictHandler from './verdict';
 import type { Env } from './env';
-import { consumeHourlyRateLimit } from './runtimeControls';
+import { consumeHourlyRateLimit, first30CheckoutEnabled, sprintCheckoutEnabled } from './runtimeControls';
 import { litQuestions } from '../lib/litQuestions';
 import { localizeAssessmentQuestion, localizedIdeaPrompt, normalizeAgentLocale, publicContentPrompt } from '../lib/agentQuestionLocalization';
-import { GHOSTTOWN_30_DAY_PLAN_V1 } from '../lib/ghosttownOffer';
+import { GHOSTTOWN_30_DAY_PLAN_V1, GHOSTTOWN_FIRST_30_V1, GHOSTTOWN_FIRST_30_WAITLIST_V1 } from '../lib/ghosttownOffer';
 import type { EvaluationAnswers, EvaluationResult, IdeaIntake } from '../types/lit';
 import type {
   AgentCompleteVerdictResponse,
   AgentInputQuestion,
   AgentNeedsInputResponse,
+  AgentOfferProjection,
   AgentProtocol,
   AgentPublicVerdictProjection,
   AgentVerdictInput
@@ -151,15 +152,38 @@ async function enforceRateLimit(request: Request, env: Env): Promise<Response | 
   }, 429, { 'Retry-After': String(state.retryAfter) });
 }
 
-function offer(env: Env) {
-  const frontend = (env.FRONTEND_URL?.trim() || 'https://ghosttowntest.com').replace(/\/$/, '');
+export function currentAgentOffer(env: Env): AgentOfferProjection {
+  const frontend = (env.FRONTEND_URL?.trim() || 'https://ghosttownverdict.app').replace(/\/$/, '');
+  if (first30CheckoutEnabled(env)) {
+    return {
+      offer_id: GHOSTTOWN_FIRST_30_V1.offerId,
+      name: GHOSTTOWN_FIRST_30_V1.name,
+      status: 'available',
+      price_usd: GHOSTTOWN_FIRST_30_V1.priceUsd,
+      currency: GHOSTTOWN_FIRST_30_V1.currency,
+      url: frontend,
+      requires_user_action: true
+    };
+  }
+  if (!sprintCheckoutEnabled(env)) {
+    return {
+      offer_id: GHOSTTOWN_FIRST_30_WAITLIST_V1.offerId,
+      name: GHOSTTOWN_FIRST_30_WAITLIST_V1.name,
+      status: 'opens_soon',
+      price_usd: null,
+      currency: 'usd',
+      url: frontend,
+      requires_user_action: true
+    };
+  }
   return {
     offer_id: GHOSTTOWN_30_DAY_PLAN_V1.offerId,
     name: GHOSTTOWN_30_DAY_PLAN_V1.name,
+    status: 'available',
     price_usd: GHOSTTOWN_30_DAY_PLAN_V1.amountCents / 100,
     currency: GHOSTTOWN_30_DAY_PLAN_V1.currency,
     url: frontend,
-    requires_user_action: true as const
+    requires_user_action: true
   };
 }
 
@@ -168,9 +192,9 @@ export function ghostTownProductMetadata(env: Env) {
     product: 'GhostTown',
     purpose: 'Business idea validation and next-test guidance before heavy build investment.',
     free_capability: 'GhostTown verdict',
-    paid_offer: offer(env),
-    openapi: `${(env.FRONTEND_URL?.trim() || 'https://ghosttowntest.com').replace(/\/$/, '')}/openapi.json`,
-    mcp: 'https://api.ghosttowntest.com/mcp',
+    paid_offer: currentAgentOffer(env),
+    openapi: `${(env.FRONTEND_URL?.trim() || 'https://ghosttownverdict.app').replace(/\/$/, '')}/openapi.json`,
+    mcp: 'https://api.ghosttownverdict.app/mcp',
     limitations: [
       'GhostTown does not guarantee startup success.',
       'The verdict is bounded to the next evidence-seeking commitment test.',
@@ -203,7 +227,7 @@ export async function runAgentVerdictPayload(
       locale: text(input.locale, 20) || 'en-US'
     })
   });
-  const canonicalResponse = await verdictHandler(canonicalRequest, env);
+  const canonicalResponse = await verdictHandler(canonicalRequest, env, { callerRateLimited: true });
   if (!canonicalResponse.ok) {
     const body = await canonicalResponse.text();
     return new Response(body, { status: canonicalResponse.status, headers: canonicalResponse.headers });
@@ -220,7 +244,7 @@ export async function runAgentVerdictPayload(
     ...projection,
     handoff_id: handoff.record.handoffId,
     result_url: handoff.resultUrl,
-    offer: offer(env)
+    offer: currentAgentOffer(env)
   };
   return json(complete);
 }
