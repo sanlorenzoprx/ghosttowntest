@@ -126,7 +126,12 @@ Spanish render assertion, and is removed from `LEGACY_WITHOUT_OWN_SPANISH` in
 is not reachable from `src/app/App.tsx` or any other live component, delete it and its list entry
 instead of translating it.
 
-### Q05 — Spanish for the verdict and paid screens — `todo`
+### Q05 — Spanish for the verdict and paid screens — `done`
+
+Done on 11 November for the four screens a customer reaches today: the verdict unlock page, the
+screen after payment, the competitor step and the agent handoff. Three files stay on the legacy list:
+`PrePurchaseResearchSignals` shows nothing (a contract test requires it to return null), and
+`LaunchBlueprintView` with `LaunchSitePanel` only open for old-format orders; they moved to Q11.
 
 `VerdictUnlockPage`, `PrePurchaseResearchSignals`, `CompetitorSeedStep`, `ActionPlanSuccess`,
 `AgentHandoff`, `LaunchBlueprintView`, `LaunchSitePanel`.
@@ -153,7 +158,7 @@ production and what is not); and no file in the repository links to a deleted on
 
 ### Q08 — Prove `main` on acceptance — `todo`
 
-Take this only when Q01 to Q06 are `done` or `blocked`.
+Take this only when Q01 to Q06, Q10 and Q11 are `done` or `blocked`.
 
 Done when: the `Acceptance` workflow has run on the head of `main` with deploy on, and every automated
 stage passes: fixture, runtime inputs, front door, 30-day Sprint, Get Me Live, owner controls, and
@@ -188,3 +193,29 @@ step with the exact command, workflow name or screen, what it does and how to un
 
 It names the exact `main` commit that Q08 proved, and lists any item left `blocked` with its reason.
 `docs/CURRENT_STATE.md` links to it.
+
+### Q10 — Say "First 30 is open" everywhere once it is on sale — `todo`
+
+Added on 11 November. Take this before Q08. When the site is built with
+`VITE_POST_VERDICT_OFFER=first30`, the verdict page sells First 30, but the landing page
+(`LandingCommercial.tsx`), the About page (`AboutPage.tsx`) and the agent handoff (`AgentHandoff.tsx`)
+still say "First 30 opens soon", and the landing page still shows the email list. A buyer would read
+"nothing is for sale yet" one click away from the checkout.
+
+Done when: with `FIRST30_OFFER_ACTIVE` true, those three screens say First 30 is open, show the
+price and what is included from `src/lib/ghosttownOffer.ts`, and send the visitor to a free verdict
+(the purchase happens on the verdict page); with it false they are unchanged; both are in English and
+Spanish; and a test renders each state. Check the agent surface (`src/api/agentVerdict.ts`, the MCP
+offer) reports `available` only when the Worker has `FIRST30_CHECKOUT_ENABLED`, and fix it if not.
+No price, checkout or production setting changes.
+
+### Q11 — Spanish for the old-format Blueprint view — `todo`
+
+Added on 11 November, split from Q05 because it is about 1,280 lines. `LaunchBlueprintView.tsx` and
+`LaunchSitePanel.tsx` open only for orders made before Blueprint v2.1 (`LaunchBlueprintRouter`,
+`legacy` branch).
+
+Done when: the same as Q04 for both files. If no order in the acceptance database uses the old
+format and the code path cannot be reached by a new order, it is also acceptable to mark this
+`blocked` with that finding and leave the decision (translate or retire the old view) to the founder
+in Q09; do not delete the old view without that decision.

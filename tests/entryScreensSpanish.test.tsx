@@ -7,6 +7,10 @@ import ProgressBar from '../src/components/ProgressBar';
 import LoginModal from '../src/components/LoginModal';
 import PaywallModal from '../src/components/PaywallModal';
 import Contact from '../src/components/Contact';
+import VerdictUnlockPage from '../src/components/VerdictUnlockPage';
+import AgentHandoff from '../src/components/AgentHandoff';
+import ActionPlanSuccess from '../src/components/ActionPlanSuccess';
+import CompetitorSeedStep from '../src/components/CompetitorSeedStep';
 import { litQuestions } from '../src/lib/litQuestions';
 import { localizeAssessmentQuestion } from '../src/lib/agentQuestionLocalization';
 import { ASSESSMENT_PACK_DISPLAY_PRICE } from '../src/lib/assessmentPack';
@@ -56,5 +60,21 @@ describe('entry screens in Spanish', () => {
     expectSpanish(render(<Contact onStart={noop} locale="es" />),
       ['Hacer un veredicto gratis', 'support@ghosttownverdict.app', 'Ayuda con un plan pagado'],
       ['Run Free Verdict', 'Paid plan help']);
+  });
+
+  it('the verdict unlock page sells the verdict pack in Spanish at the same price', () => {
+    const html = render(<VerdictUnlockPage draft={null} isLoggedIn purchaseReturn={null} onLoginClick={noop} onCreditsReady={noop} locale="es" />);
+    expectSpanish(html, ['Se te acabaron los veredictos gratis.', 'Un solo pago. Sin suscripción.', ASSESSMENT_PACK_DISPLAY_PRICE, 'Comprar'], ['You’re out of free verdicts.', 'One-time purchase']);
+    expect(render(<VerdictUnlockPage draft={null} isLoggedIn purchaseReturn="cancelled" onLoginClick={noop} onCreditsReady={noop} locale="es" />)).toContain('Cancelaste el pago.');
+  });
+
+  it('the screens after payment and the agent handoff open in Spanish', () => {
+    expectSpanish(render(<ActionPlanSuccess orderId="order-1" onDone={noop} locale="es" />),
+      ['Pago recibido', 'Armando tu red de medios y distribución...', 'Volver al panel'],
+      ['Payment received', 'Return to Dashboard']);
+    expectSpanish(render(<CompetitorSeedStep orderId="order-1" onStarted={noop} locale="es" />),
+      ['Abriendo la investigación de tu Blueprint...'], ['Opening your Blueprint research']);
+    expectSpanish(render(<AgentHandoff handoffToken="token" isLoggedIn={false} onLoginClick={noop} onClaimed={noop} onHome={noop} locale="es" />),
+      ['Abriendo tu veredicto de GhostTown…'], ['Opening your GhostTown verdict']);
   });
 });
