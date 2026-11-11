@@ -108,6 +108,44 @@ export const GHOSTTOWN_FIRST_30_V1 = {
   buildStartsWhenEs: 'la primera vez que le pides a GhostTown que construya la vista previa de tu sitio web'
 } as const;
 
+// What the landing page, the About page and the agent handoff say once First 30
+// is on sale (VITE_POST_VERDICT_OFFER=first30). The purchase itself happens on
+// the verdict page, so these screens send the visitor to a free verdict first.
+export const GHOSTTOWN_FIRST_30_OPEN_COPY = {
+  en: {
+    headline: 'First 30 is open.',
+    kicker: 'If the idea is worth testing',
+    body: `Your verdict is free. If the idea is worth testing, First 30 is ${GHOSTTOWN_FIRST_30_V1.displayPrice}, paid once: thirty days of guided help to test your idea with real customers. GhostTown finds places where your likely customers are already talking, researches the problems they describe, and uses what they say to shape your website and the messages you test. That way you start with the words your customers already use instead of guessing.`,
+    whereToBuy: 'You start First 30 from your verdict page, so run your free verdict first.',
+    includesTitle: `What ${GHOSTTOWN_FIRST_30_V1.displayPrice} covers`,
+    includes: GHOSTTOWN_FIRST_30_V1.includes,
+    refund: `${GHOSTTOWN_FIRST_30_V1.refundRule} The website build starts ${GHOSTTOWN_FIRST_30_V1.buildStartsWhen}.`,
+    boundary: 'First 30 helps you make better decisions with real evidence. It does not promise sales or income.',
+    cta: 'Get my free verdict first',
+    faqQuestion: 'What comes after the verdict?',
+    faqAnswer: `First 30, for ${GHOSTTOWN_FIRST_30_V1.displayPrice} paid once: thirty days of guided help to test your idea, with a customer-acquisition website and outreach materials shaped by our research into where your likely customers already talk and the problems they describe. You can start it from your verdict page. ${GHOSTTOWN_FIRST_30_V1.refundRule}`,
+    aboutLead: `${GHOSTTOWN_FIRST_30_V1.name} — ${GHOSTTOWN_FIRST_30_V1.displayPrice}, paid once.`,
+    handoffTitle: 'First 30 is open',
+    handoffBody: `Save this verdict to your account to keep it and see the full report. From there you can start First 30 for ${GHOSTTOWN_FIRST_30_V1.displayPrice}, paid once. No agent can buy it for you.`
+  },
+  es: {
+    headline: 'First 30 ya abrió.',
+    kicker: 'Si la idea merece una prueba',
+    body: `Tu veredicto es gratis. Si la idea merece una prueba, First 30 cuesta ${GHOSTTOWN_FIRST_30_V1.displayPrice}, un solo pago: treinta días de ayuda guiada para probar tu idea con clientes reales. GhostTown encuentra lugares donde tus posibles clientes ya conversan, investiga los problemas que describen y usa lo que dicen para dar forma a tu sitio web y a los mensajes que pruebas. Así empiezas con las palabras que tus clientes ya usan, en vez de adivinar.`,
+    whereToBuy: 'First 30 se empieza desde la página de tu veredicto, así que haz primero tu veredicto gratis.',
+    includesTitle: `Lo que cubren los ${GHOSTTOWN_FIRST_30_V1.displayPrice}`,
+    includes: GHOSTTOWN_FIRST_30_V1.includesEs,
+    refund: `${GHOSTTOWN_FIRST_30_V1.refundRuleEs} La construcción del sitio web empieza ${GHOSTTOWN_FIRST_30_V1.buildStartsWhenEs}.`,
+    boundary: 'First 30 te ayuda a decidir mejor con evidencia real. No promete ventas ni ingresos.',
+    cta: 'Hacer primero mi veredicto gratis',
+    faqQuestion: '¿Qué viene después del veredicto?',
+    faqAnswer: `First 30, por ${GHOSTTOWN_FIRST_30_V1.displayPrice} en un solo pago: treinta días de ayuda guiada para probar tu idea, con un sitio web para conseguir clientes y materiales de contacto basados en lo que investigamos: dónde ya conversan tus posibles clientes y qué problemas describen. Puedes empezarlo desde la página de tu veredicto. ${GHOSTTOWN_FIRST_30_V1.refundRuleEs}`,
+    aboutLead: `${GHOSTTOWN_FIRST_30_V1.name}: ${GHOSTTOWN_FIRST_30_V1.displayPrice}, un solo pago.`,
+    handoffTitle: 'First 30 ya abrió',
+    handoffBody: `Guarda este veredicto en tu cuenta para no perderlo y ver el informe completo. Desde ahí puedes empezar First 30 por ${GHOSTTOWN_FIRST_30_V1.displayPrice}, un solo pago. Ningún agente puede comprarlo por ti.`
+  }
+} as const;
+
 export const GHOSTTOWN_YEAR_SQUARED_V1 = {
   offerId: 'ghosttown_year_squared_v1',
   name: 'Year Squared',

@@ -198,7 +198,13 @@ step with the exact command, workflow name or screen, what it does and how to un
 It names the exact `main` commit that Q08 proved, and lists any item left `blocked` with its reason.
 `docs/CURRENT_STATE.md` links to it.
 
-### Q10 — Say "First 30 is open" everywhere once it is on sale — `todo`
+### Q10 — Say "First 30 is open" everywhere once it is on sale — `done`
+
+Done on 11 November. The shared copy is `GHOSTTOWN_FIRST_30_OPEN_COPY` in `src/lib/ghosttownOffer.ts`.
+With First 30 on sale, the landing page shows the price, what it covers and the refund rule, and its
+button starts a free verdict; the FAQ, the About page and the agent handoff say it is open. With it
+off, all three are unchanged. The agent surface was already right: it reports `available` only when
+the Worker has `FIRST30_CHECKOUT_ENABLED`.
 
 Added on 11 November. Take this before Q08. When the site is built with
 `VITE_POST_VERDICT_OFFER=first30`, the verdict page sells First 30, but the landing page
