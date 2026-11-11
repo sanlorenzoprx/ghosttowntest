@@ -206,7 +206,7 @@ interface SelectionPayload {
   }>;
 }
 
-interface VerifiedPage {
+export interface VerifiedPage {
   finalUrl: string;
   title: string;
   publisher: string;
@@ -402,13 +402,13 @@ function pageSupportsClaim(page: VerifiedPage, claim: string): boolean {
   return tokens.filter(token => haystack.includes(token)).length >= required;
 }
 
-async function verifyOriginalPage(rawUrl: string): Promise<VerifiedPage> {
+export async function verifyOriginalPage(rawUrl: string): Promise<VerifiedPage> {
   const safe = safePublicUrl(rawUrl);
   if (!safe) throw new Error('URL is not a public HTTPS address');
   const response = await fetchWithTimeout(safe.toString(), {
     headers: {
       Accept: 'text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.2',
-      'User-Agent': 'GhostTownDistributionResearch/1.0 (+https://ghosttowntest.com)'
+      'User-Agent': 'GhostTownDistributionResearch/1.0 (+https://ghosttownverdict.app)'
     }
   });
   const final = safePublicUrl(response.url || safe.toString());
@@ -844,7 +844,7 @@ async function youtubeCustomerAccessCandidates(env: Env, query: string): Promise
   return candidates;
 }
 
-async function runGroundedCustomerAccessSearch(env: Env, query: string) {
+async function runGroundedCustomerAccessSearch(env: Env, query: string, buyerLanguage: 'en' | 'es' = 'en') {
   const cutoffDate = new Date(Date.now() - (120 * 86_400_000)).toISOString().slice(0, 10);
   const prompt = [
     'Search broadly for 8-12 candidate public discussion or community pages where people matching this buyer category discuss the problem area.',
@@ -854,6 +854,7 @@ async function runGroundedCustomerAccessSearch(env: Env, query: string) {
     'Do not claim that a source is current, buyer-accessible, or relevant unless the destination later proves it. Your job here is only to return grounded candidate URLs.',
     'Return a short grounded summary with a Google Search citation for every candidate page.',
     `Search need: ${query}`,
+    buyerLanguage === 'es' ? 'The buyers speak Spanish. Prefer Spanish-language communities, including Puerto Rico and Latin American ones, and search in Spanish as well as English.' : 'The buyers speak English.',
     `GhostTown will independently require visible activity on or after ${cutoffDate} before any candidate can count as current Customer Access.`
   ].join('\n');
   let lastError: unknown;
@@ -877,8 +878,8 @@ async function runGroundedCustomerAccessSearch(env: Env, query: string) {
   throw lastError instanceof Error ? lastError : new Error('Grounded customer-access search failed');
 }
 
-async function groundedCustomerAccessCandidates(env: Env, query: string): Promise<FootprintCandidate[]> {
-  const generated = await runGroundedCustomerAccessSearch(env, query);
+async function groundedCustomerAccessCandidates(env: Env, query: string, buyerLanguage: 'en' | 'es' = 'en'): Promise<FootprintCandidate[]> {
+  const generated = await runGroundedCustomerAccessSearch(env, query, buyerLanguage);
   const chunks = generated.groundingMetadata?.groundingChunks || [];
   const seen = new Set<string>();
   const candidates: FootprintCandidate[] = [];
@@ -1012,7 +1013,7 @@ export async function runResearchBatch(
           : provider === 'podcast_index'
             ? await podcastCandidates(env, query, seed?.name)
             : provider === 'google_grounded_customer_access'
-              ? await groundedCustomerAccessCandidates(env, query)
+              ? await groundedCustomerAccessCandidates(env, query, order.intake.buyerLanguage === 'es' ? 'es' : 'en')
               : await youtubeCandidates(env, query, seed?.name);
       candidates.push(...result);
       attempts.push({ sourceId: taskId, sourceType: provider, success: true, query, candidateCount: result.length });

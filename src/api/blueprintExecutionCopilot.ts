@@ -5,17 +5,26 @@ import { generativeAIConfigured } from './generativeAIService';
 import { runExecutionCopilot, runExecutionCritic } from './executionAIService';
 import { consumeHourlyRateLimit } from './runtimeControls';
 import {
+  executionCoachCacheIdentity,
+  listExecutionCoachReviews,
+  loadCachedExecutionCoachResponse,
+  loadExecutionCoachMemory,
+  saveExecutionCoachResponse
+} from './executionCoachMemory';
+import {
   buildExecutionRagContext,
   routeExecutionCapability,
   type ExecutionCopilotMode,
   type ExecutionProgressLike
 } from '../lib/blueprintExecutionIntelligence';
 import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
+import type { ExecutionCoachPhase } from '../types/executionLearning';
 
 interface CopilotRequestBody {
   question?: string;
   dayNumber?: number;
   mode?: ExecutionCopilotMode;
+  phase?: ExecutionCoachPhase;
   history?: Array<{ role?: string; content?: string }>;
 }
 
@@ -41,6 +50,17 @@ function sanitizedHistory(value: CopilotRequestBody['history']): Array<{ role: '
     const content = cleanText(item?.content, 2400);
     return role && content ? [{ role, content }] : [];
   });
+}
+
+function containsSyntheticAcceptanceEvidence(context: ReturnType<typeof buildExecutionRagContext>): boolean {
+  return context.progress.relevantEvidence.some(entry =>
+    /SYNTHETIC ACCEPTANCE|AUTOMATED PLAYWRIGHT ACCEPTANCE FIXTURE|QA simulation only/i.test([
+      entry.contactOrChannel,
+      entry.response,
+      entry.customerLanguage,
+      entry.sourceNote
+    ].filter(Boolean).join(' '))
+  );
 }
 
 function groundingSources(metadata: unknown): Array<{ title: string; url: string }> {
@@ -72,13 +92,47 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
   const question = cleanText(body.question, 5000);
   if (!question) return json({ error: 'Ask a question about the current experiment or business strategy' }, 400);
   const mode: ExecutionCopilotMode = body.mode === 'strategy_room' ? 'strategy_room' : 'current_experiment';
+  const phase: ExecutionCoachPhase = body.phase === 'plan' || body.phase === 'review' || body.phase === 'checkpoint'
+    ? body.phase
+    : 'chat';
   const progress = await loadBlueprintProgress(env, orderId, owned.email);
   const nextIncomplete = record.blueprint.dailyCalendar.find(day => !(progress.completedDays || []).includes(day.dayNumber))?.dayNumber || 30;
   const dayNumber = Number.isInteger(body.dayNumber) && Number(body.dayNumber) >= 1 && Number(body.dayNumber) <= 30
     ? Number(body.dayNumber)
     : nextIncomplete;
   const context = buildExecutionRagContext(record.blueprint, progress as unknown as ExecutionProgressLike, dayNumber, question);
+  context.coachMemory = await loadExecutionCoachMemory(
+    env,
+    owned.email,
+    orderId,
+    record.blueprint.businessModelLane.lane,
+    dayNumber
+  );
   const capability = routeExecutionCapability(question, mode, context);
+  const allowGlobalLearning = phase === 'review'
+    && context.progress.relevantEvidence.length > 0
+    && !containsSyntheticAcceptanceEvidence(context);
+  const cacheIdentity = await executionCoachCacheIdentity(context, phase, question);
+  const cached = await loadCachedExecutionCoachResponse(env, {
+    accountId: owned.email,
+    blueprintId: record.blueprint.blueprintId,
+    blueprintVersion: record.blueprint.blueprintVersion,
+    dayNumber,
+    phase,
+    identity: cacheIdentity
+  });
+  if (cached) {
+    return json({
+      ...cached.payload,
+      cache: {
+        hit: true,
+        responseId: cached.responseId,
+        createdAt: cached.createdAt,
+        expiresAt: cached.expiresAt || null,
+        hitCount: cached.hitCount
+      }
+    });
+  }
 
   if (!generativeAIConfigured(env)) {
     return json({
@@ -100,19 +154,35 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
     }, 429, { 'Retry-After': String(budget.retryAfter) });
   }
 
+  const internalRefs = {
+    blueprint: `${context.blueprint.blueprintId}@${context.blueprint.blueprintVersion}`,
+    day: `day-${context.experiment.dayNumber}`,
+    evidenceEntryIds: context.progress.relevantEvidence.map(entry => entry.entryId).filter(Boolean),
+    sourceIds: context.research.map(source => source.sourceId).filter(Boolean)
+  };
+
   try {
-    const primary = await runExecutionCopilot(env, capability, mode, context, question, sanitizedHistory(body.history));
+    const primary = await runExecutionCopilot(env, capability, mode, context, question, sanitizedHistory(body.history), phase);
     const highImpact = capability === 'strategy_reasoner' && mode === 'current_experiment'
       && (context.branch.route !== 'continue' || /\b(pivot|change|price|offer|customer|stop|pause)\b/i.test(question));
-    const critic = highImpact ? await runExecutionCritic(env, context, question, primary.output) : null;
-    const internalRefs = {
-      blueprint: `${context.blueprint.blueprintId}@${context.blueprint.blueprintVersion}`,
-      day: `day-${context.experiment.dayNumber}`,
-      evidenceEntryIds: context.progress.relevantEvidence.map(entry => entry.entryId).filter(Boolean),
-      sourceIds: context.research.map(source => source.sourceId).filter(Boolean)
-    };
-    return json({
+    let critic: Awaited<ReturnType<typeof runExecutionCritic>> | null = null;
+    let criticDegraded: { active: true; reason: 'critic_failure' } | null = null;
+    if (highImpact) {
+      try {
+        critic = await runExecutionCritic(env, context, question, primary.output);
+      } catch (criticError) {
+        criticDegraded = { active: true, reason: 'critic_failure' };
+        console.warn('Execution Copilot critic degraded; primary guidance remains available', {
+          orderId,
+          dayNumber,
+          capability,
+          error: criticError instanceof Error ? criticError.message : String(criticError)
+        });
+      }
+    }
+    const responsePayload = {
       mode,
+      phase,
       capability,
       answer: primary.output.answer,
       evidenceAssessment: primary.output.evidenceAssessment,
@@ -142,17 +212,153 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
       },
       refs: internalRefs,
       groundedWebSources: groundingSources(primary.groundingMetadata),
+      degraded: primary.degraded || criticDegraded || null,
       usage: {
         hourlyLimit: COPILOT_REQUESTS_PER_HOUR,
         requestNumberThisHour: budget.used
       },
+      learningCandidates: primary.output.learningCandidates || [],
       receipts: {
         primary: primary.receipt,
         critic: critic?.receipt || null
       }
+    };
+    const stored = await saveExecutionCoachResponse(env, {
+      accountId: owned.email,
+      orderId,
+      blueprintId: record.blueprint.blueprintId,
+      blueprintVersion: record.blueprint.blueprintVersion,
+      lane: record.blueprint.businessModelLane.lane,
+      dayNumber,
+      phase,
+      capability,
+      identity: cacheIdentity,
+      payload: responsePayload,
+      receipt: primary.receipt,
+      degradation: primary.degraded || criticDegraded || undefined,
+      learningCandidates: primary.output.learningCandidates,
+      allowGlobalLearning
+    });
+    return json({
+      ...responsePayload,
+      cache: {
+        hit: false,
+        responseId: stored.responseId,
+        expiresAt: stored.expiresAt || null,
+        hitCount: 0
+      },
+      memory: {
+        saved: true,
+        learningCandidateCount: stored.learningCandidateCount,
+        priorDailyAssessmentCount: context.coachMemory?.priorDailyAssessments.length || 0,
+        reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0
+      }
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Execution Copilot failed';
+    if (/request timed out/i.test(message)) {
+      const grounded = capability === 'grounded_research';
+      const recommendedAction = context.branch.nextAction?.trim()
+        || context.experiment.exactActions[0]?.instruction?.trim()
+        || `Complete Day ${context.experiment.dayNumber} exactly as written in the Blueprint.`;
+      console.warn('Execution Copilot provider timed out; returning deterministic Blueprint fallback', {
+        orderId,
+        dayNumber,
+        capability
+      });
+      const responsePayload = {
+        mode,
+        phase,
+        capability,
+        answer: grounded
+          ? `Live web research did not finish in time. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint task instead of waiting or guessing.`
+          : `AI guidance did not finish in time. Continue Day ${context.experiment.dayNumber} using the canonical Blueprint task instead of waiting or guessing.`,
+        evidenceAssessment: grounded
+          ? 'No new market evidence was created by this timed-out research call. Recorded customer behavior remains authoritative.'
+          : 'No new customer evidence was created by this timed-out AI call. Deterministic Blueprint state remains authoritative.',
+        contradictionDetected: false,
+        recommendedAction,
+        evidenceToRecord: context.experiment.evidenceToCapture.slice(0, 10),
+        assumptions: [grounded
+          ? 'Grounded web research timed out, so GhostTown did not infer external facts or fabricate a provider result.'
+          : 'The AI provider timed out, so GhostTown continued from deterministic Blueprint context without fabricating guidance.'],
+        critic: null,
+        guardrails: {
+          route: context.branch.route,
+          checkpointDay: context.branch.checkpointDay,
+          primaryConstraint: context.branch.primaryConstraint,
+          mayChange: mode === 'strategy_room' ? [] : context.branch.mayChange,
+          mustKeep: mode === 'strategy_room' ? [] : context.branch.mustKeep,
+          branchReason: context.branch.reason,
+          nextAction: context.branch.nextAction,
+          strategyRoomDoesNotMutateLiveExperiment: mode === 'strategy_room'
+        },
+        lane: context.blueprint.laneProfile,
+        today: {
+          dayNumber: context.experiment.dayNumber,
+          title: context.experiment.title,
+          objective: context.experiment.objective,
+          successThreshold: context.experiment.successThreshold,
+          failureThreshold: context.experiment.failureThreshold,
+          assets: context.experiment.assets.map(asset => ({ assetId: asset.assetId, title: asset.title }))
+        },
+        refs: internalRefs,
+        groundedWebSources: [],
+        degraded: { active: true, reason: grounded ? 'grounded_timeout' : 'provider_timeout' },
+        usage: {
+          hourlyLimit: COPILOT_REQUESTS_PER_HOUR,
+          requestNumberThisHour: budget.used
+        },
+        learningCandidates: [],
+        receipts: {
+          primary: null,
+          critic: null
+        }
+      };
+      const stored = await saveExecutionCoachResponse(env, {
+        accountId: owned.email,
+        orderId,
+        blueprintId: record.blueprint.blueprintId,
+        blueprintVersion: record.blueprint.blueprintVersion,
+        lane: record.blueprint.businessModelLane.lane,
+        dayNumber,
+        phase,
+        capability,
+        identity: cacheIdentity,
+        payload: responsePayload,
+        degradation: responsePayload.degraded
+      });
+      return json({
+        ...responsePayload,
+        cache: {
+          hit: false,
+          responseId: stored.responseId,
+          expiresAt: stored.expiresAt || null,
+          hitCount: 0
+        },
+        memory: {
+          saved: true,
+          learningCandidateCount: 0,
+          priorDailyAssessmentCount: context.coachMemory?.priorDailyAssessments.length || 0,
+          reusableKnowledgeCount: context.coachMemory?.reusableKnowledge.length || 0
+        }
+      });
+    }
     console.error('Execution Copilot failed', { orderId, dayNumber, capability, error });
-    return json({ error: error instanceof Error ? error.message : 'Execution Copilot failed' }, 502);
+    return json({ error: message }, 502);
   }
+}
+
+
+export async function handleBlueprintCoachMemory(request: Request, env: Env, orderId: string): Promise<Response> {
+  if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405);
+  const owned = await ownedLaunchBlueprintOrder(request, env, orderId);
+  if (owned instanceof Response) return owned;
+  const reviews = await listExecutionCoachReviews(env, owned.email, orderId);
+  return json({
+    schemaVersion: 'ghosttown-learning-coach-memory-v1',
+    orderId,
+    dailyReviews: reviews,
+    reviewCount: reviews.length
+  }, 200, { 'Cache-Control': 'private, no-store' });
 }

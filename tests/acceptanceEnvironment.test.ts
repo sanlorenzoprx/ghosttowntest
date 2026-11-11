@@ -16,6 +16,17 @@ function section(config: string, start: string, next: RegExp) {
 }
 
 describe('acceptance Cloudflare environment', () => {
+  it('hard-routes the acceptance Pages host to the acceptance Worker', async () => {
+    const api = await readText('src/lib/api.ts');
+    expect(api).toContain("hostname === 'main.ghosttown-acceptance.pages.dev'");
+    expect(api).toContain("hostname.endsWith('.ghosttown-acceptance.pages.dev')");
+    expect(api).toContain("return 'https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev'");
+    const acceptanceRoute = api.indexOf("hostname === 'main.ghosttown-acceptance.pages.dev'");
+    const genericPagesFallback = api.indexOf("hostname.endsWith('.pages.dev')");
+    expect(acceptanceRoute).toBeGreaterThanOrEqual(0);
+    expect(genericPagesFallback).toBeGreaterThan(acceptanceRoute);
+  });
+
   it('uses isolated acceptance-only storage and Workflow bindings', async () => {
     const config = await readText('wrangler.toml');
     const acceptance = section(config, '[env.acceptance]', /\n\[env\.(production|development)\]/);
@@ -37,7 +48,7 @@ describe('acceptance Cloudflare environment', () => {
 
     expect(acceptance).not.toContain('ghosttowntest-public-videos');
     expect(acceptance).not.toContain('id = "289662c8981d421ba85a7ca588640650"');
-    expect(acceptance).not.toContain('api.ghosttowntest.com');
+    expect(acceptance).not.toContain('api.ghosttownverdict.app');
     expect(acceptance).not.toContain('api.lit-ghosttown.app');
   });
 
@@ -45,7 +56,7 @@ describe('acceptance Cloudflare environment', () => {
     const config = await readText('wrangler.toml');
     const production = section(config, '[env.production]', /\n\[env\.acceptance\]/);
 
-    expect(production).toContain('api.ghosttowntest.com');
+    expect(production).toContain('api.ghosttownverdict.app');
     expect(production).toContain('binding = "KV"');
     expect(production).toContain('id = "289662c8981d421ba85a7ca588640650"');
     expect(production).toContain('binding = "DB"');
@@ -89,7 +100,7 @@ describe('acceptance Cloudflare environment', () => {
     }
 
     expect(acceptanceVars).toContain('FRONTEND_URL = "https://main.ghosttown-acceptance.pages.dev"');
-    expect(acceptanceVars).not.toContain('https://ghosttowntest.com');
+    expect(acceptanceVars).not.toContain('https://ghosttownverdict.app');
     expect(acceptanceVars).not.toContain('https://lit-ghosttown.app');
   });
 

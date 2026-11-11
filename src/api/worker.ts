@@ -1,7 +1,7 @@
 import app from './index';
 import type { Env } from './env';
 import { resolveGenerativeModel } from './generativeAIService';
-import { handleBlueprintExecutionCopilot } from './blueprintExecutionCopilot';
+import { handleBlueprintCoachMemory, handleBlueprintExecutionCopilot } from './blueprintExecutionCopilot';
 import { productionRuntimeBindingGuard } from './runtimeControls';
 import { ghostTownProductMetadata, handleAgentFreeVerdict } from './agentVerdict';
 import { handleAgentHandoffClaim, handleAgentHandoffResolve } from './agentHandoff';
@@ -80,6 +80,11 @@ export default {
     }
     if (copilotMatch && request.method === 'POST') {
       return applyRuntimeCors(request, env, await handleBlueprintExecutionCopilot(request, env, copilotMatch[1]));
+    }
+
+    const coachMemoryMatch = url.pathname.match(/^\/api\/paid-test\/orders\/([^/]+)\/blueprint\/coach-memory$/);
+    if (coachMemoryMatch && request.method === 'GET') {
+      return applyRuntimeCors(request, env, await handleBlueprintCoachMemory(request, env, coachMemoryMatch[1]));
     }
 
     if (url.pathname === '/api/integrations/shorts-factory/health' && request.method === 'GET') {

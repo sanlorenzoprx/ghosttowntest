@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ghosttown-blueprint-amendment-evidence-v1",
+  "amendmentVersion": "2.1.13",
+  "changeId": "GT-BP-2026-10-20-V2.1.13",
+  "recordedAt": "2026-10-20T14:00:00Z",
+  "repository": "sanlorenzoprx/ghosttowntest",
+  "branch": "claude/ghosttown-free-verdict-phase1-rhpnxs",
+  "canonical": {
+    "baseVersion": "2.1.1",
+    "sourcePath": "docs/GHOSTTOWN_LAUNCH_BLUEPRINT_CANONICAL_CONTRACT_BUILD_SPEC_V2_1.md",
+    "gitBlobSha1": "616c691e6b4c9cea93615963a07375d13ffba57f",
+    "sourceModified": false
+  },
+  "fixedText": {
+    "copyModule": "src/lib/blueprintFixedCopy.ts",
+    "founderFacingFollowsFounderLanguage": true,
+    "buyerFacingFollowsBuyerLanguage": true,
+    "englishOutputByteIdentical": true,
+    "zipFileCount": 16,
+    "validatorKeysUnchanged": true,
+    "pdfKeepsSpanishCharacters": true
+  },
+  "validation": {
+    "fastSuite": { "passed": 678, "failed": 0 },
+    "typecheck": { "passed": true },
+    "blueprintVerification": { "passed": true, "chainTip": "2.1.13" },
+    "productionDeploymentPerformed": false
+  }
+}

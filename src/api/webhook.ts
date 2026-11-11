@@ -2,9 +2,10 @@ import { UserData } from '../types/auth';
 import { recordVerifiedPurchase } from './commercialMetrics';
 import { recordCommercialFunnelEvent } from './analytics';
 import { fulfillPaidTestOrder } from './paidTest';
-import { isLaunchBlueprintCheckout, markLaunchBlueprintAwaitingSeeds } from './blueprintFulfillment';
+import { isFirst30Checkout, isLaunchBlueprintCheckout, markLaunchBlueprintAwaitingSeeds } from './blueprintFulfillment';
 import type { Env } from './env';
 import { fulfillGetMeLiveOrder, recordGetMeLiveExperimentPayment } from './getMeLive';
+import { fulfillFirst30Purchase, recordFirst30Refund } from './first30Purchase';
 
 /**
  * Verify the Stripe-Signature HMAC and reject stale replay attempts.
@@ -135,6 +136,29 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
 
       const paidTestOrderId = metadata.paid_test_order_id;
       if (typeof paidTestOrderId === 'string' && paidTestOrderId) {
+        // First 30 must be matched before the legacy paid-test fallback below.
+        if (isFirst30Checkout(session)) {
+          const { order, websiteOrderId } = await fulfillFirst30Purchase(env, paidTestOrderId, session, event.id);
+          await recordCommercialPurchase(env, event.id, session, {
+            orderId: paidTestOrderId,
+            artifactType: 'first30_v1'
+          });
+          await env.KV.put(eventKey, JSON.stringify({
+            receivedAt: new Date().toISOString(),
+            orderId: paidTestOrderId,
+            status: order.status,
+            artifactType: 'first30_v1',
+            websiteOrderId
+          }), { expirationTtl: 86400 * 90 });
+          return new Response(JSON.stringify({
+            received: true,
+            paidTest: order.status,
+            artifactType: order.artifactType,
+            websiteOrderId,
+            nextAction: 'confirm_competitor_seeds'
+          }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+
         if (isLaunchBlueprintCheckout(session)) {
           const order = await markLaunchBlueprintAwaitingSeeds(env, paidTestOrderId, session, event.id);
           await recordCommercialPurchase(env, event.id, session, {
@@ -193,6 +217,19 @@ export async function handleStripeWebhook(request: Request, env: Env): Promise<R
       await recordCommercialPurchase(env, event.id, session, {
         artifactType: typeof metadata.purchase_type === 'string' ? metadata.purchase_type : 'assessment_pack'
       });
+    }
+
+    // Refunds recorded by Stripe close a First 30 order and its website. Connected
+    // accounts can never refund a GhostTown platform purchase.
+    if (event.type === 'charge.refunded' && primarySignatureValid && !event.account) {
+      const paymentIntent = event.data.object.payment_intent;
+      if (typeof paymentIntent === 'string' && paymentIntent) {
+        const refundedOrderId = await recordFirst30Refund(env, paymentIntent);
+        if (refundedOrderId) {
+          await env.KV.put(eventKey, JSON.stringify({ receivedAt: new Date().toISOString(), orderId: refundedOrderId, status: 'refunded', artifactType: 'first30_v1' }), { expirationTtl: 86400 * 90 });
+          return new Response(JSON.stringify({ received: true, refunded: refundedOrderId }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+      }
     }
 
     if (event.type === 'payment_intent.payment_failed') {

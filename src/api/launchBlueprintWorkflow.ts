@@ -18,6 +18,7 @@ import {
   type ResearchBatchResult
 } from './customerAccessResearch';
 import { createGhostTownLaunchBlueprintV21 } from './launchBlueprintGeneratorV21';
+import type { GhostTownLaunchBlueprintV21 } from '../types/launchBlueprintV21';
 import {
   applyVertexPipelineDraft,
   createLaunchBlueprintVertexContext,
@@ -37,6 +38,7 @@ import {
 } from './launchBlueprintVertexGuards';
 import { vertexBlueprintRequired } from './vertexStructuredGeneration';
 import { researchEnvForPaidBlueprint } from './paidBlueprintResearch';
+import { researchCommunityProblems } from './communityProblemResearch';
 
 function batchSize(value: string | undefined): number {
   const parsed = Number(value);
@@ -78,14 +80,21 @@ export class LaunchBlueprintWorkflow extends WorkflowEntrypoint<Env, LaunchBluep
         markLaunchBlueprintGeneratingV21(this.env, orderId)
       );
 
-      const draft = await step.do('build deterministic canonical blueprint v2.1 draft', async () =>
-        createGhostTownLaunchBlueprintV21(
+      const communityResearch = await step.do(
+        'read customer communities and keep source-linked problems',
+        { retries: { limit: 2, delay: '15 seconds', backoff: 'exponential' } },
+        async () => researchCommunityProblems(researchEnv, context.order, context.verdict, result.research.channels)
+      );
+
+      const draft = await step.do('build deterministic canonical blueprint v2.1 draft', async (): Promise<GhostTownLaunchBlueprintV21> => ({
+        ...createGhostTownLaunchBlueprintV21(
           context.order,
           context.verdict,
           result.research,
           context.order.paidAt
-        )
-      );
+        ),
+        communityResearch
+      }));
 
       const vertexRequired = vertexBlueprintRequired(this.env);
       let blueprint = draft;

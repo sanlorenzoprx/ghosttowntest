@@ -1,0 +1,4 @@
+export const ASSESSMENT_PACK_CREDITS = 10;
+export const ASSESSMENT_PACK_AMOUNT_CENTS = 1495;
+export const ASSESSMENT_PACK_DISPLAY_PRICE = '$14.95';
+export const ASSESSMENT_PACK_NAME = '10 GhostTown Verdicts';

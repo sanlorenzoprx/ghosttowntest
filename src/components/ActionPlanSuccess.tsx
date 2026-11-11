@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { apiUrl, authHeaders } from "../lib/api";
 import CompetitorSeedStep from "./CompetitorSeedStep";
 import GetMeLiveUpsell from "./GetMeLiveUpsell";
+import First30WebsiteIncluded from "./First30WebsiteIncluded";
+import { isFirst30OrderId } from "../lib/first30Order";
 import SprintShareMoment from "./SprintShareMoment";
 import StrategicUncertaintySprintPanel from "./StrategicUncertaintySprintPanel";
 
@@ -180,7 +182,7 @@ export default function ActionPlanSuccess({ orderId, onDone }: Props) {
         {ready && (
           <>
             <SprintShareMoment sourceSprintOrderId={orderId} />
-            <GetMeLiveUpsell sourceSprintOrderId={orderId} />
+            {isFirst30OrderId(orderId) ? <First30WebsiteIncluded /> : <GetMeLiveUpsell sourceSprintOrderId={orderId} />}
             <div className="mt-7 grid gap-3">
               <button
                 onClick={() => void download()}

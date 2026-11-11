@@ -1,0 +1,120 @@
+name: Cloudflare OAuth Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test/agentic-go-live-gate
+    paths:
+      - .github/workflows/cloudflare-oauth-proof.yml
+      - src/api/getMeLiveProviders.ts
+      - scripts/roadmap-r2-binding-worker.ts
+      - scripts/acceptance-cloudflare-oauth-fixture.mjs
+      - scripts/acceptance-cloudflare-oauth-scope-audit.mjs
+      - scripts/acceptance-cloudflare-oauth-proof.mjs
+      - scripts/acceptance-go-live-gate-report.mjs
+      - tests/getMeLiveProviders.test.ts
+      - tests/agenticGoLiveGateContract.test.ts
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghosttown-cloudflare-oauth-proof
+  cancel-in-progress: false
+
+jobs:
+  cloudflare-oauth-proof:
+    name: cloudflare-oauth-proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: acceptance
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GHOSTTOWN_OAUTH_TEST_OWNER: ghosttown.acceptance.20261004@example.com
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify acceptance Cloudflare credentials
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing acceptance CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing acceptance CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+
+      - name: Verify Cloudflare OAuth contracts
+        run: >
+          npx vitest run
+          tests/getMeLiveProviders.test.ts
+          tests/agenticGoLiveGateContract.test.ts
+          tests/acceptanceEnvironment.test.ts
+          --no-file-parallelism
+
+      - name: Verify live Cloudflare OAuth scope IDs
+        run: node scripts/acceptance-cloudflare-oauth-scope-audit.mjs
+
+      - name: Deploy acceptance Worker
+        run: npx wrangler deploy --env acceptance
+
+      - name: Build acceptance frontend against acceptance Worker
+        env:
+          VITE_API_URL: https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev
+        run: |
+          rm -rf dist
+          npm run build
+          grep -R -F "https://lit-ghost-town-api-acceptance.sanlorenzoprx.workers.dev" dist/assets >/dev/null
+          printf '%s\n' "$GITHUB_SHA" > dist/acceptance-build.txt
+
+      - name: Deploy acceptance frontend
+        run: npx wrangler pages deploy dist --project-name ghosttown-acceptance --branch main
+
+      - name: Verify acceptance frontend SHA
+        shell: bash
+        run: |
+          expected="$GITHUB_SHA"
+          url="https://main.ghosttown-acceptance.pages.dev/acceptance-build.txt"
+          for attempt in $(seq 1 24); do
+            served="$(curl -fsS -H 'Cache-Control: no-cache' "$url?sha=$expected&attempt=$attempt" 2>/dev/null || true)"
+            if [ "$served" = "$expected" ]; then
+              echo "Acceptance frontend serves current SHA $expected"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Acceptance frontend did not serve current SHA $expected"
+          exit 1
+
+      - name: Prepare token-free OAuth fixture
+        run: node scripts/acceptance-cloudflare-oauth-fixture.mjs
+
+      - name: Show human authorization step
+        shell: bash
+        run: |
+          echo "Cloudflare OAuth fixture is ready."
+          echo "Open: $GHOSTTOWN_OAUTH_SETUP_URL"
+          echo "Log in with: $GHOSTTOWN_OAUTH_TEST_OWNER"
+          echo "Choose the Cloudflare step and authorize the GhostTown OAuth client."
+
+      - name: Prove real Cloudflare OAuth consent and refresh
+        run: node scripts/acceptance-cloudflare-oauth-proof.mjs
+
+      - name: Upload Cloudflare OAuth evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-cloudflare-oauth-proof-${{ github.run_id }}
+          path: github-acceptance/cloudflare-oauth-*.json
+          if-no-files-found: error
+          retention-days: 14

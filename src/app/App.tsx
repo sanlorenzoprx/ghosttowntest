@@ -9,8 +9,10 @@ import GetMeLiveLanding from '../components/GetMeLiveLanding';
 import GetMeLiveOpening from '../components/GetMeLiveOpening';
 import LoginModal from '../components/LoginModal';
 import PaywallModal from '../components/PaywallModal';
+import VerdictUnlockPage from '../components/VerdictUnlockPage';
 import Contact from '../components/Contact';
 import LegalPage, { type LegalPageKind } from '../components/LegalPage';
+import AboutPage from '../components/AboutPage';
 import ActionPlanSuccess from '../components/ActionPlanSuccess';
 import InternalGoogleSearchConsole from '../components/InternalGoogleSearchConsole';
 import CommercialMetricsConsole from '../components/CommercialMetricsConsole';
@@ -28,16 +30,19 @@ import { apiUrl } from '../lib/api';
 import type { PublicUserData } from '../types/auth';
 import { getFeaturedExampleBySlug, toIdeaIntake } from '../lib/exampleIdeas';
 import { captureCommercialAttribution, recordCommercialEvent } from '../lib/commercialAttribution';
+import { litQuestions } from '../lib/litQuestions';
 
-type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'get-me-live' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | LegalPageKind;
+type Screen = 'landing' | 'intake' | 'questions' | 'result' | 'dashboard' | 'get-me-live' | 'unlock-verdict' | 'contact' | 'action-plan-success' | 'internal-research' | 'internal-metrics' | 'about' | LegalPageKind;
 
 function screenForPath(pathname: string, hasExample: boolean): Screen {
   if (pathname === '/contact') return 'contact';
+  if (pathname === '/about') return 'about';
   if (pathname === '/privacy') return 'privacy';
   if (pathname === '/terms') return 'terms';
   if (pathname === '/refunds' || pathname === '/refund-policy') return 'refund';
   if (pathname === '/disclaimer') return 'disclaimer';
   if (pathname === '/paid-test/success') return 'action-plan-success';
+  if (pathname === '/unlock-verdict') return 'unlock-verdict';
   if (pathname.startsWith('/get-me-live')) return 'get-me-live';
   if (pathname === '/internal-research') return 'internal-research';
   if (pathname === '/internal-metrics') return 'internal-metrics';
@@ -66,6 +71,9 @@ export default function App() {
   const [purchaseReturn, setPurchaseReturn] = useState<AssessmentPackReturn>(() => assessmentPackReturnFromSearch(window.location.search));
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [user, setUser] = useState<PublicUserData | null>(null);
+  const [autoSubmitPendingVerdict, setAutoSubmitPendingVerdict] = useState(false);
+  const [paidVerdictResumeActive, setPaidVerdictResumeActive] = useState(false);
+  const [showPaidVerdictBalanceNotice, setShowPaidVerdictBalanceNotice] = useState(false);
 
   useEffect(() => {
     captureCommercialAttribution();
@@ -81,7 +89,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!purchaseReturn) return;
+    if (!purchaseReturn || window.location.pathname === '/unlock-verdict') return;
     const url = new URL(window.location.href);
     url.searchParams.delete('purchase');
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
@@ -144,37 +152,69 @@ export default function App() {
   }
 
   const hasAvailableTest = () => {
-    const testsAvailable = user
-      ? Math.max(0, 1 + user.testsPurchased + Math.min(user.shareCredits || 0, 1) - user.testsUsed)
-      : hasHitFreeTierLimit() ? 0 : 1;
-    return testsAvailable > 0;
+    if (isLoggedIn) {
+      if (!user) return false;
+      return Math.max(
+        0,
+        1 + user.testsPurchased + Math.min(user.shareCredits || 0, 1) - user.testsUsed
+      ) > 0;
+    }
+    return !hasHitFreeTierLimit();
   };
 
-  const handleStartTest = () => {
-    if (!hasAvailableTest()) { setShowPaywall(true); return; }
+  const canBeginAssessment = () => hasAvailableTest() || isLoggedIn;
+  const isDraftComplete = (draft: EvaluationDraft | null) => Boolean(
+    draft && litQuestions.every(question => draft.answers[question.id] !== undefined)
+  );
+
+  const openVerdictPurchasePage = () => {
+    if (resumeDraft) setIdea(resumeDraft.idea);
+    updatePath('/unlock-verdict');
+    setScreen('unlock-verdict');
+  };
+
+  const startFreshAssessment = (exampleSlug?: string) => {
+    if (!canBeginAssessment()) { setShowPaywall(true); return; }
+
+    // Starting another verdict is always a fresh assessment. A completed
+    // unpaid draft must never hijack this action and send the customer
+    // straight to checkout. The server enforces entitlement only when the
+    // customer asks for the verdict after completing all questions.
     clearEvaluationDraft();
     setResumeDraft(null);
-    updateExampleParam(null);
+    setAutoSubmitPendingVerdict(false);
+    setPaidVerdictResumeActive(false);
+    setShowPaidVerdictBalanceNotice(false);
     updatePath('/');
-    setIdea(null);
+
+    if (exampleSlug) {
+      const example = getFeaturedExampleBySlug(exampleSlug);
+      if (!example) return;
+      updateExampleParam(exampleSlug);
+      setIdea(toIdeaIntake(example.idea));
+    } else {
+      updateExampleParam(null);
+      setIdea(null);
+    }
     setScreen('intake');
   };
 
-  const handleSelectExample = (slug: string) => {
-    if (!hasAvailableTest()) { setShowPaywall(true); return; }
-    const example = getFeaturedExampleBySlug(slug);
-    if (!example) return;
-    clearEvaluationDraft();
-    setResumeDraft(null);
-    updatePath('/');
-    updateExampleParam(slug);
-    setIdea(toIdeaIntake(example.idea));
-    setScreen('intake');
-  };
+  const handleStartTest = () => startFreshAssessment();
+
+  const handleSelectExample = (slug: string) => startFreshAssessment(slug);
 
   const handleResume = () => {
     if (!resumeDraft) return;
-    if (!hasAvailableTest()) { setShowPaywall(true); return; }
+    if (!canBeginAssessment()) { setShowPaywall(true); return; }
+
+    // Resume means continue the saved assessment. If every question is already
+    // answered and there is no verdict credit, the saved assessment is waiting
+    // at the verdict boundary and should reopen that purchase step.
+    if (isLoggedIn && !hasAvailableTest() && isDraftComplete(resumeDraft)) {
+      openVerdictPurchasePage();
+      return;
+    }
+
     updatePath('/');
     updateExampleParam(null);
     setIdea(resumeDraft.idea);
@@ -182,7 +222,7 @@ export default function App() {
   };
 
   const handleIdeaSubmit = (ideaData: IdeaIntakeType) => {
-    if (!hasAvailableTest()) { setShowPaywall(true); return; }
+    if (!canBeginAssessment()) { setShowPaywall(true); return; }
     updatePath('/');
     updateExampleParam(null);
     const draft = saveEvaluationDraft(ideaData, {}, 0);
@@ -191,9 +231,46 @@ export default function App() {
     setScreen('questions');
   };
 
+  const handleAllowanceRequired = () => {
+    setAutoSubmitPendingVerdict(false);
+    updatePath('/unlock-verdict');
+    setScreen('unlock-verdict');
+  };
+
+  const handleUnlockCreditsReady = () => {
+    const draft = loadEvaluationDraft();
+    setPurchaseReturn(null);
+    setPaidVerdictResumeActive(true);
+    const token = loadAuthToken();
+    if (token) void verifyToken(token);
+
+    if (!draft) {
+      setResumeDraft(null);
+      setIdea(null);
+      setAutoSubmitPendingVerdict(false);
+      updatePath('/');
+      setScreen('intake');
+      return;
+    }
+
+    setResumeDraft(draft);
+    setIdea(draft.idea);
+    setAutoSubmitPendingVerdict(
+      litQuestions.every(question => draft.answers[question.id] !== undefined)
+    );
+    updatePath('/');
+    setScreen('questions');
+  };
+
   const handleResultReceived = (res: EvaluationResult) => {
     setResult(res);
     setResumeDraft(null);
+    setAutoSubmitPendingVerdict(false);
+    setPurchaseReturn(null);
+    if (paidVerdictResumeActive) {
+      setShowPaidVerdictBalanceNotice(true);
+      setPaidVerdictResumeActive(false);
+    }
     setScreen('result');
     const token = loadAuthToken();
     if (token) void verifyToken(token);
@@ -201,6 +278,7 @@ export default function App() {
 
   const handleReset = () => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    setShowPaidVerdictBalanceNotice(false);
     setScreen('landing');
     updatePath('/');
     updateExampleParam(null);
@@ -265,7 +343,7 @@ export default function App() {
       </header>
 
       <main>
-        {purchaseReturn && (
+        {purchaseReturn && screen !== 'unlock-verdict' && (
           <section
             role="status"
             className="mx-auto mt-6 flex max-w-5xl items-start justify-between gap-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950"
@@ -284,18 +362,50 @@ export default function App() {
             </button>
           </section>
         )}
-        {screen === 'landing' && <Landing onStart={handleStartTest} onSelectExample={handleSelectExample} hasDraft={Boolean(resumeDraft)} onResume={handleResume} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} locale={locale} />}
+        {screen === 'landing' && <Landing onStart={handleStartTest} onSelectExample={handleSelectExample} hasDraft={Boolean(resumeDraft)} onResume={handleResume} isLoggedIn={isLoggedIn} hasUsedFreeVerdict={Boolean(user && user.testsUsed > 0)} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} locale={locale} />}
         {screen === 'intake' && <IdeaIntake onSubmit={handleIdeaSubmit} initialIdea={idea} />}
-        {screen === 'questions' && idea && <QuestionFlow idea={idea} onResult={handleResultReceived} initialDraft={resumeDraft} onDraftChange={setResumeDraft} />}
-        {screen === 'result' && result && <ResultReport result={result} onReset={handleReset} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('signup'); setShowLoginModal(true); }} onRewardClaimed={() => { const token = loadAuthToken(); if (token) void verifyToken(token); }} locale={locale} />}
-        {screen === 'dashboard' && isLoggedIn && <UserDashboard purchaseRefresh={purchaseReturn === 'success'} onLogout={handleLogout} onBuy={() => setShowPaywall(true)} onStart={handleStartTest} onOpenResult={savedResult => { setResult(savedResult); setScreen('result'); }} />}
+        {screen === 'questions' && idea && (
+          <QuestionFlow
+            idea={idea}
+            onResult={handleResultReceived}
+            initialDraft={resumeDraft}
+            onDraftChange={setResumeDraft}
+            onAllowanceRequired={handleAllowanceRequired}
+            autoSubmitCompleteDraft={autoSubmitPendingVerdict}
+            onAutoSubmitConsumed={() => setAutoSubmitPendingVerdict(false)}
+          />
+        )}
+        {screen === 'unlock-verdict' && (
+          <VerdictUnlockPage
+            draft={resumeDraft}
+            isLoggedIn={isLoggedIn}
+            purchaseReturn={purchaseReturn}
+            onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }}
+            onCreditsReady={handleUnlockCreditsReady}
+          />
+        )}
+        {screen === 'result' && result && (
+          <>
+            {showPaidVerdictBalanceNotice && (
+              <section className="mx-auto mt-6 max-w-4xl px-4" aria-live="polite">
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-center text-blue-950">
+                  <p className="font-black">You have used 1 of your 10 verdicts.</p>
+                  <p className="mt-1 text-sm font-semibold">You have 9 verdicts left to explore your business ideas.</p>
+                </div>
+              </section>
+            )}
+            <ResultReport result={result} onReset={handleReset} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('signup'); setShowLoginModal(true); }} onRewardClaimed={() => { const token = loadAuthToken(); if (token) void verifyToken(token); }} locale={locale} />
+          </>
+        )}
+        {screen === 'dashboard' && isLoggedIn && <UserDashboard purchaseRefresh={purchaseReturn === 'success'} hasDraft={Boolean(resumeDraft)} onLogout={handleLogout} onResume={handleResume} onStart={handleStartTest} onOpenResult={savedResult => { setResult(savedResult); setScreen('result'); }} locale={locale} />}
         {getMeLiveOpening && isLoggedIn && <GetMeLiveOpening orderId={getMeLiveOrderId} />}
         {getMeLiveOpening && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Log in to open your website</h1><p className="mt-3 text-gray-700">Use the email from checkout. Your website is still going online.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
         {screen === 'get-me-live' && !getMeLiveOpening && !getMeLiveSetup && <GetMeLiveLanding sourceSprintOrderId={getMeLiveSourceSprintOrderId} isLoggedIn={isLoggedIn} onLoginClick={() => { setAuthMode('login'); setShowLoginModal(true); }} onBack={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
         {screen === 'get-me-live' && getMeLiveSetup && isLoggedIn && <GetMeLiveWorkspace orderId={getMeLiveOrderId} onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
         {screen === 'get-me-live' && getMeLiveSetup && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Log in to open your Get Me Live page</h1><p className="mt-3 text-gray-700">Use the email from checkout. Your work is saved.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
         {screen === 'contact' && <Contact onStart={handleStartTest} />}
-        {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && <LegalPage kind={screen} />}
+        {(screen === 'privacy' || screen === 'terms' || screen === 'refund' || screen === 'disclaimer') && <LegalPage kind={screen} locale={locale} />}
+        {screen === 'about' && <AboutPage locale={locale} />}
         {screen === 'action-plan-success' && <ActionPlanSuccess orderId={new URLSearchParams(window.location.search).get('order_id') || ''} onDone={() => { updatePath('/'); setScreen(isLoggedIn ? 'dashboard' : 'landing'); }} />}
         {screen === 'internal-research' && isLoggedIn && <InternalGoogleSearchConsole onBack={() => { updatePath('/'); setScreen('dashboard'); }} />}
         {screen === 'internal-research' && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Owner login required</h1><p className="mt-3 text-gray-700">This standalone research console is not part of the customer product.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
@@ -305,12 +415,13 @@ export default function App() {
 
       <footer className="border-t border-gray-200 bg-ghost-sand px-4 py-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
-          <p>Zayas House LLC · Commonwealth of Puerto Rico, USA</p>
-          <nav aria-label="Legal policies" className="flex flex-wrap gap-x-4 gap-y-2">
-            <a className="font-bold text-blue-700 hover:underline" href="/privacy">Privacy</a>
-            <a className="font-bold text-blue-700 hover:underline" href="/terms">Terms</a>
-            <a className="font-bold text-blue-700 hover:underline" href="/refunds">Refunds &amp; fulfillment</a>
-            <a className="font-bold text-blue-700 hover:underline" href="/disclaimer">Disclaimer</a>
+          <p>{locale === 'es' ? 'Zayas House LLC · Estado Libre Asociado de Puerto Rico, EE. UU.' : 'Zayas House LLC · Commonwealth of Puerto Rico, USA'}</p>
+          <nav aria-label={locale === 'es' ? 'Políticas legales' : 'Legal policies'} className="flex flex-wrap gap-x-4 gap-y-2">
+            <a className="font-bold text-blue-700 hover:underline" href="/about">{locale === 'es' ? 'Sobre nosotros' : 'About'}</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/privacy">{locale === 'es' ? 'Privacidad' : 'Privacy'}</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/terms">{locale === 'es' ? 'Términos' : 'Terms'}</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/refunds">{locale === 'es' ? 'Reembolsos' : 'Refunds'}</a>
+            <a className="font-bold text-blue-700 hover:underline" href="/disclaimer">{locale === 'es' ? 'Aviso legal' : 'Disclaimer'}</a>
           </nav>
         </div>
       </footer>

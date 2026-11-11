@@ -23,7 +23,9 @@ export type CommercialEventName =
   | 'get_me_live_live_completed'
   | 'get_me_live_lead_captured'
   | 'get_me_live_payment_connected'
-  | 'get_me_live_customer_payment';
+  | 'get_me_live_customer_payment'
+  | 'first30_purchase_completed'
+  | 'first30_refunded';
 
 export interface CommercialAttributionTouch {
   capturedAt: string;

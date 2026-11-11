@@ -36,17 +36,21 @@ Approve the `production` environment when GitHub asks.
 
 Preflight is read-only. It records the D1 migration ledger, recent Worker versions, active deployment, and production health.
 
-### 2. Apply migration 0010
+### 2. Apply the current pending migration
 
-Run the same workflow with:
+Migration `0010_get_me_live_hosting_releases.sql` was applied successfully in production on October 3, 2026 and is historical evidence only.
 
-- Operation: `migrate-0010`
+For the current release, run:
+
+- Operation: `migrate-0011`
 - same exact current `main` SHA
-- Confirmation: `APPLY 0010 TO PRODUCTION`
+- Confirmation: `APPLY 0011 TO PRODUCTION`
 
 Approve the production environment again.
 
-The workflow refuses to continue unless the only pending D1 migration is `0010_get_me_live_hosting_releases.sql`. It captures the production schema before applying the migration, runs Wrangler's remote migration command, verifies the migration ledger, then proves the new columns, tables, and indexes exist. The currently deployed Worker remains on its existing version and traffic allocation.
+The workflow refuses to continue unless the only pending D1 migration is `0011_execution_learning_coach.sql`. It captures the production schema before applying the migration, runs Wrangler's remote migration command, verifies the migration ledger, then proves the Learning Coach response, learning-candidate, and product-knowledge tables, critical columns, and indexes exist. The currently deployed Worker remains on its existing version and traffic allocation.
+
+The legacy `migrate-0010` operation remains available only for repositories/environments where 0010 is genuinely the sole pending migration; it will fail closed in the current production environment.
 
 ### 3. Stage a Worker version
 
@@ -88,11 +92,15 @@ Every production operation uploads `github-production-release` evidence for 30 d
 
 ## Current migration checkpoint
 
-At the time this gate was designed, the production D1 ledger showed exactly one pending migration:
+Production migration `0010_get_me_live_hosting_releases.sql` was applied successfully on October 3, 2026.
 
-`0010_get_me_live_hosting_releases.sql`
+After PR #61 merged, the current release adds:
 
-The active production deployment before this release work was:
+`0011_execution_learning_coach.sql`
+
+Run preflight first and require 0011 to be the sole pending migration before applying it. Do not stage or promote the new Worker until the migration ledger is clean.
+
+The active production deployment recorded during the earlier release work was:
 
 - deployment: `1c777fd9-ce08-42d1-bcb4-24ce866be498`
 - version: `7c9a1db4-c3d2-473f-98ee-9e905c10b4d3`

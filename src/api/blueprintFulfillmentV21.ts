@@ -262,6 +262,9 @@ export async function completeLaunchBlueprintOrderV21(
   const delivery = await verifyBlueprintDeliveryStateExactV21(env, blueprint, exactReceipt);
   assertBlueprintReleaseQualityGateV21(evaluateBlueprintReleaseQualityGateV21({ blueprint, research: result, delivery }));
 
+  // A First 30 order refunded while its plan was being built stays refunded.
+  const latestRaw = await env.KV.get(orderKey(order.orderId));
+  if (latestRaw && (JSON.parse(latestRaw) as PaidTestOrder).status === 'refunded') return JSON.parse(latestRaw) as PaidTestOrder;
   order.status = 'ready';
   order.fulfillmentError = undefined;
   await persistLifecycle(env, order, verdict.idea.ideaName);

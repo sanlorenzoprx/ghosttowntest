@@ -91,14 +91,14 @@ function hasSpecificOffer(value: string | undefined): boolean {
   return normalized.length >= 24 && !GENERIC_OFFER.test(normalized);
 }
 
-type IntakeSpecificity = {
+export type IntakeSpecificity = {
   customer: boolean;
   problem: boolean;
   alternative: boolean;
   offer: boolean;
 };
 
-function intakeSpecificity(idea: VerdictDecisionV2Inputs['idea']): IntakeSpecificity {
+export function intakeSpecificity(idea: VerdictDecisionV2Inputs['idea']): IntakeSpecificity {
   return {
     customer: hasSpecificCustomer(idea.targetUser),
     problem: hasSpecificProblem(idea.painfulProblem),
@@ -107,7 +107,7 @@ function intakeSpecificity(idea: VerdictDecisionV2Inputs['idea']): IntakeSpecifi
   };
 }
 
-function missingIntakeFields(specificity: IntakeSpecificity): string[] {
+export function missingIntakeFields(specificity: IntakeSpecificity): string[] {
   return [
     !specificity.customer && 'specific customer',
     !specificity.problem && 'recent painful problem',

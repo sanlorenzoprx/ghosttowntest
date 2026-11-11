@@ -13,13 +13,14 @@ describe('staged pre-live acceptance workflow', () => {
       'id: sprint',
       'id: get_me_live',
       'id: owner_controls',
+      'id: go_live_gate',
     ]) {
       expect(workflow).toContain(stage);
     }
 
     expect(workflow.match(/continue-on-error: true/g)?.length).toBeGreaterThanOrEqual(6);
     expect(workflow).toContain('timeout --foreground 6m node tests/e2e/front-door-acceptance.mjs');
-    expect(workflow).toContain('timeout --foreground 15m node tests/e2e/30-day-sprint-acceptance.mjs');
+    expect(workflow).toContain('timeout --foreground 35m node tests/e2e/30-day-sprint-acceptance.mjs');
     expect(workflow).toContain('timeout --foreground 10m node tests/e2e/get-me-live-acceptance.mjs');
     expect(workflow).toContain('timeout --foreground 6m node tests/e2e/get-me-live-owner-controls.mjs');
   });
@@ -29,6 +30,7 @@ describe('staged pre-live acceptance workflow', () => {
     expect(workflow).toContain("sprint30Day: process.env.SPRINT_OUTCOME || 'not_run'");
     expect(workflow).toContain("getMeLive: process.env.GET_ME_LIVE_OUTCOME || 'not_run'");
     expect(workflow).toContain("ownerControls: process.env.OWNER_CONTROLS_OUTCOME || 'not_run'");
+    expect(workflow).toContain("agenticGoLiveGate: process.env.GO_LIVE_GATE_OUTCOME || 'not_run'");
 
     const uploadIndex = workflow.indexOf('- name: Upload acceptance execution evidence');
     const aggregateIndex = workflow.indexOf('- name: Aggregate pre-live acceptance result');

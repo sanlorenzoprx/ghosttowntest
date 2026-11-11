@@ -11,7 +11,8 @@ const ACTIVE_GENERATIVE_MODULES = [
   'src/api/distributionFootprintResearch.ts',
   'src/api/internalGoogleSearch.ts',
   'src/api/vertexStructuredGeneration.ts',
-  'src/api/websiteCreationService.ts'
+  'src/api/websiteCreationService.ts',
+  'src/api/communityProblemResearch.ts'
 ];
 
 describe('GhostTown generative AI architecture', () => {
@@ -30,6 +31,7 @@ describe('GhostTown generative AI architecture', () => {
     expect(sources[4]).toContain("from './generativeAIService'");
     expect(sources[5]).toContain("from './generativeAIService'");
     expect(sources[5]).toContain("task: 'custom_website'");
+    expect(sources[6]).toContain("from './generativeAIService'");
   });
 
   it('uses the Cloudflare AI binding only as an AI Gateway control point for active inference', async () => {

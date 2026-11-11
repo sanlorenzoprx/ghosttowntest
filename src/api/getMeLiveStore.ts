@@ -61,6 +61,8 @@ interface GetMeLiveRow {
   paid_at: string | null;
   published_at: string | null;
   failure: string | null;
+  entitlement_source?: string | null;
+  build_started_at?: string | null;
 }
 
 function toOrder(row: GetMeLiveRow): GetMeLiveOrder {
@@ -88,7 +90,9 @@ function toOrder(row: GetMeLiveRow): GetMeLiveOrder {
     updatedAt: row.updated_at,
     paidAt: row.paid_at || undefined,
     publishedAt: row.published_at || undefined,
-    failure: row.failure || undefined
+    failure: row.failure || undefined,
+    entitlementSource: row.entitlement_source === 'first30' ? 'first30' : undefined,
+    buildStartedAt: row.build_started_at || undefined
   };
 }
 /**
@@ -136,6 +140,73 @@ export async function createGetMeLiveOrder(env: Env, order: GetMeLiveOrder): Pro
     JSON.stringify(order.providerState), order.createdAt, order.updatedAt
   ).run();
 }
+/**
+ * First 30 includes the website, so the purchase grants a paid Get Me Live row
+ * with no second charge. The unique (source_sprint_order_id, owner_id) index
+ * makes a replayed webhook a no-op. Returns the row that exists afterwards.
+ */
+export async function grantIncludedGetMeLiveOrder(env: Env, order: GetMeLiveOrder): Promise<GetMeLiveOrder> {
+  await db(env).prepare(`
+    INSERT INTO get_me_live_orders (
+      order_id, owner_id, source_sprint_order_id, source_blueprint_id, offer_id,
+      offer_version, stripe_price_id, stripe_checkout_session_id, stripe_payment_intent_id,
+      status, provider_state_json, created_at, updated_at, paid_at, entitlement_source
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'first30')
+    ON CONFLICT(source_sprint_order_id, owner_id) DO NOTHING
+  `).bind(
+    order.orderId, order.ownerId, order.sourceSprintOrderId, order.sourceBlueprintId || null,
+    order.offerId, order.offerVersion, order.stripePriceId, order.stripeCheckoutSessionId || null,
+    order.stripePaymentIntentId || null, order.status, JSON.stringify(order.providerState),
+    order.createdAt, order.updatedAt, order.paidAt || null
+  ).run();
+  const stored = await loadGetMeLiveBySprint(env, order.ownerId, order.sourceSprintOrderId);
+  if (!stored) throw new Error('Included First 30 website could not be recorded');
+  return stored;
+}
+
+/**
+ * Stamps the First 30 website build start once. Returns false when the order
+ * was refunded, so a refund and a build can never both succeed.
+ */
+export async function markGetMeLiveBuildStarted(env: Env, orderId: string, at: string): Promise<boolean> {
+  await db(env).prepare(`
+    UPDATE get_me_live_orders
+    SET build_started_at = COALESCE(build_started_at, ?)
+    WHERE order_id = ? AND status != 'refunded'
+  `).bind(at, orderId).run();
+  const row = await db(env).prepare('SELECT status, build_started_at FROM get_me_live_orders WHERE order_id = ?')
+    .bind(orderId).first<{ status: string; build_started_at: string | null }>();
+  return Boolean(row && row.status !== 'refunded' && row.build_started_at);
+}
+
+/**
+ * Refunds an included First 30 website only while its build has not started.
+ * Returns true when this call moved the row to refunded.
+ */
+export async function refundIncludedGetMeLiveOrder(env: Env, orderId: string, at: string): Promise<boolean> {
+  const result = await db(env).prepare(`
+    UPDATE get_me_live_orders
+    SET status = 'refunded', updated_at = ?
+    WHERE order_id = ? AND entitlement_source = 'first30' AND build_started_at IS NULL AND status != 'refunded'
+  `).bind(at, orderId).run();
+  return (result.meta?.changes ?? 0) === 1;
+}
+
+/** Puts a website back after a refund that Stripe did not complete. */
+export async function restoreIncludedGetMeLiveOrder(env: Env, orderId: string, status: GetMeLiveOrder['status'], at: string): Promise<void> {
+  await db(env).prepare(`
+    UPDATE get_me_live_orders SET status = ?, updated_at = ?
+    WHERE order_id = ? AND entitlement_source = 'first30' AND status = 'refunded'
+  `).bind(status, at, orderId).run();
+}
+
+/** A refund made in Stripe (for example from the dashboard) closes the website, whatever its state. */
+export async function markGetMeLiveRefunded(env: Env, orderId: string, at: string): Promise<void> {
+  await db(env).prepare(`
+    UPDATE get_me_live_orders SET status = 'refunded', updated_at = ? WHERE order_id = ?
+  `).bind(at, orderId).run();
+}
+
 /** Statuses a generic order write can never move an order out of (plan §2.6). */
 const PUBLICATION_HELD_STATUSES = `('publishing', 'verifying', 'live')`;
 
@@ -152,7 +223,7 @@ export async function updateGetMeLiveOrder(env: Env, order: GetMeLiveOrder): Pro
   await db(env).prepare(`
     UPDATE get_me_live_orders SET
       source_blueprint_id = ?, stripe_checkout_session_id = ?, stripe_payment_intent_id = ?,
-      status = CASE WHEN status IN ${PUBLICATION_HELD_STATUSES} THEN status ELSE ? END,
+      status = CASE WHEN status IN ${PUBLICATION_HELD_STATUSES} OR status = 'refunded' THEN status ELSE ? END,
       configuration_json = ?, provider_state_json = ?, updated_at = ?, paid_at = ?
     WHERE order_id = ? AND owner_id = ?
   `).bind(

@@ -6,8 +6,10 @@ import { handleStripeWebhook } from './webhook';
 import { handleReferralClaim, handleReferralCreate } from './referral';
 import { handleShareReward } from './shareReward';
 import verdictHandler from './verdict';
+import { handleFirst30EmailPreview, handleFirst30Unsubscribe, handleFirst30WaitlistExport, handleFirst30WaitlistJoin } from './first30Waitlist';
 import { handlePaidTestOrders, handlePaidTestPdf, handlePaidTestPlan, handlePaidTestPlanPdf, handlePaidTestReport } from './paidTest';
-import { handlePaidTestCheckout } from './paidTestCheckout';
+import { handleFirst30Checkout, handlePaidTestCheckout } from './paidTestCheckout';
+import { handleFirst30Refund } from './first30Purchase';
 import {
   handleLaunchBlueprint,
   handleLaunchBlueprintJson,
@@ -144,6 +146,24 @@ export default {
         applyCors(response, corsHeaders);
         return response;
       }
+      if (path === '/api/first30/waitlist' && method === 'POST') {
+        const response = await handleFirst30WaitlistJoin(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/first30/unsubscribe' && (method === 'GET' || method === 'POST')) {
+        return await handleFirst30Unsubscribe(request, env);
+      }
+      if (path === '/api/internal/first30-email-preview' && method === 'GET') {
+        const response = await handleFirst30EmailPreview(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/internal/first30-waitlist' && method === 'GET') {
+        const response = await handleFirst30WaitlistExport(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
       if (path === '/api/results' && method === 'GET') {
         const response = await handleResultHistory(request, env);
         applyCors(response, corsHeaders);
@@ -204,6 +224,16 @@ export default {
       }
       if (path === '/api/paid-test/checkout' && method === 'POST') {
         const response = await handlePaidTestCheckout(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/internal/first30/refund' && method === 'POST') {
+        const response = await handleFirst30Refund(request, env);
+        applyCors(response, corsHeaders);
+        return response;
+      }
+      if (path === '/api/first30/checkout' && method === 'POST') {
+        const response = await handleFirst30Checkout(request, env);
         applyCors(response, corsHeaders);
         return response;
       }
@@ -560,7 +590,10 @@ function getAllowedOrigin(request: Request, env: Env): string | undefined {
   try {
     const hostname = new URL(origin).hostname;
     if (
-      hostname === 'ghosttowntest.com'
+      hostname === 'ghosttownverdict.app'
+      || hostname === 'www.ghosttownverdict.app'
+      || hostname === 'app.ghosttownverdict.app'
+      || hostname === 'ghosttowntest.com'
       || hostname === 'www.ghosttowntest.com'
       || hostname === 'app.ghosttowntest.com'
       || hostname === 'lit-ghosttown.app'

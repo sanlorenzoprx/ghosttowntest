@@ -246,6 +246,10 @@ export interface GetMeLiveOrder {
   paidAt?: string;
   publishedAt?: string;
   failure?: string;
+  /** 'first30' when the website is included in a First 30 purchase instead of bought separately. */
+  entitlementSource?: 'first30';
+  /** Stamped once, the first time the founder asks for the website preview. Ends the First 30 refund window. */
+  buildStartedAt?: string;
 }
 
 export type GetMeLiveAssetKind = 'logo' | 'photo' | 'lead_magnet' | 'social_image';

@@ -1,12 +1,17 @@
 import { authenticateRequest } from './auth';
 import type { CheckoutRequest } from '../types/stripe';
+import {
+  ASSESSMENT_PACK_AMOUNT_CENTS,
+  ASSESSMENT_PACK_CREDITS,
+  ASSESSMENT_PACK_NAME
+} from '../lib/assessmentPack';
 
 interface Env {
   KV: KVNamespace;
   JWT_SECRET: string;
   FRONTEND_URL?: string;
   STRIPE_SECRET_KEY: string;
-  STRIPE_PRICE_ID: string;
+  STRIPE_PRICE_ID?: string;
 }
 
 /**
@@ -15,7 +20,7 @@ interface Env {
  */
 export async function handleCheckout(request: Request, env: Env) {
   try {
-    const { token } = await request.json<Partial<CheckoutRequest>>();
+    const { token, resumePendingVerdict = false } = await request.json<Partial<CheckoutRequest>>();
 
     if (!token) {
       return new Response(
@@ -41,16 +46,19 @@ export async function handleCheckout(request: Request, env: Env) {
     // Return customers to the frontend. The API host has no /success route.
     const frontendUrl = env.FRONTEND_URL?.replace(/\/$/, '') || new URL(request.url).origin;
 
-    // Create Stripe Checkout session
+    const returnPath = resumePendingVerdict ? '/unlock-verdict' : '/';
     const checkoutData = new URLSearchParams({
-      'line_items[0][price]': env.STRIPE_PRICE_ID,
+      'line_items[0][price_data][currency]': 'usd',
+      'line_items[0][price_data][unit_amount]': String(ASSESSMENT_PACK_AMOUNT_CENTS),
+      'line_items[0][price_data][product_data][name]': ASSESSMENT_PACK_NAME,
       'line_items[0][quantity]': '1',
       'mode': 'payment',
-      'success_url': `${frontendUrl}/?purchase=assessments_success`,
-      'cancel_url': `${frontendUrl}/?purchase=assessments_cancelled`,
+      'success_url': `${frontendUrl}${returnPath}?purchase=assessments_success`,
+      'cancel_url': `${frontendUrl}${returnPath}?purchase=assessments_cancelled`,
       'customer_email': email,
       'metadata[purchase_type]': 'assessment_pack',
-      'metadata[test_credits]': '10'
+      'metadata[test_credits]': String(ASSESSMENT_PACK_CREDITS),
+      'metadata[resume_pending_verdict]': resumePendingVerdict ? 'true' : 'false'
     });
 
     const stripeResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {

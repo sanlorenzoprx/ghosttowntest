@@ -9,13 +9,68 @@ import {
   svgDataUrl,
   type VerdictCardFormat
 } from '../lib/verdictCardImage';
+import type { Locale } from '../lib/locale';
 
 interface Props {
   result: EvaluationResult;
   isLoggedIn: boolean;
   onLoginClick: () => void;
   onRewardClaimed: () => void;
+  locale?: Locale;
 }
+
+const COPY = {
+  en: {
+    kicker: 'Share reward',
+    headingIn: 'Share your verdict card to unlock your next assessment',
+    headingOut: 'Create an account to join the share reward',
+    body: 'Your idea name stays private unless you choose to include it. Members can unlock one extra assessment by sharing a finished result.',
+    platforms: 'Supported social sharing destinations',
+    format: 'Image format',
+    formatGroup: 'Verdict card image format',
+    formats: { landscape: 'Wide', square: 'Square' },
+    includeName: 'Include my idea name',
+    shareTitle: (name: string) => `My GhostTown verdict: ${name}`,
+    shareTitlePrivate: 'My GhostTown verdict',
+    linkFailed: 'We could not create your share link.',
+    rewardFailed: 'Your share worked, but we could not unlock the reward.',
+    unlocked: (n: number | undefined) => `Assessment ${n} of 2 is now unlocked.`,
+    shared: 'Shared.',
+    shareFailed: 'Sharing failed. Please try again.',
+    saveFailed: 'We could not save the verdict image.',
+    creatingCard: 'Creating your verdict card...',
+    shareButton: 'Share and unlock 1 assessment',
+    joinButton: 'Create a free account to unlock more',
+    creating: 'Creating...',
+    save: 'Save image',
+    footnote: 'On your phone, choose Instagram, TikTok, YouTube or Facebook from the share menu. One extra assessment at most.'
+  },
+  es: {
+    kicker: 'Premio por compartir',
+    headingIn: 'Comparte tu tarjeta de veredicto y desbloquea tu próxima evaluación',
+    headingOut: 'Crea una cuenta para participar en el premio por compartir',
+    body: 'El nombre de tu idea queda privado a menos que decidas incluirlo. Los miembros pueden desbloquear una evaluación extra al compartir un resultado terminado.',
+    platforms: 'Redes sociales donde puedes compartir',
+    format: 'Formato de imagen',
+    formatGroup: 'Formato de la imagen del veredicto',
+    formats: { landscape: 'Ancha', square: 'Cuadrada' },
+    includeName: 'Incluir el nombre de mi idea',
+    shareTitle: (name: string) => `Mi veredicto de GhostTown: ${name}`,
+    shareTitlePrivate: 'Mi veredicto de GhostTown',
+    linkFailed: 'No pudimos crear tu enlace para compartir.',
+    rewardFailed: 'Compartiste bien, pero no pudimos desbloquear el premio.',
+    unlocked: (n: number | undefined) => `La evaluación ${n} de 2 ya está desbloqueada.`,
+    shared: 'Compartido.',
+    shareFailed: 'No se pudo compartir. Inténtalo otra vez.',
+    saveFailed: 'No pudimos guardar la imagen del veredicto.',
+    creatingCard: 'Creando tu tarjeta de veredicto...',
+    shareButton: 'Comparte y desbloquea 1 evaluación',
+    joinButton: 'Crea una cuenta gratis para desbloquear más',
+    creating: 'Creando...',
+    save: 'Guardar imagen',
+    footnote: 'En tu teléfono, elige Instagram, TikTok, YouTube o Facebook en el menú de compartir. Máximo una evaluación extra.'
+  }
+};
 
 interface RewardResponse {
   rewarded?: boolean;
@@ -25,7 +80,8 @@ interface RewardResponse {
   totalFreeAssessments?: number;
 }
 
-export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardClaimed }: Props) {
+export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardClaimed, locale = 'en' }: Props) {
+  const t = COPY[locale];
   const [format, setFormat] = useState<VerdictCardFormat>('landscape');
   const [includeIdeaName, setIncludeIdeaName] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -56,7 +112,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
       });
       const linkData = await linkResponse.json<{ refId?: string; link?: string; error?: string }>();
       if (!linkResponse.ok || !linkData.refId || !linkData.link) {
-        throw new Error(linkData.error || 'Could not create your share link');
+        throw new Error(linkData.error || t.linkFailed);
       }
 
       const summary = createShareSummary(result, linkData.link, includeIdeaName);
@@ -71,11 +127,11 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
           const canShareFile = typeof navigator.canShare === 'function'
             && navigator.canShare({ files: [cardFile] });
           await navigator.share(canShareFile ? {
-            title: includeIdeaName ? `My LIT verdict: ${result.idea.ideaName}` : 'My LIT Ghost Town verdict',
+            title: includeIdeaName ? t.shareTitle(result.idea.ideaName) : t.shareTitlePrivate,
             text: summary,
             files: [cardFile]
           } : {
-            title: includeIdeaName ? `My LIT verdict: ${result.idea.ideaName}` : 'My LIT Ghost Town verdict',
+            title: includeIdeaName ? t.shareTitle(result.idea.ideaName) : t.shareTitlePrivate,
             text: summary
           });
         } catch (caught) {
@@ -94,15 +150,15 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
       });
       const reward = await rewardResponse.json<RewardResponse>();
       if (!rewardResponse.ok) {
-        throw new Error(reward.error || 'Your share completed, but the reward could not be unlocked');
+        throw new Error(reward.error || t.rewardFailed);
       }
 
       setMessage(reward.message || (reward.rewarded
-        ? `Assessment ${reward.totalFreeAssessments} of 2 is now unlocked.`
-        : 'Share completed.'));
+        ? t.unlocked(reward.totalFreeAssessments)
+        : t.shared));
       onRewardClaimed();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Sharing failed. Please try again.');
+      setError(caught instanceof Error ? caught.message : t.shareFailed);
     } finally {
       setLoading(false);
     }
@@ -119,7 +175,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
       });
       saveFile(cardFile);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not save the verdict image');
+      setError(caught instanceof Error ? caught.message : t.saveFailed);
     } finally {
       setSaving(false);
     }
@@ -127,14 +183,14 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
 
   return (
     <section className="rounded-lg border border-blue-200 bg-ghost-sand p-5 sm:p-6">
-      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Share reward</p>
+      <p className="text-xs font-bold uppercase tracking-wider text-blue-600">{t.kicker}</p>
       <h3 className="mt-2 text-xl font-bold text-blue-950">
-        {isLoggedIn ? 'Share your verdict card to unlock the next assessment' : 'Create an account to join the share reward'}
+        {isLoggedIn ? t.headingIn : t.headingOut}
       </h3>
       <p className="mt-2 text-sm leading-relaxed text-blue-800">
-        Your idea name stays private unless you choose to include it. Registered members can unlock one bonus assessment by sharing a completed result.
+        {t.body}
       </p>
-      <div className="mt-4 flex flex-wrap gap-2" aria-label="Supported social sharing destinations">
+      <div className="mt-4 flex flex-wrap gap-2" aria-label={t.platforms}>
         {['Instagram', 'TikTok', 'YouTube', 'Facebook'].map(platform => (
           <span key={platform} className="rounded-full border border-blue-200 bg-white/80 px-3 py-1 text-xs font-bold text-blue-800">
             {platform}
@@ -152,8 +208,8 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
 
       <div className="mt-4 flex flex-col gap-4 rounded-lg border border-blue-100 bg-white/70 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <span className="block text-xs font-bold uppercase tracking-wider text-gray-500">Image format</span>
-          <div className="mt-2 inline-flex rounded-lg border border-gray-200 bg-white p-1" role="group" aria-label="Verdict card image format">
+          <span className="block text-xs font-bold uppercase tracking-wider text-gray-500">{t.format}</span>
+          <div className="mt-2 inline-flex rounded-lg border border-gray-200 bg-white p-1" role="group" aria-label={t.formatGroup}>
             {(['landscape', 'square'] as VerdictCardFormat[]).map(option => (
               <button
                 key={option}
@@ -164,7 +220,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
                   format === option ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                <span className="block capitalize">{option}</span>
+                <span className="block">{t.formats[option]}</span>
                 <span className="block text-[10px] font-medium opacity-80">
                   {option === 'square' ? 'Instagram · TikTok' : 'Facebook · YouTube'}
                 </span>
@@ -180,7 +236,7 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
             onChange={event => setIncludeIdeaName(event.target.checked)}
             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          Include my idea name
+          {t.includeName}
         </label>
       </div>
 
@@ -203,10 +259,10 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
           className="rounded-lg bg-blue-600 px-5 py-3 font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading
-            ? 'Creating your verdict card...'
+            ? t.creatingCard
             : isLoggedIn
-              ? 'Share to Social Apps & Unlock 1 Assessment'
-              : 'Create Free Account to Unlock More'}
+              ? t.shareButton
+              : t.joinButton}
         </button>
         <button
           type="button"
@@ -214,11 +270,11 @@ export default function ShareCard({ result, isLoggedIn, onLoginClick, onRewardCl
           disabled={loading || saving}
           className="rounded-lg border border-blue-300 bg-white px-5 py-3 font-bold text-blue-700 transition hover:bg-blue-50 disabled:opacity-60"
         >
-          {saving ? 'Creating...' : 'Save Image'}
+          {saving ? t.creating : t.save}
         </button>
       </div>
       <p className="mt-3 text-center text-xs text-blue-700">
-        On mobile, choose Instagram, TikTok, YouTube, or Facebook from your share sheet. One bonus reward maximum.
+        {t.footnote}
       </p>
     </section>
   );

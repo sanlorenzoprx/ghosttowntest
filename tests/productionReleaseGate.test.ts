@@ -17,13 +17,17 @@ describe('production release gate', () => {
     expect(workflow).not.toContain('npx wrangler deploy --env production');
   });
 
-  it('requires migration 0010 before Worker staging or promotion', () => {
+  it('requires a clean migration ledger and supports the guarded current migration before Worker staging or promotion', () => {
     expect(workflow).toContain('Require clean migration ledger before staging or promotion');
-    expect(workflow).toContain('0010_get_me_live_hosting_releases.sql');
+    expect(workflow).toContain('migrate-0011');
+    expect(workflow).toContain('APPLY 0011 TO PRODUCTION');
+    expect(workflow).toContain('0011_execution_learning_coach.sql');
     expect(workflow).toContain('wrangler d1 migrations apply DB --env production --remote');
-    expect(workflow).toContain('schema-verification.json');
-    expect(workflow).toContain('get_me_live_releases');
-    expect(workflow).toContain('get_me_live_publish_attempts');
+    expect(workflow).toContain('schema-verification-0011.json');
+    expect(workflow).toContain('execution_coach_responses');
+    expect(workflow).toContain('execution_learning_candidates');
+    expect(workflow).toContain('execution_product_knowledge');
+    expect(workflow).toContain('idx_execution_product_knowledge_retrieval');
   });
 
   it('stages an exact version at zero percent before promotion', () => {
@@ -56,5 +60,15 @@ describe('production release gate', () => {
     expect(wrangler).toContain('binding = "CF_VERSION_METADATA"');
     expect(env).toContain('CF_VERSION_METADATA?:');
     expect(api).toContain('version_id: env.CF_VERSION_METADATA?.id || null');
+  });
+});
+
+describe('production release health endpoint during the domain move', () => {
+  it('checks the new API host and falls back to the legacy host of the same Worker', () => {
+    expect(workflow).toContain('HEALTH_URL_PRIMARY: https://api.ghosttownverdict.app/api/integrations/shorts-factory/health');
+    expect(workflow).toContain('HEALTH_URL_LEGACY: https://api.ghosttowntest.com/api/integrations/shorts-factory/health');
+    expect(workflow).toContain('for url in "$HEALTH_URL_PRIMARY" "$HEALTH_URL_LEGACY"; do');
+    expect(workflow).toContain('echo "HEALTH_URL=$url" >> "$GITHUB_ENV"');
+    expect(workflow.indexOf('Resolve production health endpoint')).toBeLessThan(workflow.indexOf('Capture production state before operation'));
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EvaluationAnswers, EvaluationResult, IdeaIntake } from '../types/lit';
 import { litQuestions } from '../lib/litQuestions';
 import QuestionCard from './QuestionCard';
@@ -17,9 +17,20 @@ interface Props {
   onResult: (result: EvaluationResult) => void;
   initialDraft?: EvaluationDraft | null;
   onDraftChange: (draft: EvaluationDraft | null) => void;
+  onAllowanceRequired: () => void;
+  autoSubmitCompleteDraft?: boolean;
+  onAutoSubmitConsumed?: () => void;
 }
 
-export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChange }: Props) {
+export default function QuestionFlow({
+  idea,
+  onResult,
+  initialDraft,
+  onDraftChange,
+  onAllowanceRequired,
+  autoSubmitCompleteDraft = false,
+  onAutoSubmitConsumed
+}: Props) {
   const canResumeDraft = initialDraft?.idea.ideaName === idea.ideaName;
   const [currentIndex, setCurrentIndex] = useState(() => canResumeDraft
     ? Math.min(Math.max(initialDraft.currentIndex, 0), litQuestions.length - 1)
@@ -28,6 +39,7 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const autoSubmitStarted = useRef(false);
 
   const current = litQuestions[currentIndex];
   const isLast = currentIndex === litQuestions.length - 1;
@@ -91,6 +103,11 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
 
       if (!response.ok) {
         const body: { error?: string } = await response.json<{ error?: string }>().catch(() => ({}));
+        if (response.status === 402 && body.error === 'No tests remaining') {
+          setLoading(false);
+          onAllowanceRequired();
+          return;
+        }
         throw new Error(body.error || 'Failed to generate verdict');
       }
 
@@ -106,6 +123,15 @@ export default function QuestionFlow({ idea, onResult, initialDraft, onDraftChan
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!autoSubmitCompleteDraft || autoSubmitStarted.current || loading) return;
+    const complete = litQuestions.every(question => answers[question.id] !== undefined);
+    if (!complete) return;
+    autoSubmitStarted.current = true;
+    onAutoSubmitConsumed?.();
+    void handleSubmit(answers);
+  }, [autoSubmitCompleteDraft, answers, loading, onAutoSubmitConsumed]);
 
   return (
     <div className="mx-auto min-h-[calc(100dvh-72px)] max-w-2xl px-3 py-4 sm:px-4 sm:py-8">
