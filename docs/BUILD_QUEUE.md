@@ -267,6 +267,14 @@ The direct-upload Pages workflow now takes a validated offer choice, defaults to
 passes it into the local Vite build. Its release receipt records the choice. Updated the First 30
 activation and undo instructions. No production release or setting has changed.
 
+### Q15 — Persist automatic Coach reviews without automatic outside research — `done`
+
+Acceptance run 43071614954 exposed a Day 2 review that returned boundary text without persisting.
+Automatic review/checkpoint phases now disable outside research regardless of prompt wording;
+manual research retains its relevance gate. The UI requires a persistence acknowledgement, and
+cached persisted responses provide it. Regression coverage checks both languages for all 30 days.
+The full acceptance journey must be rerun on the merged fix.
+
 ### Q16 — Pin the OAuth acceptance probe to its deployed version — `done`
 
 Run 43071614954 hit the canonical Worker's 404 after deploying the temporary OAuth verifier.

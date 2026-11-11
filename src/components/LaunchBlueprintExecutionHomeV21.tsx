@@ -501,7 +501,7 @@ export default function LaunchBlueprintExecutionHomeV21({
         degraded?: { active?: boolean; reason?: string } | null;
         memory?: CoachReviewSummary['memory'];
       }>();
-      if (!response.ok || !body.answer) throw new Error(body.error || t.coachReviewFailed);
+      if (!response.ok || !body.answer || body.memory?.saved !== true) throw new Error(body.error || t.coachReviewFailed);
       setCoachReview({
         dayNumber,
         answer: body.answer,
