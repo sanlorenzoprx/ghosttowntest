@@ -45,7 +45,7 @@ function AgentHandoffEntry({ token }: { token: string }) {
           onRewardClaimed={() => undefined}
           locale={locale}
         />
-        {showLogin && <LoginModal onLogin={() => { setIsLoggedIn(true); setShowLogin(false); }} onClose={() => setShowLogin(false)} initialMode="login" />}
+        {showLogin && <LoginModal onLogin={() => { setIsLoggedIn(true); setShowLogin(false); }} onClose={() => setShowLogin(false)} initialMode="login" locale={locale} />}
       </div>
     );
   }
@@ -59,7 +59,7 @@ function AgentHandoffEntry({ token }: { token: string }) {
         onClaimed={setResult}
         onHome={() => { window.location.href = '/'; }}
       />
-      {showLogin && <LoginModal onLogin={() => { setIsLoggedIn(true); setShowLogin(false); }} onClose={() => setShowLogin(false)} initialMode="login" />}
+      {showLogin && <LoginModal onLogin={() => { setIsLoggedIn(true); setShowLogin(false); }} onClose={() => setShowLogin(false)} initialMode="login" locale={locale} />}
     </div>
   );
 }

@@ -15,21 +15,14 @@ const LEGACY_WITHOUT_OWN_SPANISH = new Set([
   'ActionPlanSuccess.tsx',
   'AgentHandoff.tsx',
   'CompetitorSeedStep.tsx',
-  'Contact.tsx',
   'GetMeLiveLanding.tsx',
   'GetMeLiveOpening.tsx',
   'GetMeLiveStudio.tsx',
   'GetMeLiveUpsell.tsx',
   'GetMeLiveWorkspace.tsx',
-  'IdeaIntake.tsx',
-  'Landing.tsx',
   'LaunchBlueprintView.tsx',
   'LaunchSitePanel.tsx',
-  'LoginModal.tsx',
-  'PaywallModal.tsx',
   'PrePurchaseResearchSignals.tsx',
-  'ProgressBar.tsx',
-  'QuestionCard.tsx',
   'VerdictUnlockPage.tsx',
 ]);
 
@@ -49,6 +42,6 @@ describe('bilingual UI components', () => {
     const nowBilingual = [...LEGACY_WITHOUT_OWN_SPANISH].filter(name => bilingual(readFileSync(new URL(name, dir), 'utf8')));
     expect(nowBilingual, 'These are bilingual now: remove them from LEGACY_WITHOUT_OWN_SPANISH').toEqual([]);
     expect([...LEGACY_WITHOUT_OWN_SPANISH].filter(name => !components.includes(name))).toEqual([]);
-    expect(LEGACY_WITHOUT_OWN_SPANISH.size).toBeLessThanOrEqual(19);
+    expect(LEGACY_WITHOUT_OWN_SPANISH.size).toBeLessThanOrEqual(12);
   });
 });
