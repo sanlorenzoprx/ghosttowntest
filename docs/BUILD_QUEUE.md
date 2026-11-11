@@ -34,8 +34,9 @@ the end of the queue in your pull request and say why in one line.
 ## Limits that always hold
 
 - **Never touch production.** No production deploy, release, migration, secret, price, payment or
-  checkout setting. Do not run a workflow whose name starts with "Production". Acceptance is the only
-  environment the loop may deploy to.
+  checkout setting. Do not run a workflow whose name starts with "Production", or any workflow that
+  uses a production secret or the production environment (for example `Execution Product Learning
+  Review`). Acceptance is the only environment the loop may deploy to.
 - **Never weaken a gate.** Do not skip, delete or loosen a test, the Blueprint contract check, the
   language check or the bilingual list to get green.
 - A change to what the paid Blueprint promises or produces needs a new amendment version, a change
@@ -75,7 +76,13 @@ and #50 is closed. Carry the files onto your session's branch and open a new pul
 push to the old branch, because a push there can start a production probe. Merging is allowed;
 **running** any of these workflows is not.
 
-### Q03 — Land the Learning Coach — `todo`
+### Q03 — Land the Learning Coach — `done`
+
+Merged on 11 November as a new pull request that replaces #63. The Coach's Sprint boundary now accepts
+Spanish, its fixed boundary answers and every new Coach string are in English and Spanish, and tests
+prove the Spanish prompts get the same boundary result as the English ones. No Blueprint amendment:
+the plan, PDF and ZIP are unchanged. It adds one manual workflow, `Execution Product Learning Review`,
+that uses a production secret; the loop must not run it.
 
 Pull request #63 (`feature/learning-coach-full-integration`), 39 commits. It conflicts with `main` in
 `src/components/LaunchBlueprintCopilotV21.tsx`, `src/components/LaunchBlueprintExecutionHomeV21.tsx`

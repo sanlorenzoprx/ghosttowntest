@@ -27,6 +27,8 @@ interface CopilotResponse {
     strategyRoomDoesNotMutateLiveExperiment?: boolean;
   };
   groundedWebSources?: Array<{ title: string; url: string }>;
+  scope?: { allowed?: boolean; reason?: string; boundary?: string };
+  externalResearch?: { requested?: boolean; allowed?: boolean; performed?: boolean; reason?: string };
   learningCandidates?: ExecutionLearningCandidate[];
   cache?: { hit?: boolean; responseId?: string; expiresAt?: string | null; hitCount?: number };
   memory?: { saved?: boolean; learningCandidateCount?: number; priorDailyAssessmentCount?: number; reusableKnowledgeCount?: number };
@@ -67,6 +69,15 @@ type CopilotCopy = {
   saved: string;
   cacheHit: string;
   sources: string;
+  sprintOnly: string;
+  marketPrompt: (day: number) => string;
+  marketButton: string;
+  boundaryTitle: string;
+  boundaryBody: string;
+  researchApproved: string;
+  researchBlocked: string;
+  researchApprovedBody: string;
+  researchBlockedBody: string;
   askLabel: string;
   placeholder: string;
   footnote: string;
@@ -110,7 +121,7 @@ const COPY: Record<Locale, CopilotCopy> = {
     reviewButton: 'Review today’s recorded results',
     orAsk: 'Or ask from the work you are doing now:',
     you: 'You',
-    thinking: 'Reading the Blueprint, today’s packet, evidence, checkpoint state, and relevant research…',
+    thinking: 'Reading the Blueprint, today’s packet, recorded evidence, checkpoint state, and saved Sprint learning…',
     recommended: 'Recommended bounded action',
     guardrails: 'Experiment guardrails',
     route: 'Route:',
@@ -123,9 +134,18 @@ const COPY: Record<Locale, CopilotCopy> = {
     learned: 'What GhostTown learned',
     saved: 'Saved to your Sprint learning history.',
     cacheHit: ' This answer came from the saved cache for the same evidence.',
-    sources: 'Grounded web sources',
+    sources: 'Outside context for this Sprint decision',
+    sprintOnly: 'GhostTown stays inside your 30-Day Sprint. Outside research runs only when it directly helps the active Sprint decision.',
+    marketPrompt: day => `Check current market information only if it directly helps this Day ${day} Sprint decision. Use outside sources only for the active customer, offer, competitor, channel, or market question, and keep outside context separate from my recorded Sprint evidence.`,
+    marketButton: 'Check current market information for this decision',
+    boundaryTitle: 'Sprint boundary',
+    boundaryBody: 'GhostTown did not use AI or outside research for this request. Keep questions tied to the active 30-Day Sprint.',
+    researchApproved: 'Outside research approved for this Sprint decision',
+    researchBlocked: 'Outside research blocked',
+    researchApprovedBody: 'External context is kept separate from your recorded customer evidence.',
+    researchBlockedBody: 'Tie outside research directly to today’s task, this Sprint, your current offer, customer, checkpoint, or next action.',
     askLabel: 'Ask GhostTown',
-    placeholder: 'Paste a customer response, ask what to do, or explore strategy…',
+    placeholder: 'Ask about today’s task, your evidence, customer, offer, checkpoint, or next Sprint move…',
     footnote: 'AI advises. Evidence, completion and branch permissions remain deterministic.',
     ask: 'Ask'
   },
@@ -155,7 +175,7 @@ const COPY: Record<Locale, CopilotCopy> = {
     reviewButton: 'Revisar los resultados que anoté hoy',
     orAsk: 'O pregunta sobre lo que estás haciendo ahora:',
     you: 'Tú',
-    thinking: 'Leyendo el Blueprint, el paquete de hoy, tus pruebas, el estado del chequeo y la investigación que aplica…',
+    thinking: 'Leyendo el Blueprint, el paquete de hoy, las pruebas que anotaste, el estado del chequeo y lo que tu Sprint ya aprendió…',
     recommended: 'Próximo paso recomendado',
     guardrails: 'Límites del experimento',
     route: 'Camino:',
@@ -168,9 +188,18 @@ const COPY: Record<Locale, CopilotCopy> = {
     learned: 'Lo que GhostTown aprendió',
     saved: 'Guardado en el historial de aprendizaje de tu Sprint.',
     cacheHit: ' Esta respuesta viene de una guardada antes con las mismas pruebas.',
-    sources: 'Fuentes de la web usadas',
+    sources: 'Información de afuera para esta decisión del Sprint',
+    sprintOnly: 'GhostTown se queda dentro de tu Sprint de 30 días. Solo busca información de afuera cuando ayuda de forma directa a la decisión que tienes ahora en el Sprint.',
+    marketPrompt: day => `Busca información actual del mercado solo si ayuda de forma directa a la decisión del Día ${day} de mi Sprint. Usa fuentes de afuera solo para la pregunta de ahora sobre mi cliente, oferta, competidor, canal o mercado, y mantén esa información separada de las pruebas que anoté en mi Sprint.`,
+    marketButton: 'Buscar información actual del mercado para esta decisión',
+    boundaryTitle: 'Límite del Sprint',
+    boundaryBody: 'GhostTown no usó IA ni buscó información de afuera para esta pregunta. Haz preguntas que tengan que ver con tu Sprint de 30 días.',
+    researchApproved: 'Búsqueda de afuera aprobada para esta decisión del Sprint',
+    researchBlocked: 'Búsqueda de afuera bloqueada',
+    researchApprovedBody: 'La información de afuera se mantiene separada de las pruebas que anotaste de tus clientes.',
+    researchBlockedBody: 'Conecta la búsqueda con la tarea de hoy, este Sprint, tu oferta, tu cliente, tu chequeo o tu próximo paso.',
     askLabel: 'Pregúntale a GhostTown',
-    placeholder: 'Pega la respuesta de un cliente, pregunta qué hacer o explora ideas…',
+    placeholder: 'Pregunta sobre la tarea de hoy, tus pruebas, tu cliente, tu oferta, tu chequeo o tu próximo paso en el Sprint…',
     footnote: 'La IA aconseja. Las pruebas, lo completado y los cambios de camino siguen reglas fijas.',
     ask: 'Preguntar'
   }
@@ -235,6 +264,7 @@ export default function LaunchBlueprintCopilotV21({
           <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-white/20 px-3 py-2 text-sm font-black">{copy.close}</button>
         </div>
         <p className="mt-2 text-xs leading-5 text-white/70">{copy.commercialProof} {copy.laneProof(lane, profile.firstCommercialProof)}</p>
+        <p className="mt-2 text-xs leading-5 text-white/60">{copy.sprintOnly}</p>
       </div>
 
       <div className="max-h-[62vh] overflow-y-auto p-4">
@@ -248,6 +278,7 @@ export default function LaunchBlueprintCopilotV21({
           <button type="button" onClick={() => void ask(copy.reviewPrompt(dayNumber), 'review')} className="block w-full rounded-xl border border-ghost-rust/30 bg-[#fff7f2] p-3 text-left text-sm font-black text-ghost-rust hover:border-ghost-rust">{copy.reviewButton}</button>
           <p className="pt-2 text-sm font-black">{copy.orAsk}</p>
           {copy.quickPrompts.map(item => <button key={item} type="button" onClick={() => void ask(item)} className="block w-full rounded-xl border border-black/10 bg-white p-3 text-left text-sm font-bold hover:border-ghost-rust">{item}</button>)}
+          <button type="button" onClick={() => void ask(copy.marketPrompt(dayNumber))} className="block w-full rounded-xl border border-blue-200 bg-blue-50 p-3 text-left text-sm font-black text-blue-900 hover:border-blue-400">{copy.marketButton}</button>
         </div>}
 
         <div className="mt-4 space-y-3">
@@ -261,6 +292,8 @@ export default function LaunchBlueprintCopilotV21({
         {latest?.evidenceToRecord?.length ? <section className="mt-3 rounded-xl border border-black/10 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">{copy.recordNext}</p><ul className="mt-2 space-y-1 text-sm">{latest.evidenceToRecord.map(item => <li key={item}>• {item}</li>)}</ul></section> : null}
         {latest?.learningCandidates?.length ? <section className="mt-3 rounded-xl border border-black/10 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">{copy.learned}</p><ul className="mt-2 space-y-2 text-sm">{latest.learningCandidates.map((item, index) => <li key={`${item.knowledgeClass}-${index}`}><strong>{item.knowledgeClass.replace(/_/g, ' ')}:</strong> {item.lesson}</li>)}</ul></section> : null}
         {latest?.memory?.saved ? <section className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm"><strong>{copy.saved}</strong>{latest.cache?.hit ? copy.cacheHit : ''}</section> : null}
+        {latest?.scope?.allowed === false && <section className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-black">{copy.boundaryTitle}</p><p className="mt-1">{copy.boundaryBody}</p></section>}
+        {latest?.externalResearch?.requested && <section className={`mt-3 rounded-xl border p-4 text-sm ${latest.externalResearch.allowed ? 'border-blue-200 bg-blue-50 text-blue-950' : 'border-amber-300 bg-amber-50 text-amber-950'}`}><p className="font-black">{latest.externalResearch.allowed ? copy.researchApproved : copy.researchBlocked}</p><p className="mt-1">{latest.externalResearch.allowed ? copy.researchApprovedBody : copy.researchBlockedBody}</p></section>}
         {latest?.groundedWebSources?.length ? <section className="mt-3 rounded-xl border border-black/10 bg-white p-4"><p className="text-xs font-black uppercase tracking-[0.12em] text-gray-500">{copy.sources}</p><ul className="mt-2 space-y-2 text-sm">{latest.groundedWebSources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer" className="font-bold text-ghost-rust underline">{source.title}</a></li>)}</ul></section> : null}
       </div>
 

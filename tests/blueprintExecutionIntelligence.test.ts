@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { checkoutAccessibilityBlueprintFixture } from './fixtures/checkoutAccessibilityBlueprint';
 import {
   buildExecutionRagContext,
+  evaluateExecutionInteraction,
   executionLaneProfile,
   formalCheckpointBranch,
   routeExecutionCapability,
@@ -102,13 +104,120 @@ describe('GhostTown execution intelligence', () => {
     expect(context.immutableRules.join(' ')).toContain('Recorded customer behavior outranks model opinion');
   });
 
-  it('routes cheap, strategic, critical, and current-research questions to stable capability slots', () => {
+  it('applies the same Sprint boundary to a founder who writes in Spanish', () => {
     const blueprint = checkoutAccessibilityBlueprintFixture();
     const context = buildExecutionRagContext(blueprint, progress(), 1, '');
-    expect(routeExecutionCapability('What exactly do I do today?', 'current_experiment', context)).toBe('fast_assistant');
-    expect(routeExecutionCapability('Should I change the offer?', 'current_experiment', context)).toBe('strategy_reasoner');
-    expect(routeExecutionCapability('Challenge this evidence; are you sure?', 'current_experiment', context)).toBe('critic');
-    expect(routeExecutionCapability('Research the latest competitor information on the web', 'current_experiment', context)).toBe('grounded_research');
+
+    for (const question of [
+      '¿Qué exactamente debo hacer hoy?',
+      '¿Qué pruebas me faltan por anotar?',
+      'Explícame qué cuenta hoy como éxito y qué cuenta como fallo.',
+      '¿Lo que encontré contradice el plan?',
+      '¿Quiénes son mis competidores?'
+    ]) {
+      const gate = evaluateExecutionInteraction(question, context);
+      expect(gate.allowed, question).toBe(true);
+      expect(gate.externalResearchRequested, question).toBe(false);
+    }
+
+    const research = evaluateExecutionInteraction('Busca información actual del mercado solo si ayuda de forma directa a la decisión del Día 1 de mi Sprint.', context);
+    expect(research.allowed).toBe(true);
+    expect(research.externalResearchRequested).toBe(true);
+    expect(research.externalResearchAllowed).toBe(true);
+    expect(research.externalResearchReason).toBe('sprint_relevant');
+
+    const unrelated = evaluateExecutionInteraction('Busca en la web lo último de los resultados de fútbol y el clima en Tokio.', context);
+    expect(unrelated.allowed).toBe(false);
+    expect(unrelated.externalResearchRequested).toBe(true);
+    expect(unrelated.externalResearchAllowed).toBe(false);
+    expect(unrelated.externalResearchReason).toBe('out_of_scope');
+
+    const untethered = evaluateExecutionInteraction('Investiga fósiles de dinosaurios.', context);
+    expect(untethered.externalResearchAllowed).toBe(false);
+  });
+
+  it('gives the Spanish Coach prompts the same boundary result as the English ones', () => {
+    const blueprint = checkoutAccessibilityBlueprintFixture();
+    const context = buildExecutionRagContext(blueprint, progress(), 4, '');
+    const read = (name: string) => readFileSync(new URL(`../src/components/${name}`, import.meta.url), 'utf8');
+    const prompts = (source: string, key: string) => [...source.matchAll(new RegExp(`${key}: day => \`([^\`]+)\``, 'g'))]
+      .map(match => match[1].replace('${day}', '4'));
+    const cases: Array<[string, string]> = [
+      ['LaunchBlueprintExecutionHomeV21.tsx', 'coachReviewPrompt'],
+      ['LaunchBlueprintExecutionHomeV21.tsx', 'coachCheckpointPrompt'],
+      ['LaunchBlueprintCopilotV21.tsx', 'marketPrompt'],
+      ['LaunchBlueprintCopilotV21.tsx', 'reviewPrompt']
+    ];
+    for (const [file, key] of cases) {
+      const [en, es] = prompts(read(file), key);
+      expect(en, `${key} en`).toBeTruthy();
+      expect(es, `${key} es`).toBeTruthy();
+      expect(es).not.toBe(en);
+      const enGate = evaluateExecutionInteraction(en, context);
+      const esGate = evaluateExecutionInteraction(es, context);
+      expect(enGate.allowed, key).toBe(true);
+      expect({ allowed: esGate.allowed, requested: esGate.externalResearchRequested, researchAllowed: esGate.externalResearchAllowed }, key)
+        .toEqual({ allowed: enGate.allowed, requested: enGate.externalResearchRequested, researchAllowed: enGate.externalResearchAllowed });
+    }
+  });
+
+  it('writes the fixed Sprint boundary answers in the founder’s language', () => {
+    const api = readFileSync(new URL('../src/api/blueprintExecutionCopilot.ts', import.meta.url), 'utf8');
+    expect(api).toContain("SPRINT_BOUNDARY_COPY[record.blueprint.languages?.founder === 'es' ? 'es' : 'en']");
+    expect(api).toContain('Estoy aquí para ayudarte con tu Sprint de 30 días.');
+    expect(api).toContain('Solo puedo buscar información de afuera cuando ayuda de forma directa');
+    const copilot = readFileSync(new URL('../src/components/LaunchBlueprintCopilotV21.tsx', import.meta.url), 'utf8');
+    expect(copilot).toContain('Búsqueda de afuera bloqueada');
+    expect(copilot).toContain('Límite del Sprint');
+    const home = readFileSync(new URL('../src/components/LaunchBlueprintExecutionHomeV21.tsx', import.meta.url), 'utf8');
+    expect(home).toContain('Pídele a GhostTown que evalúe el chequeo');
+    expect(home).toContain('Tu día está guardado.');
+  });
+
+  it('keeps Copilot questions inside the Sprint and permits web grounding only for an active Sprint decision', () => {
+    const blueprint = checkoutAccessibilityBlueprintFixture();
+    const context = buildExecutionRagContext(blueprint, progress(), 1, '');
+
+    const today = evaluateExecutionInteraction('What exactly do I do today?', context);
+    expect(today.allowed).toBe(true);
+    expect(today.externalResearchRequested).toBe(false);
+    expect(routeExecutionCapability('What exactly do I do today?', 'current_experiment', context, today)).toBe('fast_assistant');
+
+    const strategy = evaluateExecutionInteraction('Should I change the offer?', context);
+    expect(strategy.allowed).toBe(true);
+    expect(routeExecutionCapability('Should I change the offer?', 'current_experiment', context, strategy)).toBe('strategy_reasoner');
+
+    const critic = evaluateExecutionInteraction('Challenge this evidence; are you sure?', context);
+    expect(critic.allowed).toBe(true);
+    expect(routeExecutionCapability('Challenge this evidence; are you sure?', 'current_experiment', context, critic)).toBe('critic');
+
+    const competitorFromSprint = evaluateExecutionInteraction('Who are my competitors?', context);
+    expect(competitorFromSprint.allowed).toBe(true);
+    expect(competitorFromSprint.externalResearchRequested).toBe(false);
+    expect(routeExecutionCapability('Who are my competitors?', 'current_experiment', context, competitorFromSprint)).toBe('fast_assistant');
+
+    const relevantResearchQuestion = 'Search the web for current competitor information only if it directly helps this Day 1 Sprint decision.';
+    const relevantResearch = evaluateExecutionInteraction(relevantResearchQuestion, context);
+    expect(relevantResearch.allowed).toBe(true);
+    expect(relevantResearch.externalResearchRequested).toBe(true);
+    expect(relevantResearch.externalResearchAllowed).toBe(true);
+    expect(relevantResearch.externalResearchReason).toBe('sprint_relevant');
+    expect(routeExecutionCapability(relevantResearchQuestion, 'current_experiment', context, relevantResearch)).toBe('grounded_research');
+
+    const unrelated = evaluateExecutionInteraction('Search the web for the latest football scores and weather in Tokyo.', context);
+    expect(unrelated.allowed).toBe(false);
+    expect(unrelated.externalResearchRequested).toBe(true);
+    expect(unrelated.externalResearchAllowed).toBe(false);
+    expect(unrelated.externalResearchReason).toBe('out_of_scope');
+
+    const functionWordsOnly = evaluateExecutionInteraction('Search the web for the latest and the newest.', context);
+    expect(functionWordsOnly.contextOverlap).toBe(0);
+    expect(functionWordsOnly.allowed).toBe(false);
+    expect(functionWordsOnly.externalResearchAllowed).toBe(false);
+
+    const untetheredResearch = evaluateExecutionInteraction('Research dinosaur fossils on the web.', context);
+    expect(untetheredResearch.externalResearchAllowed).toBe(false);
+
     expect(generativeTaskForExecutionCapability('fast_assistant')).toBe('candidate_selection');
     expect(generativeTaskForExecutionCapability('strategy_reasoner')).toBe('blueprint');
     expect(generativeTaskForExecutionCapability('grounded_research')).toBe('grounded_research');

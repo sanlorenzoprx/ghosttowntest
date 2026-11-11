@@ -1,0 +1,107 @@
+name: Execution Product Learning Review
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Learning review operation"
+        required: true
+        type: choice
+        options:
+          - list
+          - inspect
+          - activate
+          - reject
+      knowledge_id:
+        description: "knowledge_<sha256>; required for inspect/activate/reject"
+        required: false
+        default: ""
+        type: string
+      expected_main_sha:
+        description: "Exact full SHA currently on protected main"
+        required: true
+        type: string
+      confirm:
+        description: "Exact confirmation phrase for the selected operation"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ghosttown-product-learning-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    name: product-learning-${{ inputs.operation }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+    env:
+      GHOSTTOWN_LEARNING_OPERATION: ${{ inputs.operation }}
+      GHOSTTOWN_LEARNING_KNOWLEDGE_ID: ${{ inputs.knowledge_id }}
+      GHOSTTOWN_LEARNING_CONFIRM: ${{ inputs.confirm }}
+      EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PRODUCTION_RELEASE_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Check out protected main
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Guard main SHA and review intent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main" || { echo "::error::Product learning review must run from main."; exit 1; }
+          git fetch origin main
+          head_sha="$(git rev-parse HEAD)"
+          main_sha="$(git rev-parse origin/main)"
+          test "$head_sha" = "$EXPECTED_MAIN_SHA" || { echo "::error::Checked-out SHA does not match expected_main_sha."; exit 1; }
+          test "$main_sha" = "$EXPECTED_MAIN_SHA" || { echo "::error::origin/main moved after review was prepared."; exit 1; }
+          case "$GHOSTTOWN_LEARNING_OPERATION" in
+            list) expected="LIST PRODUCT LEARNING" ;;
+            inspect) expected="INSPECT PRODUCT LEARNING" ;;
+            activate) expected="ACTIVATE PRODUCT LEARNING" ;;
+            reject) expected="REJECT PRODUCT LEARNING" ;;
+            *) echo "::error::Unknown product-learning operation."; exit 1 ;;
+          esac
+          test "$GHOSTTOWN_LEARNING_CONFIRM" = "$expected" || { echo "::error::Confirmation phrase does not match operation."; exit 1; }
+          if [ "$GHOSTTOWN_LEARNING_OPERATION" != "list" ]; then
+            [[ "$GHOSTTOWN_LEARNING_KNOWLEDGE_ID" =~ ^knowledge_[a-f0-9]{64}$ ]] || { echo "::error::Canonical knowledge ID required."; exit 1; }
+          fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify production D1 credentials
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing production D1 token."; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing Cloudflare account ID."; exit 1; }
+
+      - name: Verify review script syntax
+        run: node --check scripts/execution-product-learning-review.mjs
+
+      - name: Review product learning
+        run: node scripts/execution-product-learning-review.mjs
+
+      - name: Upload learning review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosttown-product-learning-${{ inputs.operation }}-${{ github.run_id }}
+          path: github-product-learning-review
+          if-no-files-found: warn
+          retention-days: 90
