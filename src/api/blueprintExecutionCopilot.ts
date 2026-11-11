@@ -132,7 +132,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
     ? Number(body.dayNumber)
     : nextIncomplete;
   const context = buildExecutionRagContext(record.blueprint, progress as unknown as ExecutionProgressLike, dayNumber, question);
-  const interaction = evaluateExecutionInteraction(question, context);
+  const interaction = evaluateExecutionInteraction(question, context, phase);
   // The boundary answers are fixed text, not AI text, so they are written here
   // in the founder's language (AGENTS.md, "Languages").
   const boundary = SPRINT_BOUNDARY_COPY[record.blueprint.languages?.founder === 'es' ? 'es' : 'en'];
@@ -207,6 +207,7 @@ export async function handleBlueprintExecutionCopilot(request: Request, env: Env
   if (cached) {
     return json({
       ...cached.payload,
+      memory: { saved: true },
       cache: {
         hit: true,
         responseId: cached.responseId,

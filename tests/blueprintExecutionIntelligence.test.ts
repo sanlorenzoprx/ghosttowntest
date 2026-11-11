@@ -161,6 +161,29 @@ describe('GhostTown execution intelligence', () => {
     }
   });
 
+  it('keeps all automatic daily and checkpoint reviews inside the Sprint in both languages', () => {
+    const blueprint = checkoutAccessibilityBlueprintFixture();
+    const source = readFileSync(new URL('../src/components/LaunchBlueprintExecutionHomeV21.tsx', import.meta.url), 'utf8');
+    for (const [key, phase] of [['coachReviewPrompt', 'review'], ['coachCheckpointPrompt', 'checkpoint']] as const) {
+      const prompts = [...source.matchAll(new RegExp(`${key}: day => \`([^\`]+)\``, 'g'))].map(match => match[1]);
+      expect(prompts).toHaveLength(2);
+      for (let day = 1; day <= 30; day += 1) {
+        const context = buildExecutionRagContext(blueprint, progress(), day, '');
+        for (const template of prompts) {
+          const question = template.replace('${day}', String(day));
+          const gate = evaluateExecutionInteraction(question, context, phase);
+          expect(gate.allowed, `${key} day ${day}`).toBe(true);
+          expect(gate.externalResearchRequested).toBe(false);
+          expect(gate.externalResearchAllowed).toBe(false);
+          expect(routeExecutionCapability(question, 'current_experiment', context, gate)).not.toBe('grounded_research');
+        }
+      }
+    }
+    const context = buildExecutionRagContext(blueprint, progress(), 1, '');
+    const manual = evaluateExecutionInteraction('Research current benchmarks for Day 1 of my Sprint.', context, 'chat');
+    expect(manual.externalResearchAllowed).toBe(true);
+  });
+
   it('writes the fixed Sprint boundary answers in the founder’s language', () => {
     const api = readFileSync(new URL('../src/api/blueprintExecutionCopilot.ts', import.meta.url), 'utf8');
     expect(api).toContain("SPRINT_BOUNDARY_COPY[record.blueprint.languages?.founder === 'es' ? 'es' : 'en']");
