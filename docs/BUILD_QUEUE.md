@@ -148,7 +148,12 @@ acceptance test) and its one-line alias `GetMeLiveStudio.tsx` moved to Q12.
 
 Done when: the same as Q04, and the legacy list in the test is empty.
 
-### Q07 — Make the docs tell the truth — `todo`
+### Q07 — Make the docs tell the truth — `done`
+
+Done on 11 November. The nine root files and `docs/PRODUCTION_READINESS.md` were leftovers from the
+first code generation ("44 files, ready to ship") and described nothing true today; all ten are
+deleted, and nothing linked to them. `README.md` now describes what GhostTown sells today, and
+`docs/CURRENT_STATE.md` opens with the state on 11 November, with the older sections kept as history.
 
 `GO_LIVE_GOAL.md` and `docs/PRODUCTION_READINESS.md` describe an early $97 product with 46 tests. The
 root also holds `READY_TO_SHIP.txt`, `PUSH_TO_GITHUB.sh`, `START_HERE.md`, `FINAL_DELIVERY_SUMMARY.md`,

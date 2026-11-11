@@ -14,14 +14,16 @@ The browser verdict uses **Verdict Decision V3** and keeps three evidence tiers 
 
 Evidence-aware caching prevents an older verdict from silently overriding materially different evidence. A usable Evidence Scan is cached for 1 hour; an unavailable scan for 5 minutes. Verdict V3 cache identity includes `idea + answers + evidenceScanFingerprint` and is cached for 30 days. Individual delivered result records are retained in KV for 90 days.
 
-The commercial ladder is intentionally separate:
+What GhostTown sells today:
 
-- **Free - Evidence Scan + Verdict:** understand outside market signs, what remains unproven, and whether the idea is clear enough to test.
-- **$97 - 30-Day Evidence Sprint:** decide what to test, what to do next, and what result means keep going, revise, pause, or stop.
-- **$297 - Get Me Live:** turn the Sprint test into a live customer-facing business with guided setup, lead capture, tracking, publishing, and a release receipt.
-- **Story Studio:** separate acquisition/distribution upsell after a test exists.
+- **Free — Evidence Scan + Verdict:** understand outside market signs, what remains unproven, and whether the idea is clear enough to test.
+- **First 30 — $297, paid once:** a 30-day plan that adapts to what the founder learns, plus a customer-acquisition website (Get Me Live) with no second charge. Built as Blueprint contract v2.1.14. It is switched off in production until the founder turns it on; until then the verdict page offers the First 30 email list. See [turning First 30 on](docs/FIRST_30_TURN_ON.md).
+- **Verdict pack:** ten more verdicts when the free allowance is used.
+- **Year Squared:** offered on day 26 of First 30. It exists as offer text only; there is no checkout for it yet.
 
-The **$97 Evidence Sprint does not include a live website, domain, publishing, or payment setup**. Existing Launch Site infrastructure remains reusable implementation capability; it is not part of the current $97 customer promise.
+Still in the code but not offered to new customers: the **$97 30-Day Evidence Sprint** and **Get Me Live as a separate $297 product**. Existing orders keep working, and the acceptance environment keeps both proven.
+
+The whole customer journey works in **English and Spanish** (see `AGENTS.md`, "Languages"). The work in progress and what is left before release are in [`docs/BUILD_QUEUE.md`](docs/BUILD_QUEUE.md); the current state is in [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md).
 
 Observed evidence can already flow back into the canonical Evidence Ledger. Consented Launch Site lead submissions project as customer evidence, and the authenticated Story Studio integration records qualified-click signals as market evidence. This preserves the market/customer/buying hierarchy instead of treating every event as validation.
 
@@ -122,10 +124,9 @@ Deploy `dist/` to your static frontend host.
 - Free: Evidence Scan + Verdict before registration limits are exhausted
 - Share rewards: registered members can unlock one bonus assessment by sharing one completed result
 - Recipients: no registration required to open a shared result link
-- Paid fallback: ten additional tests for $14.97 through Stripe Checkout when the testing allowance is exhausted
-- Paid plan: one **30-Day Evidence Sprint** for $97.00 through Stripe Checkout
-- Separate activation product: **Get Me Live — $297 one-time**; not included in the Sprint
-- Separate acquisition upsell: **Story Studio**
+- Verdict pack: ten additional verdicts through Stripe Checkout when the allowance is exhausted (price in `src/lib/assessmentPack.ts`)
+- First 30: $297 paid once for the 30-day plan and the website, when the founder has turned it on (prices and refund rule in `src/lib/ghosttownOffer.ts`)
+- Dormant: the $97 30-Day Evidence Sprint and the separate $297 Get Me Live
 
 The deterministic engine is always calculated and returned. On the browser path, the Evidence Scan runs first; generative analyze/score/verdict stages use Vertex through AI Gateway when configured, while deterministic scoring remains the fallback if those generative stages fail. The evidence hierarchy and Verdict V3 truth boundaries still apply to fallback output.
 The Shorts Factory contract now returns a validated rich idea evaluation through
@@ -159,5 +160,5 @@ existing LIT scoring categories; native Ghost Town answer IDs are also accepted.
 Video campaigns can open an editable starter directly, for example:
 
 ```text
-https://lit-ghosttown.com/?example=ai-agency-qa
+https://ghosttownverdict.app/?example=ai-agency-qa
 ```
