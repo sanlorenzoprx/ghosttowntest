@@ -58,3 +58,9 @@ After merging, say in one line what was merged.
 ## Before you push
 
 Run `npm run type-check`, `npm run test:fast` and `npm run build`. Run `npm run test:workers-runtime` when Worker code changes.
+
+## Build queue
+
+`docs/BUILD_QUEUE.md` is the list of work in progress, with a "done when" for each item and the rules
+for taking one. When you are asked to continue the build, or you start with no other task, follow that
+file. Its limits (no production, no weakened gates) hold for every session.
