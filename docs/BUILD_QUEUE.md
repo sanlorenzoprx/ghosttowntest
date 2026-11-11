@@ -252,3 +252,9 @@ comes back from the server stays as the server wrote it.
 Prepared in this pull request. Production Release gains a manual `migrate-0011-0012` operation,
 accepts only 0011+0012 or 0012 alone, captures the schema, and verifies both schemas after apply.
 Tests exercise allowed and rejected migration ledgers. No production workflow has been run.
+
+### Q14 — Make the Pages release offer choice explicit — `done`
+
+The direct-upload Pages workflow now takes a validated offer choice, defaults to waitlist, and
+passes it into the local Vite build. Its release receipt records the choice. Updated the First 30
+activation and undo instructions. No production release or setting has changed.
