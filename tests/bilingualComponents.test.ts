@@ -14,8 +14,6 @@ const OWNER_ONLY = new Set(['InternalGoogleSearchConsole.tsx', 'CommercialMetric
 const LEGACY_WITHOUT_OWN_SPANISH = new Set([
   'GetMeLiveStudio.tsx',
   'GetMeLiveWorkspace.tsx',
-  'LaunchBlueprintView.tsx',
-  'LaunchSitePanel.tsx',
   'PrePurchaseResearchSignals.tsx',
 ]);
 
@@ -35,6 +33,6 @@ describe('bilingual UI components', () => {
     const nowBilingual = [...LEGACY_WITHOUT_OWN_SPANISH].filter(name => bilingual(readFileSync(new URL(name, dir), 'utf8')));
     expect(nowBilingual, 'These are bilingual now: remove them from LEGACY_WITHOUT_OWN_SPANISH').toEqual([]);
     expect([...LEGACY_WITHOUT_OWN_SPANISH].filter(name => !components.includes(name))).toEqual([]);
-    expect(LEGACY_WITHOUT_OWN_SPANISH.size).toBeLessThanOrEqual(5);
+    expect(LEGACY_WITHOUT_OWN_SPANISH.size).toBeLessThanOrEqual(3);
   });
 });

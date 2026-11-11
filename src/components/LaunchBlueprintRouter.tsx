@@ -128,6 +128,6 @@ export default function LaunchBlueprintRouter({ orderId, onBack, locale = "en" }
     return <div className="mx-auto max-w-xl p-8 text-center"><p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error}</p><button onClick={onBack} className="mt-5 font-bold text-ghost-rust">{copy.back}</button></div>;
   }
   if (payload) return <div onClickCapture={captureClick} onChangeCapture={captureChange}><RoutedBlueprintV21 orderId={orderId} onBack={onBack} payload={payload} locale={locale} /><LaunchBlueprintCopilotV21 orderId={orderId} dayNumber={activeDay} lane={payload.blueprint.businessModelLane.lane} locale={locale} /></div>;
-  if (legacy) return <LaunchBlueprintView orderId={orderId} onBack={onBack} />;
+  if (legacy) return <LaunchBlueprintView orderId={orderId} onBack={onBack} locale={locale} />;
   return null;
 }

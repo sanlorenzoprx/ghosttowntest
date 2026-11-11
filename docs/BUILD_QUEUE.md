@@ -224,7 +224,11 @@ Spanish; and a test renders each state. Check the agent surface (`src/api/agentV
 offer) reports `available` only when the Worker has `FIRST30_CHECKOUT_ENABLED`, and fix it if not.
 No price, checkout or production setting changes.
 
-### Q11 — Spanish for the old-format Blueprint view — `todo`
+### Q11 — Spanish for the old-format Blueprint view — `done`
+
+Translated the legacy Blueprint navigation, controls, status and the Launch Site panel. Historical
+plan content remains as stored. A browser test walks all sections in Spanish and publishes a
+fixture site. The router passes locale to the legacy view and on to the site panel.
 
 Added on 11 November, split from Q05 because it is about 1,280 lines. `LaunchBlueprintView.tsx` and
 `LaunchSitePanel.tsx` open only for orders made before Blueprint v2.1 (`LaunchBlueprintRouter`,
