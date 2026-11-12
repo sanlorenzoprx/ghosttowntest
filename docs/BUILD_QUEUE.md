@@ -167,6 +167,12 @@ production and what is not); and no file in the repository links to a deleted on
 
 ### Q08 — Prove `main` on acceptance — `blocked`
 
+Run 43122901835 (`on_track`, 5213c68): the plan stayed on `continue` for Days 1-27 as expected, then
+Vertex answered HTTP 503 ("service is currently unavailable") to the Day 28 Coach review and the
+journey stopped. The Worker made one Vertex call and gave up on any error. It now retries 429 and 5xx
+up to twice (after 1 s and 3 s) inside the same time limit; other errors still fail at once. Remaining
+for Q08: `on_track` on the commit with this retry, both founder proofs, then a final Acceptance run.
+
 Run 43118493729 (`plan_change`, 901f363, after #93): every automated stage passed. All 30 days were
 completed and all 30 Coach reviews saved; the plan moved continue (1-6), revise_message (7-13),
 revise_price (14-20), revise_offer (21-29), revise_customer (30) exactly as expected; no review was
