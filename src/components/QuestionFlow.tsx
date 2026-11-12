@@ -162,7 +162,7 @@ export default function QuestionFlow({
   }, [autoSubmitCompleteDraft, answers, loading, onAutoSubmitConsumed]);
 
   return (
-    <div className="mx-auto min-h-[calc(100dvh-72px)] max-w-2xl px-3 py-4 sm:px-4 sm:py-8">
+    <div className="day-hero min-h-[calc(100dvh-72px)]"><div className="mx-auto max-w-2xl px-3 py-4 sm:px-4 sm:py-8">
       <ProgressBar currentIndex={currentIndex} locale={locale} />
 
       {error && (
@@ -181,12 +181,12 @@ export default function QuestionFlow({
       )}
 
       {loading && (
-        <div className="ghost-surface rounded-sm border border-ghost-ink px-6 py-14 text-center text-white shadow-lantern">
+        <div className="ghost-surface day-pop rounded-3xl px-6 py-14 text-center text-white shadow-pop">
           <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full border-2 border-ghost-gold border-t-transparent animate-spin" />
           <p className="font-display text-3xl font-bold">{t.working}</p>
           <ol className="mx-auto mt-7 max-w-sm space-y-3 text-left">
             {t.steps.map((step, index) => (
-              <li key={step} className={`flex items-center gap-3 rounded border px-4 py-3 text-sm transition ${index <= loadingStep ? 'border-ghost-gold/50 bg-white/10 text-white' : 'border-white/10 text-white/40'}`}>
+              <li key={step} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm transition ${index <= loadingStep ? 'border-ghost-gold/60 bg-white/15 text-white' : 'border-white/20 text-white/60'}`}>
                 <span className={`grid h-5 w-5 place-items-center rounded-full text-xs ${index <= loadingStep ? 'bg-ghost-gold text-ghost-ink' : 'border border-white/30'}`}>{index < loadingStep ? '✓' : index + 1}</span>
                 {step}
               </li>
@@ -202,7 +202,7 @@ export default function QuestionFlow({
             <button
               type="button"
               onClick={handleBack}
-              className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2 font-bold text-gray-700 transition hover:bg-gray-50 active:bg-gray-100"
+              className="min-h-11 rounded-full border border-gray-300 bg-white px-5 py-2 font-bold text-gray-700 shadow-quiet transition hover:bg-gray-50 active:bg-gray-100"
             >
               {t.back}
             </button>
@@ -210,6 +210,6 @@ export default function QuestionFlow({
           <span className="text-xs font-medium text-gray-500">{t.autosaved}</span>
         </div>
       )}
-    </div>
+    </div></div>
   );
 }

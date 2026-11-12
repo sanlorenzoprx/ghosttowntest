@@ -121,9 +121,9 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
   };
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 pb-28 sm:py-10 sm:pb-10">
+    <div className="day-hero"><div className="mx-auto max-w-3xl px-4 py-6 pb-28 sm:py-10 sm:pb-10">
       {result.evidenceScan && decisionV3 && <EvidenceScanPanel scan={result.evidenceScan} decision={decisionV3} idea={result.idea} locale={locale} />}
-      <section data-testid="verdict-decision-v2" data-verdict-version={decisionV3 ? 'v3' : 'v2'} className="mb-8 overflow-hidden rounded-2xl border border-ghost-rust/30 bg-white shadow-dust">
+      <section data-testid="verdict-decision-v2" data-verdict-version={decisionV3 ? 'v3' : 'v2'} className="day-pop mb-8 overflow-hidden rounded-3xl border border-ghost-rust/20 bg-white shadow-pop">
         <div data-testid="verdict-card" className="border-b border-ghost-rust/20 bg-[#fff7f2] p-6 sm:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">{view.labels.decision}</p>
           <h1 className="mt-2 font-display text-4xl font-bold leading-tight text-gray-950">{view.decisionLabel}</h1>
@@ -161,7 +161,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         <div className="space-y-6 border-t border-gray-200 p-6 text-sm text-gray-800 sm:p-8">
           <DecisionSection title={view.labels.testing}>
             <p>{view.testing.target}</p>
-            <dl className="mt-3 grid gap-2 rounded-sm bg-gray-50 p-3 sm:grid-cols-2">
+            <dl className="mt-3 grid gap-2 rounded-2xl bg-gray-50 p-3 sm:grid-cols-2">
               <div><dt className="font-bold">{view.labels.customer}</dt><dd>{view.testing.customer}</dd></div>
               <div><dt className="font-bold">{view.labels.problem}</dt><dd>{view.testing.problem}</dd></div>
               <div><dt className="font-bold">{view.labels.offer}</dt><dd>{view.testing.offer}</dd></div>
@@ -174,14 +174,14 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           <DecisionSection title={view.labels.wouldChange}><DecisionList items={view.wouldChange} /></DecisionSection>
           <DecisionSection title={view.labels.evidenceLabels}>
             <ul className="space-y-2">
-              {view.evidenceLabels.map((item, index) => <li key={`${item.statement}-${index}`} className="rounded-sm border border-gray-200 p-3"><span className="mr-2 text-xs font-bold uppercase tracking-wide text-gray-500">{item.label}</span>{item.statement}</li>)}
+              {view.evidenceLabels.map((item, index) => <li key={`${item.statement}-${index}`} className="rounded-2xl border border-gray-200 p-3"><span className="mr-2 text-xs font-bold uppercase tracking-wide text-gray-500">{item.label}</span>{item.statement}</li>)}
             </ul>
           </DecisionSection>
         </div>
       </section>
 
       {video && (
-        <section className="mb-8 rounded-sm border border-gray-200 bg-gray-950 p-5 text-white shadow-dust">
+        <section className="ghost-surface mb-8 rounded-2xl p-5 text-white shadow-soft">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-gold">{view.labels.video}</p>
           {video.status === 'complete' && video.video_url ? (
             <video
@@ -255,7 +255,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
       {!SPRINT_OFFER_ACTIVE && !FIRST30_OFFER_ACTIVE && <First30Waitlist source="verdict" verdictId={result.resultId} locale={locale} />}
       {FIRST30_OFFER_ACTIVE && <First30PurchasePanel locale={locale} loading={paidLoading} error={paidError} onStart={openActionPlanForm} />}
 
-      {SPRINT_OFFER_ACTIVE && <section id="thirty-day-plan" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
+      {SPRINT_OFFER_ACTIVE && <section id="thirty-day-plan" className="mb-8 rounded-2xl border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">30-Day Evidence Sprint</p>
         <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">Know what to do with your idea 30 days from now.</h2>
         <p className="mt-3 text-sm leading-6 text-gray-700">{GHOSTTOWN_30_DAY_PLAN_V1.subtitle}</p>
@@ -268,7 +268,7 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
         <p className="mt-4 rounded-lg border border-ghost-forest/20 bg-white p-4 text-sm font-bold text-ghost-ink"><span className="text-ghost-forest">Start now:</span> {GHOSTTOWN_30_DAY_PLAN_V1.persuasion.immediatePayoff}</p>
         <p className="mt-4 text-xs leading-5 text-gray-600">{GHOSTTOWN_30_DAY_PLAN_V1.persuasion.truthBoundary}</p>
         {paidError && <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{paidError}</p>}
-        <button type="button" aria-label="Start 30-Day Evidence Sprint checkout" onClick={openActionPlanForm} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
+        <button type="button" aria-label="Start 30-Day Evidence Sprint checkout" onClick={openActionPlanForm} disabled={paidLoading} className="mt-5 min-h-14 w-full rounded-2xl bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-blue-800 disabled:opacity-50">
           {paidLoading ? 'Opening checkout...' : `Run the 30-Day Evidence Sprint - ${displayPrice}`}
         </button>
       </section>}
@@ -284,11 +284,11 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ghost-rust/20 bg-[#fff7f2]/95 p-3 backdrop-blur sm:hidden">
         {SPRINT_OFFER_ACTIVE ? (
-          <button type="button" aria-label="Start 30-Day Evidence Sprint checkout" onClick={openActionPlanForm} disabled={paidLoading} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
+          <button type="button" aria-label="Start 30-Day Evidence Sprint checkout" onClick={openActionPlanForm} disabled={paidLoading} className="min-h-14 w-full rounded-2xl bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern disabled:opacity-50">
             {paidLoading ? 'Opening checkout...' : `Run the Evidence Sprint - ${displayPrice}`}
           </button>
         ) : (
-          <a href="#first-30" className="flex min-h-14 w-full items-center justify-center rounded-sm bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern">
+          <a href="#first-30" className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-ghost-rust px-5 py-3 font-bold text-white shadow-lantern">
             {FIRST30_OFFER_ACTIVE ? view.labels.stickyFirst30Buy : view.labels.stickyFirst30}
           </a>
         )}
@@ -329,13 +329,13 @@ export default function ResultReport({ result, onReset, isLoggedIn, onLoginClick
           {view.footer.boundary}
         </p>
       </div>
-    </div>
+    </div></div>
   );
 }
 
 function ScoreCard({ name, value, band, meaning, testId }: { name: string; value: number; band?: string; meaning: string; testId?: string }) {
   return (
-    <div data-testid={testId} className="rounded-sm border border-gray-200 bg-gray-50 p-4">
+    <div data-testid={testId} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
       <div className="text-xs font-bold uppercase text-gray-600">{name}</div>
       <div className="mt-1 text-2xl font-bold text-gray-900">{value}/5</div>
       {band && <div className="mt-1 text-xs text-gray-500">{band}</div>}

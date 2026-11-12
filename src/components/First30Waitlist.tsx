@@ -41,7 +41,7 @@ export default function First30Waitlist({ source, verdictId, locale = 'en' }: Pr
   };
 
   return (
-    <section id="first-30" data-testid="first-30-waitlist" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
+    <section id="first-30" data-testid="first-30-waitlist" className="mb-8 rounded-2xl border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">{es ? 'Lo que viene' : 'What comes next'}</p>
       <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">{offer.headline}</h2>
       <p className="mt-3 text-sm leading-6 text-gray-700">{offer.summary}</p>
@@ -63,7 +63,7 @@ export default function First30Waitlist({ source, verdictId, locale = 'en' }: Pr
             required
             value={email}
             onChange={event => setEmail(event.target.value)}
-            className="min-h-12 w-full rounded-sm border border-gray-300 bg-white px-4 py-3 text-base text-gray-950 focus:border-ghost-rust focus:outline-none focus:ring-4 focus:ring-ghost-rust/20"
+            className="min-h-12 w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-950 focus:border-ghost-rust focus:outline-none focus:ring-4 focus:ring-ghost-rust/20"
             placeholder="you@example.com"
           />
           <label className="flex items-start gap-3 text-sm leading-6 text-gray-700">
@@ -71,7 +71,7 @@ export default function First30Waitlist({ source, verdictId, locale = 'en' }: Pr
             <span>{offer.consentText}</span>
           </label>
           {error && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          <button type="submit" disabled={status === 'sending'} className="min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
+          <button type="submit" disabled={status === 'sending'} className="min-h-14 w-full rounded-2xl bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-blue-800 disabled:opacity-50">
             {status === 'sending' ? (es ? 'Uniéndote...' : 'Joining...') : (es ? 'Unirme a la lista de First 30' : 'Join the First 30 list')}
           </button>
         </form>

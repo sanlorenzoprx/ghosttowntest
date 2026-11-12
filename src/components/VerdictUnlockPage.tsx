@@ -195,7 +195,7 @@ export default function VerdictUnlockPage({
 
   return (
     <section className="mx-auto max-w-2xl px-4 py-12 sm:py-16">
-      <div className="rounded-2xl border border-ghost-ink bg-white p-6 shadow-lg sm:p-10">
+      <div className="rounded-3xl border border-white bg-white p-6 shadow-pop sm:p-10">
         <p className="text-sm font-black uppercase tracking-[0.18em] text-ghost-rust">
           {draft ? t.savedKicker : t.usedKicker}
         </p>

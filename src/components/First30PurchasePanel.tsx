@@ -52,7 +52,7 @@ const COPY: Record<Locale, {
 export default function First30PurchasePanel({ locale = 'en', loading, error, onStart }: Props) {
   const t = COPY[locale];
   return (
-    <section id="first-30" data-testid="first-30-purchase" className="mb-8 rounded-sm border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
+    <section id="first-30" data-testid="first-30-purchase" className="mb-8 rounded-2xl border border-ghost-rust/30 bg-[#fff7f2] p-6 shadow-lantern">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-ghost-rust">{t.kicker}</p>
       <h2 className="mt-2 font-display text-3xl font-bold text-ghost-ink">{t.heading}</h2>
       <p className="mt-3 text-sm leading-6 text-gray-700">{t.summary}</p>
@@ -63,7 +63,7 @@ export default function First30PurchasePanel({ locale = 'en', loading, error, on
       <p className="mt-4 rounded-lg bg-white p-3 text-sm font-bold text-ghost-ink">{t.oneCharge}</p>
       <p className="mt-3 text-xs leading-5 text-gray-600">{t.refund}</p>
       {error && <p role="alert" className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      <button type="button" onClick={onStart} disabled={loading} className="mt-5 min-h-14 w-full rounded-sm bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-[#96360d] disabled:opacity-50">
+      <button type="button" onClick={onStart} disabled={loading} className="mt-5 min-h-14 w-full rounded-2xl bg-ghost-rust px-5 py-4 font-bold text-white shadow-lantern hover:bg-blue-800 disabled:opacity-50">
         {loading ? t.opening : t.button}
       </button>
       <p className="mt-3 text-xs leading-5 text-gray-600">{t.boundary}</p>

@@ -253,12 +253,12 @@ export default function LaunchBlueprintCopilotV21({
   };
 
   if (!open) {
-    return <button type="button" onClick={() => setOpen(true)} className="fixed bottom-4 right-4 z-50 rounded-full bg-[#101A17] px-5 py-3 font-black text-white shadow-xl ring-1 ring-white/15 sm:bottom-6 sm:right-6">{copy.openButton(dayNumber)}</button>;
+    return <button type="button" onClick={() => setOpen(true)} className="fixed bottom-4 right-4 z-50 rounded-full bg-ghost-pine px-5 py-3 font-black text-white shadow-xl ring-1 ring-white/15 sm:bottom-6 sm:right-6">{copy.openButton(dayNumber)}</button>;
   }
 
   return (
     <aside aria-label={copy.asideLabel} className="fixed inset-x-3 bottom-3 z-50 max-h-[82vh] overflow-hidden rounded-2xl border border-black/10 bg-[#F6F3ED] shadow-2xl sm:left-auto sm:right-5 sm:w-[30rem]">
-      <div className="border-b border-white/10 bg-[#101A17] p-4 text-white">
+      <div className="border-b border-white/10 bg-ghost-pine p-4 text-white">
         <div className="flex items-start justify-between gap-3">
           <div><p className="text-xs font-black uppercase tracking-[0.14em] text-ghost-gold">{copy.kicker(dayNumber)}</p><h2 className="mt-1 text-lg font-black">{copy.experiment(copy.laneLabel(lane, profile.label))}</h2></div>
           <button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-white/20 px-3 py-2 text-sm font-black">{copy.close}</button>

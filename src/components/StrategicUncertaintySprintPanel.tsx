@@ -126,7 +126,7 @@ export default function StrategicUncertaintySprintPanel({ orderId, onBack, onSub
 
   return <main className="mx-auto max-w-3xl px-4 py-10">
     <button onClick={onBack} className="font-black text-ghost-rust">{copy.back}</button>
-    <section className="mt-5 rounded-2xl bg-ghost-ink p-7 text-white">
+    <section className="mt-5 rounded-2xl bg-ghost-pine p-7 text-white">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-gold">{copy.kicker}</p>
       <h1 className="mt-2 text-3xl font-black">{copy.heading}</h1>
       <p className="mt-3 text-white/80">{copy.intro}</p>

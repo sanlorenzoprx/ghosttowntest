@@ -312,31 +312,31 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-ghost-paper">
-      <header className="site-header border-b border-gray-200 bg-ghost-paper/95 backdrop-blur">
-        <div className="site-header-inner mx-auto grid max-w-7xl grid-cols-1 items-center gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:grid-cols-[1fr_auto_1fr] lg:gap-4">
+      <header className="site-header border-b border-gray-200/70 bg-white/85 backdrop-blur">
+        <div className="site-header-inner mx-auto grid max-w-7xl grid-cols-1 items-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3.5 lg:grid-cols-[1fr_auto_1fr] lg:gap-4">
           <div className="hidden lg:block" aria-hidden="true" />
-          <button onClick={handleReset} className="justify-self-center text-center" aria-label="Ghost Town Test home">
+          <button onClick={handleReset} className="group flex items-center gap-3 justify-self-center rounded-2xl px-2 text-left" aria-label="Ghost Town Test home">
+            <img src="/ghosttown-icon.svg" alt="" width={44} height={44} className="h-10 w-10 shrink-0 rounded-xl shadow-soft transition group-hover:-rotate-6 group-hover:scale-105 sm:h-11 sm:w-11" />
             <span className="leading-tight">
-              <span className="site-wordmark-kicker block text-[10px] font-bold uppercase tracking-[0.34em] text-ghost-rust sm:text-xs">Leverage / Insight / Timing</span>
-              <span className="brand-wordmark mt-1 block font-display text-3xl font-semibold leading-none text-ghost-ink sm:text-4xl">Ghost Town Test</span>
+              <span className="site-wordmark-kicker block text-[10px] font-bold uppercase tracking-[0.3em] text-ghost-rust sm:text-xs">Leverage / Insight / Timing</span>
+              <span className="block font-display text-2xl font-semibold leading-none tracking-[-0.02em] text-ghost-ink sm:text-3xl">Ghost Town Test</span>
             </span>
           </button>
-          <div className="site-nav flex flex-wrap items-center justify-center gap-x-4 gap-y-2 lg:justify-self-end lg:flex-nowrap lg:justify-end">
-            <button type="button" onClick={handleReset} className="rounded border border-ghost-forest px-3 py-1.5 text-sm font-bold text-ghost-forest hover:bg-blue-50" aria-label="Go to Home">Home</button>
-            <button onClick={() => { setScreen('contact'); updatePath('/contact'); }} className="text-sm font-bold text-gray-700 hover:text-ghost-rust">Contact</button>
-            <div className="flex items-center gap-2 text-sm" role="group" aria-label="Language">
-              <button type="button" onClick={() => setLocale('en')} aria-pressed={locale === 'en'} className={`font-semibold ${locale === 'en' ? 'text-ghost-forest underline underline-offset-4' : 'text-gray-500 hover:text-ghost-forest'}`}>English</button>
-              <span className="text-gray-300" aria-hidden="true">·</span>
-              <button type="button" onClick={() => setLocale('es')} aria-pressed={locale === 'es'} className={`font-semibold ${locale === 'es' ? 'text-ghost-forest underline underline-offset-4' : 'text-gray-500 hover:text-ghost-forest'}`}>Spanish</button>
+          <div className="site-nav flex flex-wrap items-center justify-center gap-x-1.5 gap-y-2 lg:justify-self-end lg:flex-nowrap lg:justify-end">
+            <button type="button" onClick={handleReset} className="hidden rounded-full px-3.5 py-1.5 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-ghost-forest sm:inline-block" aria-label="Go to Home">Home</button>
+            <button onClick={() => { setScreen('contact'); updatePath('/contact'); }} className="rounded-full px-3.5 py-1.5 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-ghost-forest">Contact</button>
+            <div className="mx-1 flex items-center rounded-full bg-gray-100 p-1 text-sm" role="group" aria-label="Language">
+              <button type="button" onClick={() => setLocale('en')} aria-pressed={locale === 'en'} className={`rounded-full px-3 py-1 font-semibold ${locale === 'en' ? 'bg-white text-ghost-forest shadow-quiet' : 'text-gray-600 hover:text-ghost-forest'}`}>English</button>
+              <button type="button" onClick={() => setLocale('es')} aria-pressed={locale === 'es'} className={`rounded-full px-3 py-1 font-semibold ${locale === 'es' ? 'bg-white text-ghost-forest shadow-quiet' : 'text-gray-600 hover:text-ghost-forest'}`}>Spanish</button>
             </div>
             {isLoggedIn ? (
               <>
                 <span className="max-w-48 truncate text-sm text-gray-600" title={userEmail || undefined}>{userEmail}</span>
-                <button onClick={() => { setScreen('dashboard'); updatePath('/'); }} className="text-sm text-blue-600 hover:text-blue-700">Dashboard</button>
-                <button onClick={handleLogout} className="text-sm text-blue-600 hover:text-blue-700">Log Out</button>
+                <button onClick={() => { setScreen('dashboard'); updatePath('/'); }} className="rounded-full bg-ghost-forest px-4 py-1.5 text-sm font-bold text-white shadow-soft hover:bg-blue-800">Dashboard</button>
+                <button onClick={handleLogout} className="rounded-full px-3.5 py-1.5 text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-ghost-forest">Log Out</button>
               </>
             ) : (
-              <button onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="text-sm text-blue-600 hover:text-blue-700">Log In</button>
+              <button onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="rounded-full border border-ghost-forest/30 bg-white px-4 py-1.5 text-sm font-bold text-ghost-forest shadow-quiet hover:border-ghost-forest hover:bg-blue-50">Log In</button>
             )}
           </div>
         </div>
@@ -414,7 +414,7 @@ export default function App() {
         {screen === 'internal-metrics' && !isLoggedIn && <section className="mx-auto max-w-xl px-4 py-16 text-center"><h1 className="text-3xl font-black text-ghost-ink">Owner login required</h1><p className="mt-3 text-gray-700">Commercial metrics are private operating evidence.</p><button type="button" onClick={() => { setAuthMode('login'); setShowLoginModal(true); }} className="mt-6 rounded-lg bg-ghost-rust px-6 py-3 font-black text-white">Log in</button></section>}
       </main>
 
-      <footer className="border-t border-gray-200 bg-ghost-sand px-4 py-8">
+      <footer className="border-t border-gray-200 bg-ghost-sand px-4 py-10">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
           <p>{locale === 'es' ? 'Zayas House LLC · Estado Libre Asociado de Puerto Rico, EE. UU.' : 'Zayas House LLC · Commonwealth of Puerto Rico, USA'}</p>
           <nav aria-label={locale === 'es' ? 'Políticas legales' : 'Legal policies'} className="flex flex-wrap gap-x-4 gap-y-2">

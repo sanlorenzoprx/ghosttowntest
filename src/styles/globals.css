@@ -4,11 +4,11 @@
 
 @layer base {
   :root {
-    --background: 40 60% 98%;
-    --foreground: 215 28% 17%;
-    --border: 214 20% 86%;
-    --input: 214 20% 86%;
-    --ring: 161 86% 26%;
+    --background: 36 100% 98%;
+    --foreground: 162 18% 14%;
+    --border: 37 29% 88%;
+    --input: 37 29% 88%;
+    --ring: 163 78% 27%;
   }
 }
 
@@ -29,8 +29,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
-  color: #1f2937;
-  background: #fdfbf7;
+  color: #1d2a26;
+  background: #fffbf5;
 }
 
 #root {
@@ -42,19 +42,19 @@ body {
 /* Custom components using @apply */
 @layer components {
   .btn-primary {
-    @apply bg-ghost-forest text-white px-4 py-2 rounded font-semibold hover:bg-blue-900 transition;
+    @apply bg-ghost-forest text-white px-5 py-2.5 rounded-full font-semibold shadow-soft hover:bg-blue-800 transition;
   }
 
   .btn-secondary {
-    @apply border border-gray-300 text-gray-900 px-4 py-2 rounded font-medium hover:bg-gray-50 transition;
+    @apply border border-gray-300 bg-white text-gray-900 px-5 py-2.5 rounded-full font-medium hover:bg-gray-50 transition;
   }
 
   .input-base {
-    @apply border border-gray-300 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ghost-forest;
+    @apply border border-gray-300 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ghost-forest;
   }
 
   .card {
-    @apply bg-white border border-gray-200 rounded-lg p-6 shadow-sm;
+    @apply bg-white border border-gray-200 rounded-2xl p-6 shadow-soft;
   }
 }
 
@@ -164,8 +164,10 @@ button, a, input, textarea, select {
 }
 
 .ghost-surface {
-  background-color: #1f2937;
-  background-image: linear-gradient(135deg, rgba(6,78,59,.34), transparent 58%);
+  background-color: #0e6650;
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(255, 201, 77, 0.22), transparent 42%),
+    linear-gradient(135deg, #128064, #0b5a46);
 }
 
 @keyframes brand-breathe {
@@ -202,11 +204,164 @@ button, a, input, textarea, select {
 }
 
 .ghost-score-ring {
-  background: conic-gradient(#064e3b var(--score), #e7e1d6 0);
+  background: conic-gradient(#0f7a5c var(--score), #e9e2d7 0);
 }
 
 input:disabled,
 textarea:disabled {
-  background-color: #f3f4f6;
+  background-color: #f4efe7;
   cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------------
+   Daylight theme: warmth, feedback and gentle motion shared by every screen.
+   --------------------------------------------------------------------------- */
+
+::selection {
+  background: #ffe2a3;
+  color: #1d2a26;
+}
+
+/* Every control answers a press, and keyboard users always see where they are. */
+button:not(:disabled):active {
+  transform: translateY(1px) scale(0.985);
+}
+
+:where(a, button, summary, [role='tab']):focus-visible {
+  outline: 3px solid rgba(15, 122, 92, 0.45);
+  outline-offset: 2px;
+}
+
+/* Form fields: softer corners and a warm glow on focus, wherever they are. */
+:where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']), textarea, select) {
+  border-radius: 0.75rem;
+  background-color: #fff;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+:where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']), textarea, select):hover:not(:disabled):not(:focus) {
+  border-color: #b8ad9c;
+}
+
+:where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']), textarea, select):focus {
+  border-color: #0f7a5c;
+  box-shadow: 0 0 0 4px rgba(15, 122, 92, 0.16);
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: #0f7a5c;
+  min-height: 0;
+}
+
+::placeholder {
+  color: #9a948a;
+}
+
+/* Soft color washes behind light sections. */
+.day-hero {
+  background-color: #fff8ee;
+  background-image:
+    radial-gradient(42rem 30rem at 6% -8%, rgba(255, 201, 77, 0.38), transparent 62%),
+    radial-gradient(38rem 30rem at 98% 4%, rgba(132, 201, 172, 0.36), transparent 60%),
+    radial-gradient(40rem 26rem at 60% 108%, rgba(240, 150, 110, 0.24), transparent 62%);
+}
+
+.day-pine {
+  background-color: #0e6650;
+  background-image:
+    radial-gradient(40rem 26rem at 0% 0%, rgba(255, 201, 77, 0.2), transparent 60%),
+    radial-gradient(36rem 26rem at 100% 100%, rgba(132, 201, 172, 0.28), transparent 60%),
+    linear-gradient(135deg, #128064, #0b5a46);
+}
+
+.day-coral {
+  background-color: #d0521f;
+  background-image:
+    radial-gradient(36rem 22rem at 10% 0%, rgba(255, 201, 77, 0.42), transparent 62%),
+    linear-gradient(135deg, #db6330, #c2481a);
+}
+
+/* A hand-drawn highlight under the words that matter. */
+.day-mark {
+  background-image: linear-gradient(transparent 62%, #ffd66e 62%, #ffd66e 92%, transparent 92%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  border-radius: 0.2em;
+  padding: 0 0.08em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.day-card {
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.day-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 2px 4px rgba(29, 42, 38, 0.05), 0 24px 56px -20px rgba(29, 42, 38, 0.24);
+}
+
+@keyframes day-float {
+  0%, 100% { transform: translateY(0) rotate(var(--day-tilt, 0deg)); }
+  50% { transform: translateY(-8px) rotate(var(--day-tilt, 0deg)); }
+}
+
+.day-float {
+  animation: day-float 6s ease-in-out infinite;
+}
+
+@keyframes day-fade {
+  from { opacity: 0; transform: scale(1.03); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.day-fade {
+  animation: day-fade 700ms ease-out both;
+}
+
+@keyframes day-pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.day-pop {
+  animation: day-pop 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes day-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Sections rise into place as they scroll into view, where the browser supports it. */
+@keyframes day-rise {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .day-reveal {
+      animation: day-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 32%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-float,
+  .day-fade,
+  .day-pop {
+    animation: none;
+  }
+
+  .day-card:hover {
+    transform: none;
+  }
+
+  button:not(:disabled):active {
+    transform: none;
+  }
 }

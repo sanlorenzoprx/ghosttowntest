@@ -466,7 +466,7 @@ export default function LaunchBlueprintView({ orderId, onBack, locale = "en" }: 
 
   return (
     <div className="min-h-screen bg-[#f6f1e8] text-ghost-ink">
-      <header className="sticky top-0 z-20 border-b border-black/10 bg-ghost-ink text-white shadow-lg">
+      <header className="sticky top-0 z-20 border-b border-black/10 bg-ghost-pine text-white shadow-lg">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -530,7 +530,7 @@ export default function LaunchBlueprintView({ orderId, onBack, locale = "en" }: 
         {section === "overview" && (
           <div className="space-y-6">
             <section className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]">
-              <article className="rounded-2xl bg-ghost-ink p-7 text-white shadow-xl">
+              <article className="rounded-2xl bg-ghost-pine p-7 text-white shadow-xl">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-gold">
                   
                   {t("Executive launch decision")}
@@ -640,7 +640,7 @@ export default function LaunchBlueprintView({ orderId, onBack, locale = "en" }: 
 
         {section === "offer" && (
           <div className="space-y-6">
-            <section className="rounded-2xl bg-ghost-ink p-7 text-white">
+            <section className="rounded-2xl bg-ghost-pine p-7 text-white">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-gold">
                 
                 {t("Ready-to-test offer")}
@@ -698,7 +698,7 @@ export default function LaunchBlueprintView({ orderId, onBack, locale = "en" }: 
 
         {section === "distribution" && (
           <div className="space-y-8">
-            <section className="rounded-2xl bg-ghost-ink p-7 text-white">
+            <section className="rounded-2xl bg-ghost-pine p-7 text-white">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-gold">
                 
                 {t("Media & Distribution Network")}
@@ -940,7 +940,7 @@ export default function LaunchBlueprintView({ orderId, onBack, locale = "en" }: 
                   ))}
                 </ul>
               </div>
-              <div className="mt-8 rounded-xl bg-ghost-ink p-6 text-white">
+              <div className="mt-8 rounded-xl bg-ghost-pine p-6 text-white">
                 <p className="text-3xl font-black text-ghost-gold">
                   {blueprint.landingPageCopy.pricePresentation}
                 </p>

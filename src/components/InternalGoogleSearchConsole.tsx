@@ -82,7 +82,7 @@ export default function InternalGoogleSearchConsole({ onBack }: Props) {
       {error && <p className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">{error}</p>}
 
       {result?.answer && <section className="mt-6 overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm">
-        <div className="border-b border-black/10 bg-ghost-ink px-6 py-4 text-white">
+        <div className="border-b border-black/10 bg-ghost-pine px-6 py-4 text-white">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-xl font-black">Google-grounded result</h2>
             <span className="text-xs font-bold uppercase text-ghost-gold">{result.model}</span>
