@@ -167,6 +167,12 @@ production and what is not); and no file in the repository links to a deleted on
 
 ### Q08 — Prove `main` on acceptance — `blocked`
 
+Run 43167377475 (`on_track`, 983f85c, after #95): every automated stage passed. All 30 days were
+completed, all 30 Coach reviews were saved and none degraded, and the plan stayed on `continue` for all
+30 days as expected. The go-live report passed 31 of 33 checks; the two left are the founder's Stripe
+payment and Cloudflare OAuth proofs. Both scenarios are now proven. Remaining for Q08: the two founder
+proofs, then a final Acceptance run of both scenarios on one commit.
+
 Run 43122901835 (`on_track`, 5213c68): the plan stayed on `continue` for Days 1-27 as expected, then
 Vertex answered HTTP 503 ("service is currently unavailable") to the Day 28 Coach review and the
 journey stopped. The Worker made one Vertex call and gave up on any error. It now retries 429 and 5xx

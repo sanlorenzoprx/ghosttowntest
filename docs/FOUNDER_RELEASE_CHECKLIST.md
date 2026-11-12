@@ -1,14 +1,18 @@
 # First 30 release checklist
 
 Prepared 11 November 2026. This is an ordered release plan, not a record that production has changed.
-Candidate commit: `901f36334f79bded4c9805985889c9ce31ccc3eb`.
-Acceptance run: https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43118493729 (`plan_change`)
+Candidate commit: `983f85c5d584e28ae387bc2ba4e848bb4d5ad1bd`.
+Acceptance runs:
+- https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43167377475 (`on_track`, `983f85c`)
+- https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43118493729 (`plan_change`, `901f363`)
 
-Every automated stage passed on this commit: front door, the full 30-day Sprint (the plan changed at
-Days 7, 14, 21 and 30 exactly as the evidence required, and all 30 Coach reviews were complete and
-saved), Get Me Live, owner controls and Sprint without Get Me Live. The go-live report passed 31 of 33
-checks; the other two are the Stripe payment and Cloudflare OAuth proofs, which need you. This is not
-yet a release-approved SHA: run `on_track` on this same commit too, and do step 2, then rerun.
+Both scenarios passed every automated stage: front door, the full 30-day Sprint with all 30 Coach
+reviews complete and saved, Get Me Live, owner controls and Sprint without Get Me Live. With `on_track`
+the plan stayed on `continue` for all 30 days; with `plan_change` it changed at Days 7, 14, 21 and 30
+exactly as the evidence required. Each go-live report passed 31 of 33 checks; the other two are the
+Stripe payment and Cloudflare OAuth proofs, which need you. The only code change between the two commits
+is #95, which retries a temporary Vertex error. This is not yet a release-approved SHA: do step 2, then
+run both scenarios on one commit (step 1).
 
 1. **Prove the release commit on acceptance.** From the repository, run:
    ```sh
