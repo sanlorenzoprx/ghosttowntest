@@ -174,6 +174,10 @@ revise_customer 30). All 30 Coach reviews were saved in each, none degraded. The
 proof run 43186905529 (a test-mode $97 payment made with Playwright on the acceptance site) and the
 Cloudflare OAuth proof run 43198509260 (the founder's consent; forced expiry refreshed on its own).
 
+12 November, after #98 (the lighter site design) merged as `16debd9`: Acceptance run 43233081863
+(`on_track`) passed every stage on that commit and the go-live gate reported PASS with 33 checks and 0
+blockers. `plan_change` has not been run on `16debd9` yet.
+
 Run 43167377475 (`on_track`, 983f85c, after #95): every automated stage passed. All 30 days were
 completed, all 30 Coach reviews were saved and none degraded, and the plan stayed on `continue` for all
 30 days as expected. The go-live report passed 31 of 33 checks; the two left are the founder's Stripe
@@ -246,6 +250,9 @@ run it again. Write the run link, the commit and each stage result under this it
 
 Q08 proved `760345c`; the checklist names it as the release commit and marks steps 1 and 2 done. Every
 later step changes production and waits for the founder.
+
+12 November: the checklist now names `16debd9` (after #98) as the release commit, with its passing
+`on_track` run, and says `plan_change` must pass on it before step 4.
 
 The ordered checklist and merged-branch inventory are prepared in this pull request. Its remaining
 blocker is Q08: the final passing release SHA is not known yet. The checklist links the exact failed

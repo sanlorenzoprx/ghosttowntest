@@ -1,24 +1,36 @@
 # First 30 release checklist
 
 Prepared 11 November 2026. This is an ordered release plan, not a record that production has changed.
-Release commit (acceptance-proven): `760345c8470ec0c02d133e7088fdfd8cbd56493e`.
-Acceptance runs on that commit, both **FINAL RESULT: PASS**, 33 of 33 go-live checks:
+Release commit: `16debd92322a1b1ac741df92abb9ac76c095d986` (`main` after #98, the lighter site design).
+
+Acceptance on that commit, 12 November:
+- https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43233081863 (`on_track`): every stage
+  passed and the go-live gate reported PASS with 33 checks and 0 blockers. Stages: fixture, runtime
+  inputs, front door, the full 30-day Sprint, Get Me Live, owner controls, Sprint without Get Me Live,
+  Stripe payment, Cloudflare OAuth and the go-live gate. This run did not include the full test suite
+  (`run_full_tests` was off); the full suite passed in CI on #98.
+- `plan_change` has **not** been run on this commit. Run it before step 4 (see step 1).
+
+The commit before it, `760345c8470ec0c02d133e7088fdfd8cbd56493e`, passed both scenarios with 33 of 33
+go-live checks:
 - https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43199131996 (`on_track`)
 - https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43201680974 (`plan_change`)
 
-Provider proofs used by those runs:
+The only product change between the two commits is #98. It changes how the site looks (colors, fonts,
+layout of the home page, forms and panels). It does not change copy, prices, offers, checkout or the
+Blueprint.
+
+Provider proofs used by the `760345c` runs:
 - Stripe: https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43186905529 (test-mode $97 payment,
   signed webhook created the Sprint order, a replay was rejected as a duplicate)
 - Cloudflare OAuth: https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43198509260 (consent saved,
   forced token expiry refreshed on its own)
 
-Every stage passed on both runs: front door, the full 30-day Sprint with all 30 Coach reviews complete
-and saved, Get Me Live, owner controls, Sprint without Get Me Live, Stripe and Cloudflare OAuth. With
-`on_track` the plan stayed on `continue` for all 30 days; with `plan_change` it changed at Days 7, 14,
-21 and 30 exactly as the evidence required. Steps 1 and 2 are done. Use this commit as `RELEASE_SHA`
-from step 4 on. Nothing below has been done; each production step still needs your approval.
+Step 2 is done. Step 1 is done for `on_track` and still needs `plan_change` on `16debd9`. Once that
+passes, use `16debd9` as `RELEASE_SHA` from step 4 on. Nothing below has been done; each production
+step still needs your approval.
 
-1. **Prove the release commit on acceptance.** Done for `760345c` (runs above). To repeat it, from the repository, run:
+1. **Prove the release commit on acceptance.** Done for `on_track` on `16debd9` (run above); `plan_change` is still to run. The commands, from the repository:
    ```sh
    gh workflow run acceptance.yml --repo sanlorenzoprx/ghosttowntest --ref main -f deploy=true -f run_full_tests=true -f sprint_scenario=on_track
    ```
