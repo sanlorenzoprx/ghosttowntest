@@ -1,20 +1,24 @@
 # First 30 release checklist
 
 Prepared 11 November 2026. This is an ordered release plan, not a record that production has changed.
-Candidate commit: `983f85c5d584e28ae387bc2ba4e848bb4d5ad1bd`.
-Acceptance runs:
-- https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43167377475 (`on_track`, `983f85c`)
-- https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43118493729 (`plan_change`, `901f363`)
+Release commit (acceptance-proven): `760345c8470ec0c02d133e7088fdfd8cbd56493e`.
+Acceptance runs on that commit, both **FINAL RESULT: PASS**, 33 of 33 go-live checks:
+- https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43199131996 (`on_track`)
+- https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43201680974 (`plan_change`)
 
-Both scenarios passed every automated stage: front door, the full 30-day Sprint with all 30 Coach
-reviews complete and saved, Get Me Live, owner controls and Sprint without Get Me Live. With `on_track`
-the plan stayed on `continue` for all 30 days; with `plan_change` it changed at Days 7, 14, 21 and 30
-exactly as the evidence required. Each go-live report passed 31 of 33 checks; the other two are the
-Stripe payment and Cloudflare OAuth proofs, which need you. The only code change between the two commits
-is #95, which retries a temporary Vertex error. This is not yet a release-approved SHA: do step 2, then
-run both scenarios on one commit (step 1).
+Provider proofs used by those runs:
+- Stripe: https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43186905529 (test-mode $97 payment,
+  signed webhook created the Sprint order, a replay was rejected as a duplicate)
+- Cloudflare OAuth: https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43198509260 (consent saved,
+  forced token expiry refreshed on its own)
 
-1. **Prove the release commit on acceptance.** From the repository, run:
+Every stage passed on both runs: front door, the full 30-day Sprint with all 30 Coach reviews complete
+and saved, Get Me Live, owner controls, Sprint without Get Me Live, Stripe and Cloudflare OAuth. With
+`on_track` the plan stayed on `continue` for all 30 days; with `plan_change` it changed at Days 7, 14,
+21 and 30 exactly as the evidence required. Steps 1 and 2 are done. Use this commit as `RELEASE_SHA`
+from step 4 on. Nothing below has been done; each production step still needs your approval.
+
+1. **Prove the release commit on acceptance.** Done for `760345c` (runs above). To repeat it, from the repository, run:
    ```sh
    gh workflow run acceptance.yml --repo sanlorenzoprx/ghosttowntest --ref main -f deploy=true -f run_full_tests=true -f sprint_scenario=on_track
    ```
@@ -27,7 +31,8 @@ run both scenarios on one commit (step 1).
    to pass. The release is still blocked if Stripe, OAuth or the aggregate go-live gate fails.
    Undo: acceptance uses disposable fixtures; its cleanup step removes them. No production change.
 
-2. **Complete the two real-provider proofs.** Run `Stripe Payment Proof` from `main`. Use the acceptance
+2. **Complete the two real-provider proofs.** Done (runs above). The Acceptance gate accepts a Stripe
+   test payment only for 24 hours, so a repeat needs a fresh one. Run `Stripe Payment Proof` from `main`. Use the acceptance
    site and a Stripe **test-mode** card to complete its dormant Sprint checkout; do not use a real card
    here. Run `Cloudflare OAuth Proof` with `test_owner` set to the email of the acceptance account that
    will authorize Cloudflare; open the `setupUrl` in its `cloudflare-oauth-fixture.json` artifact,

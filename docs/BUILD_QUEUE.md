@@ -165,7 +165,14 @@ true or needed) or corrected; `README.md` and `docs/CURRENT_STATE.md` describe t
 `main` now (free verdict, First 30 at $297, Get Me Live included, English and Spanish, what is live in
 production and what is not); and no file in the repository links to a deleted one.
 
-### Q08 — Prove `main` on acceptance — `blocked`
+### Q08 — Prove `main` on acceptance — `done`
+
+Done on `760345c`. Both final Acceptance runs reached **FINAL RESULT: PASS** with 33 of 33 go-live
+checks: run 43199131996 (`on_track`, plan on `continue` all 30 days) and run 43201680974
+(`plan_change`, continue 1-6, revise_message 7-13, revise_price 14-20, revise_offer 21-29,
+revise_customer 30). All 30 Coach reviews were saved in each, none degraded. They used the Stripe
+proof run 43186905529 (a test-mode $97 payment made with Playwright on the acceptance site) and the
+Cloudflare OAuth proof run 43198509260 (the founder's consent; forced expiry refreshed on its own).
 
 Run 43167377475 (`on_track`, 983f85c, after #95): every automated stage passed. All 30 days were
 completed, all 30 Coach reviews were saved and none degraded, and the plan stayed on `continue` for all
@@ -235,7 +242,10 @@ Sprint without Get Me Live. The Stripe payment and Cloudflare OAuth stages need 
 expected to fail; record them for Q09. If an automated stage fails, fix the cause in a pull request and
 run it again. Write the run link, the commit and each stage result under this item.
 
-### Q09 — Write the founder's release checklist — `blocked`
+### Q09 — Write the founder's release checklist — `done`
+
+Q08 proved `760345c`; the checklist names it as the release commit and marks steps 1 and 2 done. Every
+later step changes production and waits for the founder.
 
 The ordered checklist and merged-branch inventory are prepared in this pull request. Its remaining
 blocker is Q08: the final passing release SHA is not known yet. The checklist links the exact failed
