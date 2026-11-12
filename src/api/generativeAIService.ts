@@ -106,6 +106,12 @@ const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const CLOUD_PLATFORM_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 const TOKEN_CACHE_PREFIX = 'vertex_generative_ai_access_token_v1_';
 const DEFAULT_GATEWAY_ID = 'default';
+// Vertex sometimes answers 429/5xx for a few seconds (Acceptance run 43122901835
+// lost its Day 28 Coach review to one 503). Retry those briefly; any other error,
+// or too little time left, fails at once as before.
+const VERTEX_RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const VERTEX_RETRY_BACKOFF_MS = [1_000, 3_000];
+const VERTEX_MIN_ATTEMPT_MS = 5_000;
 const DEFAULT_MODELS: Record<GenerativeAITask, string> = {
   verdict: 'gemini-3.5-flash-lite',
   candidate_selection: 'gemini-3.5-flash-lite',
@@ -359,32 +365,41 @@ export async function generateAI(env: Env, options: GenerateOptions): Promise<Ge
   }
   if (options.googleSearch) requestBody.tools = [{ google_search: {} }];
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 45_000);
+  // One time limit covers every attempt, so a retry never makes the founder wait
+  // longer than a single call already could.
+  const deadline = Date.now() + (options.timeoutMs ?? 45_000);
   let response: Response;
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'cf-aig-authorization': `Bearer ${gatewayToken}`,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(`Vertex ${options.task} request timed out`);
+  let body: VertexGenerateContentResponse;
+  for (let attempt = 0; ; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(1, deadline - Date.now()));
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'cf-aig-authorization': `Bearer ${gatewayToken}`,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error(`Vertex ${options.task} request timed out`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
     }
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
-
-  const body = await response.json() as VertexGenerateContentResponse;
-  if (!response.ok) {
-    throw new Error(`Vertex ${options.task} returned HTTP ${response.status}: ${body.error?.message || 'request failed'}`);
+    body = await response.json().catch(() => ({})) as VertexGenerateContentResponse;
+    if (response.ok) break;
+    const backoffMs = VERTEX_RETRY_BACKOFF_MS[attempt];
+    const retryable = VERTEX_RETRYABLE_STATUS.has(response.status);
+    if (!retryable || backoffMs === undefined || deadline - Date.now() < backoffMs + VERTEX_MIN_ATTEMPT_MS) {
+      throw new Error(`Vertex ${options.task} returned HTTP ${response.status}: ${body.error?.message || 'request failed'}`);
+    }
+    await new Promise(resolve => setTimeout(resolve, backoffMs));
   }
   const candidate = body.candidates?.[0];
   const output = candidate?.content?.parts?.map(part => part.text || '').join('\n').trim() || '';

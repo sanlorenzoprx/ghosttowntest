@@ -239,4 +239,53 @@ describe('GenerativeAIService', () => {
     expect(output.data).toEqual({ ok: true });
     expect(output.result.receipt.task).toBe('custom_website');
   });
+
+  describe('temporary Vertex errors', () => {
+    // Acceptance run 43122901835 lost its Day 28 Coach review to one Vertex 503.
+    function vertexSequence(statuses: number[]) {
+      const calls: number[] = [];
+      vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+        if (String(input) === 'https://oauth2.googleapis.com/token') {
+          return Response.json({ access_token: 'vertex-short-lived-token', expires_in: 3600 });
+        }
+        const status = statuses[calls.length] ?? 200;
+        calls.push(status);
+        if (status === 200) return Response.json({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] });
+        return Response.json({ error: { message: 'The service is currently unavailable.' } }, { status });
+      }));
+      return calls;
+    }
+
+    it('retries a 503 and returns the answer', async () => {
+      const configured = await env();
+      const calls = vertexSequence([503]);
+      await expect(generateAI(configured, { task: 'candidate_selection', prompt: 'Review Day 28.' }))
+        .resolves.toMatchObject({ text: 'ok' });
+      expect(calls).toEqual([503, 200]);
+    }, 10_000);
+
+    it('does not retry a request the provider rejected', async () => {
+      const configured = await env();
+      const calls = vertexSequence([400]);
+      await expect(generateAI(configured, { task: 'candidate_selection', prompt: 'Review Day 28.' }))
+        .rejects.toThrow('Vertex candidate_selection returned HTTP 400');
+      expect(calls).toEqual([400]);
+    });
+
+    it('gives up after two retries with the original error', async () => {
+      const configured = await env();
+      const calls = vertexSequence([503, 503, 503, 503]);
+      await expect(generateAI(configured, { task: 'candidate_selection', prompt: 'Review Day 28.' }))
+        .rejects.toThrow('Vertex candidate_selection returned HTTP 503');
+      expect(calls).toEqual([503, 503, 503]);
+    }, 15_000);
+
+    it('does not retry when too little of the time limit is left', async () => {
+      const configured = await env();
+      const calls = vertexSequence([503]);
+      await expect(generateAI(configured, { task: 'candidate_selection', prompt: 'Review Day 28.', timeoutMs: 3_000 }))
+        .rejects.toThrow('HTTP 503');
+      expect(calls).toEqual([503]);
+    });
+  });
 });
