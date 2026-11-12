@@ -356,7 +356,7 @@ export default function CompetitorSeedStep({ orderId, onStarted, onBack, locale 
         </div>
       </div>
 
-      <div className="mt-6 rounded-xl bg-ghost-ink p-5 text-white">
+      <div className="mt-6 rounded-xl bg-ghost-pine p-5 text-white">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div><p className="text-xs font-black uppercase tracking-[0.15em] text-ghost-gold">{t.setTitle}</p><p className="mt-1 text-sm text-white/75">{t.setBody}</p></div><span className="text-3xl font-black text-ghost-gold">{selectedSeeds.length}/3</span>
         </div>

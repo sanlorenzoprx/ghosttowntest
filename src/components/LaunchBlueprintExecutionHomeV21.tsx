@@ -779,7 +779,7 @@ export default function LaunchBlueprintExecutionHomeV21({
           </div>
         </div>
         {isOpen && <div className="mt-4 space-y-4">
-          <div className="rounded-xl bg-[#101A17] p-4 text-white"><p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-ghost-gold">{t.readableAsset}</p><pre className="max-h-[34rem] overflow-auto whitespace-pre-wrap font-mono text-xs leading-6">{content}</pre></div>
+          <div className="rounded-xl bg-ghost-pine p-4 text-white"><p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-ghost-gold">{t.readableAsset}</p><pre className="max-h-[34rem] overflow-auto whitespace-pre-wrap font-mono text-xs leading-6">{content}</pre></div>
           {asset.capabilities.editable && !compact && <label className="block text-sm font-black">{t.workingCopy}<span className="font-normal text-gray-500">{t.workingCopyNote}</span><textarea defaultValue={content} onBlur={event => saveWorkingCopy(asset, event.target.value)} className="mt-2 min-h-48 w-full rounded-xl border border-gray-300 p-3 font-mono text-xs font-normal" /></label>}
         </div>}
       </article>
@@ -796,7 +796,7 @@ export default function LaunchBlueprintExecutionHomeV21({
 
   return (
     <div className="min-h-screen bg-[#F6F3ED] text-ghost-ink">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#101A17] text-white shadow-xl">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-ghost-pine text-white shadow-xl">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <button type="button" onClick={onBack} className="rounded-lg border border-white/20 px-3 py-2 text-sm font-black">{t.backToDashboard}</button>
@@ -813,7 +813,7 @@ export default function LaunchBlueprintExecutionHomeV21({
       <main className="mx-auto max-w-7xl space-y-6 p-4 py-7 sm:p-6">
         {saveState === 'error' && <div role="alert" className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between"><span>{saveError || t.localOnly}</span><button type="button" onClick={() => void persist(effectiveProgress)} className="rounded-lg bg-red-700 px-4 py-2 font-black text-white">{t.retrySave}</button></div>}
 
-        <section className="overflow-hidden rounded-[2rem] bg-[#101A17] text-white shadow-xl">
+        <section className="overflow-hidden rounded-[2rem] bg-ghost-pine text-white shadow-xl">
           <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[1.35fr_0.65fr] lg:p-10">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-ghost-gold">{t.heroKicker}</p>

@@ -35,7 +35,7 @@ export default function ProgressBar({ currentIndex, locale = 'en' }: { currentIn
   const stageLabel = t.stages[state.stage.id]?.label ?? state.stage.label;
 
   return (
-    <div className="mb-6 sm:mb-8" aria-label={t.aria(state.stageNumber, state.totalStages, stageLabel)}>
+    <div className="mb-5 rounded-3xl border border-white bg-white/80 p-4 shadow-soft backdrop-blur sm:mb-6 sm:p-5" aria-label={t.aria(state.stageNumber, state.totalStages, stageLabel)}>
       <div className="flex items-end justify-between gap-3">
         <div>
           <span className="text-xs font-bold uppercase tracking-[0.16em] text-ghost-rust">
@@ -46,12 +46,12 @@ export default function ProgressBar({ currentIndex, locale = 'en' }: { currentIn
             {t.inStage(state.currentStageQuestion, state.stageQuestionCount)}
           </p>
         </div>
-        <span className="text-sm font-bold text-gray-500">{state.overallPercentage}%</span>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-bold text-ghost-forest">{state.overallPercentage}%</span>
       </div>
 
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-200">
+      <div className="mt-3 h-3 overflow-hidden rounded-full bg-gray-100">
         <div
-            className="h-full rounded-full bg-ghost-forest transition-all duration-300"
+            className="h-full rounded-full bg-gradient-to-r from-[#1F9070] via-[#4DAE8A] to-[#FFC94D] transition-all duration-500 ease-out"
           style={{ width: `${state.overallPercentage}%` }}
         />
       </div>
@@ -61,13 +61,13 @@ export default function ProgressBar({ currentIndex, locale = 'en' }: { currentIn
           <div key={stage.id} className="text-center">
             <div className={`h-1.5 rounded-full ${
               index < state.stageIndex
-                ? 'bg-green-500'
+                ? 'bg-green-400'
                 : index === state.stageIndex
                   ? 'bg-ghost-rust'
                   : 'bg-gray-200'
             }`} />
             <span className={`mt-1.5 block truncate text-[10px] font-bold sm:text-xs ${
-              index === state.stageIndex ? 'text-ghost-rust' : 'text-gray-400'
+              index === state.stageIndex ? 'text-ghost-rust' : 'text-gray-500'
             }`}>
               {t.stages[stage.id]?.shortLabel ?? stage.shortLabel}
             </span>

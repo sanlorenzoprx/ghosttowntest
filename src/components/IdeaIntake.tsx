@@ -148,9 +148,11 @@ export default function IdeaIntake({ onSubmit, initialIdea, locale = 'en' }: Pro
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 pb-24 sm:py-8 sm:pb-8">
-      <h2 className="text-3xl font-bold mb-2">{initialIdea ? t.titleStarter : t.titleNew}</h2>
-      <p className="text-gray-600 mb-6">{initialIdea
+    <div className="day-hero min-h-[calc(100dvh-72px)]">
+    <div className="mx-auto max-w-2xl px-4 py-6 pb-24 sm:py-12 sm:pb-16">
+      <span className="day-pop mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFE9DC] text-[#B4471B] shadow-quiet" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.200v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" /></svg></span>
+      <h2 className="mb-2 font-display text-4xl font-semibold tracking-[-0.02em] text-ghost-ink sm:text-5xl">{initialIdea ? t.titleStarter : t.titleNew}</h2>
+      <p className="mb-6 text-lg text-gray-600">{initialIdea
         ? t.introStarter
         : t.introNew}</p>
 
@@ -160,7 +162,7 @@ export default function IdeaIntake({ onSubmit, initialIdea, locale = 'en' }: Pro
         </div>
       )}
       
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="day-pop space-y-6 rounded-3xl border border-white bg-white p-5 shadow-pop sm:p-8">
         {/* Idea Name */}
         <div>
           <label htmlFor="ideaName" className="block font-bold mb-2">
@@ -174,7 +176,7 @@ export default function IdeaIntake({ onSubmit, initialIdea, locale = 'en' }: Pro
             value={formData.ideaName}
             onChange={handleChange}
             placeholder={t.namePlaceholder}
-            className={`min-h-12 w-full rounded border px-4 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`min-h-12 w-full rounded-xl border px-4 py-2 text-base focus:outline-none focus:ring-0 ${
               errors.ideaName ? 'border-red-500' : 'border-gray-300'
             }`}
           />
@@ -192,7 +194,7 @@ export default function IdeaIntake({ onSubmit, initialIdea, locale = 'en' }: Pro
             value={formData.description}
             onChange={handleChange}
             placeholder={t.descPlaceholder}
-            className={`h-28 w-full rounded border px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`h-28 w-full rounded-xl border px-4 py-3 text-base focus:outline-none focus:ring-0 ${
               errors.description ? 'border-red-500' : 'border-gray-300'
             }`}
           />
@@ -211,7 +213,7 @@ export default function IdeaIntake({ onSubmit, initialIdea, locale = 'en' }: Pro
             value={formData.targetUser}
             onChange={handleChange}
             placeholder={t.targetPlaceholder}
-            className={`min-h-12 w-full rounded border px-4 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`min-h-12 w-full rounded-xl border px-4 py-2 text-base focus:outline-none focus:ring-0 ${
               errors.targetUser ? 'border-red-500' : 'border-gray-300'
             }`}
           />
@@ -229,7 +231,7 @@ export default function IdeaIntake({ onSubmit, initialIdea, locale = 'en' }: Pro
             value={formData.painfulProblem}
             onChange={handleChange}
             placeholder={t.problemPlaceholder}
-            className={`h-24 w-full rounded border px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`h-24 w-full rounded-xl border px-4 py-3 text-base focus:outline-none focus:ring-0 ${
               errors.painfulProblem ? 'border-red-500' : 'border-gray-300'
             }`}
           />
@@ -248,7 +250,7 @@ export default function IdeaIntake({ onSubmit, initialIdea, locale = 'en' }: Pro
             value={formData.currentAlternative}
             onChange={handleChange}
             placeholder={t.altPlaceholder}
-            className="min-h-12 w-full rounded border border-gray-300 px-4 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="min-h-12 w-full rounded-xl border border-gray-300 px-4 py-2 text-base focus:outline-none focus:ring-0"
           />
           <p className="text-gray-500 text-sm mt-1">{t.altHelp}</p>
         </div>
@@ -264,12 +266,12 @@ export default function IdeaIntake({ onSubmit, initialIdea, locale = 'en' }: Pro
             value={formData.motivation}
             onChange={handleChange}
             placeholder={t.motPlaceholder}
-            className="h-24 w-full rounded border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="h-24 w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:outline-none focus:ring-0"
           />
           <p className="text-gray-500 text-sm mt-1">{t.motHelp}</p>
         </div>
 
-        <div className={`rounded-lg border p-4 ${errors.publicContent ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-blue-50'}`}>
+        <div className={`rounded-2xl border p-4 ${errors.publicContent ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-blue-50'}`}>
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
@@ -289,17 +291,18 @@ export default function IdeaIntake({ onSubmit, initialIdea, locale = 'en' }: Pro
         </div>
 
         {/* Submit Button */}
-        <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.1)] backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+        <div className="sticky bottom-0 -mx-5 border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.1)] backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
           <button
             data-testid="evaluate-button"
             type="submit"
-            className="min-h-12 w-full rounded-lg bg-blue-600 px-4 py-3 font-bold text-white transition hover:bg-blue-700 active:bg-blue-800"
+            className="min-h-14 w-full rounded-full bg-day-coral px-6 py-3 text-lg font-bold text-white shadow-cta transition hover:-translate-y-0.5 hover:bg-day-coral-hover"
           >
             {t.submit}
           </button>
           <p className="mt-2 text-center text-xs text-gray-500">{t.footnote}</p>
         </div>
       </form>
+    </div>
     </div>
   );
 }

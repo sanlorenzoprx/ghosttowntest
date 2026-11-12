@@ -565,7 +565,7 @@ export default function UserDashboard({
             <button
               type="button"
               onClick={onResume}
-              className="rounded-lg bg-ghost-rust px-5 py-3 font-black text-white shadow-lantern transition hover:bg-[#96360d]"
+              className="rounded-lg bg-ghost-rust px-5 py-3 font-black text-white shadow-lantern transition hover:bg-blue-800"
             >
               {copy.resume}
             </button>
@@ -576,7 +576,7 @@ export default function UserDashboard({
         </div>
       </div>
 
-      <section className="mb-8 flex flex-col gap-5 rounded-xl bg-ghost-ink p-6 text-white shadow-lantern sm:flex-row sm:items-center sm:justify-between">
+      <section className="mb-8 flex flex-col gap-5 rounded-xl bg-ghost-pine p-6 text-white shadow-lantern sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-ghost-gold">
             {copy.heroKicker}

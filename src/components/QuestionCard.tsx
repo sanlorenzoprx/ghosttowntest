@@ -15,8 +15,8 @@ interface Props {
 
 export default function QuestionCard({ question, onAnswer, selectedValue, locale = 'en' }: Props) {
   return (
-    <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:mb-8 sm:p-8">
-      <h3 className="mb-3 text-2xl font-bold leading-tight text-gray-950 sm:text-3xl">{question.question}</h3>
+    <div key={question.id} className="day-pop mb-4 rounded-3xl border border-white bg-white p-5 shadow-pop sm:mb-8 sm:p-8">
+      <h3 className="mb-3 font-display text-2xl font-semibold leading-tight tracking-[-0.01em] text-gray-950 sm:text-[2rem]">{question.question}</h3>
       
       {question.helper && (
         <p className="text-gray-600 mb-6 leading-relaxed">{question.helper}</p>
@@ -29,16 +29,21 @@ export default function QuestionCard({ question, onAnswer, selectedValue, locale
             type="button"
             onClick={() => onAnswer(option.value)}
             aria-pressed={selectedValue === option.value}
-            className={`group min-h-16 w-full touch-manipulation rounded-xl border p-4 text-left transition active:scale-[0.99] ${
+            className={`group flex min-h-16 w-full touch-manipulation items-center gap-4 rounded-2xl border-2 p-4 text-left transition hover:-translate-y-0.5 active:scale-[0.99] ${
               selectedValue === option.value
-                ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100'
-                : 'border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50'
+                ? 'border-blue-600 bg-blue-50 shadow-soft'
+                : 'border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-soft'
             }`}
           >
-            <div className="font-semibold leading-snug text-gray-900 group-hover:text-blue-700">{option.label}</div>
-            {option.helper && (
-              <div className="text-sm text-gray-500 mt-1 group-hover:text-blue-500">{option.helper}</div>
-            )}
+            <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-sm font-black transition ${
+              selectedValue === option.value ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300 bg-white text-transparent group-hover:border-blue-400'
+            }`}>✓</span>
+            <span className="min-w-0">
+              <span className="block font-semibold leading-snug text-gray-900 group-hover:text-blue-700">{option.label}</span>
+              {option.helper && (
+                <span className="mt-1 block text-sm text-gray-500 group-hover:text-blue-600">{option.helper}</span>
+              )}
+            </span>
           </button>
         ))}
       </div>
