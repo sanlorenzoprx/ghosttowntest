@@ -277,6 +277,10 @@ without another run: it differs from `f9e719e` only by production's `VERTEX_PROJ
 records. The checklist says to release the current `main` after checking that only `docs/` changed since
 `8443281`, because the release workflows require the tip of `main`.
 
+13 November: production preflight run 43441926770 passed on `4284e37`. Pending migrations are exactly
+0011 and 0012; version `6025572b` serves 100% of traffic and health is ok. `api.ghosttownverdict.app`
+did not answer (no DNS record), so the checklist now requires the domain move before step 6.
+
 The ordered checklist and merged-branch inventory are prepared in this pull request. Its remaining
 blocker is Q08: the final passing release SHA is not known yet. The checklist links the exact failed
 run and explains the required provider input, recovery paths and the separate ShortsFactory dependency.

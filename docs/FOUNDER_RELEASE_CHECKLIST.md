@@ -106,6 +106,21 @@ Steps 1 and 2 are done (see above). Nothing below has been done; each production
    review them. Undo: these additions can remain during a Worker rollback; do not drop populated
    columns/tables. A database restore requires a separately reviewed recovery plan.
 
+**Before step 6: finish the domain move.** The release sets the Worker's `FRONTEND_URL` to
+`https://ghosttownverdict.app`. Stripe sends paying customers back to that address after checkout (for
+example the 10-verdict pack), and the Worker uses it in its links. Step 7 builds the site to call
+`https://api.ghosttownverdict.app`. On 13 November neither `ghosttownverdict.app` nor
+`api.ghosttownverdict.app` had a DNS record, so the production preflight (run 43441926770) fell back to
+`api.ghosttowntest.com`. Do steps 1 to 4 of [DOMAIN_MOVE_GHOSTTOWNVERDICT.md](DOMAIN_MOVE_GHOSTTOWNVERDICT.md)
+first, then confirm both of these return HTTP 200:
+```sh
+curl -sS -o /dev/null -w "%{http_code}\n" https://api.ghosttownverdict.app/api/integrations/shorts-factory/health
+```
+```sh
+curl -sS -o /dev/null -w "%{http_code}\n" https://ghosttownverdict.app/
+```
+The site check only passes once Pages serves the new domain (domain-move step 3).
+
 6. **Stage, then promote the exact Worker.** First load the new Google key into a new production
    version **without deploying it**. Each Worker version carries its own secrets, so the version serving
    traffic keeps the old project and old key. From a folder outside the repository, with the
