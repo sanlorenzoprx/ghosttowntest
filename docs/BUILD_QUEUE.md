@@ -178,6 +178,14 @@ Cloudflare OAuth proof run 43198509260 (the founder's consent; forced expiry ref
 (`on_track`) passed every stage on that commit and the go-live gate reported PASS with 33 checks and 0
 blockers. `plan_change` has not been run on `16debd9` yet.
 
+13 November: Acceptance run 43429640884 (`plan_change`) passed every stage on `5147a07` (after #101) and
+the go-live gate reported PASS with 33 checks and 0 blockers. It was the first run on the new Google Cloud
+project `ghost-town-514611`. The release commit still needs `on_track` on that same commit. Earlier
+`plan_change` attempts did not finish for reasons outside the product: Vertex quota errors (HTTP 429) at
+Day 8 (run 43242516507) and Day 10 (run 43404928938), the move of `ubuntu-latest` to Ubuntu 26.04, where
+Playwright 1.55 cannot install Chromium (runs 43392663444 and 43393915064, fixed by #100), a cancelled run
+(43394192790), and an expired Stripe test payment (run 43398300279).
+
 Run 43167377475 (`on_track`, 983f85c, after #95): every automated stage passed. All 30 days were
 completed, all 30 Coach reviews were saved and none degraded, and the plan stayed on `continue` for all
 30 days as expected. The go-live report passed 31 of 33 checks; the two left are the founder's Stripe
@@ -253,6 +261,10 @@ later step changes production and waits for the founder.
 
 12 November: the checklist now names `16debd9` (after #98) as the release commit, with its passing
 `on_track` run, and says `plan_change` must pass on it before step 4.
+
+13 November: the checklist no longer names a release commit. `plan_change` passed on `5147a07` and
+`on_track` on `16debd9`; one more `on_track` run on `5147a07` settles it. It also records that production
+still uses the old Google Cloud project.
 
 The ordered checklist and merged-branch inventory are prepared in this pull request. Its remaining
 blocker is Q08: the final passing release SHA is not known yet. The checklist links the exact failed
