@@ -271,6 +271,12 @@ production, and checklist step 6 loads the new key into the staged version with 
 bulk`, so the live version never pairs the new key with the old project. The release commit therefore
 moves to the commit with this change, and `on_track` must pass on it.
 
+13 November: Acceptance run 43434252743 (`on_track`) passed every stage on `f9e719e`, with the go-live
+gate at PASS, 33 checks and 0 blockers. The founder chose `8443281` (after #103) as the release code
+without another run: it differs from `f9e719e` only by production's `VERTEX_PROJECT_ID` line, its test and
+records. The checklist says to release the current `main` after checking that only `docs/` changed since
+`8443281`, because the release workflows require the tip of `main`.
+
 The ordered checklist and merged-branch inventory are prepared in this pull request. Its remaining
 blocker is Q08: the final passing release SHA is not known yet. The checklist links the exact failed
 run and explains the required provider input, recovery paths and the separate ShortsFactory dependency.
