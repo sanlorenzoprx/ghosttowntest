@@ -195,7 +195,7 @@ const requiredAcceptance = [
   'workers_dev = true',
   'DEPLOYMENT_ENV = "acceptance"',
   'AI_GATEWAY_ID = "default"',
-  'VERTEX_PROJECT_ID = "ghosttowntest"',
+  'VERTEX_PROJECT_ID = "ghost-town-514611"',
   'VERTEX_LOCATION = "us"',
   'VERTEX_VERDICT_MODEL = "gemini-3.5-flash-lite"',
   'VERTEX_SELECTION_MODEL = "gemini-3.5-flash-lite"',
@@ -249,7 +249,7 @@ pass(state, config, 7, {
 const missingVertex = VERTEX_SECRETS.filter(name => !nameSet.has(name));
 if (missingVertex.length) throw new Error(`INPUT_REQUIRED: acceptance is missing Vertex service-account secret names: ${missingVertex.join(', ')}.`);
 pass(state, config, 8, {
-  project: 'ghosttowntest',
+  project: 'ghost-town-514611',
   location: 'us',
   gateway_id: 'default',
   models: {
