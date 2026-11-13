@@ -266,6 +266,11 @@ later step changes production and waits for the founder.
 `on_track` on `16debd9`; one more `on_track` run on `5147a07` settles it. It also records that production
 still uses the old Google Cloud project.
 
+13 November: the founder approved moving production to `ghost-town-514611`. `wrangler.toml` names it for
+production, and checklist step 6 loads the new key into the staged version with `wrangler versions secret
+bulk`, so the live version never pairs the new key with the old project. The release commit therefore
+moves to the commit with this change, and `on_track` must pass on it.
+
 The ordered checklist and merged-branch inventory are prepared in this pull request. Its remaining
 blocker is Q08: the final passing release SHA is not known yet. The checklist links the exact failed
 run and explains the required provider input, recovery paths and the separate ShortsFactory dependency.

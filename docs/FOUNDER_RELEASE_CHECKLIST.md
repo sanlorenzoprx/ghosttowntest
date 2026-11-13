@@ -19,14 +19,19 @@ pull request. Between `16debd9` and `5147a07` there is no product code change: #
 records, #100 pinned the Playwright workflows to the Ubuntu 24.04 runner, and #101 moved acceptance to
 the new Google Cloud project.
 
-To settle the release commit: run `on_track` on `5147a07` (or the current `main`, if only records have
-changed since). If it passes, that commit is `RELEASE_SHA`. The Stripe payment used by these runs was
+To settle the release commit: run `on_track` on the current `main`, which adds production's move to the
+new Google Cloud project (#103). If it passes, that commit is `RELEASE_SHA`. Since `5147a07` the only
+changes are these records and production's `VERTEX_PROJECT_ID` line, which acceptance never deploys, so
+the `plan_change` pass above still describes the same acceptance build. Rerun `plan_change` on the new
+commit as well if you want both scenarios on the exact same SHA. The Stripe payment used by these runs was
 made on 13 November at about 09:40 UTC. The gate accepts it for 24 hours, so a run after about 09:40 UTC
 on 14 November needs a fresh one.
 
-Production still calls the old project `ghosttowntest`. Decide before step 4 whether production moves
-to `ghost-town-514611` first. That move means loading the new service-account secrets onto the
-production Worker and changing production's `VERTEX_PROJECT_ID`, and it needs your approval.
+Production moves to the new Google Cloud project `ghost-town-514611` with this release (approved by the
+founder on 13 November). `wrangler.toml` already names it for production, but the Worker serving
+production traffic keeps the old project and its old key until step 6 promotes the new version. Step 6
+says how to load the new key into that version only, so live traffic never runs with a mismatched
+project and key.
 
 The commit `760345c8470ec0c02d133e7088fdfd8cbd56493e`, before the site redesign, passed both scenarios
 with 33 of 33 go-live checks:
@@ -42,10 +47,9 @@ Provider proofs used by the `760345c` runs:
 - Cloudflare OAuth: https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43198509260 (consent saved,
   forced token expiry refreshed on its own)
 
-Step 2 is done. Step 1 is done for `plan_change` on `5147a07` and still needs `on_track` on the same
-commit. Nothing below has been done; each production step still needs your approval.
+Step 2 is done. Step 1 still needs `on_track` on the current `main` (see above). Nothing below has been done; each production step still needs your approval.
 
-1. **Prove the release commit on acceptance.** Done for `plan_change` on `5147a07` (run above); `on_track` is still to run on that commit. The commands, from the repository:
+1. **Prove the release commit on acceptance.** `plan_change` passed on `5147a07` (run above); `on_track` is still to run on the current `main`. The commands, from the repository:
    ```sh
    gh workflow run acceptance.yml --repo sanlorenzoprx/ghosttowntest --ref main -f deploy=true -f run_full_tests=true -f sprint_scenario=on_track
    ```
@@ -96,7 +100,21 @@ commit. Nothing below has been done; each production step still needs your appro
    review them. Undo: these additions can remain during a Worker rollback; do not drop populated
    columns/tables. A database restore requires a separately reviewed recovery plan.
 
-6. **Stage, then promote the exact Worker.** Run:
+6. **Stage, then promote the exact Worker.** First load the new Google key into a new production
+   version **without deploying it**. Each Worker version carries its own secrets, so the version serving
+   traffic keeps the old project and old key. From a folder outside the repository, with the
+   service-account JSON key for `ghost-town-514611`, create the secrets file (it should print
+   `project: ghost-town-514611`):
+   ```sh
+   node -e "const k=require('C:/path/to/ghost-town-514611.json');console.log('project:',k.project_id);require('fs').writeFileSync('vertex-secrets.json',JSON.stringify({VERTEX_SERVICE_ACCOUNT_EMAIL:k.client_email,VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY:k.private_key,VERTEX_SERVICE_ACCOUNT_PRIVATE_KEY_ID:k.private_key_id}))"
+   ```
+   Then upload them as an undeployed version, and delete the file:
+   ```sh
+   npx wrangler versions secret bulk vertex-secrets.json --name lit-ghost-town-api-production --message "Vertex key for ghost-town-514611"
+   ```
+   Use `versions secret bulk`, not `secret bulk`: plain `secret bulk` deploys at once and would pair the
+   new key with the old project on live traffic. The staged version below starts from the latest
+   version, so it carries the new key together with the new project ID. Then run:
    ```sh
    gh workflow run production-release.yml --ref main -f operation=stage-version -f expected_main_sha="$RELEASE_SHA" -f confirm='STAGE VERSION FOR PRODUCTION'
    ```
@@ -105,7 +123,11 @@ commit. Nothing below has been done; each production step still needs your appro
    ```sh
    gh workflow run production-release.yml --ref main -f operation=promote-version -f expected_main_sha="$RELEASE_SHA" -f version_id="$CANDIDATE_VERSION" -f confirm='PROMOTE VERSION TO PRODUCTION'
    ```
-   Require the live health response to identify that exact UUID. Undo: the workflow automatically
+   Require the live health response to identify that exact UUID. Then confirm production is calling
+   the new project: run `npx wrangler tail lit-ghost-town-api-production`, get one free verdict on the
+   live site, and check that its `verdict_cost` line shows `"usedAI":true` and no `Vertex` error. A
+   failing Vertex call does not show on the page, because the free verdict quietly falls back to the
+   rule-based result. Keep the old project's key until this check passes. Undo: the workflow automatically
    restores the previous version if its post-promotion smoke fails. For a later failure, restore
    `PREVIOUS_VERSION` to 100% with Cloudflare's Worker deployment controls and retain the evidence.
 

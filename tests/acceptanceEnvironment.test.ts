@@ -90,7 +90,7 @@ describe('acceptance Cloudflare environment', () => {
     expect(acceptanceVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
     expect(acceptanceVars).toContain('PAID_BLUEPRINT_RESEARCH_ENABLED = "true"');
 
-    expect(productionVars).toContain('VERTEX_PROJECT_ID = "ghosttowntest"');
+    expect(productionVars).toContain('VERTEX_PROJECT_ID = "ghost-town-514611"');
     expect(productionVars).toContain('DISTRIBUTION_FOOTPRINT_ENABLED = "false"');
     expect(productionVars).toContain('PAID_BLUEPRINT_RESEARCH_ENABLED = "true"');
 
