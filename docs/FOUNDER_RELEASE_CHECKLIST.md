@@ -1,31 +1,37 @@
 # First 30 release checklist
 
 Prepared 11 November 2026. This is an ordered release plan, not a record that production has changed.
-Release commit: **not settled yet.** Step 1 needs both scenarios to pass on one commit, and the two
-latest passes are on different commits:
+Release code: `8443281a7ce04da6ae030902b7e6d0f31cfdf8de` (`main` after #103), chosen by the founder on
+13 November. Both scenarios passed on the two commits just before it, on the new Google Cloud project
+`ghost-town-514611`, with no Vertex quota (HTTP 429) errors:
 
-- `plan_change` passed on `5147a076e6a93f8b5c391c0a8eab751a19739f18` (`main` after #101), 13 November:
-  https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43429640884. Every stage passed and the
-  go-live gate reported PASS with 33 checks and 0 blockers: fixture, runtime inputs, front door, the full
-  30-day Sprint, Get Me Live, owner controls, Sprint without Get Me Live, Stripe payment, Cloudflare OAuth
-  and the go-live gate. It was the first run on the new Google Cloud project `ghost-town-514611` (#101),
-  and it had no Vertex quota (HTTP 429) errors.
-- `on_track` passed on `16debd92322a1b1ac741df92abb9ac76c095d986` (`main` after #98), 12 November:
-  https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43233081863, with the same stages and 33
-  checks, on the old Google Cloud project `ghosttowntest`.
+- `on_track` on `f9e719e59c45281ca737c60fcb95b6bea0d1a320` (`main` after #102):
+  https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43434252743
+- `plan_change` on `5147a076e6a93f8b5c391c0a8eab751a19739f18` (`main` after #101):
+  https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43429640884
 
-Neither run included the full test suite (`run_full_tests` was off); the full suite passed in CI on each
-pull request. Between `16debd9` and `5147a07` there is no product code change: #99 updated these
-records, #100 pinned the Playwright workflows to the Ubuntu 24.04 runner, and #101 moved acceptance to
-the new Google Cloud project.
+In each run every stage passed and the go-live gate reported PASS with 33 checks and 0 blockers:
+fixture, runtime inputs, front door, the full 30-day Sprint, Get Me Live, owner controls, Sprint without
+Get Me Live, Stripe payment, Cloudflare OAuth and the go-live gate. Neither run included the full test
+suite (`run_full_tests` was off); the full suite passed in CI on every pull request.
 
-To settle the release commit: run `on_track` on the current `main`, which adds production's move to the
-new Google Cloud project (#103). If it passes, that commit is `RELEASE_SHA`. Since `5147a07` the only
-changes are these records and production's `VERTEX_PROJECT_ID` line, which acceptance never deploys, so
-the `plan_change` pass above still describes the same acceptance build. Rerun `plan_change` on the new
-commit as well if you want both scenarios on the exact same SHA. The Stripe payment used by these runs was
-made on 13 November at about 09:40 UTC. The gate accepts it for 24 hours, so a run after about 09:40 UTC
-on 14 November needs a fresh one.
+`8443281` was not itself run on acceptance. Compared with `f9e719e` it changes only production's
+`VERTEX_PROJECT_ID` line in `wrangler.toml`, the test that pins it, and these records. Acceptance never
+deploys the production block, so both runs exercised the same acceptance build. Compared with `5147a07`
+the only other differences are records.
+
+**Which SHA to give the release workflows.** `Production Release` and `Production Pages Release` refuse
+to run unless the SHA you give them is the current tip of `main`. Records merged after `8443281` (this
+one included) move that tip, so `RELEASE_SHA` is the current `main` SHA, provided nothing but `docs/`
+has changed since `8443281`. Check that before step 4:
+```sh
+git fetch origin main && git diff --stat 8443281a7ce04da6ae030902b7e6d0f31cfdf8de origin/main -- . ':!docs'
+```
+It must print nothing. If it prints any file, that change has not been proven on acceptance: stop and
+run both scenarios on the new `main`. Then set `RELEASE_SHA` to `git rev-parse origin/main`.
+
+The Stripe test payment these runs used was made on 13 November at about 09:40 UTC and is accepted for
+24 hours. A later Acceptance run needs a fresh one.
 
 Production moves to the new Google Cloud project `ghost-town-514611` with this release (approved by the
 founder on 13 November). `wrangler.toml` already names it for production, but the Worker serving
@@ -47,9 +53,9 @@ Provider proofs used by the `760345c` runs:
 - Cloudflare OAuth: https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43198509260 (consent saved,
   forced token expiry refreshed on its own)
 
-Step 2 is done. Step 1 still needs `on_track` on the current `main` (see above). Nothing below has been done; each production step still needs your approval.
+Steps 1 and 2 are done (see above). Nothing below has been done; each production step still needs your approval.
 
-1. **Prove the release commit on acceptance.** `plan_change` passed on `5147a07` (run above); `on_track` is still to run on the current `main`. The commands, from the repository:
+1. **Prove the release commit on acceptance.** Done: `on_track` passed on `f9e719e` and `plan_change` on `5147a07` (runs above). To repeat it on a new `main`, from the repository: The commands, from the repository:
    ```sh
    gh workflow run acceptance.yml --repo sanlorenzoprx/ghosttowntest --ref main -f deploy=true -f run_full_tests=true -f sprint_scenario=on_track
    ```
@@ -81,7 +87,7 @@ Step 2 is done. Step 1 still needs `on_track` on the current `main` (see above).
    endpoints return 410. This checklist does not authorize unrelated ShortsFactory changes.
    Undo: coordinate consumer and Worker rollback; do not revive a consumer against retired endpoints.
 
-4. **Read production state.** Set `RELEASE_SHA` to the full SHA proven above. Run:
+4. **Read production state.** Run the `git diff` check above, then set `RELEASE_SHA` to the current `main` SHA. Run:
    ```sh
    gh workflow run production-release.yml --ref main -f operation=preflight -f expected_main_sha="$RELEASE_SHA" -f confirm='PREFLIGHT PRODUCTION'
    ```
