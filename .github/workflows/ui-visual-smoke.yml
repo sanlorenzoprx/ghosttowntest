@@ -33,7 +33,9 @@ concurrency:
 jobs:
   render:
     name: render-ui
-    runs-on: ubuntu-latest
+    # Pinned: Playwright 1.55 cannot install Chromium on the ubuntu-26.04 image that
+    # ubuntu-latest now points to (Acceptance run 43392663444). Unpin after upgrading Playwright.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
