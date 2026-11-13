@@ -1,24 +1,40 @@
 # First 30 release checklist
 
 Prepared 11 November 2026. This is an ordered release plan, not a record that production has changed.
-Release commit: `16debd92322a1b1ac741df92abb9ac76c095d986` (`main` after #98, the lighter site design).
+Release commit: **not settled yet.** Step 1 needs both scenarios to pass on one commit, and the two
+latest passes are on different commits:
 
-Acceptance on that commit, 12 November:
-- https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43233081863 (`on_track`): every stage
-  passed and the go-live gate reported PASS with 33 checks and 0 blockers. Stages: fixture, runtime
-  inputs, front door, the full 30-day Sprint, Get Me Live, owner controls, Sprint without Get Me Live,
-  Stripe payment, Cloudflare OAuth and the go-live gate. This run did not include the full test suite
-  (`run_full_tests` was off); the full suite passed in CI on #98.
-- `plan_change` has **not** been run on this commit. Run it before step 4 (see step 1).
+- `plan_change` passed on `5147a076e6a93f8b5c391c0a8eab751a19739f18` (`main` after #101), 13 November:
+  https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43429640884. Every stage passed and the
+  go-live gate reported PASS with 33 checks and 0 blockers: fixture, runtime inputs, front door, the full
+  30-day Sprint, Get Me Live, owner controls, Sprint without Get Me Live, Stripe payment, Cloudflare OAuth
+  and the go-live gate. It was the first run on the new Google Cloud project `ghost-town-514611` (#101),
+  and it had no Vertex quota (HTTP 429) errors.
+- `on_track` passed on `16debd92322a1b1ac741df92abb9ac76c095d986` (`main` after #98), 12 November:
+  https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43233081863, with the same stages and 33
+  checks, on the old Google Cloud project `ghosttowntest`.
 
-The commit before it, `760345c8470ec0c02d133e7088fdfd8cbd56493e`, passed both scenarios with 33 of 33
-go-live checks:
+Neither run included the full test suite (`run_full_tests` was off); the full suite passed in CI on each
+pull request. Between `16debd9` and `5147a07` there is no product code change: #99 updated these
+records, #100 pinned the Playwright workflows to the Ubuntu 24.04 runner, and #101 moved acceptance to
+the new Google Cloud project.
+
+To settle the release commit: run `on_track` on `5147a07` (or the current `main`, if only records have
+changed since). If it passes, that commit is `RELEASE_SHA`. The Stripe payment used by these runs was
+made on 13 November at about 09:40 UTC. The gate accepts it for 24 hours, so a run after about 09:40 UTC
+on 14 November needs a fresh one.
+
+Production still calls the old project `ghosttowntest`. Decide before step 4 whether production moves
+to `ghost-town-514611` first. That move means loading the new service-account secrets onto the
+production Worker and changing production's `VERTEX_PROJECT_ID`, and it needs your approval.
+
+The commit `760345c8470ec0c02d133e7088fdfd8cbd56493e`, before the site redesign, passed both scenarios
+with 33 of 33 go-live checks:
 - https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43199131996 (`on_track`)
 - https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43201680974 (`plan_change`)
 
-The only product change between the two commits is #98. It changes how the site looks (colors, fonts,
-layout of the home page, forms and panels). It does not change copy, prices, offers, checkout or the
-Blueprint.
+Stripe proof for the 13 November runs: a test-mode $97 Sprint payment made with Playwright on the
+acceptance site (no real charge), found by the Stripe stage of runs 43404928938 and 43429640884.
 
 Provider proofs used by the `760345c` runs:
 - Stripe: https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43186905529 (test-mode $97 payment,
@@ -26,11 +42,10 @@ Provider proofs used by the `760345c` runs:
 - Cloudflare OAuth: https://github.com/sanlorenzoprx/ghosttowntest/actions/runs/43198509260 (consent saved,
   forced token expiry refreshed on its own)
 
-Step 2 is done. Step 1 is done for `on_track` and still needs `plan_change` on `16debd9`. Once that
-passes, use `16debd9` as `RELEASE_SHA` from step 4 on. Nothing below has been done; each production
-step still needs your approval.
+Step 2 is done. Step 1 is done for `plan_change` on `5147a07` and still needs `on_track` on the same
+commit. Nothing below has been done; each production step still needs your approval.
 
-1. **Prove the release commit on acceptance.** Done for `on_track` on `16debd9` (run above); `plan_change` is still to run. The commands, from the repository:
+1. **Prove the release commit on acceptance.** Done for `plan_change` on `5147a07` (run above); `on_track` is still to run on that commit. The commands, from the repository:
    ```sh
    gh workflow run acceptance.yml --repo sanlorenzoprx/ghosttowntest --ref main -f deploy=true -f run_full_tests=true -f sprint_scenario=on_track
    ```
